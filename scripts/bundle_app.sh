@@ -3,15 +3,27 @@
 #
 # Copyright (c) 2026 Witt Kung <witt.w.kung@gmail.com>
 #
-# Builds and bundles TTZip.app for macOS.
+# Builds and bundles TTZip.app for macOS with Hardened Runtime support.
 
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 
+SIGN_IDENTITY="-"
+ENTITLEMENTS="${REPO_ROOT}/Sources/TTZipApp/TTZip-Direct.entitlements"
+
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --identity|-i) SIGN_IDENTITY="$2"; shift 2 ;;
+        --entitlements|-e) ENTITLEMENTS="$2"; shift 2 ;;
+        *) echo "Unknown option: $1"; exit 1 ;;
+    esac
+done
+
 echo "======================================================================"
 echo "🍎 Building and Bundling TTZip.app Native Desktop Application"
+echo "   Signing Identity: ${SIGN_IDENTITY}"
 echo "======================================================================"
 
 cd "${REPO_ROOT}"
@@ -45,12 +57,20 @@ fi
 # Copy PkgInfo
 echo -n "APPL????" > "${CONTENTS_DIR}/PkgInfo"
 
-echo "--> [3/4] Performing ad-hoc code signing..."
-codesign --force --deep --sign - "${APP_DIR}"
+echo "--> [3/4] Performing code signing with Hardened Runtime..."
+SIGN_ARGS=(--force --deep --sign "${SIGN_IDENTITY}")
+if [ "${SIGN_IDENTITY}" != "-" ]; then
+    SIGN_ARGS+=(--options runtime --timestamp)
+    if [ -f "${ENTITLEMENTS}" ]; then
+        SIGN_ARGS+=(--entitlements "${ENTITLEMENTS}")
+    fi
+fi
+
+codesign "${SIGN_ARGS[@]}" "${APP_DIR}"
 
 echo "--> [4/4] Verifying .app bundle integrity..."
 codesign --verify --deep --strict "${APP_DIR}"
 
 echo "======================================================================"
-echo "✅ Successfully bundled: ${APP_DIR}"
+echo "✅ Successfully bundled and signed: ${APP_DIR}"
 echo "======================================================================"

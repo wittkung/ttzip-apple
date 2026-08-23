@@ -16,12 +16,15 @@ VOL_NAME="TTZip"
 OUTPUT_DMG="${WORKSPACE_ROOT}/dist/TTZip-1.0.0.dmg"
 BG_IMAGE="${WORKSPACE_ROOT}/Resources/dmg_background.png"
 
+SIGN_IDENTITY="-"
+
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --app) APP_PATH="$2"; shift 2 ;;
         --volname) VOL_NAME="$2"; shift 2 ;;
         --output) OUTPUT_DMG="$2"; shift 2 ;;
         --background) BG_IMAGE="$2"; shift 2 ;;
+        --identity|-i) SIGN_IDENTITY="$2"; shift 2 ;;
         *) echo "Unknown option: $1"; exit 1 ;;
     esac
 done
@@ -120,7 +123,11 @@ hdiutil convert "${TEMP_DMG}" -format UDZO -imagekey zlib-level=9 -ov -o "${OUTP
 rm -f "${TEMP_DMG}"
 
 # 6. Sign DMG image
-codesign --force --sign - "${OUTPUT_DMG}" 2>/dev/null || true
+SIGN_ARGS=(--force --sign "${SIGN_IDENTITY}")
+if [ "${SIGN_IDENTITY}" != "-" ]; then
+    SIGN_ARGS+=(--timestamp)
+fi
+codesign "${SIGN_ARGS[@]}" "${OUTPUT_DMG}" 2>/dev/null || true
 
 DMG_SHA256="$(shasum -a 256 "${OUTPUT_DMG}" | awk '{print $1}')"
 DMG_SIZE="$(du -h "${OUTPUT_DMG}" | awk '{print $1}')"

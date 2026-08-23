@@ -27,21 +27,31 @@ let package = Package(
                 .product(name: "TTZipCore", package: "ttzip-core"),
                 .product(name: "Sparkle", package: "Sparkle")
             ],
-            path: "Sources/TTZipApp"
+            path: "Sources/TTZipApp",
+            exclude: [
+                "Info.plist",
+                "TTZip.entitlements",
+                "TTZip-Direct.entitlements"
+            ],
+            resources: [
+                .process("Resources")
+            ]
         ),
         .target(
             name: "TTZipQuickLook",
             dependencies: [
                 .product(name: "TTZipCore", package: "ttzip-core")
             ],
-            path: "Sources/TTZipQuickLook"
+            path: "Sources/TTZipQuickLook",
+            exclude: ["Info.plist"]
         ),
         .target(
             name: "TTZipFinderSync",
             dependencies: [
                 .product(name: "TTZipCore", package: "ttzip-core")
             ],
-            path: "Sources/TTZipFinderSync"
+            path: "Sources/TTZipFinderSync",
+            exclude: ["Info.plist"]
         ),
         .testTarget(
             name: "TTZipAppTests",
