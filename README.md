@@ -34,6 +34,23 @@ dependencies: [
 
 ---
 
+## 🚀 Download & Installation
+
+### Option 1: Direct DMG Installer (Recommended)
+
+Download the official standalone Retina installer from [Releases](https://github.com/wittkung/ttzip-apple/releases/latest):
+- **[`TTZip-1.0.0.dmg`](https://github.com/wittkung/ttzip-apple/releases/download/v1.0.0/TTZip-1.0.0.dmg)** (Self-contained, Ad-hoc / Developer ID Signed)
+- Open the DMG and drag **TTZip.app** into `/Applications`.
+- Automatic silent background updates are handled via **Sparkle 2.0** (`appcast.xml`).
+
+### Option 2: Homebrew
+
+```bash
+brew install --cask wittkung/ttzip/ttzip
+```
+
+---
+
 ## 🛠 Building from Source
 
 ```bash
