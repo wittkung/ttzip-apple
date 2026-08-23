@@ -1,5 +1,5 @@
 {
-  "originHash" : "0d5cc896871d7adf6dfdf3302d746abbaeeaa29f677275efa8c1788108713ce6",
+  "originHash" : "6429231840dc145d1ddd57f99360c9f8cfdd3ccfcb75a5aaa789491dfebf7ed5",
   "pins" : [
     {
       "identity" : "sparkle",
@@ -8,6 +8,15 @@
       "state" : {
         "revision" : "0a4caaf7a81eea2cece651ef4b17331fa0634dff",
         "version" : "2.6.0"
+      }
+    },
+    {
+      "identity" : "ttzip-core",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/wittkung/ttzip-core.git",
+      "state" : {
+        "branch" : "main",
+        "revision" : "445e2415210cd8b5287f8d6c1cb15f1df4cd13a7"
       }
     }
   ],
