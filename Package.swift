@@ -17,7 +17,7 @@ let package = Package(
         .library(name: "TTZipFinderSync", type: .dynamic, targets: ["TTZipFinderSync"])
     ],
     dependencies: [
-        .package(path: "../ttzip-core"),
+        .package(url: "https://github.com/wittkung/ttzip-core.git", branch: "main"),
         .package(url: "https://github.com/sparkle-project/Sparkle", exact: "2.6.0")
     ],
     targets: [
