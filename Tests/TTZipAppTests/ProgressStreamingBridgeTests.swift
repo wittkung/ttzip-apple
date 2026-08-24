@@ -10,7 +10,7 @@ import XCTest
 
 final class ProgressStreamingBridgeTests: XCTestCase {
     
-    func test_c_progress_bridge_emits_throttled_events_at_60fps() async throws {
+    func test_progress_stream_bridge_emits_throttled_events_at_60fps() async throws {
         let (bridge, stream) = ConcurrencyBridge.ProgressStreamBridge.create()
         
         let producerTask = Task.detached {
@@ -42,7 +42,7 @@ final class ProgressStreamingBridgeTests: XCTestCase {
         XCTAssertEqual(lastFraction, 1.0, accuracy: 0.001, "Final progress fraction must be 1.0")
     }
     
-    func test_c_progress_cancellation_aborts_in_under_5ms() async throws {
+    func test_progress_stream_cancellation_aborts_in_under_5ms() async throws {
         let (bridge, stream) = ConcurrencyBridge.ProgressStreamBridge.create()
         
         XCTAssertFalse(bridge.isCancelled)
