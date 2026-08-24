@@ -3,32 +3,40 @@
 // Copyright (c) 2026 Witt Kung <witt.w.kung@gmail.com>
 // All rights reserved.
 //
-// TTZip: High-performance native archiving and compression engine for macOS.
+// TTZip: High-performance native archiving and compression engine.
 
 import Foundation
 import SwiftUI
+import Observation
 import TTZipCore
 
 /// 1. Navigation and routing state.
+@Observable
 @MainActor
-public final class NavigationState: ObservableObject {
-    @Published public var activeTab: WorkspaceTab = .home
-    @Published public var sidebarSelection: String? = nil
-    @Published public var isInspectorVisible: Bool = true
-    @Published public var currentDirectory: URL = URL(fileURLWithPath: NSHomeDirectory() + "/Downloads")
+public final class NavigationState {
+    public var activeTab: WorkspaceTab = .home
+    public var sidebarSelection: String? = nil
+    public var isInspectorVisible: Bool = true
+    public var currentDirectory: URL = URL(fileURLWithPath: NSHomeDirectory() + "/Downloads")
+    public var isOmnibarFocused: Bool = false
     
     public init() {}
+    
+    public func triggerOmnibarFocus() {
+        self.isOmnibarFocused = true
+    }
 }
 
 /// 2. Archive explorer and in-archive preview state.
+@Observable
 @MainActor
-public final class ArchiveExplorerState: ObservableObject {
-    @Published public var currentArchivePath: String? = nil
-    @Published public var activePassword: String? = nil
-    @Published public var currentEntries: [ArchiveEntry] = []
-    @Published public var activePreviewFileURL: URL? = nil
-    @Published public var activePreviewFileName: String? = nil
-    @Published public var searchQuery: String = ""
+public final class ArchiveExplorerState {
+    public var currentArchivePath: String? = nil
+    public var activePassword: String? = nil
+    public var currentEntries: [ArchiveEntry] = []
+    public var activePreviewFileURL: URL? = nil
+    public var activePreviewFileName: String? = nil
+    public var searchQuery: String = ""
     
     public init() {}
     
@@ -42,37 +50,39 @@ public final class ArchiveExplorerState: ObservableObject {
 }
 
 /// 3. Background task execution and lifecycle state.
+@Observable
 @MainActor
-public final class TaskExecutionState: ObservableObject {
-    @Published public var isLoading: Bool = false
-    @Published public var statusMessage: String = "Ready"
-    @Published public var progressValue: Double = 0.0
-    @Published public var taskStateName: String = "Idle"
-    @Published public var canPauseTask: Bool = false
-    @Published public var canResumeTask: Bool = false
-    @Published public var canCancelTask: Bool = false
+public final class TaskExecutionState {
+    public var isLoading: Bool = false
+    public var statusMessage: String = "Ready"
+    public var progressValue: Double = 0.0
+    public var taskStateName: String = "Idle"
+    public var canPauseTask: Bool = false
+    public var canResumeTask: Bool = false
+    public var canCancelTask: Bool = false
     
     // Command History (Undo / Redo)
-    @Published public var canUndo: Bool = false
-    @Published public var canRedo: Bool = false
-    @Published public var lastCommandDescription: String? = nil
+    public var canUndo: Bool = false
+    public var canRedo: Bool = false
+    public var lastCommandDescription: String? = nil
     
     public init() {}
 }
 
 /// 4. Modal, Sheet, and Popover presentation overlay state.
+@Observable
 @MainActor
-public final class OverlayState: ObservableObject {
-    @Published public var showCompressModal: Bool = false
-    @Published public var showExtractModal: Bool = false
-    @Published public var showPasswordPrompt: Bool = false
-    @Published public var pendingEncryptedPath: String? = nil
-    @Published public var selectedDiskItem: DiskItemInfo? = nil
-    @Published public var selectedPathsToCompress: [String] = []
+public final class OverlayState {
+    public var showCompressModal: Bool = false
+    public var showExtractModal: Bool = false
+    public var showPasswordPrompt: Bool = false
+    public var pendingEncryptedPath: String? = nil
+    public var selectedDiskItem: DiskItemInfo? = nil
+    public var selectedPathsToCompress: [String] = []
     
     // Archive Inspector & Diagnostics
-    @Published public var showArchiveInspectorModal: Bool = false
-    @Published public var inspectingArchivePath: String? = nil
+    public var showArchiveInspectorModal: Bool = false
+    public var inspectingArchivePath: String? = nil
     
     public init() {}
 }

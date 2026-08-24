@@ -3,7 +3,7 @@
 // Copyright (c) 2026 Witt Kung <witt.w.kung@gmail.com>
 // All rights reserved.
 //
-// TTZip: High-performance native archiving and compression engine for macOS.
+// TTZip: High-performance native archiving and compression engine.
 
 import SwiftUI
 import AppKit
@@ -36,15 +36,13 @@ public struct DocxTextEditorNSView: NSViewRepresentable {
         scrollView.scrollerStyle = .overlay
         scrollView.autohidesScrollers = true
         scrollView.borderType = .noBorder
-        scrollView.drawsBackground = true
-        scrollView.backgroundColor = .white
+        scrollView.drawsBackground = false
         
         let textView = NSTextView()
         textView.autoresizingMask = [.width]
         textView.isEditable = false
         textView.isSelectable = true
-        textView.drawsBackground = true
-        textView.backgroundColor = .white
+        textView.drawsBackground = false
         textView.textContainerInset = NSSize(width: 32, height: 28)
         
         if let container = textView.textContainer {
@@ -57,7 +55,7 @@ public struct DocxTextEditorNSView: NSViewRepresentable {
         
         mutableAttrStr.enumerateAttribute(.foregroundColor, in: fullRange, options: []) { value, range, _ in
             if value == nil {
-                mutableAttrStr.addAttribute(.foregroundColor, value: NSColor.black, range: range)
+                mutableAttrStr.addAttribute(.foregroundColor, value: NSColor.labelColor, range: range)
             }
         }
         
@@ -66,5 +64,17 @@ public struct DocxTextEditorNSView: NSViewRepresentable {
         return scrollView
     }
     
-    public func updateNSView(_ nsView: NSScrollView, context: Context) {}
+    public func updateNSView(_ nsView: NSScrollView, context: Context) {
+        guard let textView = nsView.documentView as? NSTextView else { return }
+        if textView.attributedString() != attributedString {
+            let mutableAttrStr = NSMutableAttributedString(attributedString: attributedString)
+            let fullRange = NSRange(location: 0, length: mutableAttrStr.length)
+            mutableAttrStr.enumerateAttribute(.foregroundColor, in: fullRange, options: []) { value, range, _ in
+                if value == nil {
+                    mutableAttrStr.addAttribute(.foregroundColor, value: NSColor.labelColor, range: range)
+                }
+            }
+            textView.textStorage?.setAttributedString(mutableAttrStr)
+        }
+    }
 }

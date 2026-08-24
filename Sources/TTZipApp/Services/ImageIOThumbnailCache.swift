@@ -3,7 +3,7 @@
 // Copyright (c) 2026 Witt Kung <witt.w.kung@gmail.com>
 // All rights reserved.
 //
-// TTZip: High-performance native archiving and compression engine for macOS.
+// TTZip: High-performance native archiving and compression engine.
 
 import Foundation
 import AppKit
@@ -55,7 +55,11 @@ public final class ImageIOThumbnailCache: @unchecked Sendable {
     }
 
     public func getThumbnailAsync(for url: URL, maxPixelSize: CGFloat = 2048) async -> NSImage? {
-        return thumbnail(for: url, maxPixelSize: maxPixelSize)
+        if let cgImage = await ImageIOThumbnailService.shared.getThumbnail(for: url, maxPixelSize: maxPixelSize) {
+            let size = NSSize(width: cgImage.width, height: cgImage.height)
+            return NSImage(cgImage: cgImage, size: size)
+        }
+        return nil
     }
     
     /// Downsamples image directly from URL via CoreGraphics without intermediate bitmap allocation.

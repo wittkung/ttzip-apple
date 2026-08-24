@@ -3,7 +3,7 @@
 // Copyright (c) 2026 Witt Kung <witt.w.kung@gmail.com>
 // All rights reserved.
 //
-// TTZip: High-performance native archiving and compression engine for macOS.
+// TTZip: High-performance native archiving and compression engine.
 
 import Foundation
 import TTZipCore
@@ -22,6 +22,30 @@ public struct DiskItemInfo: Identifiable, Hashable, Equatable, Sendable {
     
     public static func == (lhs: DiskItemInfo, rhs: DiskItemInfo) -> Bool {
         return lhs.path == rhs.path && lhs.rawSizeBytes == rhs.rawSizeBytes && lhs.modificationDate == rhs.modificationDate
+    }
+    
+    public init(url: URL, resourceValues: URLResourceValues) {
+        self.path = url.path
+        self.name = url.lastPathComponent
+        self.isDirectory = resourceValues.isDirectory ?? false
+        
+        let rawExt = url.pathExtension.lowercased()
+        let isArch = ArchiveCompressionFormat.isArchiveExtension(rawExt, path: url.path)
+        self.isArchive = isArch
+        
+        self.creationDate = resourceValues.creationDate
+        self.modificationDate = resourceValues.contentModificationDate
+        
+        if !self.isDirectory {
+            let bytes = Int64(resourceValues.fileSize ?? 0)
+            self.rawSizeBytes = bytes
+            self.sizeText = ByteCountFormatterFlyweight.shared.string(fromByteCount: bytes)
+            self.kindText = ArchiveCompressionFormat.kindDescription(forExtension: rawExt, isArchive: isArch, path: url.path)
+        } else {
+            self.rawSizeBytes = 0
+            self.sizeText = "Folder"
+            self.kindText = "Folder"
+        }
     }
     
     public init(url: URL) {

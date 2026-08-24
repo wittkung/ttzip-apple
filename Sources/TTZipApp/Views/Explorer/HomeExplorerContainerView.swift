@@ -3,14 +3,14 @@
 // Copyright (c) 2026 Witt Kung <witt.w.kung@gmail.com>
 // All rights reserved.
 //
-// TTZip: High-performance native archiving and compression engine for macOS.
+// TTZip: High-performance native archiving and compression engine.
 
 import SwiftUI
 import TTZipCore
 
 /// Home explorer container holding toolbar header and directory browser.
 public struct HomeExplorerContainerView: View {
-    @ObservedObject public var viewModel: AppViewState
+    public var viewModel: AppViewState
     @ObservedObject private var quickLookCoordinator = QuickLookPreviewCoordinator.shared
     public let isRightSidebarVisible: Bool
     
@@ -27,7 +27,7 @@ public struct HomeExplorerContainerView: View {
                         .font(.system(size: 9, weight: .bold, design: .serif))
                         .tracking(2)
                         .foregroundStyle(TTZipTheme.kintsugiGold)
-                    Text("File Explorer")
+                    L10nText(L10n.Explorer.fileExplorer)
                         .font(.system(size: 16, weight: .bold, design: .serif))
                         .foregroundStyle(.primary)
                 }
@@ -40,7 +40,7 @@ public struct HomeExplorerContainerView: View {
                     HStack(spacing: 4) {
                         Image(systemName: "lock.open.fill")
                             .font(.system(size: 9, weight: .bold))
-                        Text("Root Access")
+                        L10nText(L10n.Explorer.rootAccess)
                             .font(.system(size: 10, weight: .semibold))
                     }
                     .foregroundStyle(TTZipTheme.kintsugiGold)
@@ -53,11 +53,7 @@ public struct HomeExplorerContainerView: View {
                 .help("Grant root access to parent directory to browse without sandbox prompts")
                 
                 Button(action: {
-                    NSApp.keyWindow?.makeFirstResponder(nil)
-                    // Trigger global location focus (Cmd+L)
-                    if let event = NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: [.command], timestamp: 0, windowNumber: 0, context: nil, characters: "l", charactersIgnoringModifiers: "l", isARepeat: false, keyCode: 37) {
-                        NSApp.sendEvent(event)
-                    }
+                    viewModel.navigationState.triggerOmnibarFocus()
                 }) {
                     HStack(spacing: 4) {
                         Image(systemName: "folder.fill")

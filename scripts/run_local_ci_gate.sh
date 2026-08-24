@@ -4,6 +4,8 @@
 # Copyright (c) 2026 Witt Kung <witt.w.kung@gmail.com>
 # All rights reserved.
 #
+# TTZip: High-performance native archiving and compression engine.
+
 # Zero-Cloud Local CI/CD Pipeline for TTZip Apple Client (macOS Native App & Extensions).
 
 set -euo pipefail

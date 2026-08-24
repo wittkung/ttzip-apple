@@ -3,11 +3,11 @@
 // Copyright (c) 2026 Witt Kung <witt.w.kung@gmail.com>
 // All rights reserved.
 //
-// TTZip: High-performance native archiving and compression engine for macOS.
+// TTZip: High-performance native archiving and compression engine.
 
 import SwiftUI
 import AppKit
-import PDFKit
+@preconcurrency import PDFKit
 import QuickLookUI
 import TTZipCore
 
@@ -163,7 +163,7 @@ public struct PDFPageThumbnailCard: View {
     private func loadThumbnail() {
         let bounds = page.bounds(for: .cropBox)
         let scale = NSScreen.main?.backingScaleFactor ?? 2.0
-        let targetSize = CGSize(width: max(bounds.width * scale * 1.5, 1200), height: max(bounds.height * scale * 1.5, 1600))
+        let targetSize = CGSize(width: max(bounds.width * scale * 1.5, 600), height: max(bounds.height * scale * 1.5, 800))
         self.thumbnail = page.thumbnail(of: targetSize, for: .cropBox)
     }
 }

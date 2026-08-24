@@ -3,7 +3,7 @@
 // Copyright (c) 2026 Witt Kung <witt.w.kung@gmail.com>
 // All rights reserved.
 //
-// TTZip: High-performance native archiving and compression engine for macOS.
+// TTZip: High-performance native archiving and compression engine.
 
 import SwiftUI
 import TTZipCore
@@ -14,7 +14,7 @@ public struct LiquidGlassOmnibar: View {
     @ObservedObject private var l10n = AppLocalizationState.shared
     @Binding public var searchQuery: String
     @ObservedObject public var searchService: SpotlightSearchService
-    @ObservedObject public var viewModel: AppViewState
+    public var viewModel: AppViewState
     
     @StateObject private var autocompletionEngine = AsyncPathAutocompletionEngine()
     @State private var isEditing: Bool = false
@@ -179,6 +179,12 @@ public struct LiquidGlassOmnibar: View {
                 )
                 .padding(.top, 4)
                 .zIndex(1000)
+            }
+        }
+        .onChange(of: viewModel.navigationState.isOmnibarFocused) { _, isFocused in
+            if isFocused {
+                startEditing()
+                viewModel.navigationState.isOmnibarFocused = false
             }
         }
     }

@@ -3,7 +3,7 @@
 // Copyright (c) 2026 Witt Kung <witt.w.kung@gmail.com>
 // All rights reserved.
 //
-// TTZip: High-performance native archiving and compression engine for macOS.
+// TTZip: High-performance native archiving and compression engine.
 
 import SwiftUI
 import TTZipCore
@@ -24,7 +24,7 @@ public enum AppLogoCache {
 
 public struct MainView: View {
     @ObservedObject var l10n = AppLocalizationState.shared
-    @StateObject var viewModel = AppViewState()
+    @State var viewModel = AppViewState()
     @State private var isSidebarVisible: Bool = true
     @State private var isRightSidebarVisible: Bool = true
     @State private var isDropTargeted: Bool = false
@@ -45,6 +45,7 @@ public struct MainView: View {
     @State private var searchQuery: String = ""
     
     public var body: some View {
+        @Bindable var viewModel = viewModel
         GeometryReader { geo in
             let totalWidth = geo.size.width
             let remainingWidth = max(totalWidth - leftSidebarWidth - 2, 200)

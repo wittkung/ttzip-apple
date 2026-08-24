@@ -3,7 +3,7 @@
 // Copyright (c) 2026 Witt Kung <witt.w.kung@gmail.com>
 // All rights reserved.
 //
-// TTZip: High-performance native archiving and compression engine for macOS.
+// TTZip: High-performance native archiving and compression engine.
 
 import SwiftUI
 import TTZipCore
@@ -21,7 +21,6 @@ public struct DiskDirectoryBrowserView: View {
     @State private var searchQuery: String = ""
     @StateObject private var searchService = SpotlightSearchService()
     @State private var sortOption: DiskSortOption = .nameAsc
-    @State private var items: [DiskItemInfo] = []
     @State private var targetSelectedPath: String? = nil
     @State private var dynamicFinderFavorites: [FinderFavoriteItem] = []
     @State private var draggingFavorite: FinderFavoriteItem? = nil
@@ -149,14 +148,12 @@ public struct DiskDirectoryBrowserView: View {
             await MainActor.run {
                 self.dynamicFinderFavorites = favs
             }
-            reloadCurrentDirectory()
         }
     }
     
     private func shortcutTag(label: String, systemImage: String, targetURL: URL, isCustom: Bool = false) -> some View {
         Button(action: {
             currentDirectory = targetURL
-            reloadCurrentDirectory()
         }) {
             let isSelected = currentDirectory.path == targetURL.path
             HStack(spacing: 4) {
@@ -237,33 +234,10 @@ public struct DiskDirectoryBrowserView: View {
         let prevPath = currentDirectory.path
         targetSelectedPath = prevPath
         currentDirectory = currentDirectory.deletingLastPathComponent()
-        reloadCurrentDirectory()
     }
     
     private func reloadCurrentDirectory() {
         let dir = currentDirectory
-        Task.detached(priority: .userInitiated) {
-            let keys: [URLResourceKey] = [.isDirectoryKey, .fileSizeKey, .isPackageKey, .isHiddenKey]
-            guard let contents = try? FileManager.default.contentsOfDirectory(at: dir, includingPropertiesForKeys: keys, options: [.skipsHiddenFiles]) else {
-                await MainActor.run {
-                    if self.currentDirectory == dir {
-                        self.items = []
-                    }
-                }
-                return
-            }
-            let list = contents.map { DiskItemInfo(url: $0) }
-            let sorted = list.sorted { a, b in
-                if a.isDirectory != b.isDirectory {
-                    return a.isDirectory
-                }
-                return a.name.localizedStandardCompare(b.name) == .orderedAscending
-            }
-            await MainActor.run {
-                if self.currentDirectory == dir {
-                    self.items = sorted
-                }
-            }
-        }
+        currentDirectory = dir
     }
 }

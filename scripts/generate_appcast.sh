@@ -4,6 +4,8 @@
 # Copyright (c) 2026 Witt Kung <witt.w.kung@gmail.com>
 # All rights reserved.
 #
+# TTZip: High-performance native archiving and compression engine.
+
 # Generates Sparkle 2.0 appcast.xml feed for automated updates.
 
 set -euo pipefail

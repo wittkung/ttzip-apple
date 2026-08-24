@@ -3,23 +3,23 @@
 // Copyright (c) 2026 Witt Kung <witt.w.kung@gmail.com>
 // All rights reserved.
 //
-// TTZip: High-performance native archiving and compression engine for macOS.
+// TTZip: High-performance native archiving and compression engine.
 
 import Foundation
 import SwiftUI
-import Combine
+import Observation
 import TTZipCore
 
 /// TTZip GUI main view ViewModel coordinating UI interactions with decoupled domain state trees.
+/// Powered by Swift 5.9+ Observation framework for fine-grained property-level view invalidation.
+@Observable
 @MainActor
-public final class AppViewState: ObservableObject {
+public final class AppViewState {
     // Domain Sub-States
     public let navigationState: NavigationState
     public let explorerState: ArchiveExplorerState
     public let taskState: TaskExecutionState
     public let overlayState: OverlayState
-    
-    private var cancellables = Set<AnyCancellable>()
     
     // MARK: - Forwarding Accessors for Backward Compatibility
     
@@ -131,7 +131,7 @@ public final class AppViewState: ObservableObject {
         set { overlayState.inspectingArchivePath = newValue }
     }
     
-    @Published public var recentArchives: [RecentArchiveRecord] = []
+    public var recentArchives: [RecentArchiveRecord] = []
     
     public var historyManager: CommandHistoryManager
     public var passwordVaultManager: PasswordVaultManager
@@ -159,11 +159,6 @@ public final class AppViewState: ObservableObject {
         self.passwordVault = passwordVault
         self.historyManager = historyManager
         self.passwordVaultManager = passwordVaultManager
-
-        navigationState.objectWillChange.sink { [weak self] _ in self?.objectWillChange.send() }.store(in: &cancellables)
-        explorerState.objectWillChange.sink { [weak self] _ in self?.objectWillChange.send() }.store(in: &cancellables)
-        taskState.objectWillChange.sink { [weak self] _ in self?.objectWillChange.send() }.store(in: &cancellables)
-        overlayState.objectWillChange.sink { [weak self] _ in self?.objectWillChange.send() }.store(in: &cancellables)
         
         loadRecentArchivesFromStorage()
         RootFolderAccessManager.shared.restoreBookmarks()
@@ -173,19 +168,25 @@ public final class AppViewState: ObservableObject {
             RootFolderAccessManager.shared.ensureAccess(for: self.currentDirectory, promptIfMissing: true)
         }
         
-        NotificationCenter.default.publisher(for: NSNotification.Name("TTZipPerformUndoNotification"))
-            .receive(on: DispatchQueue.main)
-            .sink { [weak self] _ in
+        NotificationCenter.default.addObserver(
+            forName: NSNotification.Name("TTZipPerformUndoNotification"),
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor [weak self] in
                 self?.performUndo()
             }
-            .store(in: &cancellables)
+        }
         
-        NotificationCenter.default.publisher(for: NSNotification.Name("TTZipPerformRedoNotification"))
-            .receive(on: DispatchQueue.main)
-            .sink { [weak self] _ in
+        NotificationCenter.default.addObserver(
+            forName: NSNotification.Name("TTZipPerformRedoNotification"),
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor [weak self] in
                 self?.performRedo()
             }
-            .store(in: &cancellables)
+        }
         
         updateUndoRedoState()
     }

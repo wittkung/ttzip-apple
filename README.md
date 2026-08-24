@@ -13,11 +13,12 @@
 
 ## ⚡️ Powered by TTZip Core Engine
 
-`ttzip-apple` is the native macOS GUI client and system integration layer consuming [`ttzip-core`](https://github.com/wittkung/ttzip-core) over Swift Package Manager:
+`ttzip-apple` is the native macOS GUI client and system integration layer consuming `TTZipCore` over Swift Package Manager:
 
 ```swift
+// Monorepo Workspace Dependency
 dependencies: [
-    .package(url: "https://github.com/wittkung/ttzip-core.git", branch: "main"),
+    .package(path: "../core"),
     .package(url: "https://github.com/sparkle-project/Sparkle", exact: "2.6.0")
 ]
 ```
@@ -38,8 +39,8 @@ dependencies: [
 
 ### Option 1: Direct DMG Installer (Recommended)
 
-Download the official standalone Retina installer from [Releases](https://github.com/wittkung/ttzip-apple/releases/latest):
-- **[`TTZip-1.0.0.dmg`](https://github.com/wittkung/ttzip-apple/releases/download/v1.0.0/TTZip-1.0.0.dmg)** (Self-contained, Ad-hoc / Developer ID Signed)
+Download the official standalone Retina installer from [Releases](https://github.com/wittkung/ttzip/releases/latest):
+- **[`TTZip-1.0.0.dmg`](https://github.com/wittkung/ttzip/releases/download/v1.0.0/TTZip-1.0.0.dmg)** (Self-contained, Ad-hoc / Developer ID Signed)
 - Open the DMG and drag **TTZip.app** into `/Applications`.
 - Automatic silent background updates are handled via **Sparkle 2.0** (`appcast.xml`).
 
@@ -55,13 +56,13 @@ brew install --cask wittkung/ttzip/ttzip
 
 ```bash
 # Clone repository
-git clone https://github.com/wittkung/ttzip-apple.git
-cd ttzip-apple
+git clone https://github.com/wittkung/ttzip.git
+cd ttzip/apple
 
 # Build release application
 swift build -c release
 
-# Run test suite (107 UI & Extension tests)
+# Run test suite
 swift test
 ```
 

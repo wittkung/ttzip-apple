@@ -3,7 +3,7 @@
 // Copyright (c) 2026 Witt Kung <witt.w.kung@gmail.com>
 // All rights reserved.
 //
-// TTZip: High-performance native archiving and compression engine for macOS.
+// TTZip: High-performance native archiving and compression engine.
 
 import SwiftUI
 import TTZipCore
@@ -11,7 +11,7 @@ import TTZipCore
 /// Home drop zone view for drag-and-drop file processing.
 public struct HomeDropZoneView: View {
     @ObservedObject private var l10n = AppLocalizationState.shared
-    @ObservedObject public var viewModel: AppViewState
+    public var viewModel: AppViewState
     @Binding public var isDropTargeted: Bool
     let pickAndOpenArchive: () -> Void
     

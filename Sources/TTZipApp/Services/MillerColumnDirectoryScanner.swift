@@ -3,7 +3,7 @@
 // Copyright (c) 2026 Witt Kung <witt.w.kung@gmail.com>
 // All rights reserved.
 //
-// TTZip: High-performance native archiving and compression engine for macOS.
+// TTZip: High-performance native archiving and compression engine.
 
 import Foundation
 import TTZipCore
@@ -13,19 +13,8 @@ public enum MillerColumnDirectoryScanner {
         var isDir: ObjCBool = false
         let path = dirURL.path
         
-        await RootFolderAccessManager.shared.ensureAccess(for: dirURL, promptIfMissing: false)
         if FileManager.default.fileExists(atPath: path, isDirectory: &isDir), isDir.boolValue {
-            var diskItems: [DiskItemInfo] = []
-            if let files = try? FileManager.default.contentsOfDirectory(atPath: path) {
-                for file in files {
-                    let itemURL = dirURL.appendingPathComponent(file)
-                    diskItems.append(DiskItemInfo(url: itemURL))
-                }
-            }
-            return diskItems.sorted { a, b in
-                if a.isDirectory != b.isDirectory { return a.isDirectory }
-                return a.name.localizedStandardCompare(b.name) == .orderedAscending
-            }
+            return await DiskDirectoryScannerActor.shared.scanDirectory(at: dirURL)
         }
         
         let archivePath: String
@@ -44,14 +33,15 @@ public enum MillerColumnDirectoryScanner {
         guard FileManager.default.fileExists(atPath: archivePath) else { return [] }
         
         let targetPassword = ArchivePasswordStore.shared.getPassword(for: archivePath)
-        let inspectionResult = try? await TTZipEngineFacade.shared.inspectArchive(
-            archivePath: archivePath,
-            password: targetPassword,
-            autoVaultUnlock: PasswordVaultManager.shared.autoUnlockArchives
-        )
-        let fetchedEntries = inspectionResult?.entries
         
-        guard let entries = fetchedEntries else {
+        let session: ArchiveHierarchySession
+        do {
+            session = try await ArchiveHierarchySessionCache.shared.getOrFetchSession(
+                for: archivePath,
+                password: targetPassword,
+                autoVaultUnlock: PasswordVaultManager.shared.autoUnlockArchives
+            )
+        } catch {
             await MainActor.run {
                 NotificationCenter.default.post(
                     name: NSNotification.Name("TTZipEncryptedArchivePromptRequired"),
@@ -71,29 +61,13 @@ public enum MillerColumnDirectoryScanner {
             ]
         }
         
-        let rootComposite = ArchiveComponentTreeBuilder.buildTree(from: entries)
-        var targetComponent: ArchiveComponentProtocol = rootComposite
-        
-        if !subpath.isEmpty {
-            let parts = subpath.components(separatedBy: "/").filter { !$0.isEmpty }
-            for part in parts {
-                let nextDir: ArchiveComponentProtocol?
-                if let compositeDir = targetComponent as? ArchiveCompositeDirectory {
-                    let child = compositeDir.findChild(named: part)
-                    nextDir = (child?.isDirectory == true) ? child : nil
-                } else {
-                    nextDir = targetComponent.getChildren().first(where: { $0.name == part && $0.isDirectory })
-                }
-                if let dir = nextDir {
-                    targetComponent = dir
-                } else {
-                    break
-                }
-            }
+        guard let targetComponent = session.subpathMap[subpath] else {
+            return []
         }
         
         let childComponents = targetComponent.getChildren()
         var diskItems: [DiskItemInfo] = []
+        diskItems.reserveCapacity(childComponents.count)
         let prefix = subpath.isEmpty ? "" : (subpath.hasSuffix("/") ? subpath : subpath + "/")
         
         for child in childComponents {
@@ -116,7 +90,7 @@ public enum MillerColumnDirectoryScanner {
                 )
             } else {
                 let ext = (child.name as NSString).pathExtension
-                let sizeText = ByteCountFormatter.string(fromByteCount: child.sizeBytes, countStyle: .file)
+                let sizeText = ByteCountFormatterFlyweight.shared.string(fromByteCount: child.sizeBytes)
                 let kind = ext.isEmpty ? "File" : "\(ext.uppercased()) File"
                 diskItem = DiskItemInfo(
                     virtualName: child.name,

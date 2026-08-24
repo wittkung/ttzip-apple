@@ -4,6 +4,8 @@
 # Copyright (c) 2026 Witt Kung <witt.w.kung@gmail.com>
 # All rights reserved.
 #
+# TTZip: High-performance native archiving and compression engine.
+
 # Apple Developer Notarization Pipeline for TTZip DMG & macOS App.
 # Eliminates macOS Gatekeeper warnings by submitting and stapling notarization tickets.
 

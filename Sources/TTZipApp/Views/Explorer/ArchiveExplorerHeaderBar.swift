@@ -3,7 +3,7 @@
 // Copyright (c) 2026 Witt Kung <witt.w.kung@gmail.com>
 // All rights reserved.
 //
-// TTZip: High-performance native archiving and compression engine for macOS.
+// TTZip: High-performance native archiving and compression engine.
 
 import SwiftUI
 import TTZipCore
@@ -65,7 +65,7 @@ public struct ArchiveExplorerHeaderBar: View {
             
             if let selected = selectedEntry, !selected.isDirectory {
                 Button(action: { onOpenInExternalEditor(selected) }) {
-                    Label("Open in Editor", systemImage: "arrow.up.forward.app")
+                    L10nLabel(L10n.Preview.openExternal, systemImage: "arrow.up.forward.app")
                         .font(TTZipTheme.Typography.callout)
                         .padding(.horizontal, TTZipTheme.Spacing.sm)
                         .padding(.vertical, TTZipTheme.Spacing.xs)
@@ -77,7 +77,7 @@ public struct ArchiveExplorerHeaderBar: View {
             }
             
             Toggle(isOn: $showPreviewPanel.animation(.easeOut(duration: 0.2))) {
-                Label("Preview Panel", systemImage: "sidebar.right")
+                L10nLabel(L10n.Preview.previewPanel, systemImage: "sidebar.right")
                     .font(TTZipTheme.Typography.callout)
             }
             .toggleStyle(.button)
@@ -103,7 +103,7 @@ public struct ArchiveExplorerHeaderBar: View {
             .buttonStyle(.plain)
             .padding(.leading, 6)
         }
-        .padding(.top, 38)
+        .padding(.top, TTZipTheme.Layout.topBarOffset)
         .padding(.horizontal, TTZipTheme.Spacing.xl)
         .padding(.bottom, TTZipTheme.Spacing.md)
     }

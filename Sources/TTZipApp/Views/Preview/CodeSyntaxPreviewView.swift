@@ -3,7 +3,7 @@
 // Copyright (c) 2026 Witt Kung <witt.w.kung@gmail.com>
 // All rights reserved.
 //
-// TTZip: High-performance native archiving and compression engine for macOS.
+// TTZip: High-performance native archiving and compression engine.
 
 import SwiftUI
 import AppKit
@@ -196,7 +196,7 @@ public struct CodeHighlightingEditorNSView: NSViewRepresentable {
         
         textView.delegate = context.coordinator
         textView.string = text
-        context.coordinator.highlightSyntax(in: textView, fileName: fileName)
+        context.coordinator.highlightSyntaxAsync(in: textView, fileName: fileName)
         
         scrollView.documentView = textView
         return scrollView
@@ -206,12 +206,13 @@ public struct CodeHighlightingEditorNSView: NSViewRepresentable {
         guard let textView = nsView.documentView as? NSTextView else { return }
         if textView.string != text {
             textView.string = text
-            context.coordinator.highlightSyntax(in: textView, fileName: fileName)
+            context.coordinator.highlightSyntaxAsync(in: textView, fileName: fileName)
         }
     }
     
     public class Coordinator: NSObject, NSTextViewDelegate {
         var parent: CodeHighlightingEditorNSView
+        private var debounceWorkItem: DispatchWorkItem?
         
         init(_ parent: CodeHighlightingEditorNSView) {
             self.parent = parent
@@ -222,82 +223,69 @@ public struct CodeHighlightingEditorNSView: NSViewRepresentable {
             let newText = textView.string
             parent.text = newText
             parent.onTextChange?(newText)
-            highlightSyntax(in: textView, fileName: parent.fileName)
+            
+            debounceWorkItem?.cancel()
+            let workItem = DispatchWorkItem { [weak self, weak textView] in
+                guard let self = self, let tv = textView else { return }
+                self.highlightSyntaxAsync(in: tv, fileName: self.parent.fileName)
+            }
+            debounceWorkItem = workItem
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.05, execute: workItem)
         }
         
         @MainActor
-        public func highlightSyntax(in textView: NSTextView, fileName: String) {
+        public func highlightSyntaxAsync(in textView: NSTextView, fileName: String) {
             guard let storage = textView.textStorage else { return }
+            let text = storage.string
+            let ext = (fileName as NSString).pathExtension.lowercased()
             let fullRange = NSRange(location: 0, length: storage.length)
             guard fullRange.length > 0 && fullRange.length < 300_000 else { return }
             
-            storage.beginEditing()
-            
-            let defaultFont = NSFont.monospacedSystemFont(ofSize: 12.5, weight: .regular)
-            let defaultColor = NSColor.labelColor
-            storage.setAttributes([
-                .font: defaultFont,
-                .foregroundColor: defaultColor
-            ], range: fullRange)
-            
-            let ext = (fileName as NSString).pathExtension.lowercased()
-            let rules = SyntaxLanguageRules.rules(forExtension: ext)
-            
-            let commentColor = NSColor(red: 0.45, green: 0.60, blue: 0.40, alpha: 1.0)
-            let stringColor = NSColor(red: 0.85, green: 0.55, blue: 0.40, alpha: 1.0)
-            let keywordColor = NSColor(red: 0.35, green: 0.65, blue: 0.90, alpha: 1.0)
-            let numberColor = NSColor(red: 0.70, green: 0.80, blue: 0.60, alpha: 1.0)
-            let typeColor = NSColor(red: 0.30, green: 0.80, blue: 0.70, alpha: 1.0)
-            let attributeColor = NSColor(red: 0.90, green: 0.45, blue: 0.70, alpha: 1.0)
-            
-            if let commentRegex = try? NSRegularExpression(pattern: rules.commentPattern, options: []) {
-                let matches = commentRegex.matches(in: storage.string, options: [], range: fullRange)
-                for match in matches {
-                    storage.addAttribute(.foregroundColor, value: commentColor, range: match.range)
-                }
-            }
-            
-            let stringPattern = "\"([^\"\\\\]|\\\\.)*\"|'([^'\\\\]|\\\\.)*'"
-            if let stringRegex = try? NSRegularExpression(pattern: stringPattern, options: []) {
-                let matches = stringRegex.matches(in: storage.string, options: [], range: fullRange)
-                for match in matches {
-                    storage.addAttribute(.foregroundColor, value: stringColor, range: match.range)
-                }
-            }
-            
-            if !rules.keywords.isEmpty {
-                let sortedKeywords = rules.keywords.sorted { $0.count > $1.count }.joined(separator: "|")
-                let regexOptions: NSRegularExpression.Options = rules.caseSensitive ? [] : [.caseInsensitive]
-                let keywordPattern = "\\b(\(sortedKeywords))\\b"
-                if let keywordRegex = try? NSRegularExpression(pattern: keywordPattern, options: regexOptions) {
-                    let matches = keywordRegex.matches(in: storage.string, options: [], range: fullRange)
-                    for match in matches {
-                        storage.addAttribute(.foregroundColor, value: keywordColor, range: match.range)
-                        storage.addAttribute(.font, value: NSFont.monospacedSystemFont(ofSize: 12.5, weight: .semibold), range: match.range)
+            Task {
+                let tokens = await BackgroundSyntaxTokenizer.shared.tokenize(
+                    text: text,
+                    ext: ext,
+                    targetRange: fullRange
+                )
+                
+                await MainActor.run {
+                    guard textView.textStorage === storage, storage.string == text else { return }
+                    storage.beginEditing()
+                    
+                    let defaultFont = NSFont.monospacedSystemFont(ofSize: 12.5, weight: .regular)
+                    let defaultColor = NSColor.labelColor
+                    storage.setAttributes([
+                        .font: defaultFont,
+                        .foregroundColor: defaultColor
+                    ], range: fullRange)
+                    
+                    let commentColor = NSColor(red: 0.45, green: 0.60, blue: 0.40, alpha: 1.0)
+                    let stringColor = NSColor(red: 0.85, green: 0.55, blue: 0.40, alpha: 1.0)
+                    let keywordColor = NSColor(red: 0.35, green: 0.65, blue: 0.90, alpha: 1.0)
+                    let numberColor = NSColor(red: 0.70, green: 0.80, blue: 0.60, alpha: 1.0)
+                    let typeColor = NSColor(red: 0.30, green: 0.80, blue: 0.70, alpha: 1.0)
+                    let semiboldFont = NSFont.monospacedSystemFont(ofSize: 12.5, weight: .semibold)
+                    
+                    for token in tokens {
+                        guard token.range.location + token.range.length <= storage.length else { continue }
+                        switch token.colorType {
+                        case .comment:
+                            storage.addAttribute(.foregroundColor, value: commentColor, range: token.range)
+                        case .string:
+                            storage.addAttribute(.foregroundColor, value: stringColor, range: token.range)
+                        case .keyword:
+                            storage.addAttribute(.foregroundColor, value: keywordColor, range: token.range)
+                            storage.addAttribute(.font, value: semiboldFont, range: token.range)
+                        case .number:
+                            storage.addAttribute(.foregroundColor, value: numberColor, range: token.range)
+                        case .type:
+                            storage.addAttribute(.foregroundColor, value: typeColor, range: token.range)
+                        }
                     }
+                    
+                    storage.endEditing()
                 }
             }
-            
-            let numberPattern = "\\b\\d+(\\.\\d+)?\\b|0x[0-9a-fA-F]+\\b"
-            if let numberRegex = try? NSRegularExpression(pattern: numberPattern, options: []) {
-                let matches = numberRegex.matches(in: storage.string, options: [], range: fullRange)
-                for match in matches {
-                    storage.addAttribute(.foregroundColor, value: numberColor, range: match.range)
-                }
-            }
-            
-            if !rules.types.isEmpty {
-                let sortedTypes = rules.types.sorted { $0.count > $1.count }.joined(separator: "|")
-                let typePattern = "\\b(\(sortedTypes))\\b|@[a-zA-Z0-9_]+"
-                if let typeRegex = try? NSRegularExpression(pattern: typePattern, options: []) {
-                    let matches = typeRegex.matches(in: storage.string, options: [], range: fullRange)
-                    for match in matches {
-                        storage.addAttribute(.foregroundColor, value: ext == "swift" ? attributeColor : typeColor, range: match.range)
-                    }
-                }
-            }
-            
-            storage.endEditing()
         }
     }
 }

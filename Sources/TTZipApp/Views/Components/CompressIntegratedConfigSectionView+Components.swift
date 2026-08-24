@@ -3,9 +3,10 @@
 // Copyright (c) 2026 Witt Kung <witt.w.kung@gmail.com>
 // All rights reserved.
 //
-// TTZip: High-performance native archiving and compression engine for macOS.
+// TTZip: High-performance native archiving and compression engine.
 
 import SwiftUI
+import Observation
 import TTZipCore
 
 extension CompressIntegratedConfigSectionView {
@@ -14,21 +15,21 @@ extension CompressIntegratedConfigSectionView {
         VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 6) {
                 Image(systemName: "gearshape.2.fill").font(.system(size: 11)).foregroundStyle(TTZipTheme.bambooGreen)
-                Text("\(selectedFormat.rawValue.uppercased()) \(l10n.t(L10n.Compress.targetParameters))")
+                Text("\(session.selectedFormat.rawValue.uppercased()) \(l10n.t(L10n.Compress.targetParameters))")
                     .font(.system(size: 11.5, weight: .bold)).foregroundStyle(.primary)
                 Spacer()
-                Button(action: onShowMatrix) {
+                Button(action: { session.isAlgorithmMatrixPresented = true }) {
                     Text(l10n.t(L10n.Benchmark.benchmarkMatrixTitle))
                         .font(.system(size: 10.5)).foregroundStyle(.secondary)
                 }.buttonStyle(.plain)
             }
             
-            switch selectedFormat {
+            switch session.selectedFormat {
             case .sevenZip:
                 VStack(alignment: .leading, spacing: 8) {
                     HStack(spacing: 12) {
                         Text("Algorithm").font(.system(size: 11, weight: .medium)).foregroundStyle(.secondary).frame(width: 75, alignment: .trailing)
-                        Picker("", selection: $compressionAlgorithm) {
+                        Picker("", selection: $session.compressionAlgorithm) {
                             Text("LZMA2 (Default)").tag("LZMA2")
                             Text("LZMA (Legacy)").tag("LZMA")
                             Text("PPMd (Text/Code)").tag("PPMd")
@@ -39,13 +40,13 @@ extension CompressIntegratedConfigSectionView {
                     HStack(spacing: 12) {
                         L10nText(L10n.Compress.dictionarySize)
                             .font(.system(size: 11, weight: .medium)).foregroundStyle(.secondary).frame(width: 75, alignment: .trailing)
-                        Picker("", selection: $dictionarySizeMB) {
+                        Picker("", selection: $session.dictionarySizeMB) {
                             Text("16 MB").tag(16); Text("32 MB").tag(32); Text("64 MB").tag(64); Text("128 MB").tag(128); Text("256 MB").tag(256)
                         }.pickerStyle(.segmented).tint(TTZipTheme.bambooGreen)
                     }
                     HStack(spacing: 16) {
-                        Toggle(l10n.t(L10n.Compress.solidArchive), isOn: $enableSolidArchive).tint(TTZipTheme.bambooGreen)
-                        Toggle(l10n.t(L10n.Compress.encryptFileNames), isOn: $encryptFileNames).disabled(!enableEncryption).tint(TTZipTheme.bambooGreen)
+                        Toggle(l10n.t(L10n.Compress.solidArchive), isOn: $session.enableSolidArchive).tint(TTZipTheme.bambooGreen)
+                        Toggle(l10n.t(L10n.Compress.encryptFileNames), isOn: $session.encryptFileNames).disabled(!session.enableEncryption).tint(TTZipTheme.bambooGreen)
                     }.font(.system(size: 11))
                 }
             case .zip:
@@ -53,26 +54,26 @@ extension CompressIntegratedConfigSectionView {
                     HStack(spacing: 12) {
                         L10nText(L10n.Compress.encryption)
                             .font(.system(size: 11, weight: .medium)).foregroundStyle(.secondary).frame(width: 75, alignment: .trailing)
-                        Picker("", selection: $zipEncryptionMethod) {
+                        Picker("", selection: $session.zipEncryptionMethod) {
                             Text("AES-256").tag("AES-256")
                             Text("ZipCrypto").tag("ZipCrypto")
                         }.pickerStyle(.segmented).tint(TTZipTheme.bambooGreen)
                     }
-                    Toggle("UTF-8", isOn: $zipEncodingUTF8).font(.system(size: 11)).tint(TTZipTheme.bambooGreen)
+                    Toggle("UTF-8", isOn: $session.zipEncodingUTF8).font(.system(size: 11)).tint(TTZipTheme.bambooGreen)
                 }
             case .zst, .tarZst:
                 VStack(alignment: .leading, spacing: 8) {
                     HStack(spacing: 12) {
                         Text("ZSTD Level").font(.system(size: 11, weight: .medium)).foregroundStyle(.secondary).frame(width: 75, alignment: .trailing)
-                        Picker("", selection: $zstdLevel) {
+                        Picker("", selection: $session.zstdLevel) {
                             Text("1").tag(1); Text("3").tag(3); Text("9").tag(9); Text("19").tag(19)
                         }.pickerStyle(.segmented).tint(TTZipTheme.bambooGreen)
                     }
-                    Toggle("Long Distance Matching (LDM)", isOn: $zstdEnableLDM).font(.system(size: 11)).tint(TTZipTheme.bambooGreen)
+                    Toggle("Long Distance Matching (LDM)", isOn: $session.zstdEnableLDM).font(.system(size: 11)).tint(TTZipTheme.bambooGreen)
                 }
-            case .tarGz, .gz, .tarBz2, .tarXz, .tar, .bz2, .xz, .lzip, .lz4, .brotli, .lrzip, .aar, .snappy, .wim, .dmg, .iso:
+            default:
                 VStack(alignment: .leading, spacing: 8) {
-                    Toggle("POSIX Permissions (chmod/chown)", isOn: $preservePosixAttributes).font(.system(size: 11)).tint(TTZipTheme.bambooGreen)
+                    Toggle("POSIX Permissions (chmod/chown)", isOn: $session.preservePosixAttributes).font(.system(size: 11)).tint(TTZipTheme.bambooGreen)
                 }
             }
         }
@@ -80,8 +81,8 @@ extension CompressIntegratedConfigSectionView {
     }
     
     func formatTile(format: ArchiveCompressionFormat) -> some View {
-        let isSel = selectedFormat == format
-        return Button(action: { selectedFormat = format }) {
+        let isSel = session.selectedFormat == format
+        return Button(action: { session.selectedFormat = format }) {
             VStack(alignment: .center, spacing: 2) {
                 Text(format.displayName).font(.system(size: 10.5, weight: .bold))
                 Text(format.shortcutBadge).font(.system(size: 7.5, weight: .semibold)).foregroundStyle(isSel ? TTZipTheme.bambooGreen : Color.secondary.opacity(0.8))
@@ -95,24 +96,16 @@ extension CompressIntegratedConfigSectionView {
         }.buttonStyle(.plain)
     }
     
-    func levelTile(level: ArchiveCompressionLevel, name: String) -> some View {
-        let isSel = compressionLevel == level
-        return Button(action: { compressionLevel = level }) {
-            Text(name).font(.system(size: 10.5, weight: isSel ? .bold : .regular))
-                .lineLimit(1)
-                .frame(maxWidth: .infinity)
-                .padding(.horizontal, 8).padding(.vertical, 5)
-                .background(isSel ? TTZipTheme.bambooGreen.opacity(0.14) : Color.primary.opacity(0.03))
-                .foregroundStyle(isSel ? TTZipTheme.bambooGreen : Color.primary)
-                .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
-                .overlay(RoundedRectangle(cornerRadius: 6, style: .continuous).strokeBorder(isSel ? TTZipTheme.bambooGreen.opacity(0.4) : Color.clear, lineWidth: 1))
-        }.buttonStyle(.plain)
-    }
-    
     func volTile(size: Int64?, name: String) -> some View {
-        let isSel = (size == -1) ? isCustomVolumeSelected : (!isCustomVolumeSelected && splitVolumeOption == size)
+        let isSel = (size == -1) ? session.isCustomVolumeSelected : (!session.isCustomVolumeSelected && session.splitVolumeOption == size)
         return Button(action: {
-            if size == -1 { isCustomVolumeSelected = true; calcCustomVol() } else { isCustomVolumeSelected = false; splitVolumeOption = size }
+            if size == -1 {
+                session.isCustomVolumeSelected = true
+                session.calculateCustomVolume()
+            } else {
+                session.isCustomVolumeSelected = false
+                session.splitVolumeOption = size
+            }
         }) {
             Text(name).font(.system(size: 10, weight: isSel ? .bold : .regular))
                 .padding(.horizontal, 7).padding(.vertical, 4)
@@ -146,12 +139,17 @@ extension CompressIntegratedConfigSectionView {
         case .level9: titleName = "\(l10n.t(L10n.Compress.levelUltra)) (\(ratioPct)%)"
         default: titleName = "Level \(lvl.rawValue) (\(ratioPct)%)"
         }
-        return levelTile(level: lvl, name: titleName)
-    }
-    
-    func calcCustomVol() {
-        guard let val = Int64(customVolumeValueString) else { splitVolumeOption = nil; return }
-        let mult: Int64 = (customVolumeUnit == "GB") ? 1024 * 1024 * 1024 : 1024 * 1024
-        splitVolumeOption = val * mult
+        
+        let isSel = session.compressionLevel == lvl
+        return Button(action: { session.compressionLevel = lvl }) {
+            Text(titleName).font(.system(size: 10.5, weight: isSel ? .bold : .regular))
+                .lineLimit(1)
+                .frame(maxWidth: .infinity)
+                .padding(.horizontal, 8).padding(.vertical, 5)
+                .background(isSel ? TTZipTheme.bambooGreen.opacity(0.14) : Color.primary.opacity(0.03))
+                .foregroundStyle(isSel ? TTZipTheme.bambooGreen : Color.primary)
+                .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+                .overlay(RoundedRectangle(cornerRadius: 6, style: .continuous).strokeBorder(isSel ? TTZipTheme.bambooGreen.opacity(0.4) : Color.clear, lineWidth: 1))
+        }.buttonStyle(.plain)
     }
 }

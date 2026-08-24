@@ -3,14 +3,14 @@
 // Copyright (c) 2026 Witt Kung <witt.w.kung@gmail.com>
 // All rights reserved.
 //
-// TTZip: High-performance native archiving and compression engine for macOS.
+// TTZip: High-performance native archiving and compression engine.
 
 import SwiftUI
 import TTZipCore
 
 /// Right contextual Inspector side panel supporting Home and Compress modes.
 public struct RightInspectorSidePanel: View {
-    @ObservedObject public var viewModel: AppViewState
+    public var viewModel: AppViewState
     @Binding public var rightVerticalTopHeight: CGFloat
     
     public init(viewModel: AppViewState, rightVerticalTopHeight: Binding<CGFloat>) {

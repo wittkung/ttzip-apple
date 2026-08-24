@@ -3,7 +3,7 @@
 // Copyright (c) 2026 Witt Kung <witt.w.kung@gmail.com>
 // All rights reserved.
 //
-// TTZip: High-performance native archiving and compression engine for macOS.
+// TTZip: High-performance native archiving and compression engine.
 
 import SwiftUI
 import TTZipCore
@@ -41,11 +41,11 @@ public struct PasswordVaultLockedView: View {
             }
             
             VStack(spacing: 6) {
-                Text(viewModel.isMasterPasswordSet ? "Keychain Vault Locked" : "Setup Master Password")
+                Text(viewModel.isMasterPasswordSet ? l10n.t(L10n.Vault.title) : l10n.t(L10n.Vault.addPassword))
                     .font(.system(size: 18, weight: .bold, design: .serif))
                     .foregroundStyle(.primary)
                 
-                Text(viewModel.isMasterPasswordSet ? "Enter master password or use Touch ID to unlock" : "Create a master password. Stored passwords are encrypted with this credential.")
+                Text(viewModel.isMasterPasswordSet ? l10n.t(L10n.Vault.unlockPrompt) : l10n.t(L10n.Vault.volatileZeroingDesc))
                     .font(.system(size: 11))
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
@@ -54,7 +54,7 @@ public struct PasswordVaultLockedView: View {
             
             VStack(spacing: 12) {
                 if !viewModel.isMasterPasswordSet {
-                    TTSecureTextField("New Master Password", text: $viewModel.masterPasswordInput)
+                    TTSecureTextField(l10n.t(L10n.Vault.passwordPlaceholder), text: $viewModel.masterPasswordInput)
                         .font(.system(size: 12, weight: .medium))
                         .padding(.horizontal, 12)
                         .padding(.vertical, 8)
@@ -63,7 +63,7 @@ public struct PasswordVaultLockedView: View {
                         .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).strokeBorder(Color.primary.opacity(0.08), lineWidth: 0.8))
                         .frame(width: 320)
                     
-                    TTSecureTextField("Confirm Master Password", text: $viewModel.confirmMasterPasswordInput)
+                    TTSecureTextField(l10n.t(L10n.Vault.passwordPlaceholder), text: $viewModel.confirmMasterPasswordInput)
                         .font(.system(size: 12, weight: .medium))
                         .padding(.horizontal, 12)
                         .padding(.vertical, 8)
@@ -79,7 +79,7 @@ public struct PasswordVaultLockedView: View {
                     }
                     
                     Button(action: { viewModel.setupFirstMasterPassword() }) {
-                        Text("Create Master Password")
+                        Text(l10n.t(L10n.Vault.addPassword))
                             .font(.system(size: 12, weight: .bold))
                             .foregroundStyle(.white)
                             .frame(width: 320)
@@ -98,7 +98,7 @@ public struct PasswordVaultLockedView: View {
                     .keyboardShortcut(.return, modifiers: [])
                     .disabled(viewModel.masterPasswordInput.isEmpty || viewModel.confirmMasterPasswordInput.isEmpty)
                 } else {
-                    TTSecureTextField("Enter Master Password", text: $viewModel.masterPasswordInput)
+                    TTSecureTextField(l10n.t(L10n.Vault.passwordPlaceholder), text: $viewModel.masterPasswordInput)
                         .font(.system(size: 12, weight: .medium))
                         .padding(.horizontal, 12)
                         .padding(.vertical, 8)
@@ -153,7 +153,7 @@ public struct PasswordVaultLockedView: View {
                     }
                     
                     HStack(spacing: 16) {
-                        Button("Forgot master password? Reset vault") {
+                        Button(l10n.t(L10n.Common.retry)) {
                             viewModel.newMasterPasswordInput = ""
                             viewModel.isResetSheetPresented = true
                         }
@@ -162,7 +162,7 @@ public struct PasswordVaultLockedView: View {
                         .foregroundStyle(.secondary)
                         
                         if viewModel.hasBackupVault {
-                            Button("Restore vault backup") {
+                            Button(l10n.t(L10n.Common.importAction)) {
                                 viewModel.oldMasterPasswordInput = ""
                                 viewModel.recoverErrorMessage = ""
                                 viewModel.isRecoverSheetPresented = true

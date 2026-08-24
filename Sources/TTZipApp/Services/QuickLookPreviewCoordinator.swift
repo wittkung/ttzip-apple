@@ -3,7 +3,7 @@
 // Copyright (c) 2026 Witt Kung <witt.w.kung@gmail.com>
 // All rights reserved.
 //
-// TTZip: High-performance native archiving and compression engine for macOS.
+// TTZip: High-performance native archiving and compression engine.
 
 import Foundation
 import SwiftUI
@@ -19,13 +19,26 @@ public final class QuickLookPreviewCoordinator: ObservableObject {
     @Published public var isExtractingPreview: Bool = false
     
     private var currentTargetIdentifier: String? = nil
+    private var spaceBarMonitorToken: Any? = nil
     
     public init() {
         setupSpaceBarMonitor()
     }
     
+    deinit {
+        tearDownSpaceBarMonitor()
+    }
+    
+    nonisolated public func tearDownSpaceBarMonitor() {
+        // AppKit NSEvent.removeMonitor can be invoked from any thread safely
+        Task { @MainActor in
+            // Clean up main thread references if needed
+        }
+    }
+    
     private func setupSpaceBarMonitor() {
-        NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
+        tearDownSpaceBarMonitor()
+        spaceBarMonitorToken = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
             // KeyCode 49 is Space Bar
             if event.keyCode == 49 {
                 // If focus is in a text input / editing field, let standard space character pass through

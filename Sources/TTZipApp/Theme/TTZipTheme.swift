@@ -3,7 +3,7 @@
 // Copyright (c) 2026 Witt Kung <witt.w.kung@gmail.com>
 // All rights reserved.
 //
-// TTZip: High-performance native archiving and compression engine for macOS.
+// TTZip: High-performance native archiving and compression engine.
 
 import SwiftUI
 import AppKit
@@ -198,6 +198,21 @@ public enum TTZipTheme {
         public static let md: CGFloat = 10
         public static let lg: CGFloat = 14
         public static let xl: CGFloat = 18
+    }
+
+    // MARK: - 5. Layout Tokens
+    
+    public enum Layout {
+        public static let headerBarHeight: CGFloat = 52.0
+        public static let topBarOffset: CGFloat = 38.0
+        public static let kintsugiGoldLineHeight: CGFloat = 1.5
+        public static let hairlineBorderWidth: CGFloat = 0.5
+        public static let millerColumnMinWidth: CGFloat = 110.0
+        public static let millerColumnMaxWidth: CGFloat = 600.0
+        public static let omnibarWidth: CGFloat = 480.0
+        public static let omnibarHeight: CGFloat = 30.0
+        public static let sidebarDefaultWidth: CGFloat = 200.0
+        public static let rightPanelDefaultWidth: CGFloat = 280.0
     }
 }
 

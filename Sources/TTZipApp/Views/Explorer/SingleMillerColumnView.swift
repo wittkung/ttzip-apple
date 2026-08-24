@@ -3,7 +3,7 @@
 // Copyright (c) 2026 Witt Kung <witt.w.kung@gmail.com>
 // All rights reserved.
 //
-// TTZip: High-performance native archiving and compression engine for macOS.
+// TTZip: High-performance native archiving and compression engine.
 
 import SwiftUI
 import TTZipCore
@@ -228,13 +228,13 @@ public struct SingleMillerColumnView: View {
                     Button {
                         onTriggerNewFolder(dirURL)
                     } label: {
-                        Label("New Folder", systemImage: "folder.badge.plus")
+                        Label(l10n.t(L10n.Explorer.newFolder), systemImage: "folder.badge.plus")
                     }
                     
                     Button {
                         onTriggerNewFile(dirURL)
                     } label: {
-                        Label("New Empty File...", systemImage: "doc.badge.plus")
+                        Label(l10n.t(L10n.Explorer.newFile), systemImage: "doc.badge.plus")
                     }
                     
                     Divider()

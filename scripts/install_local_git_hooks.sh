@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
-# SPDX-License-Identifier: BSD-3-Clause OR Apache-2.0
+# SPDX-License-Identifier: GPL-3.0-or-later
 #
 # Copyright (c) 2026 Witt Kung <witt.w.kung@gmail.com>
 # All rights reserved.
 #
-# TTZip: High-performance native archiving and compression engine for macOS.
-#
+# TTZip: High-performance native archiving and compression engine.
+
 # Installs local pre-push and pre-commit Git hooks for zero-cloud CI verification.
 
 set -e
