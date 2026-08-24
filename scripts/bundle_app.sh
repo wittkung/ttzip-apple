@@ -13,12 +13,14 @@ REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 SIGN_IDENTITY="-"
 CHANNEL="direct"
 ENTITLEMENTS=""
+OPEN_APP=false
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --channel|-c) CHANNEL="$2"; shift 2 ;;
         --identity|-i) SIGN_IDENTITY="$2"; shift 2 ;;
         --entitlements|-e) ENTITLEMENTS="$2"; shift 2 ;;
+        --open|-o) OPEN_APP=true; shift ;;
         *) echo "Unknown option: $1"; exit 1 ;;
     esac
 done
@@ -58,7 +60,7 @@ echo "======================================================================"
 cd "${REPO_ROOT}"
 
 echo "--> [1/4] Compiling TTZipApp via Swift Package Manager in release mode..."
-swift build -c release --product TTZipApp "${SWIFT_FLAGS[@]}"
+swift build -c release --product TTZipApp -Xlinker -rpath -Xlinker @executable_path/../Frameworks "${SWIFT_FLAGS[@]}"
 
 BIN_PATH="$(swift build -c release --show-bin-path)/TTZipApp"
 DIST_DIR="${REPO_ROOT}/dist"
@@ -72,8 +74,9 @@ echo "--> [2/4] Assembling .app bundle directory structure..."
 rm -rf "${APP_DIR}"
 mkdir -p "${MACOS_DIR}" "${FRAMEWORKS_DIR}" "${RESOURCES_DIR}"
 
-# Copy Binary
+# Copy Binary and ensure Frameworks rpath
 cp "${BIN_PATH}" "${MACOS_DIR}/TTZip"
+install_name_tool -add_rpath @executable_path/../Frameworks "${MACOS_DIR}/TTZip" 2>/dev/null || true
 chmod +x "${MACOS_DIR}/TTZip"
 
 # Copy Info.plist
@@ -121,3 +124,19 @@ codesign --verify --deep --strict "${APP_DIR}"
 echo "======================================================================"
 echo "✅ Successfully bundled and signed [${CHANNEL}]: ${APP_DIR}"
 echo "======================================================================"
+
+if [ "${OPEN_APP}" = true ]; then
+    echo "--> [5/5] Terminating old instances and launching freshly built TTZip.app..."
+    killall TTZip 2>/dev/null || true
+    pkill -9 -x TTZip 2>/dev/null || true
+    pkill -9 -f "TTZip.app" 2>/dev/null || true
+    sleep 0.3
+    /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/LaunchServices.framework/Versions/A/Support/lsregister -f "${APP_DIR}" 2>/dev/null || true
+    open "${APP_DIR}"
+    echo ""
+    echo "======================================================================"
+    echo "🎉 TTZip.app 已成功在桌面启动！"
+    echo "   产物路径: ${APP_DIR}"
+    echo "======================================================================"
+fi
+
