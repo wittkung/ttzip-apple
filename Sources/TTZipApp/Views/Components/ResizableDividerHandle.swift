@@ -25,12 +25,43 @@ public struct ResizableDividerHandle: View {
     
     public var body: some View {
         ZStack {
+            // 1. Subtle baseline hairline (1px)
             Rectangle()
-                .fill(isHovered || isDragging ? TTZipTheme.bambooGreen.opacity(0.8) : Color.clear)
-                .frame(width: (isHovered || isDragging) ? 3 : 1)
+                .fill(isHovered || isDragging ? TTZipTheme.kintsugiGold.opacity(0.45) : Color.primary.opacity(0.08))
+                .frame(width: 1)
+            
+            // 2. Elegant floating tactile grip pill
+            if isHovered || isDragging {
+                ZStack {
+                    Capsule(style: .continuous)
+                        .fill(
+                            LinearGradient(
+                                colors: [
+                                    TTZipTheme.kintsugiGold,
+                                    TTZipTheme.kintsugiGold.opacity(0.85)
+                                ],
+                                startPoint: .top,
+                                endPoint: .bottom
+                            )
+                        )
+                        .frame(width: 3.5, height: 22)
+                        .shadow(color: Color.black.opacity(0.2), radius: 2, x: 0, y: 1)
+                    
+                    VStack(spacing: 3) {
+                        Circle()
+                            .fill(Color.white.opacity(0.9))
+                            .frame(width: 1.5, height: 1.5)
+                        Circle()
+                            .fill(Color.white.opacity(0.9))
+                            .frame(width: 1.5, height: 1.5)
+                    }
+                }
+                .transition(.opacity.combined(with: .scale(scale: 0.85)))
+            }
         }
-        .frame(width: 14)
+        .frame(width: 12)
         .contentShape(Rectangle())
+        .animation(.easeInOut(duration: 0.15), value: isHovered || isDragging)
         .onHover { hovering in
             isHovered = hovering
             if hovering {
@@ -73,12 +104,34 @@ public struct ResizableHorizontalDividerHandle: View {
     
     public var body: some View {
         ZStack {
+            // 1. Subtle baseline hairline (1px)
             Rectangle()
-                .fill(isHovered ? TTZipTheme.bambooGreen.opacity(0.8) : Color.primary.opacity(0.08))
-                .frame(height: isHovered ? 2 : 1)
+                .fill(isHovered ? TTZipTheme.kintsugiGold.opacity(0.45) : Color.primary.opacity(0.08))
+                .frame(height: 1)
+            
+            // 2. Elegant floating tactile grip pill
+            if isHovered {
+                ZStack {
+                    Capsule(style: .continuous)
+                        .fill(TTZipTheme.kintsugiGold)
+                        .frame(width: 22, height: 3.5)
+                        .shadow(color: Color.black.opacity(0.2), radius: 2, x: 0, y: 1)
+                    
+                    HStack(spacing: 3) {
+                        Circle()
+                            .fill(Color.white.opacity(0.9))
+                            .frame(width: 1.5, height: 1.5)
+                        Circle()
+                            .fill(Color.white.opacity(0.9))
+                            .frame(width: 1.5, height: 1.5)
+                    }
+                }
+                .transition(.opacity.combined(with: .scale(scale: 0.85)))
+            }
         }
-        .frame(height: 8)
+        .frame(height: 10)
         .contentShape(Rectangle())
+        .animation(.easeInOut(duration: 0.15), value: isHovered)
         .onHover { hovering in
             isHovered = hovering
             if hovering {
