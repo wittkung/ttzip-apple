@@ -31,7 +31,7 @@ final class GUILocalizationTests: XCTestCase {
         
         let extractZh = state.t(L10n.Extract.title)
         XCTAssertFalse(extractZh.isEmpty)
-        XCTAssertEqual(extractZh, "解压归档包")
+        XCTAssertEqual(extractZh, "解压归档")
     }
     
     @MainActor

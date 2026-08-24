@@ -63,16 +63,7 @@ public struct FolderCompositionPieChartView: View {
             let degrees = pct * 360.0
             let endAngle = currentAngle + Angle(degrees: degrees)
             
-            let color: Color = {
-                switch item.category {
-                case "Video", "视频": return .red
-                case "Audio", "音频": return .purple
-                case "Image", "图片": return .blue
-                case "Document", "文档/代码/字幕": return TTZipTheme.bambooGreen
-                case "Archive", "归档包": return .orange
-                default: return .gray
-                }
-            }()
+            let color = TTZipTheme.fileCategoryColor(for: item.category)
             
             result.append(PieSegment(
                 category: item.category,

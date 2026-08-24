@@ -53,27 +53,45 @@ public final class QuickLookPreviewViewController: NSViewController, @preconcurr
         self.pendingCompletion = handler
         activityIndicator.startAnimation(nil)
         
+        let targetLanguage = TTZipPreferencesStore.getSavedLanguage() ?? TTZipLocalizationManager.shared.currentLanguage
+        
         Task { @MainActor in
             do {
-                let html = try await QuickLookPreviewEngine.generateHTMLPreview(for: url.path)
+                let html = try await QuickLookPreviewEngine.generateHTMLPreview(for: url.path, language: targetLanguage)
                 self.webView.loadHTMLString(html, baseURL: url.deletingLastPathComponent())
             } catch {
                 self.activityIndicator.stopAnimation(nil)
-                self.renderErrorFallback(error: error, fileURL: url)
+                self.renderErrorFallback(error: error, fileURL: url, language: targetLanguage)
                 handler(nil)
             }
         }
     }
     
-    private func renderErrorFallback(error: Error, fileURL: URL) {
-        let isEncrypted = (error as? ArchiveError) == .passwordRequired
-        let title = isEncrypted ? "Encrypted Archive" : "Unable to Preview Archive"
-        let subtitle = isEncrypted ? "This archive is protected with a password." : error.localizedDescription
+    private func renderErrorFallback(error: Error, fileURL: URL, language: AppLanguage) {
+        let manager = TTZipLocalizationManager.shared
+        let isEncrypted: Bool
+        if let archiveErr = error as? ArchiveError {
+            switch archiveErr {
+            case .passwordRequired, .passwordRequiredDetailed, .wrongPassword:
+                isEncrypted = true
+            default:
+                isEncrypted = false
+            }
+        } else {
+            isEncrypted = false
+        }
+        
+        let title = isEncrypted
+            ? manager.string(for: L10n.QuickLook.protectedWithPassword, language: language)
+            : manager.string(for: L10n.QuickLook.cannotPreview, language: language)
+        let subtitle = isEncrypted
+            ? manager.string(for: L10n.Explorer.passwordProtectedArchive, language: language)
+            : (error as? ArchiveError)?.localizedDescription(for: language) ?? error.localizedDescription
         let icon = isEncrypted ? "🔒" : "⚠️"
         
         let errorHTML = """
         <!DOCTYPE html>
-        <html>
+        <html lang="\(language.bcp47)">
         <head>
         <meta charset="utf-8">
         <style>

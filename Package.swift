@@ -7,6 +7,7 @@ import PackageDescription
 
 let package = Package(
     name: "TTZipApp",
+    defaultLocalization: "en",
     platforms: [
         .macOS(.v14),
         .iOS(.v17)

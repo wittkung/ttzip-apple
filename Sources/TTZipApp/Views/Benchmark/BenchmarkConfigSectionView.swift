@@ -10,6 +10,7 @@ import TTZipCore
 
 public struct BenchmarkConfigSectionView: View {
     @ObservedObject var viewModel: BenchmarkViewModel
+    @ObservedObject private var l10n = AppLocalizationState.shared
     
     public init(viewModel: BenchmarkViewModel) {
         self.viewModel = viewModel
@@ -18,7 +19,7 @@ public struct BenchmarkConfigSectionView: View {
     public var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             HStack(spacing: 12) {
-                Text("Test Mode")
+                Text(l10n.t(L10n.Benchmark.testMode))
                     .font(.system(size: 12, weight: .bold, design: .serif))
                     .foregroundStyle(TTZipTheme.bambooGreen)
                 
@@ -69,7 +70,7 @@ public struct BenchmarkConfigSectionView: View {
     private var syntheticConfigView: some View {
         VStack(alignment: .leading, spacing: 14) {
             VStack(alignment: .leading, spacing: 8) {
-                Text("Data Scale")
+                Text(l10n.t(L10n.Benchmark.dataScale))
                     .font(.system(size: 11, weight: .bold))
                     .foregroundStyle(.secondary)
                 
@@ -95,7 +96,7 @@ public struct BenchmarkConfigSectionView: View {
             }
             
             VStack(alignment: .leading, spacing: 8) {
-                Text("Compression Level")
+                Text(l10n.t(L10n.Compress.level))
                     .font(.system(size: 11, weight: .bold))
                     .foregroundStyle(.secondary)
                 
@@ -122,7 +123,7 @@ public struct BenchmarkConfigSectionView: View {
                 HStack(spacing: 4) {
                     Image(systemName: "info.circle")
                         .font(.system(size: 10))
-                    Text("Description: \(viewModel.selectedLevel.detailDescription)")
+                    Text("\(viewModel.selectedLevel.detailDescription)")
                         .font(.system(size: 10.5))
                 }
                 .foregroundStyle(.secondary)
@@ -134,7 +135,7 @@ public struct BenchmarkConfigSectionView: View {
     private var customFileConfigView: some View {
         VStack(alignment: .leading, spacing: 14) {
             VStack(alignment: .leading, spacing: 8) {
-                Text("Custom Benchmark Corpus")
+                Text(l10n.t(L10n.Benchmark.customCorpus))
                     .font(.system(size: 11, weight: .bold))
                     .foregroundStyle(.secondary)
                 
@@ -153,7 +154,7 @@ public struct BenchmarkConfigSectionView: View {
                             Text((path as NSString).lastPathComponent)
                                 .font(.system(size: 13, weight: .bold))
                                 .lineLimit(1)
-                            Text("\(formattedSize(viewModel.customPathSizeBytes)) · \(path)")
+                            Text("\(l10n.formatBytes(viewModel.customPathSizeBytes)) · \(path)")
                                 .font(.system(size: 10.5))
                                 .foregroundStyle(.secondary)
                                 .lineLimit(1)
@@ -161,7 +162,7 @@ public struct BenchmarkConfigSectionView: View {
                         
                         Spacer()
                         
-                        Button("Change Corpus...") {
+                        Button(l10n.t(L10n.Common.browse)) {
                             viewModel.pickCustomPath()
                         }
                         .buttonStyle(.bordered)
@@ -175,7 +176,7 @@ public struct BenchmarkConfigSectionView: View {
                         HStack(spacing: 8) {
                             Image(systemName: "plus.circle.fill")
                                 .font(.system(size: 14, weight: .semibold))
-                            Text("Click to select local file or directory for benchmark...")
+                            Text(l10n.t(L10n.Benchmark.customCorpus))
                                 .font(.system(size: 12, weight: .medium))
                         }
                         .foregroundStyle(TTZipTheme.bambooGreen)
@@ -200,34 +201,31 @@ public struct BenchmarkConfigSectionView: View {
                 Image(systemName: "gauge.with.dots.needle.bottom.100percent")
                     .font(.system(size: 13, weight: .bold))
                     .foregroundStyle(TTZipTheme.kintsugiGold)
-                Text("Frontend Algorithm & UI Rendering Benchmark")
+                Text(l10n.t(L10n.Benchmark.liveDialTitle))
                     .font(.system(size: 13, weight: .bold))
             }
-            Text("Covers large directory tree construction, 20,000-item debounced search filtering, bounded LRU cache access, and 60Hz progress event throttling.")
-                .font(.system(size: 11.5))
-                .foregroundStyle(.secondary)
             
             if let report = viewModel.frontendReport {
                 VStack(alignment: .leading, spacing: 6) {
                     HStack {
-                        Text("Overall Status:")
+                        Text("Status:")
                             .font(.system(size: 11, weight: .bold))
                         Text(report.isAllPassed ? "🟢 Passed" : "🔴 Failed")
                             .font(.system(size: 11, weight: .bold))
                             .foregroundStyle(report.isAllPassed ? TTZipTheme.bambooGreen : .red)
                     }
                     if let lastTree = report.treeBuildMetrics.last {
-                        Text("• 50k Item Tree Build: \(String(format: "%.1f", lastTree.durationMs)) ms (\(String(format: "%.0f", lastTree.throughputItemsPerSec)) items/s)")
+                        Text("• 50k Tree Build: \(String(format: "%.1f", lastTree.durationMs)) ms (\(String(format: "%.0f", lastTree.throughputItemsPerSec)) items/s)")
                             .font(.system(size: 11))
                             .foregroundStyle(.secondary)
                     }
                     if let firstSearch = report.searchFilterMetrics.first {
-                        Text("• 20k Item Search Filter: \(String(format: "%.1f", firstSearch.durationMs)) ms (\(String(format: "%.0f", firstSearch.filterThroughputItemsPerSec)) items/s)")
+                        Text("• 20k Search: \(String(format: "%.1f", firstSearch.durationMs)) ms (\(String(format: "%.0f", firstSearch.filterThroughputItemsPerSec)) items/s)")
                             .font(.system(size: 11))
                             .foregroundStyle(.secondary)
                     }
                     if let throttle = report.throttleMetrics.first {
-                        Text("• Event Throttling Suppression Rate: \(String(format: "%.1f", throttle.suppressionRatio))%")
+                        Text("• Throttling Rate: \(String(format: "%.1f", throttle.suppressionRatio))%")
                             .font(.system(size: 11))
                             .foregroundStyle(.secondary)
                     }
@@ -237,12 +235,5 @@ public struct BenchmarkConfigSectionView: View {
                 .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
             }
         }
-    }
-    
-    private func formattedSize(_ bytes: Int64) -> String {
-        let formatter = ByteCountFormatter()
-        formatter.allowedUnits = [.useMB, .useGB, .useKB]
-        formatter.countStyle = .file
-        return formatter.string(fromByteCount: bytes)
     }
 }

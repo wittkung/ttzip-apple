@@ -104,13 +104,7 @@ struct TTZipApp: App {
                 .frame(width: 540, height: 420)
         }
         .commands {
-            CommandGroup(after: .appInfo) {
-                #if !MAS_BUILD
-                Button("Check for Updates...") {
-                    UpdateManager.shared.checkForUpdates()
-                }
-                #endif
-            }
+            TTZipMenuCommands()
         }
     }
     

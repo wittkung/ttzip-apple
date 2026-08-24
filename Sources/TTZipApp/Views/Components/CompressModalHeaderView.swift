@@ -70,7 +70,9 @@ public struct CompressModalHeaderView: View {
                     .tint(TTZipTheme.bambooGreen)
                 }
             }
-            .padding(.horizontal, 20)
+            .padding(.horizontal, 24)
+            .frame(maxWidth: 900)
+            .frame(maxWidth: .infinity)
             .frame(height: 52)
             
             Rectangle()

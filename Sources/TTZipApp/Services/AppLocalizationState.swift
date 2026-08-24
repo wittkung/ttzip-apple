@@ -15,38 +15,28 @@ public final class AppLocalizationState: ObservableObject {
     
     public static let shared = AppLocalizationState()
     
-    private static let kLanguageStorageKey = "TTZip_AppSelectedLanguage"
-    private static let kByteUnitStandardStorageKey = "TTZip_ByteUnitStandard"
-    
     @Published public private(set) var currentLanguage: AppLanguage {
         didSet {
             TTZipLocalizationManager.shared.currentLanguage = currentLanguage
-            UserDefaults.standard.set(currentLanguage.rawValue, forKey: Self.kLanguageStorageKey)
+            TTZipPreferencesStore.saveLanguage(currentLanguage)
             AppKitMenuSynchronizer.shared.synchronize(language: currentLanguage)
         }
     }
     
     @Published public var byteUnitStandard: ByteSizeStandard {
         didSet {
-            UserDefaults.standard.set(byteUnitStandard == .metricSI ? "metricSI" : "binaryIEC", forKey: Self.kByteUnitStandardStorageKey)
+            TTZipPreferencesStore.saveByteStandard(byteUnitStandard)
         }
     }
     
     private init() {
-        if let stored = UserDefaults.standard.string(forKey: Self.kLanguageStorageKey),
-           let lang = AppLanguage(rawValue: stored) ?? AppLanguage.from(identifier: stored) {
-            self.currentLanguage = lang
+        if let stored = TTZipPreferencesStore.getSavedLanguage() {
+            self.currentLanguage = stored
         } else {
             self.currentLanguage = TTZipLocalizationManager.shared.currentLanguage
         }
         
-        let storedUnit = UserDefaults.standard.string(forKey: Self.kByteUnitStandardStorageKey)
-        if storedUnit == "binaryIEC" {
-            self.byteUnitStandard = .binaryIEC
-        } else {
-            self.byteUnitStandard = .metricSI
-        }
-        
+        self.byteUnitStandard = TTZipPreferencesStore.getSavedByteStandard()
         TTZipLocalizationManager.shared.currentLanguage = self.currentLanguage
     }
     
@@ -59,12 +49,12 @@ public final class AppLocalizationState: ObservableObject {
     
     /// Resolves a localized string for the specified key in the current language.
     public func t(_ key: any LocaleKeyProtocol) -> String {
-        return TTZipLocalizationManager.shared.string(for: key)
+        return TTZipLocalizationManager.shared.string(for: key, language: currentLanguage)
     }
     
     /// Resolves a formatted localized string with positional arguments.
     public func format(_ key: any LocaleKeyProtocol, _ args: CVarArg...) -> String {
-        let formatStr = TTZipLocalizationManager.shared.string(for: key)
+        let formatStr = TTZipLocalizationManager.shared.string(for: key, language: currentLanguage)
         return String(format: formatStr, locale: Locale(identifier: currentLanguage.bcp47), arguments: args)
     }
     

@@ -12,6 +12,69 @@
 		<data>
 		9HQ4z0c9ZrMgZEPEu0FNQOpGwAg=
 		</data>
+		<key>Resources/de.lproj/InfoPlist.strings</key>
+		<dict>
+			<key>hash</key>
+			<data>
+			APzF64eIdBkm7HQ2hxzkw9+jsc8=
+			</data>
+			<key>optional</key>
+			<true/>
+		</dict>
+		<key>Resources/en.lproj/InfoPlist.strings</key>
+		<dict>
+			<key>hash</key>
+			<data>
+			LfAPpVw9byL3vqofGegqqdyGDFA=
+			</data>
+			<key>optional</key>
+			<true/>
+		</dict>
+		<key>Resources/es.lproj/InfoPlist.strings</key>
+		<dict>
+			<key>hash</key>
+			<data>
+			hWJBoeGfb9uryJii+hlM/1IUEJw=
+			</data>
+			<key>optional</key>
+			<true/>
+		</dict>
+		<key>Resources/fr.lproj/InfoPlist.strings</key>
+		<dict>
+			<key>hash</key>
+			<data>
+			n0HwXpeF8s7gVjm1ZppmbDz1G0g=
+			</data>
+			<key>optional</key>
+			<true/>
+		</dict>
+		<key>Resources/ja.lproj/InfoPlist.strings</key>
+		<dict>
+			<key>hash</key>
+			<data>
+			ynSmv6WqM1eXm2qRQCfbfmuLqyw=
+			</data>
+			<key>optional</key>
+			<true/>
+		</dict>
+		<key>Resources/zh-Hans.lproj/InfoPlist.strings</key>
+		<dict>
+			<key>hash</key>
+			<data>
+			xWId8PS2iEqVJJe8MBRTUXPTBq4=
+			</data>
+			<key>optional</key>
+			<true/>
+		</dict>
+		<key>Resources/zh-Hant.lproj/InfoPlist.strings</key>
+		<dict>
+			<key>hash</key>
+			<data>
+			kyz0rlGfkG5FkwplFjg+CyDpucA=
+			</data>
+			<key>optional</key>
+			<true/>
+		</dict>
 	</dict>
 	<key>files2</key>
 	<dict>
@@ -37,6 +100,69 @@
 			<data>
 			0twowOI9IeeVcpdovYDd0pKdHx5VATEMb8dp4P4eWa4=
 			</data>
+		</dict>
+		<key>Resources/de.lproj/InfoPlist.strings</key>
+		<dict>
+			<key>hash2</key>
+			<data>
+			dz/KcYbAn0VVy3N28t1A8YnfOv1D8kFuF0cNI1R/Ws4=
+			</data>
+			<key>optional</key>
+			<true/>
+		</dict>
+		<key>Resources/en.lproj/InfoPlist.strings</key>
+		<dict>
+			<key>hash2</key>
+			<data>
+			xUQH3bzT1FkRrllm2flnbuFsw1Gs+vzA1EDQaRQiHQM=
+			</data>
+			<key>optional</key>
+			<true/>
+		</dict>
+		<key>Resources/es.lproj/InfoPlist.strings</key>
+		<dict>
+			<key>hash2</key>
+			<data>
+			f2XopFc8/2yOsqC6iuBgJEZrOAEl2Q7ARygZCp7DNtw=
+			</data>
+			<key>optional</key>
+			<true/>
+		</dict>
+		<key>Resources/fr.lproj/InfoPlist.strings</key>
+		<dict>
+			<key>hash2</key>
+			<data>
+			nNHVo4LDsXCAd/f2S1mlzuC3/A9JP6G77oXVV07eoeY=
+			</data>
+			<key>optional</key>
+			<true/>
+		</dict>
+		<key>Resources/ja.lproj/InfoPlist.strings</key>
+		<dict>
+			<key>hash2</key>
+			<data>
+			/3bWEjCyQQ9NqNlKFTzgT9F31GKHSHN/GwbsfcG9kXs=
+			</data>
+			<key>optional</key>
+			<true/>
+		</dict>
+		<key>Resources/zh-Hans.lproj/InfoPlist.strings</key>
+		<dict>
+			<key>hash2</key>
+			<data>
+			XG1/DSKN+FuQ0pkzz6VLtGHBDfCxwKHdqMsdOzmd9WU=
+			</data>
+			<key>optional</key>
+			<true/>
+		</dict>
+		<key>Resources/zh-Hant.lproj/InfoPlist.strings</key>
+		<dict>
+			<key>hash2</key>
+			<data>
+			KytATRstEJFDlOPPSKQcJmA8YYpC9RA4Q3Ntq7F8vH8=
+			</data>
+			<key>optional</key>
+			<true/>
 		</dict>
 	</dict>
 	<key>rules</key>

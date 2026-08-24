@@ -81,7 +81,7 @@ public struct CompressModalView: View {
             )
             
             ScrollView {
-                VStack(alignment: .leading, spacing: 14) {
+                VStack(alignment: .leading, spacing: 16) {
                     CompressFileListView(
                         itemsList: $itemsList,
                         selectedItemIDs: $selectedItemIDs,
@@ -123,7 +123,10 @@ public struct CompressModalView: View {
                         onShowMatrix: { isAlgorithmMatrixPresented = true }
                     )
                 }
-                .padding(16)
+                .padding(.horizontal, 24)
+                .padding(.vertical, 16)
+                .frame(maxWidth: 900)
+                .frame(maxWidth: .infinity)
             }
             
             Divider()
@@ -167,10 +170,12 @@ public struct CompressModalView: View {
                 .buttonStyle(.plain)
                 .disabled(isProcessing || itemsList.isEmpty || outputName.isEmpty)
             }
-            .padding(.horizontal, 20)
+            .padding(.horizontal, 24)
             .padding(.vertical, 12)
+            .frame(maxWidth: 900)
+            .frame(maxWidth: .infinity)
         }
-        .frame(width: 680, height: 600)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .onAppear {
             if itemsList.isEmpty && !initialInputPaths.isEmpty {
                 self.itemsList = initialInputPaths.map { CompressFileItem(path: $0) }

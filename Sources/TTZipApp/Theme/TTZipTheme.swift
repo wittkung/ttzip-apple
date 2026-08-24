@@ -70,6 +70,85 @@ public enum TTZipTheme {
     public static let statusDanger = cinnabarRed
     public static let statusInfo = Color(red: 0.30, green: 0.55, blue: 0.75)
     
+    /// Returns a harmonious theme color for file extensions and content categories.
+    public static func fileCategoryColor(for categoryOrExtension: String) -> Color {
+        let key = categoryOrExtension.lowercased().trimmingCharacters(in: .whitespacesAndNewlines)
+        
+        switch key {
+        // 1. Images & Visual Media -> Kintsugi Warm Gold Spectrum
+        case "jpg", "jpeg", "image", "图片":
+            return Color(red: 0.88, green: 0.68, blue: 0.28) // Kintsugi Gold
+        case "png":
+            return Color(red: 0.94, green: 0.76, blue: 0.38) // Light Amber Gold
+        case "webp", "gif", "svg", "ico":
+            return Color(red: 0.82, green: 0.60, blue: 0.22) // Deep Ochre
+        case "heic", "heif", "tiff", "tif", "raw", "cr2", "nef", "arw", "psd", "ai":
+            return Color(red: 0.90, green: 0.70, blue: 0.32)
+            
+        // 2. Documents & Text -> Bamboo Green Spectrum
+        case "pdf", "document", "文档", "文档/代码/字幕":
+            return bambooGreen // Bamboo Emerald
+        case "doc", "docx", "pages", "rtf", "txt":
+            return Color(red: 0.35, green: 0.72, blue: 0.50) // Bamboo Mint
+        case "xls", "xlsx", "csv", "numbers":
+            return Color(red: 0.20, green: 0.65, blue: 0.40) // Forest Bamboo
+        case "ppt", "pptx", "key":
+            return Color(red: 0.42, green: 0.78, blue: 0.58) // Sage Green
+        case "epub", "mobi", "azw3":
+            return Color(red: 0.28, green: 0.75, blue: 0.60) // Jade
+            
+        // 3. Audio & Lossless -> Amethyst Purple / Lavender Spectrum
+        case "mp3", "audio", "音频":
+            return Color(red: 0.65, green: 0.45, blue: 0.92) // Amethyst Purple
+        case "m4a", "aac":
+            return Color(red: 0.72, green: 0.52, blue: 0.96) // Lavender
+        case "wav", "flac", "alac", "aiff", "aifc":
+            return Color(red: 0.55, green: 0.35, blue: 0.85) // Deep Amethyst
+        case "ogg", "opus", "wma", "mid", "midi":
+            return Color(red: 0.60, green: 0.40, blue: 0.88)
+            
+        // 4. Video & Motion -> Cinnabar Coral / Ruby Spectrum
+        case "mp4", "video", "视频":
+            return Color(red: 0.90, green: 0.38, blue: 0.38) // Cinnabar Red
+        case "mov", "m4v":
+            return Color(red: 0.95, green: 0.45, blue: 0.45) // Coral Crimson
+        case "mkv", "avi", "webm", "wmv", "flv", "mts", "m2ts":
+            return Color(red: 0.82, green: 0.30, blue: 0.30) // Deep Ruby
+            
+        // 5. Archives & Disk Packages -> Archive Amber Spectrum
+        case "zip", "7z", "tar", "gz", "bz2", "xz", "zst", "rar", "dmg", "iso", "pkg", "deb", "rpm", "ttzip", "archive", "压缩包", "归档包":
+            return Color(red: 0.96, green: 0.62, blue: 0.20) // Archive Amber
+            
+        // 6. Code & Scripts & Developer Assets -> Celadon Teal Spectrum
+        case "sh", "zsh", "bash":
+            return Color(red: 0.22, green: 0.72, blue: 0.80) // Celadon Teal
+        case "md", "markdown":
+            return Color(red: 0.28, green: 0.78, blue: 0.85) // Bright Cyan
+        case "swift", "rs", "c", "cpp", "h", "py", "js", "ts", "tsx", "jsx", "json", "yaml", "yml", "toml", "xml", "html", "css":
+            return Color(red: 0.18, green: 0.68, blue: 0.75) // Deep Celadon
+            
+        // 7. Shortcuts, Links & System
+        case "shortcut", "webloc", "url", "alias", "lnk":
+            return Color(red: 0.38, green: 0.65, blue: 0.95) // Sky Blue
+        case "app", "dylib", "so", "bin", "exe", "dll":
+            return Color(red: 0.85, green: 0.45, blue: 0.70) // Rosewood Magenta
+            
+        default:
+            let hash = abs(key.hashValue)
+            let palette: [Color] = [
+                bambooGreen,
+                Color(red: 0.88, green: 0.68, blue: 0.28), // Kintsugi Gold
+                Color(red: 0.22, green: 0.72, blue: 0.80), // Celadon Teal
+                Color(red: 0.65, green: 0.45, blue: 0.92), // Amethyst Purple
+                Color(red: 0.96, green: 0.62, blue: 0.20), // Archive Amber
+                Color(red: 0.90, green: 0.38, blue: 0.38), // Cinnabar Red
+                Color(red: 0.38, green: 0.65, blue: 0.95), // Sky Blue
+                Color(red: 0.85, green: 0.45, blue: 0.70)  // Rosewood
+            ]
+            return palette[hash % palette.count]
+        }
+    }
+    
     public static var bambooGradient: LinearGradient {
         LinearGradient(
             colors: [bambooGreen, bambooGreen.opacity(0.85)],

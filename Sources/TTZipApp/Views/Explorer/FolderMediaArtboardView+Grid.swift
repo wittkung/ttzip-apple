@@ -40,30 +40,37 @@ extension FolderMediaArtboardView {
                 
                 GeometryReader { barGeo in
                     let total = fileTypeDistribution.reduce(0) { $0 + $1.count }
-                    HStack(spacing: 2) {
+                    HStack(spacing: 1.5) {
                         ForEach(fileTypeDistribution, id: \.category) { item in
                             let ratio = total > 0 ? CGFloat(item.count) / CGFloat(total) : 0
                             Rectangle()
                                 .fill(categoryColor(item.category))
-                                .frame(width: max(2, barGeo.size.width * ratio))
+                                .frame(width: max(2.5, barGeo.size.width * ratio))
                         }
                     }
                     .clipShape(Capsule())
                 }
-                .frame(height: 8)
+                .frame(height: 9)
+                .background(Color.primary.opacity(0.04))
+                .clipShape(Capsule())
+                .overlay(Capsule().strokeBorder(Color.primary.opacity(0.06), lineWidth: 0.8))
                 
-                VStack(spacing: 6) {
+                VStack(spacing: 7) {
                     ForEach(fileTypeDistribution, id: \.category) { item in
                         let total = fileTypeDistribution.reduce(0) { $0 + $1.count }
                         let pct = total > 0 ? Int(round(Double(item.count) / Double(total) * 100)) : 0
-                        HStack {
+                        HStack(spacing: 8) {
                             Circle()
                                 .fill(categoryColor(item.category))
-                                .frame(width: 8, height: 8)
+                                .frame(width: 7.5, height: 7.5)
+                                .shadow(color: categoryColor(item.category).opacity(0.4), radius: 2, x: 0, y: 1)
+                            
                             Text(item.category)
-                                .font(.system(size: 11, weight: .medium))
+                                .font(.system(size: 11, weight: .medium, design: .monospaced))
                                 .foregroundStyle(.primary)
+                            
                             Spacer()
+                            
                             Text("\(item.count) items (\(pct)%)")
                                 .font(.system(size: 11, design: .monospaced))
                                 .foregroundStyle(.secondary)
@@ -93,14 +100,7 @@ extension FolderMediaArtboardView {
     }
     
     func categoryColor(_ cat: String) -> Color {
-        switch cat {
-        case "Video", "视频": return .red
-        case "Audio", "音频": return .purple
-        case "Image", "图片": return .blue
-        case "Document", "文档/代码/字幕": return TTZipTheme.bambooGreen
-        case "Archive", "压缩包": return .orange
-        default: return .secondary
-        }
+        TTZipTheme.fileCategoryColor(for: cat)
     }
     
     func createNewFolder() {

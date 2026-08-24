@@ -68,31 +68,31 @@ public struct RightInspectorSidePanel: View {
             
             VStack(alignment: .leading, spacing: 0) {
                 if viewModel.activeTab == .compressWorkspace {
-                    DiskDirectoryBrowserView(
-                        rootDirectory: viewModel.currentDirectory,
-                        onSelectArchive: { archivePath in
-                            let u = URL(fileURLWithPath: archivePath)
-                            viewModel.openArchiveAsFolder(url: u)
-                        },
-                        onCompressPath: { folderPath in
-                            viewModel.openCompressWorkspace(paths: [folderPath])
-                        },
-                        onPreviewFile: { _ in },
-                        onSelectItem: { item in
-                            viewModel.selectedDiskItem = item
-                        }
-                    )
-                    .frame(height: rightVerticalTopHeight)
-                    .clipped()
-                    
-                    ResizableHorizontalDividerHandle(
-                        height: $rightVerticalTopHeight,
-                        minHeight: 120,
-                        maxHeight: 650
-                    )
-                    .padding(.vertical, 2)
-                    
                     if let item = viewModel.selectedDiskItem {
+                        DiskDirectoryBrowserView(
+                            rootDirectory: viewModel.currentDirectory,
+                            onSelectArchive: { archivePath in
+                                let u = URL(fileURLWithPath: archivePath)
+                                viewModel.openArchiveAsFolder(url: u)
+                            },
+                            onCompressPath: { folderPath in
+                                viewModel.openCompressWorkspace(paths: [folderPath])
+                            },
+                            onPreviewFile: { _ in },
+                            onSelectItem: { item in
+                                viewModel.selectedDiskItem = item
+                            }
+                        )
+                        .frame(height: max(160, rightVerticalTopHeight))
+                        .clipped()
+                        
+                        ResizableHorizontalDividerHandle(
+                            height: $rightVerticalTopHeight,
+                            minHeight: 120,
+                            maxHeight: 650
+                        )
+                        .padding(.vertical, 2)
+                        
                         InspectorColumnView(
                             item: item,
                             onSelectArchive: { archivePath in
@@ -107,19 +107,22 @@ public struct RightInspectorSidePanel: View {
                         .frame(maxHeight: .infinity)
                         .clipped()
                     } else {
-                        VStack(spacing: 8) {
-                            Spacer()
-                            Image(systemName: "photo.on.rectangle.angled")
-                                .font(.system(size: 24))
-                                .foregroundStyle(.tertiary)
-                            Text("Select an item above to view properties")
-                                .font(.system(size: 10, weight: .medium))
-                                .foregroundStyle(.secondary)
-                            Spacer()
-                        }
+                        DiskDirectoryBrowserView(
+                            rootDirectory: viewModel.currentDirectory,
+                            onSelectArchive: { archivePath in
+                                let u = URL(fileURLWithPath: archivePath)
+                                viewModel.openArchiveAsFolder(url: u)
+                            },
+                            onCompressPath: { folderPath in
+                                viewModel.openCompressWorkspace(paths: [folderPath])
+                            },
+                            onPreviewFile: { _ in },
+                            onSelectItem: { item in
+                                viewModel.selectedDiskItem = item
+                            }
+                        )
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
-                        .background(Color.primary.opacity(0.015))
-                        .clipShape(RoundedRectangle(cornerRadius: 6))
+                        .clipped()
                     }
                 } else {
                     if let item = viewModel.selectedDiskItem {

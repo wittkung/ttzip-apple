@@ -16,6 +16,27 @@ public final class FinderSync: FIFinderSync {
     public override init() {
         super.init()
         
+        // Initial sync of language from shared AppGroup suite
+        if let saved = TTZipPreferencesStore.getSavedLanguage() {
+            TTZipLocalizationManager.shared.currentLanguage = saved
+        }
+        
+        // Register Darwin notification observer for cross-process live language changes
+        let center = CFNotificationCenterGetDarwinNotifyCenter()
+        let observer = Unmanaged.passUnretained(self).toOpaque()
+        CFNotificationCenterAddObserver(
+            center,
+            observer,
+            { _, _, _, _, _ in
+                if let updated = TTZipPreferencesStore.getSavedLanguage() {
+                    TTZipLocalizationManager.shared.currentLanguage = updated
+                }
+            },
+            TTZipPreferencesStore.darwinNotificationName as CFString,
+            nil,
+            .deliverImmediately
+        )
+        
         // Monitor user home directory and volumes for archive items
         let homeURL = URL(fileURLWithPath: NSHomeDirectory())
         FIFinderSyncController.default().directoryURLs = [homeURL]
@@ -34,7 +55,14 @@ public final class FinderSync: FIFinderSync {
             return nil
         }
         
-        let menuItems = FinderSyncHelper.shared.getContextMenuItems(selectedURLs: selectedURLs)
+        // JIT check: Guarantee immediate consistency even if notification was queued
+        if let saved = TTZipPreferencesStore.getSavedLanguage(),
+           saved != TTZipLocalizationManager.shared.currentLanguage {
+            TTZipLocalizationManager.shared.currentLanguage = saved
+        }
+        
+        let targetLanguage = TTZipLocalizationManager.shared.currentLanguage
+        let menuItems = FinderSyncHelper.shared.getContextMenuItems(selectedURLs: selectedURLs, language: targetLanguage)
         guard !menuItems.isEmpty else { return nil }
         
         let menu = NSMenu(title: "TTZip")

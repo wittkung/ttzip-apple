@@ -132,30 +132,19 @@ public struct UnifiedAudioPlayerView: View {
                     }
                 }
                 
-                AudioWaveformVisualizerView(isPlaying: isPlaying, barCount: 28)
-                    .padding(.horizontal, 18)
-                
-                VStack(spacing: 6) {
-                    Slider(value: $currentTime, in: 0...max(duration, 0.01)) { editing in
-                        isEditingSlider = editing
-                        if !editing {
-                            let targetTime = CMTime(seconds: currentTime, preferredTimescale: 600)
-                            player?.seek(to: targetTime)
-                        }
+                AudioWaveformVisualizerView(
+                    url: url,
+                    isPlaying: isPlaying,
+                    currentTime: currentTime,
+                    duration: duration,
+                    sampleCount: 1600,
+                    onSeek: { targetSeconds in
+                        currentTime = targetSeconds
+                        let targetTime = CMTime(seconds: targetSeconds, preferredTimescale: 600)
+                        player?.seek(to: targetTime)
                     }
-                    .tint(TTZipTheme.bambooGreen)
-                    
-                    HStack {
-                        Text(formatTime(currentTime))
-                            .font(.system(size: 10.5, weight: .semibold, design: .monospaced))
-                            .foregroundStyle(TTZipTheme.bambooGreen)
-                        Spacer()
-                        Text(formatTime(duration))
-                            .font(.system(size: 10.5, weight: .medium, design: .monospaced))
-                            .foregroundStyle(.secondary)
-                    }
-                }
-                .padding(.horizontal, 20)
+                )
+                .padding(.horizontal, 16)
                 
                 VStack(spacing: 14) {
                     HStack(spacing: 32) {

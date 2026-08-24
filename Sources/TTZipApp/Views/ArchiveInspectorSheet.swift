@@ -12,6 +12,7 @@ import TTZipCore
 /// Archive standards inspection and compliance diagnostics sheet.
 public struct ArchiveInspectorSheet: View {
     @ObservedObject var viewModel: ArchiveInspectorViewModel
+    @ObservedObject private var l10n = AppLocalizationState.shared
     @Environment(\.dismiss) private var dismiss
     
     @State private var selectedTab: InspectorTab = .standards
@@ -23,6 +24,15 @@ public struct ArchiveInspectorSheet: View {
         case compliance = "Compliance"
         
         public var id: String { rawValue }
+        
+        public func localizedTitle(l10n: AppLocalizationState) -> String {
+            switch self {
+            case .standards: return "Standards"
+            case .magic: return "Magic Anchors"
+            case .extraFields: return "ZIP Extra Fields"
+            case .compliance: return "Compliance"
+            }
+        }
     }
     
     public init(viewModel: ArchiveInspectorViewModel) {
@@ -38,7 +48,7 @@ public struct ArchiveInspectorSheet: View {
             
             Picker("", selection: $selectedTab) {
                 ForEach(InspectorTab.allCases) { tab in
-                    Text(tab.rawValue).tag(tab)
+                    Text(tab.localizedTitle(l10n: l10n)).tag(tab)
                 }
             }
             .pickerStyle(.segmented)
@@ -71,10 +81,10 @@ public struct ArchiveInspectorSheet: View {
                 .foregroundColor(TTZipTheme.archiveAmber)
             
             VStack(alignment: .leading, spacing: 2) {
-                Text("Archive Standards & Diagnostics")
+                Text(l10n.t(L10n.Diagnostics.title))
                     .font(.system(size: 16, weight: .bold))
                     .foregroundColor(.primary)
-                Text(viewModel.state.fileName.isEmpty ? "No archive selected" : viewModel.state.fileName)
+                Text(viewModel.state.fileName.isEmpty ? "—" : viewModel.state.fileName)
                     .font(.system(size: 12))
                     .foregroundColor(.secondary)
                     .lineLimit(1)
@@ -87,7 +97,7 @@ public struct ArchiveInspectorSheet: View {
                     Circle()
                         .fill(viewModel.state.complianceReport?.isCompliant == true ? TTZipTheme.bambooGreen : TTZipTheme.cinnabarRed)
                         .frame(width: 8, height: 8)
-                    Text(viewModel.state.complianceReport?.isCompliant == true ? "Compliant" : "Deviations Found")
+                    Text(viewModel.state.complianceReport?.isCompliant == true ? l10n.t(L10n.Diagnostics.compliant) : l10n.t(L10n.Diagnostics.deviationsDetected))
                         .font(.system(size: 11, weight: .medium))
                         .foregroundColor(viewModel.state.complianceReport?.isCompliant == true ? TTZipTheme.bambooGreen : TTZipTheme.cinnabarRed)
                 }
@@ -104,7 +114,7 @@ public struct ArchiveInspectorSheet: View {
         VStack(spacing: 12) {
             ProgressView()
                 .scaleEffect(1.1)
-            Text("Scanning archive structures and specifications...")
+            Text(l10n.t(L10n.Diagnostics.scanning))
                 .font(.system(size: 13))
                 .foregroundColor(.secondary)
         }
@@ -115,7 +125,7 @@ public struct ArchiveInspectorSheet: View {
             Image(systemName: "exclamationmark.triangle.fill")
                 .font(.system(size: 32))
                 .foregroundColor(TTZipTheme.cinnabarRed)
-            Text("Parse Error")
+            Text(l10n.t(L10n.Common.error))
                 .font(.system(size: 14, weight: .bold))
             Text(message)
                 .font(.system(size: 12))
@@ -146,7 +156,7 @@ public struct ArchiveInspectorSheet: View {
     
     private var standardsTabView: some View {
         VStack(alignment: .leading, spacing: 14) {
-            metadataRow(label: "Format", value: viewModel.state.detectedFormat?.displayName ?? "Unknown")
+            metadataRow(label: l10n.t(L10n.Compress.format), value: viewModel.state.detectedFormat?.displayName ?? "Unknown")
             metadataRow(label: "Specification", value: viewModel.state.standardSpec?.officialName ?? "N/A")
             metadataRow(label: "MIME Type", value: viewModel.state.standardSpec?.mimeType ?? "N/A")
             metadataRow(label: "Apple UTI", value: viewModel.state.standardSpec?.appleUTI ?? "N/A")
@@ -310,7 +320,7 @@ public struct ArchiveInspectorSheet: View {
             
             Spacer()
             
-            Button("Done") {
+            Button(l10n.t(L10n.Common.done)) {
                 dismiss()
             }
             .keyboardShortcut(.defaultAction)
