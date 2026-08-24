@@ -73,6 +73,12 @@ public final class SharedVideoPlayerStore: ObservableObject {
         player?.seek(to: CMTime(seconds: seconds, preferredTimescale: 600))
     }
     
+    public func seekBy(_ seconds: Double) {
+        let maxDur = duration > 0 ? duration : 36000
+        let target = min(max(currentTime + seconds, 0), maxDur)
+        seek(to: target)
+    }
+    
     public func cleanUp() {
         if let obs = timeObserverToken, let p = player {
             p.removeTimeObserver(obs)
@@ -96,6 +102,7 @@ public struct UnifiedVideoPlayerView: View {
     @StateObject private var store = SharedVideoPlayerStore()
     @State private var isHovering = false
     @State private var hideTimer: Timer? = nil
+    @State private var sessionId = UUID().uuidString
     
     public init(url: URL) {
         self.url = url
@@ -187,20 +194,36 @@ public struct UnifiedVideoPlayerView: View {
             switch phase {
             case .active:
                 isHovering = true
+                MediaPlaybackCoordinator.shared.setHovered(id: sessionId, isHovered: true)
                 resetHideTimer()
             case .ended:
                 isHovering = false
+                MediaPlaybackCoordinator.shared.setHovered(id: sessionId, isHovered: false)
             }
         }
         .onAppear {
             store.setup(url: url)
+            MediaPlaybackCoordinator.shared.registerSession(
+                id: sessionId,
+                isPlaying: store.isPlaying,
+                togglePlayPause: { [weak store] in
+                    store?.togglePlayPause()
+                },
+                seekBy: { [weak store] delta in
+                    store?.seekBy(delta)
+                }
+            )
         }
         .onChange(of: url) { _, newURL in
             store.setup(url: newURL)
         }
+        .onChange(of: store.isPlaying) { _, playing in
+            MediaPlaybackCoordinator.shared.updatePlaybackState(id: sessionId, isPlaying: playing)
+        }
         .onDisappear {
             hideTimer?.invalidate()
             hideTimer = nil
+            MediaPlaybackCoordinator.shared.unregisterSession(id: sessionId)
             store.cleanUp()
         }
     }

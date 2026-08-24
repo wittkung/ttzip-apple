@@ -175,6 +175,9 @@ public struct ArchiveExplorerView: View {
                             return event
                         }
                     }
+                    if (event.keyCode == 123 || event.keyCode == 124) && MediaPlaybackCoordinator.shared.shouldInterceptMediaKeys() {
+                        return event
+                    }
                     switch event.keyCode {
                     case 123:
                         NotificationCenter.default.post(name: .archiveExplorerMoveLeft, object: nil)

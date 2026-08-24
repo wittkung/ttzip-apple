@@ -27,6 +27,8 @@ public struct UnifiedAudioPlayerView: View {
     @State var audioSampleRate: String = "44.1 kHz"
     @State var audioChannels: String = "Stereo"
     @State var fileSizeFormatted: String = ""
+    @State var sessionId = UUID().uuidString
+    @State var isHovering = false
     
     public init(url: URL, fileName: String) {
         self.url = url
@@ -260,13 +262,37 @@ public struct UnifiedAudioPlayerView: View {
             .padding(.vertical, 14)
             .frame(maxWidth: .infinity)
         }
+        .onContinuousHover { phase in
+            switch phase {
+            case .active:
+                isHovering = true
+                MediaPlaybackCoordinator.shared.setHovered(id: sessionId, isHovered: true)
+            case .ended:
+                isHovering = false
+                MediaPlaybackCoordinator.shared.setHovered(id: sessionId, isHovered: false)
+            }
+        }
         .onAppear {
             setupPlayer()
+            MediaPlaybackCoordinator.shared.registerSession(
+                id: sessionId,
+                isPlaying: isPlaying,
+                togglePlayPause: {
+                    togglePlayPause()
+                },
+                seekBy: { delta in
+                    seekBy(delta)
+                }
+            )
         }
         .onChange(of: url) { _, _ in
             setupPlayer()
         }
+        .onChange(of: isPlaying) { _, playing in
+            MediaPlaybackCoordinator.shared.updatePlaybackState(id: sessionId, isPlaying: playing)
+        }
         .onDisappear {
+            MediaPlaybackCoordinator.shared.unregisterSession(id: sessionId)
             cleanUpPlayer()
         }
     }

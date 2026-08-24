@@ -138,46 +138,78 @@ public struct SingleMillerColumnView: View {
                 
                 Divider()
                 
-                AppKitMillerColumnScrollView {
-                    LazyVStack(spacing: 2) {
-                        if let items = items {
-                            if items.isEmpty {
-                                Text(l10n.t(L10n.Explorer.emptyDirectory))
-                                    .font(.system(size: 10))
-                                    .foregroundStyle(.secondary)
-                                    .padding(.vertical, 12)
+                ScrollView(.vertical, showsIndicators: false) {
+                    ScrollViewReader { scrollProxy in
+                        LazyVStack(spacing: 2) {
+                            if let items = items {
+                                if items.isEmpty {
+                                    Text(l10n.t(L10n.Explorer.emptyDirectory))
+                                        .font(.system(size: 10))
+                                        .foregroundStyle(.secondary)
+                                        .padding(.vertical, 12)
+                                } else {
+                                    ForEach(items) { item in
+                                        let isRowSelected = multiSelectedPaths.contains(item.path) || selectedPath == item.path
+                                        MillerColumnItemRowView(
+                                            item: item,
+                                            columnIndex: index,
+                                            isSelected: isRowSelected,
+                                            isColumnActive: isColumnActive,
+                                            dirURL: dirURL,
+                                            multiSelectedPaths: multiSelectedPaths,
+                                            onSelectArchive: onSelectArchive,
+                                            onCompressPath: onCompressPath,
+                                            onSelectItem: onSelectItem,
+                                            onTriggerNewFolder: onTriggerNewFolder,
+                                            onTriggerNewFile: onTriggerNewFile
+                                        )
+                                        .id(item.path)
+                                    }
+                                }
                             } else {
-                                ForEach(items) { item in
-                                    let isRowSelected = multiSelectedPaths.contains(item.path) || selectedPath == item.path
-                                    MillerColumnItemRowView(
-                                        item: item,
-                                        columnIndex: index,
-                                        isSelected: isRowSelected,
-                                        isColumnActive: isColumnActive,
-                                        dirURL: dirURL,
-                                        multiSelectedPaths: multiSelectedPaths,
-                                        onSelectArchive: onSelectArchive,
-                                        onCompressPath: onCompressPath,
-                                        onSelectItem: onSelectItem,
-                                        onTriggerNewFolder: onTriggerNewFolder,
-                                        onTriggerNewFile: onTriggerNewFile
-                                    )
+                                HStack(spacing: 6) {
+                                    ProgressView()
+                                        .controlSize(.small)
+                                    Text(l10n.t(L10n.Common.loading))
+                                        .font(.system(size: 10))
+                                        .foregroundStyle(.secondary)
+                                }
+                                .padding(.vertical, 16)
+                            }
+                        }
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 6)
+                        .onChange(of: selectedPath) { _, targetPath in
+                            if let path = targetPath, isColumnActive {
+                                withAnimation(.easeOut(duration: 0.15)) {
+                                    scrollProxy.scrollTo(path, anchor: nil)
                                 }
                             }
-                        } else {
-                            HStack(spacing: 6) {
-                                ProgressView()
-                                    .controlSize(.small)
-                                Text(l10n.t(L10n.Common.loading))
-                                    .font(.system(size: 10))
-                                    .foregroundStyle(.secondary)
+                        }
+                        .onChange(of: isColumnActive) { _, active in
+                            if active, let path = selectedPath {
+                                withAnimation(.easeOut(duration: 0.15)) {
+                                    scrollProxy.scrollTo(path, anchor: nil)
+                                }
                             }
-                            .padding(.vertical, 16)
+                        }
+                        .onChange(of: items?.count) { _, count in
+                            if let count = count, count > 0, let path = selectedPath {
+                                DispatchQueue.main.async {
+                                    scrollProxy.scrollTo(path, anchor: nil)
+                                }
+                            }
+                        }
+                        .onAppear {
+                            if let path = selectedPath {
+                                DispatchQueue.main.async {
+                                    scrollProxy.scrollTo(path, anchor: nil)
+                                }
+                            }
                         }
                     }
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 6)
                 }
+                .background(ConfigureNSScrollView())
                 .background(Color.primary.opacity(0.005))
                 .contentShape(Rectangle())
                 .onDrop(of: [.fileURL, .text], isTargeted: nil) { providers in

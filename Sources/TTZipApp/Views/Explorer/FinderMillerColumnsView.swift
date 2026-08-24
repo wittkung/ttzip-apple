@@ -131,6 +131,9 @@ public struct FinderMillerColumnsView: View {
                     }
                 }
                 if event.keyCode >= 123 && event.keyCode <= 126 {
+                    if (event.keyCode == 123 || event.keyCode == 124) && MediaPlaybackCoordinator.shared.shouldInterceptMediaKeys() {
+                        return event
+                    }
                     switch event.keyCode {
                     case 123:
                         navigateSelectionLeft()
