@@ -101,11 +101,16 @@ public struct SettingsView: View {
     }
     
     func activateLicense() {
-        if LicenseManager.shared.activate(key: licenseKeyInput) {
+        let result = Ed25519LicenseManager.shared.activate(licenseKey: licenseKeyInput)
+        switch result {
+        case .valid(let payload):
             isPro = true
-            activationStatus = l10n.t(L10n.Settings.proLicenseActive)
-        } else {
-            activationStatus = l10n.t(L10n.Settings.invalidKeyError)
+            activationStatus = "✓ Verified: \(payload.email) (\(payload.order_id))"
+            licenseKeyInput = ""
+        case .invalidSignature:
+            activationStatus = "✗ Invalid License Signature"
+        case .malformedKey(let reason):
+            activationStatus = "✗ \(reason)"
         }
     }
 }

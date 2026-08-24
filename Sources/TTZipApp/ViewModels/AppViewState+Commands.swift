@@ -11,10 +11,16 @@ import TTZipCore
 extension AppViewState {
     // MARK: - Command Undo / Redo
     
+    public func refreshUndoRedoState() async {
+        self.canUndo = await historyManager.canUndo
+        self.canRedo = await historyManager.canRedo
+        self.lastCommandDescription = await historyManager.undoHistoryDescriptions.last
+    }
+    
     public func updateUndoRedoState() {
-        self.canUndo = historyManager.canUndo
-        self.canRedo = historyManager.canRedo
-        self.lastCommandDescription = historyManager.undoHistoryDescriptions.last
+        Task { @MainActor in
+            await refreshUndoRedoState()
+        }
     }
     
     @discardableResult
@@ -25,26 +31,27 @@ extension AppViewState {
         self.isLoading = true
         defer {
             self.isLoading = false
-            updateUndoRedoState()
         }
         do {
             let result = try await historyManager.execute(command: command)
             self.statusMessage = "Command succeeded: [\(command.description)]"
+            await refreshUndoRedoState()
             return result
         } catch {
             self.statusMessage = "Command failed: \(error.localizedDescription)"
+            await refreshUndoRedoState()
             throw error
         }
     }
     
     public func performUndo() {
-        guard !self.isLoading && historyManager.canUndo else { return }
+        guard !self.isLoading else { return }
         self.isLoading = true
         Task { @MainActor in
             defer {
                 self.isLoading = false
-                self.updateUndoRedoState()
             }
+            guard await historyManager.canUndo else { return }
             do {
                 if let res = try await historyManager.undo() {
                     self.statusMessage = "Undone: \(res.message)"
@@ -52,17 +59,18 @@ extension AppViewState {
             } catch {
                 self.statusMessage = "Undo failed: \(error.localizedDescription)"
             }
+            await self.refreshUndoRedoState()
         }
     }
     
     public func performRedo() {
-        guard !self.isLoading && historyManager.canRedo else { return }
+        guard !self.isLoading else { return }
         self.isLoading = true
         Task { @MainActor in
             defer {
                 self.isLoading = false
-                self.updateUndoRedoState()
             }
+            guard await historyManager.canRedo else { return }
             do {
                 if let res = try await historyManager.redo() {
                     self.statusMessage = "Redone: \(res.message)"
@@ -70,6 +78,7 @@ extension AppViewState {
             } catch {
                 self.statusMessage = "Redo failed: \(error.localizedDescription)"
             }
+            await self.refreshUndoRedoState()
         }
     }
 }

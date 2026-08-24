@@ -17,14 +17,14 @@ let package = Package(
         .library(name: "TTZipFinderSync", type: .dynamic, targets: ["TTZipFinderSync"])
     ],
     dependencies: [
-        .package(url: "https://github.com/wittkung/ttzip-core.git", branch: "main"),
+        .package(path: "../core"),
         .package(url: "https://github.com/sparkle-project/Sparkle", exact: "2.6.0")
     ],
     targets: [
         .executableTarget(
             name: "TTZipApp",
             dependencies: [
-                .product(name: "TTZipCore", package: "ttzip-core"),
+                .product(name: "TTZipCore", package: "core"),
                 .product(name: "Sparkle", package: "Sparkle")
             ],
             path: "Sources/TTZipApp",
@@ -40,7 +40,7 @@ let package = Package(
         .target(
             name: "TTZipQuickLook",
             dependencies: [
-                .product(name: "TTZipCore", package: "ttzip-core")
+                .product(name: "TTZipCore", package: "core")
             ],
             path: "Sources/TTZipQuickLook",
             exclude: ["Info.plist"]
@@ -48,7 +48,7 @@ let package = Package(
         .target(
             name: "TTZipFinderSync",
             dependencies: [
-                .product(name: "TTZipCore", package: "ttzip-core")
+                .product(name: "TTZipCore", package: "core")
             ],
             path: "Sources/TTZipFinderSync",
             exclude: ["Info.plist"]

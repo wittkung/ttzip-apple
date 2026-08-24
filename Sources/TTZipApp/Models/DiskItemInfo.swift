@@ -25,9 +25,8 @@ public struct DiskItemInfo: Identifiable, Hashable, Equatable, Sendable {
     }
     
     public init(url: URL) {
-        let factory = ArchiveEntryFlyweightFactory.shared
-        self.path = factory.internPath(url.path)
-        self.name = factory.internPath(url.lastPathComponent)
+        self.path = url.path
+        self.name = url.lastPathComponent
         
         var isDir: ObjCBool = false
         if FileManager.default.fileExists(atPath: url.path, isDirectory: &isDir) {
@@ -37,8 +36,7 @@ public struct DiskItemInfo: Identifiable, Hashable, Equatable, Sendable {
         }
         
         let rawExt = url.pathExtension.lowercased()
-        let ext = factory.internExtension(rawExt)
-        let isArch = ArchiveCompressionFormat.isArchiveExtension(ext, path: url.path)
+        let isArch = ArchiveCompressionFormat.isArchiveExtension(rawExt, path: url.path)
         self.isArchive = isArch
         
         let attr = try? FileManager.default.attributesOfItem(atPath: url.path)
@@ -50,13 +48,13 @@ public struct DiskItemInfo: Identifiable, Hashable, Equatable, Sendable {
             self.rawSizeBytes = bytes
             self.sizeText = ByteCountFormatterFlyweight.shared.string(fromByteCount: bytes)
             
-            let rawKind = ArchiveCompressionFormat.kindDescription(forExtension: ext, isArchive: isArch, path: url.path)
-            self.kindText = factory.internPath(rawKind)
+            let rawKind = ArchiveCompressionFormat.kindDescription(forExtension: rawExt, isArchive: isArch, path: url.path)
+            self.kindText = rawKind
         } else {
             self.rawSizeBytes = 0
             let folderText = "Folder"
-            self.sizeText = factory.internPath(folderText)
-            self.kindText = factory.internPath(folderText)
+            self.sizeText = folderText
+            self.kindText = folderText
         }
     }
     
@@ -70,15 +68,14 @@ public struct DiskItemInfo: Identifiable, Hashable, Equatable, Sendable {
         kindText: String,
         modificationDate: Date? = nil
     ) {
-        let factory = ArchiveEntryFlyweightFactory.shared
-        self.path = factory.internPath(virtualURL.absoluteString)
-        self.name = factory.internPath(virtualName)
+        self.path = virtualURL.absoluteString
+        self.name = virtualName
         self.isDirectory = isDirectory
         self.isArchive = isArchive
-        self.sizeText = factory.internPath(sizeText)
+        self.sizeText = sizeText
         self.rawSizeBytes = rawSizeBytes
         self.creationDate = nil
         self.modificationDate = modificationDate
-        self.kindText = factory.internPath(kindText)
+        self.kindText = kindText
     }
 }

@@ -172,7 +172,21 @@ extension SettingsView {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(l10n.t(L10n.Settings.macAppStoreLicenseActive))
                         .font(TTZipTheme.Typography.bodyMedium)
-                    Text(l10n.t(L10n.Settings.licenseStatusActive))
+                    Text("Pro Lifetime License · Apple Sandbox Protection Active")
+                        .font(TTZipTheme.Typography.caption)
+                        .foregroundStyle(.secondary)
+                }
+                Spacer()
+                Image(systemName: "checkmark.seal.fill")
+                    .font(.title2)
+                    .foregroundStyle(TTZipTheme.bambooGreen)
+            }
+            #elseif STEAM_BUILD
+            HStack {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Steam Store Edition")
+                        .font(TTZipTheme.Typography.bodyMedium)
+                    Text("Pro Lifetime License · Steam Verified & DRM-Free")
                         .font(TTZipTheme.Typography.caption)
                         .foregroundStyle(.secondary)
                 }
@@ -182,16 +196,60 @@ extension SettingsView {
                     .foregroundStyle(TTZipTheme.bambooGreen)
             }
             #else
-            if !isPro {
+            let state = Ed25519LicenseManager.shared.currentState
+            switch state {
+            case .directPro(let payload):
+                HStack {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(l10n.t(L10n.Settings.licenseStatusActive))
+                            .font(TTZipTheme.Typography.bodyMedium)
+                        Text("Registered to \(payload.email) · Order \(payload.order_id)")
+                            .font(TTZipTheme.Typography.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                    Button(l10n.t(L10n.Settings.deactivateButton)) {
+                        Ed25519LicenseManager.shared.deactivate()
+                        isPro = false
+                        activationStatus = "Deactivated. Reverted to Community Edition."
+                    }
+                    .buttonStyle(.plain)
+                    .font(TTZipTheme.Typography.caption)
+                    .padding(.horizontal, TTZipTheme.Spacing.sm)
+                    .padding(.vertical, TTZipTheme.Spacing.xxs)
+                    .background(Color.primary.opacity(0.05))
+                    .clipShape(Capsule())
+                }
+            default:
                 VStack(alignment: .leading, spacing: TTZipTheme.Spacing.xs) {
-                    Text(l10n.t(L10n.Settings.enterActivationKey))
-                        .font(TTZipTheme.Typography.subheadline)
+                    HStack {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Community Edition")
+                                .font(TTZipTheme.Typography.bodyMedium)
+                            Text("All core archiving and compression capabilities are 100% unrestricted.")
+                                .font(TTZipTheme.Typography.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                        Spacer()
+                        Text("Free & Open Source")
+                            .font(TTZipTheme.Typography.caption)
+                            .foregroundStyle(.secondary)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 3)
+                            .background(Color.primary.opacity(0.05))
+                            .clipShape(Capsule())
+                    }
+                    
+                    Text("Enter Ed25519 License Key (TTZIP1-...) to unlock Pro badge & priority support:")
+                        .font(TTZipTheme.Typography.caption)
                         .foregroundStyle(.secondary)
+                        .padding(.top, 4)
                     
                     HStack(spacing: TTZipTheme.Spacing.xs) {
-                        TTSecureTextField("AURA-PRO1-KEY8-2026", text: $licenseKeyInput)
+                        TextField("TTZIP1-<Payload>.<Signature>", text: $licenseKeyInput)
+                            .font(TTZipTheme.Typography.caption)
                             .padding(.horizontal, 8)
-                            .padding(.vertical, 4)
+                            .padding(.vertical, 6)
                             .background(Color.primary.opacity(0.04))
                             .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
                         
@@ -200,34 +258,12 @@ extension SettingsView {
                                 .font(TTZipTheme.Typography.callout)
                                 .foregroundStyle(Color.white)
                                 .padding(.horizontal, TTZipTheme.Spacing.sm)
-                                .padding(.vertical, TTZipTheme.Spacing.xs)
+                                .padding(.vertical, 6)
                         }
                         .buttonStyle(.plain)
                         .background(TTZipTheme.bambooGradient)
                         .clipShape(Capsule())
                     }
-                }
-            } else {
-                HStack {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(l10n.t(L10n.Settings.licenseStatusActive))
-                            .font(TTZipTheme.Typography.bodyMedium)
-                        Text(l10n.t(L10n.Sidebar.zeroCopyAcceleration))
-                            .font(TTZipTheme.Typography.caption)
-                            .foregroundStyle(.secondary)
-                    }
-                    Spacer()
-                    Button(l10n.t(L10n.Settings.deactivateButton)) {
-                        LicenseManager.shared.deactivate()
-                        isPro = false
-                        activationStatus = l10n.t(L10n.Settings.deactivateButton)
-                    }
-                    .buttonStyle(.plain)
-                    .font(TTZipTheme.Typography.caption)
-                    .padding(.horizontal, TTZipTheme.Spacing.sm)
-                    .padding(.vertical, TTZipTheme.Spacing.xxs)
-                    .background(Color.primary.opacity(0.05))
-                    .clipShape(Capsule())
                 }
             }
             

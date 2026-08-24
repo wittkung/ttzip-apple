@@ -254,29 +254,39 @@ final class CommandPatternTests: XCTestCase {
         try "Content".write(toFile: input, atomically: true, encoding: .utf8)
         let command = CompressCommand(inputs: [input], outputPath: zip)
         
-        XCTAssertFalse(manager.canUndo)
-        XCTAssertFalse(manager.canRedo)
+        let canUndoInitial = await manager.canUndo
+        let canRedoInitial = await manager.canRedo
+        XCTAssertFalse(canUndoInitial)
+        XCTAssertFalse(canRedoInitial)
         
         // Execute
         let execRes = try await manager.execute(command: command)
         XCTAssertTrue(execRes.success)
-        XCTAssertTrue(manager.canUndo)
-        XCTAssertFalse(manager.canRedo)
-        XCTAssertEqual(manager.undoStackCount, 1)
+        let canUndoAfterExec = await manager.canUndo
+        let canRedoAfterExec = await manager.canRedo
+        let undoCount1 = await manager.undoStackCount
+        XCTAssertTrue(canUndoAfterExec)
+        XCTAssertFalse(canRedoAfterExec)
+        XCTAssertEqual(undoCount1, 1)
         
         // Undo
         let undoRes = try await manager.undo()
         XCTAssertNotNil(undoRes)
-        XCTAssertFalse(manager.canUndo)
-        XCTAssertTrue(manager.canRedo)
-        XCTAssertEqual(manager.redoStackCount, 1)
+        let canUndoAfterUndo = await manager.canUndo
+        let canRedoAfterUndo = await manager.canRedo
+        let redoCount1 = await manager.redoStackCount
+        XCTAssertFalse(canUndoAfterUndo)
+        XCTAssertTrue(canRedoAfterUndo)
+        XCTAssertEqual(redoCount1, 1)
         XCTAssertFalse(FileManager.default.fileExists(atPath: zip))
         
         // Redo
         let redoRes = try await manager.redo()
         XCTAssertNotNil(redoRes)
-        XCTAssertTrue(manager.canUndo)
-        XCTAssertFalse(manager.canRedo)
+        let canUndoAfterRedo = await manager.canUndo
+        let canRedoAfterRedo = await manager.canRedo
+        XCTAssertTrue(canUndoAfterRedo)
+        XCTAssertFalse(canRedoAfterRedo)
         XCTAssertTrue(FileManager.default.fileExists(atPath: zip))
     }
     
@@ -292,7 +302,8 @@ final class CommandPatternTests: XCTestCase {
         }
         
         // 3
-        XCTAssertEqual(manager.undoStackCount, 3)
+        let lruCount = await manager.undoStackCount
+        XCTAssertEqual(lruCount, 3)
     }
     
     func testCommandHistoryManagerHighConcurrencyThreadSafety() async throws {
@@ -304,9 +315,9 @@ final class CommandPatternTests: XCTestCase {
                 group.addTask {
                     let cmd = MockFailingCommand(shouldFailOnExecute: false)
                     _ = try? await manager.execute(command: cmd)
-                    _ = manager.canUndo
-                    _ = manager.canRedo
-                    _ = manager.undoHistoryDescriptions
+                    _ = await manager.canUndo
+                    _ = await manager.canRedo
+                    _ = await manager.undoHistoryDescriptions
                     if i % 2 == 0 {
                         _ = try? await manager.undo()
                     } else {
@@ -317,7 +328,8 @@ final class CommandPatternTests: XCTestCase {
         }
         
         // ，
-        XCTAssertTrue(manager.undoStackCount + manager.redoStackCount <= 100)
+        let totalCount = await manager.undoStackCount + manager.redoStackCount
+        XCTAssertTrue(totalCount <= 100)
     }
     
     // MARK: - 6. Facade Batch Transactional
@@ -330,7 +342,8 @@ final class CommandPatternTests: XCTestCase {
         
         let result = try await facade.compressWithCommand(inputs: [input], outputPath: outZip)
         XCTAssertTrue(result.success)
-        XCTAssertTrue(facade.canUndoCommand)
+        let canUndo = await facade.canUndoCommand
+        XCTAssertTrue(canUndo)
         
         let undoRes = try await facade.undoLastCommand()
         XCTAssertNotNil(undoRes)
@@ -368,19 +381,26 @@ final class CommandPatternTests: XCTestCase {
         
         let command = CompressCommand(inputs: [input], outputPath: outZip)
         
-        XCTAssertFalse(history.canUndo)
-        XCTAssertFalse(history.canRedo)
+        let canUndoInit = await history.canUndo
+        let canRedoInit = await history.canRedo
+        XCTAssertFalse(canUndoInit)
+        XCTAssertFalse(canRedoInit)
         
         let res = try await history.execute(command: command)
         XCTAssertTrue(res.success)
-        XCTAssertTrue(history.canUndo)
-        XCTAssertFalse(history.canRedo)
-        XCTAssertEqual(history.undoHistoryDescriptions.last, command.description)
+        let canUndoAfter = await history.canUndo
+        let canRedoAfter = await history.canRedo
+        let lastDesc = await history.undoHistoryDescriptions.last
+        XCTAssertTrue(canUndoAfter)
+        XCTAssertFalse(canRedoAfter)
+        XCTAssertEqual(lastDesc, command.description)
         
         let undoRes = try await history.undo()
         XCTAssertNotNil(undoRes)
-        XCTAssertFalse(history.canUndo)
-        XCTAssertTrue(history.canRedo)
+        let canUndoUndone = await history.canUndo
+        let canRedoUndone = await history.canRedo
+        XCTAssertFalse(canUndoUndone)
+        XCTAssertTrue(canRedoUndone)
         XCTAssertFalse(FileManager.default.fileExists(atPath: outZip))
     }
     
@@ -518,7 +538,7 @@ final class CommandPatternTests: XCTestCase {
         XCTAssertFalse(fm.fileExists(atPath: backupFiles[1]))
         
         // clearHistory()
-        history.clearHistory()
+        await history.clearHistory()
         
         // .bak 100%
         XCTAssertFalse(fm.fileExists(atPath: backupFiles[2]))
@@ -536,15 +556,18 @@ final class CommandPatternTests: XCTestCase {
         
         // Undo -> redoStackCount == 1
         _ = try await history.undo()
-        XCTAssertTrue(history.canRedo)
+        let canRedoAfterUndo = await history.canRedo
+        XCTAssertTrue(canRedoAfterUndo)
         
         // Mock non-undoable
         let nonUndoableCmd = MockFailingCommand(shouldFailOnExecute: false)
         _ = try await history.execute(command: nonUndoableCmd)
         
         // redoStack 100% （ ）
-        XCTAssertFalse(history.canRedo)
-        XCTAssertEqual(history.redoStackCount, 0)
+        let canRedoAfterNonUndoable = await history.canRedo
+        let redoStackCount = await history.redoStackCount
+        XCTAssertFalse(canRedoAfterNonUndoable)
+        XCTAssertEqual(redoStackCount, 0)
     }
     
     // MARK: - 9. Round 3 Tertiary Audit Tests
@@ -598,7 +621,7 @@ final class CommandPatternTests: XCTestCase {
         }
         
         // Verify expected invariant
-        history.clearHistory()
+        await history.clearHistory()
         
         // temporary sweepDir ， 100% 0 .bak_<UUID>
         var leftoverBakCount = 0
@@ -630,22 +653,24 @@ final class CommandPatternTests: XCTestCase {
                     } else if i % 4 == 2 {
                         _ = try? await history.redo()
                     } else {
-                        history.clearHistory()
+                        await history.clearHistory()
                     }
                     
-                    _ = history.canUndo
-                    _ = history.canRedo
-                    _ = history.undoStackCount
-                    _ = history.redoStackCount
-                    _ = history.undoHistoryDescriptions
-                    _ = history.redoHistoryDescriptions
+                    _ = await history.canUndo
+                    _ = await history.canRedo
+                    _ = await history.undoStackCount
+                    _ = await history.redoStackCount
+                    _ = await history.undoHistoryDescriptions
+                    _ = await history.redoHistoryDescriptions
                 }
             }
         }
         
         // 100 ， ， LRU
-        XCTAssertTrue(history.undoStackCount <= 50)
-        XCTAssertTrue(history.redoStackCount <= 50)
+        let finalUndoCount = await history.undoStackCount
+        let finalRedoCount = await history.redoStackCount
+        XCTAssertTrue(finalUndoCount <= 50)
+        XCTAssertTrue(finalRedoCount <= 50)
     }
     
     /// 3. AppViewState UI macOS Undo/Redo
