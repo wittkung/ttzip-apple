@@ -10,6 +10,11 @@ import Observation
 import TTZipCore
 
 extension CompressIntegratedConfigSectionView {
+    var shouldShowFormatSpecificSection: Bool {
+        guard session.compressionLevel != .store else { return false }
+        return session.selectedFormat == .sevenZip || session.selectedFormat == .zst || session.selectedFormat == .tarZst
+    }
+    
     @ViewBuilder
     var formatSpecificAdvancedSection: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -28,53 +33,52 @@ extension CompressIntegratedConfigSectionView {
             case .sevenZip:
                 VStack(alignment: .leading, spacing: 8) {
                     HStack(spacing: 12) {
-                        Text("Algorithm").font(.system(size: 11, weight: .medium)).foregroundStyle(.secondary).frame(width: 75, alignment: .trailing)
+                        Text(l10n.t(L10n.Compress.algorithm)).font(.system(size: 11, weight: .medium)).foregroundStyle(.secondary).frame(width: 75, alignment: .trailing)
                         Picker("", selection: $session.compressionAlgorithm) {
-                            Text("LZMA2 (Default)").tag("LZMA2")
-                            Text("LZMA (Legacy)").tag("LZMA")
-                            Text("PPMd (Text/Code)").tag("PPMd")
-                            Text("BZip2 (Parallel)").tag("BZip2")
-                            Text("Copy (Store)").tag("Copy")
+                            Text("LZMA2").tag("LZMA2")
+                            Text("LZMA").tag("LZMA")
+                            Text("PPMd").tag("PPMd")
+                            Text("BZip2").tag("BZip2")
                         }.pickerStyle(.menu).controlSize(.small)
+                        
+                        Spacer()
                     }
+                    
                     HStack(spacing: 12) {
                         L10nText(L10n.Compress.dictionarySize)
                             .font(.system(size: 11, weight: .medium)).foregroundStyle(.secondary).frame(width: 75, alignment: .trailing)
-                        Picker("", selection: $session.dictionarySizeMB) {
-                            Text("16 MB").tag(16); Text("32 MB").tag(32); Text("64 MB").tag(64); Text("128 MB").tag(128); Text("256 MB").tag(256)
-                        }.pickerStyle(.segmented).tint(TTZipTheme.bambooGreen)
+                        
+                        Picker("", selection: $session.customDictionarySizeMB) {
+                            Text(l10n.format(L10n.Compress.dictAutoFormat, session.effectiveDictionarySizeMB)).tag(nil as Int?)
+                            Text(l10n.t(L10n.Compress.dictSpeedUnit)).tag(Optional(16))
+                            Text("32 MB").tag(Optional(32))
+                            Text(l10n.t(L10n.Compress.dictStandardUnit)).tag(Optional(64))
+                            Text("128 MB").tag(Optional(128))
+                            Text("256 MB").tag(Optional(256))
+                            Text(l10n.t(L10n.Compress.dictLargeMemoryUnit)).tag(Optional(512))
+                            Text(l10n.t(L10n.Compress.dictUltraUnit)).tag(Optional(1024))
+                            Text(l10n.t(L10n.Compress.dictPhysicalLimitUnit)).tag(Optional(1536))
+                        }
+                        .pickerStyle(.menu).controlSize(.small)
+                        
+                        Spacer()
                     }
-                    HStack(spacing: 16) {
-                        Toggle(l10n.t(L10n.Compress.solidArchive), isOn: $session.enableSolidArchive).tint(TTZipTheme.bambooGreen)
-                        Toggle(l10n.t(L10n.Compress.encryptFileNames), isOn: $session.encryptFileNames).disabled(!session.enableEncryption).tint(TTZipTheme.bambooGreen)
-                    }.font(.system(size: 11))
-                }
-            case .zip:
-                VStack(alignment: .leading, spacing: 8) {
-                    HStack(spacing: 12) {
-                        L10nText(L10n.Compress.encryption)
-                            .font(.system(size: 11, weight: .medium)).foregroundStyle(.secondary).frame(width: 75, alignment: .trailing)
-                        Picker("", selection: $session.zipEncryptionMethod) {
-                            Text("AES-256").tag("AES-256")
-                            Text("ZipCrypto").tag("ZipCrypto")
-                        }.pickerStyle(.segmented).tint(TTZipTheme.bambooGreen)
-                    }
-                    Toggle("UTF-8", isOn: $session.zipEncodingUTF8).font(.system(size: 11)).tint(TTZipTheme.bambooGreen)
+                    
+                    Toggle(l10n.t(L10n.Compress.solidArchiveDesc), isOn: $session.enableSolidArchive)
+                        .font(.system(size: 11)).tint(TTZipTheme.bambooGreen)
                 }
             case .zst, .tarZst:
                 VStack(alignment: .leading, spacing: 8) {
                     HStack(spacing: 12) {
-                        Text("ZSTD Level").font(.system(size: 11, weight: .medium)).foregroundStyle(.secondary).frame(width: 75, alignment: .trailing)
+                        Text(l10n.t(L10n.Compress.zstdLevel)).font(.system(size: 11, weight: .medium)).foregroundStyle(.secondary).frame(width: 75, alignment: .trailing)
                         Picker("", selection: $session.zstdLevel) {
                             Text("1").tag(1); Text("3").tag(3); Text("9").tag(9); Text("19").tag(19)
                         }.pickerStyle(.segmented).tint(TTZipTheme.bambooGreen)
                     }
-                    Toggle("Long Distance Matching (LDM)", isOn: $session.zstdEnableLDM).font(.system(size: 11)).tint(TTZipTheme.bambooGreen)
+                    Toggle(l10n.t(L10n.Compress.zstdLdm), isOn: $session.zstdEnableLDM).font(.system(size: 11)).tint(TTZipTheme.bambooGreen)
                 }
             default:
-                VStack(alignment: .leading, spacing: 8) {
-                    Toggle("POSIX Permissions (chmod/chown)", isOn: $session.preservePosixAttributes).font(.system(size: 11)).tint(TTZipTheme.bambooGreen)
-                }
+                EmptyView()
             }
         }
         .padding(10).background(TTZipTheme.bambooGreen.opacity(0.04)).clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
@@ -82,7 +86,14 @@ extension CompressIntegratedConfigSectionView {
     
     func formatTile(format: ArchiveCompressionFormat) -> some View {
         let isSel = session.selectedFormat == format
-        return Button(action: { session.selectedFormat = format }) {
+        return Button(action: {
+            withAnimation(.easeInOut(duration: 0.2)) {
+                session.selectedFormat = format
+                if !format.supportedLevels.contains(session.compressionLevel) {
+                    session.compressionLevel = format.supportedLevels.first ?? .store
+                }
+            }
+        }) {
             VStack(alignment: .center, spacing: 2) {
                 Text(format.displayName).font(.system(size: 10.5, weight: .bold))
                 Text(format.shortcutBadge).font(.system(size: 7.5, weight: .semibold)).foregroundStyle(isSel ? TTZipTheme.bambooGreen : Color.secondary.opacity(0.8))
@@ -141,7 +152,11 @@ extension CompressIntegratedConfigSectionView {
         }
         
         let isSel = session.compressionLevel == lvl
-        return Button(action: { session.compressionLevel = lvl }) {
+        return Button(action: {
+            withAnimation(.easeInOut(duration: 0.2)) {
+                session.compressionLevel = lvl
+            }
+        }) {
             Text(titleName).font(.system(size: 10.5, weight: isSel ? .bold : .regular))
                 .lineLimit(1)
                 .frame(maxWidth: .infinity)

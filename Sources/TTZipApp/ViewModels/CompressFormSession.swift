@@ -72,13 +72,42 @@ public final class CompressFormSession {
     
     // MARK: - 5. Format-Specific & Engine Parameters
     public var cpuThreadsOption: String = "All Cores"
-    public var dictionarySizeMB: Int = 32
+    public var customDictionarySizeMB: Int? = nil // nil means "Auto (Follows Level & RAM)"
     public var compressionAlgorithm: String = "LZMA2"
     public var zipEncodingUTF8: Bool = true
     public var zstdLevel: Int = 3
     public var zstdEnableLDM: Bool = false
     public var preservePosixAttributes: Bool = true
     public var enableSolidArchive: Bool = true
+    
+    /// Automatic optimal dictionary size calculation based on compression level and Apple Silicon unified memory.
+    public var effectiveDictionarySizeMB: Int {
+        if let custom = customDictionarySizeMB {
+            return custom
+        }
+        switch compressionLevel {
+        case .store:
+            return 0
+        case .fast5, .fast4, .fast3, .fast2, .fast1, .level1:
+            return 16
+        case .level2, .level3, .level4:
+            return 32
+        case .level5, .level6, .level7:
+            return 64
+        case .level8, .level9, .level10, .level11, .level12, .level13, .level14, .level15, .level16, .level17, .level18, .level19, .level20, .level21, .level22:
+            let ramBytes = ProcessInfo.processInfo.physicalMemory
+            let ramGB = Double(ramBytes) / 1024.0 / 1024.0 / 1024.0
+            if ramGB >= 64.0 {
+                return 1024 // 1 GB on 64GB+ Apple Silicon
+            } else if ramGB >= 32.0 {
+                return 512  // 512 MB on 32GB/36GB/48GB
+            } else if ramGB >= 16.0 {
+                return 256  // 256 MB on 16GB/18GB/24GB
+            } else {
+                return 128  // 128 MB on 8GB
+            }
+        }
+    }
     
     // MARK: - 6. Automation & Cleanup Policies
     public var createSeparateArchives: Bool = false
@@ -190,11 +219,13 @@ public final class CompressFormSession {
         activeCompressionTask = Task {
             defer { Task { @MainActor in self.isProcessing = false } }
             do {
+                let algo = (compressionLevel == .store) ? "Copy" : ((compressionAlgorithm == "Copy") ? "LZMA2" : compressionAlgorithm)
+                let dictMB = (compressionLevel == .store) ? 0 : effectiveDictionarySizeMB
                 let advOpts = ArchiveAdvancedOptions.builder()
-                    .withAlgorithm(compressionAlgorithm)
-                    .withDictionarySizeMB(dictionarySizeMB)
+                    .withAlgorithm(algo)
+                    .withDictionarySizeMB(dictMB)
                     .withCpuThreads(cachedTotalCores)
-                    .withSolidArchive(enableSolidArchive)
+                    .withSolidArchive(compressionLevel == .store ? false : enableSolidArchive)
                     .withEncryptFileNames(encryptFileNames)
                     .withZipEncryption(zipEncryptionMethod)
                     .withZipEncodingUTF8(zipEncodingUTF8)

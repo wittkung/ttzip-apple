@@ -66,10 +66,11 @@ public struct CompressIntegratedConfigSectionView: View {
                 compressionLevelSection(fmt: session.selectedFormat)
             }
             
-            Divider()
-            
-            // 2. Format specific parameters
-            formatSpecificAdvancedSection
+            // 2. Format specific parameters (Only for formats with active compression algorithms when not store)
+            if shouldShowFormatSpecificSection {
+                Divider()
+                formatSpecificAdvancedSection
+            }
             
             Divider()
             
@@ -109,17 +110,40 @@ public struct CompressIntegratedConfigSectionView: View {
                     }
                 }
                 
-                HStack(spacing: 12) {
+                HStack(alignment: .top, spacing: 12) {
                     L10nText(L10n.Compress.encryption)
-                        .font(.system(size: 11.5, weight: .medium)).foregroundStyle(.secondary).frame(width: 85, alignment: .trailing)
-                    HStack(spacing: 10) {
-                        Toggle(l10n.t(L10n.Compress.encryption), isOn: $session.enableEncryption).font(.system(size: 11, weight: .bold)).tint(TTZipTheme.bambooGreen)
+                        .font(.system(size: 11.5, weight: .medium)).foregroundStyle(.secondary).frame(width: 85, alignment: .trailing).padding(.top, 4)
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack(spacing: 10) {
+                            Toggle(l10n.t(L10n.Compress.encryption), isOn: $session.enableEncryption.animation(.easeInOut(duration: 0.2)))
+                                .font(.system(size: 11, weight: .bold)).tint(TTZipTheme.bambooGreen)
+                            if session.enableEncryption {
+                                TTSecureTextField(l10n.t(L10n.Vault.passwordPlaceholder), text: $session.password)
+                                    .font(.system(size: 11)).padding(.horizontal, 8).padding(.vertical, 4).background(Color.primary.opacity(0.035)).clipShape(RoundedRectangle(cornerRadius: 6))
+                                Button(action: { session.isPasswordVaultPresented = true }) {
+                                    HStack(spacing: 3) { Image(systemName: "key.fill"); Text(l10n.t(L10n.Sidebar.vault)) }
+                                        .font(.system(size: 10.5, weight: .semibold)).foregroundStyle(TTZipTheme.kintsugiGold).padding(.horizontal, 7).padding(.vertical, 3).background(TTZipTheme.kintsugiGold.opacity(0.12)).clipShape(Capsule())
+                                }.buttonStyle(.plain)
+                            }
+                        }
+                        
                         if session.enableEncryption {
-                            TTSecureTextField(l10n.t(L10n.Vault.passwordPlaceholder), text: $session.password).font(.system(size: 11)).padding(.horizontal, 8).padding(.vertical, 4).background(Color.primary.opacity(0.035)).clipShape(RoundedRectangle(cornerRadius: 6))
-                            Button(action: { session.isPasswordVaultPresented = true }) {
-                                HStack(spacing: 3) { Image(systemName: "key.fill"); Text(l10n.t(L10n.Sidebar.vault)) }
-                                    .font(.system(size: 10.5, weight: .semibold)).foregroundStyle(TTZipTheme.kintsugiGold).padding(.horizontal, 7).padding(.vertical, 3).background(TTZipTheme.kintsugiGold.opacity(0.12)).clipShape(Capsule())
-                            }.buttonStyle(.plain)
+                            HStack(spacing: 16) {
+                                if session.selectedFormat == .sevenZip {
+                                    Toggle(l10n.t(L10n.Compress.encryptFileNames7z), isOn: $session.encryptFileNames)
+                                        .font(.system(size: 11)).tint(TTZipTheme.bambooGreen)
+                                } else if session.selectedFormat == .zip {
+                                    HStack(spacing: 6) {
+                                        Text(l10n.t(L10n.Compress.zipMethod)).font(.system(size: 11)).foregroundStyle(.secondary)
+                                        Picker("", selection: $session.zipEncryptionMethod) {
+                                            Text(l10n.t(L10n.Compress.zipMethodAes)).tag("AES-256")
+                                            Text(l10n.t(L10n.Compress.zipMethodZipCrypto)).tag("ZipCrypto")
+                                        }
+                                        .pickerStyle(.segmented).controlSize(.small).tint(TTZipTheme.bambooGreen).frame(width: 220)
+                                    }
+                                }
+                            }
+                            .padding(.top, 2)
                         }
                     }
                 }
