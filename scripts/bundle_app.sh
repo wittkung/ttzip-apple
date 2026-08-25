@@ -113,27 +113,11 @@ else
         cp "${REPO_ROOT}/Sources/TTZipApp/PrivacyInfo.xcprivacy" "${RESOURCES_DIR}/PrivacyInfo.xcprivacy"
     fi
 
-    # Copy React 19 Frontend Web Assets
-    if [ -d "${REPO_ROOT}/../frontend" ] && [ -f "${REPO_ROOT}/../frontend/package.json" ]; then
-        echo "--> Building React 19 Frontend Web Assets..."
-        (cd "${REPO_ROOT}/../frontend" && npm run build)
-    fi
-
-    if [ -d "${REPO_ROOT}/Sources/TTZipApp/Resources/dist" ]; then
-        mkdir -p "${RESOURCES_DIR}/dist"
-        cp -R "${REPO_ROOT}/Sources/TTZipApp/Resources/dist/"* "${RESOURCES_DIR}/dist/"
-    fi
-
     # Copy all .lproj localization directories
     find "${REPO_ROOT}/Sources/TTZipApp/Resources" -name "*.lproj" -type d 2>/dev/null | while read -r lproj_dir; do
         lproj_name="$(basename "${lproj_dir}")"
         mkdir -p "${RESOURCES_DIR}/${lproj_name}"
         cp -R "${lproj_dir}/"* "${RESOURCES_DIR}/${lproj_name}/"
-    done
-
-    # Copy SPM Resource bundles if present
-    find "${REPO_ROOT}/.build" -name "*.bundle" -type d 2>/dev/null | while read -r bundle_dir; do
-        cp -R "${bundle_dir}" "${RESOURCES_DIR}/" 2>/dev/null || true
     done
 
     # Copy PkgInfo

@@ -89,8 +89,8 @@ struct TTZipApp: App {
     
     var body: some Scene {
         WindowGroup {
-            MainHostView()
-                .frame(minWidth: 800, minHeight: 520)
+            MainView()
+                .frame(minWidth: 460, minHeight: 380)
                 .background(Color.clear)
                 .onOpenURL { url in
                     handleIncomingURL(url)
