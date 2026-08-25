@@ -67,15 +67,6 @@ echo "======================================================================"
 
 cd "${REPO_ROOT}"
 
-# Check and build React 19 Frontend Web Assets
-FRONTEND_DIR="${REPO_ROOT}/../frontend"
-if [ -d "${FRONTEND_DIR}" ] && [ -f "${FRONTEND_DIR}/package.json" ]; then
-    if [ ! -d "${REPO_ROOT}/Sources/TTZipApp/Resources/dist" ] || [ ! -f "${REPO_ROOT}/Sources/TTZipApp/Resources/dist/index.html" ]; then
-        echo "--> [Frontend] Building React 19 web assets via Vite..."
-        (cd "${FRONTEND_DIR}" && npm run build)
-    fi
-fi
-
 echo "--> [1/4] Compiling TTZipApp via Swift Package Manager in ${BUILD_CONFIG} mode..."
 swift build -c "${BUILD_CONFIG}" --product TTZipApp -Xlinker -rpath -Xlinker @executable_path/../Frameworks "${SWIFT_FLAGS[@]}"
 
@@ -93,14 +84,10 @@ if [ ! -f "${BIN_PATH}" ]; then
 fi
 
 if [ "${FAST_MODE}" = true ] && [ -d "${APP_DIR}" ]; then
-    echo "--> [Fast Mode] In-place updating TTZip binary & web assets..."
+    echo "--> [Fast Mode] In-place updating TTZip binary..."
     cp -f "${BIN_PATH}" "${MACOS_DIR}/TTZip"
     install_name_tool -add_rpath @executable_path/../Frameworks "${MACOS_DIR}/TTZip" 2>/dev/null || true
     chmod +x "${MACOS_DIR}/TTZip"
-    if [ -d "${REPO_ROOT}/Sources/TTZipApp/Resources/dist" ]; then
-        mkdir -p "${RESOURCES_DIR}/dist"
-        cp -R "${REPO_ROOT}/Sources/TTZipApp/Resources/dist/"* "${RESOURCES_DIR}/dist/"
-    fi
     codesign --force --sign "${SIGN_IDENTITY}" "${MACOS_DIR}/TTZip" 2>/dev/null || true
     codesign --force --sign "${SIGN_IDENTITY}" "${APP_DIR}" 2>/dev/null || true
 else
@@ -131,24 +118,6 @@ else
         lproj_name="$(basename "${lproj_dir}")"
         mkdir -p "${RESOURCES_DIR}/${lproj_name}"
         cp -R "${lproj_dir}/"* "${RESOURCES_DIR}/${lproj_name}/"
-    done
-
-    # Copy React 19 Frontend Web Assets (dist)
-    if [ -d "${REPO_ROOT}/Sources/TTZipApp/Resources/dist" ]; then
-        echo "--> Copying React 19 web assets to .app bundle..."
-        mkdir -p "${RESOURCES_DIR}/dist"
-        cp -R "${REPO_ROOT}/Sources/TTZipApp/Resources/dist/"* "${RESOURCES_DIR}/dist/"
-    elif [ -d "${FRONTEND_DIR}/dist" ]; then
-        echo "--> Copying frontend/dist to .app bundle..."
-        mkdir -p "${RESOURCES_DIR}/dist"
-        cp -R "${FRONTEND_DIR}/dist/"* "${RESOURCES_DIR}/dist/"
-    fi
-
-    # Copy SPM resources bundle if generated
-    find "${REPO_ROOT}/.build" -name "TTZipApp_TTZipApp.bundle" -type d 2>/dev/null | grep -E "${BUILD_CONFIG}" | while read -r bundle_path; do
-        if [ -d "${bundle_path}" ]; then
-            cp -R "${bundle_path}" "${RESOURCES_DIR}/"
-        fi
     done
 
     # Copy PkgInfo
