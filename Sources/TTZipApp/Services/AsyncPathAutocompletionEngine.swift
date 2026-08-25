@@ -52,51 +52,92 @@ public final class AsyncPathAutocompletionEngine: ObservableObject {
         let (parentDir, prefix) = POSIXPathSanitizer.extractParentAndPrefix(rawInput: trimmed, baseDirectory: baseDirectory)
         self.isLoading = true
         
+        let localCache = self.cache
         let maxCount = Self.maxSuggestionsCount
         
         activeTask = Task.detached(priority: .userInitiated) { [weak self] in
             guard !Task.isCancelled else { return }
             
-            let matchedPaths = autocompleteDiskPath(
-                rawInput: trimmed,
-                baseDirectory: baseDirectory.path,
-                maxResults: UInt32(maxCount)
-            )
+            let items: [DiskItemInfo]
+            if let cached = localCache.get(parentDir) {
+                items = cached
+            } else {
+                let parentURL = URL(fileURLWithPath: parentDir)
+                var isDir: ObjCBool = false
+                guard FileManager.default.fileExists(atPath: parentDir, isDirectory: &isDir), isDir.boolValue else {
+                    await self?.finishQuery(suggestions: [], isLoading: false)
+                    return
+                }
+                
+                guard let contents = try? FileManager.default.contentsOfDirectory(
+                    at: parentURL,
+                    includingPropertiesForKeys: [.isDirectoryKey, .nameKey, .fileSizeKey, .contentModificationDateKey],
+                    options: [.skipsPackageDescendants]
+                ) else {
+                    await self?.finishQuery(suggestions: [], isLoading: false)
+                    return
+                }
+                
+                guard !Task.isCancelled else { return }
+                
+                let scanned = contents.map { DiskItemInfo(url: $0) }
+                localCache.set(parentDir, value: scanned)
+                items = scanned
+            }
             
             guard !Task.isCancelled else { return }
             
-            let mapped = matchedPaths.map { itemPath -> PathSuggestionItem in
-                let url = URL(fileURLWithPath: itemPath)
-                let name = url.lastPathComponent
-                var isDir: ObjCBool = false
-                FileManager.default.fileExists(atPath: itemPath, isDirectory: &isDir)
-                let isDirectory = isDir.boolValue
-                let ext = url.pathExtension.lowercased()
-                let isArchive = ArchiveCompressionFormat(rawValue: ext) != nil
-                
+            let isDotQuery = prefix.hasPrefix(".")
+            let lowerPrefix = prefix.lowercased()
+            
+            let filtered = items.filter { item in
+                if !isDotQuery && item.name.hasPrefix(".") {
+                    return false
+                }
+                if prefix.isEmpty {
+                    return true
+                }
+                return item.name.lowercased().hasPrefix(lowerPrefix)
+            }
+            
+            guard !Task.isCancelled else { return }
+            
+            // Directories first (rank 0), archives second (rank 1), files third (rank 2)
+            let sorted = filtered.sorted { a, b in
+                let rankA = a.isDirectory ? 0 : (a.isArchive ? 1 : 2)
+                let rankB = b.isDirectory ? 0 : (b.isArchive ? 1 : 2)
+                if rankA != rankB {
+                    return rankA < rankB
+                }
+                return a.name.localizedStandardCompare(b.name) == .orderedAscending
+            }
+            
+            let limited = Array(sorted.prefix(maxCount))
+            
+            let mapped = limited.map { item -> PathSuggestionItem in
                 let iconName: String
-                if isDirectory {
+                if item.isDirectory {
                     iconName = "folder.fill"
-                } else if isArchive {
+                } else if item.isArchive {
                     iconName = "archivebox.fill"
                 } else {
                     iconName = "doc.fill"
                 }
                 
                 let highlightRange: [Int]
-                if !prefix.isEmpty && name.lowercased().hasPrefix(prefix.lowercased()) {
+                if !prefix.isEmpty && item.name.lowercased().hasPrefix(lowerPrefix) {
                     highlightRange = [0, prefix.count]
                 } else {
                     highlightRange = [0, 0]
                 }
                 
                 return PathSuggestionItem(
-                    id: itemPath,
-                    path: itemPath,
-                    displayName: name,
+                    id: item.path,
+                    path: item.path,
+                    displayName: item.name,
                     parentPath: parentDir,
-                    isDirectory: isDirectory,
-                    isArchive: isArchive,
+                    isDirectory: item.isDirectory,
+                    isArchive: item.isArchive,
                     systemIconName: iconName,
                     matchHighlightRange: highlightRange
                 )
