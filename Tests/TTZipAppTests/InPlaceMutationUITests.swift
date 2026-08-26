@@ -1,0 +1,167 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+//
+// Copyright (c) 2026 Witt Kung <witt.w.kung@gmail.com>
+// All rights reserved.
+//
+// TTZip: High-performance native archiving and compression engine.
+
+import XCTest
+import SwiftUI
+@testable import TTZipApp
+@testable import TTZipCore
+
+final class InPlaceMutationUITests: XCTestCase {
+    
+    private var tempDir: URL!
+    
+    override func setUpWithError() throws {
+        try super.setUpWithError()
+        tempDir = FileManager.default.temporaryDirectory.appendingPathComponent("TTZip_InPlaceTest_\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: tempDir, withIntermediateDirectories: true)
+    }
+    
+    override func tearDownWithError() throws {
+        if let dir = tempDir {
+            try? FileManager.default.removeItem(at: dir)
+        }
+        try super.tearDownWithError()
+    }
+    
+    // MARK: - 1. Virtual Subpath URL Parsing Tests
+    
+    func testVirtualURLParsing() {
+        let plainPath = "/Users/test/Documents/archive.zip"
+        let (plainArchive, plainSub) = MillerColumnItemRowView.parseVirtualURL(plainPath)
+        XCTAssertEqual(plainArchive, plainPath)
+        XCTAssertEqual(plainSub, "")
+        
+        let virtualPath = "file:///Users/test/Documents/archive.zip?subpath=folder/doc.txt"
+        let (virtArchive, virtSub) = MillerColumnItemRowView.parseVirtualURL(virtualPath)
+        XCTAssertEqual(virtArchive, "/Users/test/Documents/archive.zip")
+        XCTAssertEqual(virtSub, "folder/doc.txt")
+        
+        let encodedVirtualPath = "file:///Users/test/Documents/my%20archive.zip?subpath=nested%20folder/file.pdf"
+        let (encArchive, encSub) = MillerColumnItemRowView.parseVirtualURL(encodedVirtualPath)
+        XCTAssertEqual(encArchive, "/Users/test/Documents/my archive.zip")
+        XCTAssertEqual(encSub, "nested folder/file.pdf")
+    }
+    
+    // MARK: - 2. InPlaceMutationCoordinator Cache Invalidation Tests
+    
+    @MainActor
+    func testCoordinatorInvalidationAndNotificationBroadcast() async throws {
+        let fakeArchivePath = tempDir.appendingPathComponent("test_cache.zip").path
+        let sampleData = Data("zip archive dummy header".utf8)
+        try sampleData.write(to: URL(fileURLWithPath: fakeArchivePath))
+        
+        // Populate VFS LZ4 cache
+        VFSLz4CachePool.shared.cacheEntry(archivePath: fakeArchivePath, entryPath: "item1.txt", data: Data("item1".utf8))
+        XCTAssertNotNil(VFSLz4CachePool.shared.getCachedEntry(archivePath: fakeArchivePath, entryPath: "item1.txt"))
+        
+        var notificationReceived = false
+        let observer = NotificationCenter.default.addObserver(
+            forName: NSNotification.Name("TTZipArchiveUnlockedRefresh"),
+            object: nil,
+            queue: .main
+        ) { note in
+            if let obj = note.object as? String, obj == fakeArchivePath {
+                notificationReceived = true
+            }
+        }
+        defer { NotificationCenter.default.removeObserver(observer) }
+        
+        await InPlaceMutationCoordinator.shared.invalidateAndRefresh(archivePath: fakeArchivePath)
+        
+        XCTAssertTrue(notificationReceived)
+        XCTAssertNil(VFSLz4CachePool.shared.getCachedEntry(archivePath: fakeArchivePath, entryPath: "item1.txt"))
+    }
+    
+    // MARK: - 3. End-to-End In-Place Mutation Workflow
+    
+    @MainActor
+    func testInPlaceAppendReplaceAndDeletePipeline() async throws {
+        let archiveURL = tempDir.appendingPathComponent("test_mutation.zip")
+        let source1 = tempDir.appendingPathComponent("file1.txt")
+        let source2 = tempDir.appendingPathComponent("file2.txt")
+        let replacement = tempDir.appendingPathComponent("file1_new.txt")
+        
+        try Data("Original Content 1".utf8).write(to: source1)
+        try Data("Original Content 2".utf8).write(to: source2)
+        try Data("Replaced Content 1 New".utf8).write(to: replacement)
+        
+        // Create initial ZIP archive with source1 and source2
+        let comp = ArchivePipelineCompositor()
+        try await comp.compress(
+            sourcePaths: [source1.path, source2.path],
+            destinationArchivePath: archiveURL.path,
+            options: CompressOptions(format: .zip)
+        )
+        XCTAssertTrue(FileManager.default.fileExists(atPath: archiveURL.path))
+        
+        // 1. In-place replace entry "file1.txt" with replacement
+        try await InPlaceMutationCoordinator.shared.replaceEntry(
+            archivePath: archiveURL.path,
+            entryPath: "file1.txt",
+            sourceFilePath: replacement.path
+        )
+        
+        let reader = ArchiveReader()
+        var entries = try await reader.inspect(archivePath: archiveURL.path)
+        XCTAssertTrue(entries.contains(where: { $0.name == "file1.txt" }))
+        
+        // 2. In-place append a new file into virtual subfolder
+        let source3 = tempDir.appendingPathComponent("nested.txt")
+        try Data("Nested File Content".utf8).write(to: source3)
+        try await InPlaceMutationCoordinator.shared.appendFiles(
+            archivePath: archiveURL.path,
+            sourceFilePaths: [source3.path],
+            destinationVirtualFolder: "subfolder"
+        )
+        
+        entries = try await reader.inspect(archivePath: archiveURL.path)
+        XCTAssertTrue(entries.contains(where: { $0.path.contains("subfolder") && $0.name == "nested.txt" }))
+        
+        // 3. In-place delete entry "file2.txt"
+        try await InPlaceMutationCoordinator.shared.deleteEntries(
+            archivePath: archiveURL.path,
+            entryPaths: ["file2.txt"]
+        )
+        
+        entries = try await reader.inspect(archivePath: archiveURL.path)
+        XCTAssertFalse(entries.contains(where: { $0.name == "file2.txt" }))
+        XCTAssertTrue(entries.contains(where: { $0.name == "file1.txt" }))
+    }
+    
+    // MARK: - 4. Outline View Ancestor Chain & Tree Traversal Tests
+    
+    func testOutlineViewAncestorChainResolution() {
+        let child2 = ArchiveTreeNode(name: "file.txt", path: "root/sub/file.txt", isDirectory: false, uncompressedSize: 100, detectedEncoding: "UTF-8")
+        let subDir = ArchiveTreeNode(name: "sub", path: "root/sub", isDirectory: true, children: [child2])
+        let rootDir = ArchiveTreeNode(name: "root", path: "root", isDirectory: true, children: [subDir])
+        
+        let chain = NativeArchiveOutlineView.findAncestorChain(for: "root/sub/file.txt", in: [rootDir])
+        XCTAssertNotNil(chain)
+        XCTAssertEqual(chain?.count, 3)
+        XCTAssertEqual(chain?[0].name, "root")
+        XCTAssertEqual(chain?[1].name, "sub")
+        XCTAssertEqual(chain?[2].name, "file.txt")
+    }
+    
+    // MARK: - 5. AppIntentDispatcher Mutation Intent Dispatch
+    
+    @MainActor
+    func testAppIntentDispatcherAddAndDeleteDispatch() {
+        let dispatcher = AppIntentDispatcher.shared
+        let addResult = dispatcher.dispatch(
+            .addFilesToArchive(archivePath: "/tmp/fake.zip", sourcePaths: ["/tmp/file.txt"], destinationSubfolder: nil),
+            from: .dropArea
+        )
+        XCTAssertEqual(addResult, .success)
+        
+        let deleteResult = dispatcher.dispatch(
+            .deleteArchiveEntries(archivePath: "/tmp/fake.zip", entryPaths: ["file.txt"]),
+            from: .contextMenu
+        )
+        XCTAssertEqual(deleteResult, .success)
+    }
+}

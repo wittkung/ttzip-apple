@@ -95,8 +95,15 @@ extension CompressIntegratedConfigSectionView {
             }
         }) {
             VStack(alignment: .center, spacing: 2) {
-                Text(format.displayName).font(.system(size: 10.5, weight: .bold))
-                Text(format.shortcutBadge).font(.system(size: 7.5, weight: .semibold)).foregroundStyle(isSel ? TTZipTheme.bambooGreen : Color.secondary.opacity(0.8))
+                HStack(spacing: 3) {
+                    Image(systemName: format.iconName)
+                        .font(.system(size: 9))
+                    Text(format.displayName)
+                        .font(.system(size: 10, weight: .bold))
+                }
+                Text(format.shortcutBadge)
+                    .font(.system(size: 7.5, weight: .semibold))
+                    .foregroundStyle(isSel ? TTZipTheme.bambooGreen : Color.secondary.opacity(0.8))
             }
             .frame(maxWidth: .infinity)
             .padding(.horizontal, 4).padding(.vertical, 5)
@@ -104,6 +111,7 @@ extension CompressIntegratedConfigSectionView {
             .foregroundStyle(isSel ? TTZipTheme.bambooGreen : Color.primary)
             .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
             .overlay(RoundedRectangle(cornerRadius: 6, style: .continuous).strokeBorder(isSel ? TTZipTheme.bambooGreen.opacity(0.5) : Color.clear, lineWidth: 1))
+            .help("\(format.displayName) (\(format.fileExtension)): \(format.formatDescription)")
         }.buttonStyle(.plain)
     }
     

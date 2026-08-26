@@ -117,15 +117,60 @@ extension ArchiveExplorerView {
         }
     }
     
+    func replaceSelectedEntry(_ entry: ArchiveEntry) {
+        let panel = NSOpenPanel()
+        panel.canChooseDirectories = false
+        panel.canChooseFiles = true
+        panel.allowsMultipleSelection = false
+        panel.prompt = "Replace"
+        if panel.runModal() == .OK, let chosenURL = panel.url {
+            isMutatingArchive = true
+            syncStatusMessage = "Replacing '\(entry.name)'..."
+            Task {
+                do {
+                    try await InPlaceMutationCoordinator.shared.replaceEntry(
+                        archivePath: archivePath,
+                        entryPath: entry.path,
+                        sourceFilePath: chosenURL.path,
+                        password: password
+                    )
+                    await MainActor.run {
+                        self.isMutatingArchive = false
+                        self.syncStatusMessage = "Replaced '\(entry.name)'"
+                        self.reloadArchiveEntries()
+                    }
+                } catch {
+                    await MainActor.run {
+                        self.isMutatingArchive = false
+                        self.syncStatusMessage = "Failed to replace: \(error.localizedDescription)"
+                    }
+                }
+            }
+        }
+    }
+    
+    func extractSelectedEntry(_ entry: ArchiveEntry) {
+        let destDir = (archivePath as NSString).deletingLastPathComponent
+        Task {
+            try? await TTZipEngineFacade.shared.extractSingleEntry(
+                archivePath: archivePath,
+                entryPath: entry.path,
+                destinationDir: destDir,
+                password: password
+            )
+            NSWorkspace.shared.selectFile((destDir as NSString).appendingPathComponent(entry.name), inFileViewerRootedAtPath: "")
+        }
+    }
+    
     func deleteSelectedEntry(_ entry: ArchiveEntry) {
         isMutatingArchive = true
         syncStatusMessage = "Deleting '\(entry.name)' from archive..."
         
         Task {
             do {
-                try await InPlaceArchiveMutationEngine.shared.deleteEntriesFromArchive(
+                try await InPlaceMutationCoordinator.shared.deleteEntries(
                     archivePath: archivePath,
-                    entryPathsToDelete: [entry.path],
+                    entryPaths: [entry.path],
                     password: password
                 )
                 await MainActor.run {
@@ -145,6 +190,7 @@ extension ArchiveExplorerView {
     
     func reloadArchiveEntries() {
         Task {
+            await InPlaceMutationCoordinator.shared.invalidateAndRefresh(archivePath: archivePath)
             let reader = ArchiveReader()
             if let newEntries = try? await reader.inspect(archivePath: archivePath, password: password) {
                 await MainActor.run {

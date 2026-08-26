@@ -23,11 +23,22 @@ public struct PresetFormatOptionTile: View {
         self._activeFormat = activeFormat
     }
     
+    public init(format: ArchiveCompressionFormat, activeFormat: Binding<ArchiveCompressionFormat>) {
+        self.format = format
+        self.name = format.displayName
+        self.ext = format.fileExtension
+        self.desc = format.formatDescription
+        self._activeFormat = activeFormat
+    }
+    
     public var body: some View {
         let isSelected = activeFormat == format
         Button(action: { activeFormat = format }) {
             VStack(alignment: .leading, spacing: 3) {
-                HStack {
+                HStack(spacing: 5) {
+                    Image(systemName: format.iconName)
+                        .font(.system(size: 10, weight: .bold))
+                        .foregroundStyle(isSelected ? TTZipTheme.bambooGreen : Color.secondary)
                     Text(name)
                         .font(.system(size: 11.5, weight: .bold))
                         .foregroundStyle(isSelected ? TTZipTheme.bambooGreen : Color.primary)
@@ -39,10 +50,11 @@ public struct PresetFormatOptionTile: View {
                 Text(desc)
                     .font(.system(size: 9.5))
                     .foregroundStyle(.secondary)
+                    .lineLimit(2)
             }
             .padding(.horizontal, 10)
             .padding(.vertical, 8)
-            .frame(maxWidth: .infinity)
+            .frame(maxWidth: .infinity, minHeight: 48, alignment: .leading)
             .background(isSelected ? TTZipTheme.bambooGreen.opacity(0.14) : Color.primary.opacity(0.025))
             .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
             .overlay(

@@ -218,7 +218,20 @@ public struct SingleMillerColumnView: View {
                         _ = provider.loadObject(ofClass: URL.self) { url, _ in
                             if let srcURL = url, srcURL.isFileURL {
                                 DispatchQueue.main.async {
-                                    FileDragDropHelper.performMove(sources: [srcURL], to: dirURL)
+                                    if dirURL.absoluteString.contains("?subpath=") {
+                                        let (archivePath, subpath) = MillerColumnItemRowView.parseVirtualURL(dirURL.absoluteString)
+                                        let pwd = ArchivePasswordStore.shared.getPassword(for: archivePath)
+                                        Task {
+                                            try? await InPlaceMutationCoordinator.shared.appendFiles(
+                                                archivePath: archivePath,
+                                                sourceFilePaths: [srcURL.path],
+                                                destinationVirtualFolder: subpath.isEmpty ? nil : subpath,
+                                                password: pwd
+                                            )
+                                        }
+                                    } else {
+                                        FileDragDropHelper.performMove(sources: [srcURL], to: dirURL)
+                                    }
                                 }
                             }
                         }

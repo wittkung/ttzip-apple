@@ -11,28 +11,43 @@ import TTZipCore
 
 extension InspectorColumnView {
     func itemIconName(for item: DiskItemInfo) -> String {
-        if item.isArchive { return "archivebox.fill" }
         let ext = (item.name as NSString).pathExtension.lowercased()
-        if ["jpg", "jpeg", "png", "gif", "webp", "heic"].contains(ext) { return "photo.fill" }
+        if let fmt = ArchiveCompressionFormat.from(extensionOrName: ext) {
+            return fmt.iconName
+        }
+        if item.isArchive { return "archivebox.fill" }
+        if ["jpg", "jpeg", "png", "gif", "webp", "heic", "svg", "bmp", "tiff"].contains(ext) { return "photo.fill" }
         if ["mp4", "mov", "m4v", "mkv", "avi", "webm"].contains(ext) { return "film.fill" }
-        if ["mp3", "wav", "flac", "m4a", "aac"].contains(ext) { return "music.note" }
+        if ["mp3", "wav", "flac", "m4a", "aac", "ogg"].contains(ext) { return "music.note" }
         if ext == "pdf" { return "doc.richtext.fill" }
-        if ["swift", "js", "ts", "py", "json", "html", "css", "cpp", "c", "h"].contains(ext) { return "code" }
+        if ["swift", "js", "ts", "py", "json", "html", "css", "cpp", "c", "h", "rs", "go", "sh", "xml"].contains(ext) { return "doc.text.fill" }
         return "doc.fill"
     }
     
     func itemIconGradient(for item: DiskItemInfo) -> LinearGradient {
+        let ext = (item.name as NSString).pathExtension.lowercased()
+        if let fmt = ArchiveCompressionFormat.from(extensionOrName: ext) {
+            switch fmt.category {
+            case .standard:
+                return LinearGradient(colors: [TTZipTheme.bambooGreen, TTZipTheme.bambooGreen.opacity(0.8)], startPoint: .topLeading, endPoint: .bottomTrailing)
+            case .unixPackage:
+                return LinearGradient(colors: [Color.orange, Color.red.opacity(0.8)], startPoint: .topLeading, endPoint: .bottomTrailing)
+            case .diskImage:
+                return LinearGradient(colors: [Color.indigo, Color.purple], startPoint: .topLeading, endPoint: .bottomTrailing)
+            case .modernStream:
+                return LinearGradient(colors: [Color.teal, Color.cyan], startPoint: .topLeading, endPoint: .bottomTrailing)
+            }
+        }
         if item.isArchive {
             return LinearGradient(colors: [TTZipTheme.bambooGreen, TTZipTheme.bambooGreen.opacity(0.8)], startPoint: .topLeading, endPoint: .bottomTrailing)
         }
-        let ext = (item.name as NSString).pathExtension.lowercased()
-        if ["jpg", "jpeg", "png", "gif", "webp", "heic"].contains(ext) {
+        if ["jpg", "jpeg", "png", "gif", "webp", "heic", "svg", "bmp", "tiff"].contains(ext) {
             return LinearGradient(colors: [Color.purple, Color.indigo], startPoint: .topLeading, endPoint: .bottomTrailing)
         }
         if ["mp4", "mov", "m4v", "mkv", "avi", "webm"].contains(ext) {
             return LinearGradient(colors: [Color.pink, Color.orange], startPoint: .topLeading, endPoint: .bottomTrailing)
         }
-        if ["mp3", "wav", "flac", "m4a", "aac"].contains(ext) {
+        if ["mp3", "wav", "flac", "m4a", "aac", "ogg"].contains(ext) {
             return LinearGradient(colors: [Color.teal, Color.blue], startPoint: .topLeading, endPoint: .bottomTrailing)
         }
         if ext == "pdf" {

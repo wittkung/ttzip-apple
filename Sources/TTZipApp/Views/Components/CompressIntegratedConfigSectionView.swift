@@ -52,14 +52,35 @@ public struct CompressIntegratedConfigSectionView: View {
                 HStack(alignment: .top, spacing: 12) {
                     L10nText(L10n.Compress.format)
                         .font(.system(size: 11.5, weight: .medium)).foregroundStyle(.secondary).frame(width: 85, alignment: .trailing).padding(.top, 4)
-                    let all16Formats: [ArchiveCompressionFormat] = [
-                        .sevenZip, .zip, .tar, .zst, .gz, .bz2, .xz, .lzip,
-                        .lz4, .brotli, .lrzip, .aar, .snappy, .wim, .dmg, .iso
-                    ]
-                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 70, maximum: 120), spacing: 6)], spacing: 6) {
-                        ForEach(all16Formats, id: \.rawValue) { fmt in
-                            formatTile(format: fmt)
+                    VStack(alignment: .leading, spacing: 6) {
+                        LazyVGrid(columns: [GridItem(.adaptive(minimum: 68, maximum: 110), spacing: 6)], spacing: 6) {
+                            ForEach(ArchiveCompressionFormat.primary17WritableFormats, id: \.rawValue) { fmt in
+                                formatTile(format: fmt)
+                            }
                         }
+                        
+                        // Active format description and capability badge
+                        HStack(spacing: 6) {
+                            Image(systemName: session.selectedFormat.iconName)
+                                .font(.system(size: 10, weight: .semibold))
+                                .foregroundStyle(TTZipTheme.bambooGreen)
+                            Text(session.selectedFormat.formatDescription)
+                                .font(.system(size: 10))
+                                .foregroundStyle(.secondary)
+                                .lineLimit(1)
+                            Spacer()
+                            Text(session.selectedFormat.fileExtension)
+                                .font(.system(size: 9.5, weight: .semibold, design: .monospaced))
+                                .foregroundStyle(TTZipTheme.bambooGreen)
+                                .padding(.horizontal, 5)
+                                .padding(.vertical, 1)
+                                .background(TTZipTheme.bambooGreen.opacity(0.1))
+                                .clipShape(Capsule())
+                        }
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 3)
+                        .background(Color.primary.opacity(0.02))
+                        .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
                     }
                 }
                 

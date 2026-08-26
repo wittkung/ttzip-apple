@@ -90,6 +90,27 @@ public struct ArchiveExplorerView: View {
                                 selectedPath: $selectedEntryID,
                                 onSelectFile: { node in
                                     extractSelectedForPreview(entryID: node.id)
+                                },
+                                onReplaceFile: { node in
+                                    if let entry = node.entry {
+                                        replaceSelectedEntry(entry)
+                                    } else if let entry = entries.first(where: { $0.id == node.id || $0.path == node.path }) {
+                                        replaceSelectedEntry(entry)
+                                    }
+                                },
+                                onDeleteFile: { node in
+                                    if let entry = node.entry {
+                                        deleteSelectedEntry(entry)
+                                    } else if let entry = entries.first(where: { $0.id == node.id || $0.path == node.path }) {
+                                        deleteSelectedEntry(entry)
+                                    }
+                                },
+                                onExtractFile: { node in
+                                    if let entry = node.entry {
+                                        extractSelectedEntry(entry)
+                                    } else if let entry = entries.first(where: { $0.id == node.id || $0.path == node.path }) {
+                                        extractSelectedEntry(entry)
+                                    }
                                 }
                             )
                         }
@@ -99,6 +120,15 @@ public struct ArchiveExplorerView: View {
                             selectedEntryID: $selectedEntryID,
                             onSelectEntry: { newID in
                                 extractSelectedForPreview(entryID: newID)
+                            },
+                            onReplaceEntry: { entry in
+                                replaceSelectedEntry(entry)
+                            },
+                            onDeleteEntry: { entry in
+                                deleteSelectedEntry(entry)
+                            },
+                            onExtractEntry: { entry in
+                                extractSelectedEntry(entry)
                             }
                         )
                     }

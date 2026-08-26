@@ -124,7 +124,7 @@ public final class AppIntentDispatcher {
             
         case .addFilesToArchive(let archivePath, let sourcePaths, let destinationSubfolder):
             Task {
-                try? await InPlaceArchiveMutationEngine.shared.addFilesToArchive(
+                try? await InPlaceMutationCoordinator.shared.appendFiles(
                     archivePath: archivePath,
                     sourceFilePaths: sourcePaths,
                     destinationVirtualFolder: destinationSubfolder,
@@ -136,9 +136,9 @@ public final class AppIntentDispatcher {
             
         case .deleteArchiveEntries(let archivePath, let entryPaths):
             Task {
-                try? await InPlaceArchiveMutationEngine.shared.deleteEntriesFromArchive(
+                try? await InPlaceMutationCoordinator.shared.deleteEntries(
                     archivePath: archivePath,
-                    entryPathsToDelete: entryPaths,
+                    entryPaths: entryPaths,
                     password: state.activePassword
                 )
                 await state.loadArchive(path: archivePath, password: state.activePassword)

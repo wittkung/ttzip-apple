@@ -9,11 +9,15 @@ import SwiftUI
 import TTZipCore
 
 public struct PresetEditorCardView: View {
+    @ObservedObject var l10n = AppLocalizationState.shared
+    
     @Binding public var editorFormat: ArchiveCompressionFormat
     @Binding public var editorLevel: ArchiveCompressionLevel
     @Binding public var editorSplitVolumeOption: Int64?
     @Binding public var editorSkipMacJunk: Bool
     @Binding public var editorSkipGitDirectory: Bool
+    
+    @State private var selectedCategory: ArchiveFormatCategory? = nil
     
     public init(
         editorFormat: Binding<ArchiveCompressionFormat>,
@@ -32,39 +36,34 @@ public struct PresetEditorCardView: View {
     public var body: some View {
         VStack(spacing: 16) {
             VStack(alignment: .leading, spacing: 14) {
-                Label("Target Format & Container", systemImage: "archivebox.fill")
-                    .font(.system(size: 13, weight: .bold, design: .serif))
-                    .foregroundStyle(TTZipTheme.bambooGreen)
+                HStack {
+                    Label(l10n.t(L10n.Presets.formatSelector), systemImage: "archivebox.fill")
+                        .font(.system(size: 13, weight: .bold, design: .serif))
+                        .foregroundStyle(TTZipTheme.bambooGreen)
+                    Spacer()
+                    
+                    Picker("", selection: $selectedCategory) {
+                        Text("All Formats").tag(ArchiveFormatCategory?.none)
+                        ForEach(ArchiveFormatCategory.allCases) { cat in
+                            Text(cat.rawValue).tag(ArchiveFormatCategory?.some(cat))
+                        }
+                    }
+                    .pickerStyle(.menu)
+                    .tint(TTZipTheme.bambooGreen)
+                }
                 
-                LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 8) {
-                    PresetFormatOptionTile(
-                        format: .sevenZip,
-                        name: "7-Zip",
-                        ext: ".7z",
-                        desc: "High ratio LZMA2/ZSTD engine",
-                        activeFormat: $editorFormat
-                    )
-                    PresetFormatOptionTile(
-                        format: .zip,
-                        name: "ZIP",
-                        ext: ".zip",
-                        desc: "Universal standard compatibility",
-                        activeFormat: $editorFormat
-                    )
-                    PresetFormatOptionTile(
-                        format: .tarZst,
-                        name: "TAR.ZST",
-                        ext: ".tar.zst",
-                        desc: "Modern ultra-fast streaming",
-                        activeFormat: $editorFormat
-                    )
-                    PresetFormatOptionTile(
-                        format: .tarGz,
-                        name: "TAR.GZ",
-                        ext: ".tar.gz",
-                        desc: "Classic Unix distribution archive",
-                        activeFormat: $editorFormat
-                    )
+                let displayedFormats: [ArchiveCompressionFormat] = {
+                    if let cat = selectedCategory {
+                        return ArchiveCompressionFormat.allWritableCases.filter { $0.category == cat }
+                    } else {
+                        return ArchiveCompressionFormat.primary17WritableFormats
+                    }
+                }()
+                
+                LazyVGrid(columns: [GridItem(.adaptive(minimum: 140, maximum: 240), spacing: 8)], spacing: 8) {
+                    ForEach(displayedFormats, id: \.rawValue) { fmt in
+                        PresetFormatOptionTile(format: fmt, activeFormat: $editorFormat)
+                    }
                 }
             }
             .padding(18)
@@ -76,7 +75,7 @@ public struct PresetEditorCardView: View {
             )
             
             VStack(alignment: .leading, spacing: 14) {
-                Label("Compression Level", systemImage: "gauge.with.dots.needle.50percent")
+                Label(l10n.t(L10n.Presets.compressionTier), systemImage: "gauge.with.dots.needle.50percent")
                     .font(.system(size: 13, weight: .bold, design: .serif))
                     .foregroundStyle(TTZipTheme.bambooGreen)
                 
@@ -116,19 +115,19 @@ public struct PresetEditorCardView: View {
             )
             
             VStack(alignment: .leading, spacing: 14) {
-                Label("Volume Splitting", systemImage: "scissors")
+                Label(l10n.t(L10n.Presets.volumeSplitting), systemImage: "scissors")
                     .font(.system(size: 13, weight: .bold, design: .serif))
                     .foregroundStyle(TTZipTheme.kintsugiGold)
                 
                 HStack(spacing: 12) {
-                    Text("Volume Size")
+                    Text(l10n.t(L10n.Presets.volumeSize))
                         .font(.system(size: 11.5, weight: .medium))
                         .foregroundStyle(.secondary)
                         .frame(width: 85, alignment: .trailing)
                     
                     ScrollView(.horizontal, showsIndicators: false) {
                         HStack(spacing: 8) {
-                            splitVolumeTile(bytes: nil, label: "No Split")
+                            splitVolumeTile(bytes: nil, label: l10n.t(L10n.Compress.splitVolumeNone))
                             splitVolumeTile(bytes: 25 * 1024 * 1024, label: "25 MB (Email)")
                             splitVolumeTile(bytes: 100 * 1024 * 1024, label: "100 MB (Cloud)")
                             splitVolumeTile(bytes: 4 * 1024 * 1024 * 1024, label: "4 GB (FAT32)")
@@ -146,7 +145,7 @@ public struct PresetEditorCardView: View {
             )
             
             VStack(alignment: .leading, spacing: 14) {
-                Label("File Filtering Rules", systemImage: "shield.checkerboard")
+                Label(l10n.t(L10n.Presets.filterRules), systemImage: "shield.checkerboard")
                     .font(.system(size: 13, weight: .bold, design: .serif))
                     .foregroundStyle(TTZipTheme.bambooGreen)
                 
@@ -156,7 +155,7 @@ public struct PresetEditorCardView: View {
                             Image(systemName: "trash.circle")
                                 .font(.system(size: 12))
                                 .foregroundStyle(TTZipTheme.bambooGreen)
-                            Text("Filter macOS system junk (.DS_Store / __MACOSX cache)")
+                            Text(l10n.t(L10n.Presets.filterMacJunkDesc))
                                 .font(.system(size: 11.5))
                         }
                     }
@@ -167,7 +166,7 @@ public struct PresetEditorCardView: View {
                             Image(systemName: "folder.badge.gearshape")
                                 .font(.system(size: 12))
                                 .foregroundStyle(TTZipTheme.bambooGreen)
-                            Text("Filter .git version control directory")
+                            Text(l10n.t(L10n.Presets.filterGitDesc))
                                 .font(.system(size: 11.5))
                         }
                     }

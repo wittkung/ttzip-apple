@@ -69,15 +69,24 @@ public struct NativeArchiveOutlineView: NSViewRepresentable {
     let nodes: [ArchiveTreeNode]
     @Binding var selectedPath: String?
     let onSelectFile: (ArchiveTreeNode) -> Void
+    var onReplaceFile: ((ArchiveTreeNode) -> Void)? = nil
+    var onDeleteFile: ((ArchiveTreeNode) -> Void)? = nil
+    var onExtractFile: ((ArchiveTreeNode) -> Void)? = nil
     
     public init(
         nodes: [ArchiveTreeNode],
         selectedPath: Binding<String?>,
-        onSelectFile: @escaping (ArchiveTreeNode) -> Void
+        onSelectFile: @escaping (ArchiveTreeNode) -> Void,
+        onReplaceFile: ((ArchiveTreeNode) -> Void)? = nil,
+        onDeleteFile: ((ArchiveTreeNode) -> Void)? = nil,
+        onExtractFile: ((ArchiveTreeNode) -> Void)? = nil
     ) {
         self.nodes = nodes
         self._selectedPath = selectedPath
         self.onSelectFile = onSelectFile
+        self.onReplaceFile = onReplaceFile
+        self.onDeleteFile = onDeleteFile
+        self.onExtractFile = onExtractFile
     }
     
     public func traverseAllNodesDFS() -> [ArchiveEntry] {
@@ -197,7 +206,7 @@ public struct NativeArchiveOutlineView: NSViewRepresentable {
         scrollView.borderType = .noBorder
         scrollView.drawsBackground = false
         
-        let outlineView = NSOutlineView()
+        let outlineView = ArchiveNSOutlineView()
         outlineView.autoresizesOutlineColumn = true
         outlineView.headerView = NSTableHeaderView()
         outlineView.selectionHighlightStyle = .regular
@@ -226,6 +235,7 @@ public struct NativeArchiveOutlineView: NSViewRepresentable {
         
         outlineView.dataSource = context.coordinator
         outlineView.delegate = context.coordinator
+        outlineView.coordinator = context.coordinator
         context.coordinator.outlineView = outlineView
         
         scrollView.documentView = outlineView
@@ -297,5 +307,74 @@ public struct NativeArchiveOutlineView: NSViewRepresentable {
                 }
             }
         }
+    }
+}
+
+/// Custom NSOutlineView subclass providing native context menus for archive entries.
+final class ArchiveNSOutlineView: NSOutlineView {
+    weak var coordinator: NativeArchiveOutlineView.Coordinator?
+    
+    override func menu(for event: NSEvent) -> NSMenu? {
+        let point = convert(event.locationInWindow, from: nil)
+        let row = self.row(at: point)
+        guard row >= 0, let node = item(atRow: row) as? ArchiveTreeNode else {
+            return super.menu(for: event)
+        }
+        
+        selectRowIndexes(IndexSet(integer: row), byExtendingSelection: false)
+        coordinator?.parent.selectedPath = node.id
+        
+        let menu = NSMenu(title: "ArchiveEntryMenu")
+        
+        let extractItem = NSMenuItem(title: "Extract Selected", action: #selector(handleExtract), keyEquivalent: "")
+        extractItem.target = self
+        extractItem.representedObject = node
+        extractItem.image = NSImage(systemSymbolName: "arrow.down.doc.fill", accessibilityDescription: nil)
+        menu.addItem(extractItem)
+        
+        if !node.isDirectory {
+            let replaceItem = NSMenuItem(title: "Replace with...", action: #selector(handleReplace), keyEquivalent: "")
+            replaceItem.target = self
+            replaceItem.representedObject = node
+            replaceItem.image = NSImage(systemSymbolName: "arrow.triangle.2.circlepath", accessibilityDescription: nil)
+            menu.addItem(replaceItem)
+        }
+        
+        let deleteItem = NSMenuItem(title: "Delete Entry", action: #selector(handleDelete), keyEquivalent: "")
+        deleteItem.target = self
+        deleteItem.representedObject = node
+        deleteItem.image = NSImage(systemSymbolName: "trash", accessibilityDescription: nil)
+        menu.addItem(deleteItem)
+        
+        menu.addItem(NSMenuItem.separator())
+        
+        let copyItem = NSMenuItem(title: "Copy Path", action: #selector(handleCopyPath), keyEquivalent: "")
+        copyItem.target = self
+        copyItem.representedObject = node
+        copyItem.image = NSImage(systemSymbolName: "doc.on.doc", accessibilityDescription: nil)
+        menu.addItem(copyItem)
+        
+        return menu
+    }
+    
+    @objc private func handleExtract(_ sender: NSMenuItem) {
+        guard let node = sender.representedObject as? ArchiveTreeNode else { return }
+        coordinator?.parent.onExtractFile?(node)
+    }
+    
+    @objc private func handleReplace(_ sender: NSMenuItem) {
+        guard let node = sender.representedObject as? ArchiveTreeNode else { return }
+        coordinator?.parent.onReplaceFile?(node)
+    }
+    
+    @objc private func handleDelete(_ sender: NSMenuItem) {
+        guard let node = sender.representedObject as? ArchiveTreeNode else { return }
+        coordinator?.parent.onDeleteFile?(node)
+    }
+    
+    @objc private func handleCopyPath(_ sender: NSMenuItem) {
+        guard let node = sender.representedObject as? ArchiveTreeNode else { return }
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(node.path, forType: .string)
     }
 }

@@ -286,6 +286,32 @@ public struct CompressAdvancedOptionsSectionView: View {
             return ("disc.fill", .gray, "DMG Apple Disk Image", "macOS standard mountable virtual disk format.")
         case .iso:
             return ("opticaldisc.fill", .purple, "ISO Optical Image", "ISO9660 / Joliet / UDF universal optical disc image.")
+        case .tarLz4:
+            return ("bolt.horizontal.fill", .teal, "TAR.LZ4 Fast Stream", "High-throughput real-time tar stream compressed with LZ4.")
+        case .tarBrotli:
+            return ("globe", .orange, "TAR.BR Brotli Stream", "Web-optimized high-density tar stream compressed with Brotli.")
+        case .tarLzip:
+            return ("shield.checkerboard", .pink, "TAR.LZ LZIP Stream", "Resilient archival tar stream protected by LZIP checksums.")
+        case .tarLrzip:
+            return ("slider.horizontal.below.square.filled.and.arrow.between.any.capsule", .mint, "TAR.LRZ Long Range", "Multi-gigabyte long-distance redundancy deduplicated tar archive.")
+        case .cab:
+            return ("folder.badge.gearshape", .blue, "CAB Cabinet Archive", "Microsoft cabinet compression format.")
+        case .cpio:
+            return ("doc.on.clipboard", .brown, "CPIO Unix Archive", "POSIX cpio tape and package archive.")
+        case .ar, .deb:
+            return ("cube.box.fill", .green, "Debian Package / Unix AR", "Debian software package and standard ar archive.")
+        case .rpm:
+            return ("cube.transparent", .red, "RedHat RPM Package", "Standard Linux binary rpm packaging.")
+        case .xar:
+            return ("shippingbox.circle.fill", .gray, "XAR Extensible Archive", "macOS installer and safari extension package format.")
+        case .rar:
+            return ("archivebox", .purple, "RAR Archive", "Standard RAR archive format.")
+        case .squashfs:
+            return ("internaldrive.fill", .indigo, "SquashFS Filesystem", "Read-only compressed Linux root filesystem image.")
+        case .lzfse:
+            return ("apple.logo", .red, "LZFSE Apple Stream", "Apple proprietary high-speed compression algorithm.")
+        case .lzh:
+            return ("doc.zipper", .orange, "LZH/LHA Archive", "Classic Japanese LHA/LZH compression standard.")
         }
     }
 }

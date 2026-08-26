@@ -150,6 +150,22 @@ public struct FinderMillerColumnsView: View {
                         return event
                     }
                 }
+                if event.keyCode == 51 || event.keyCode == 117 {
+                    if let selected = selectedPaths[activeColumnIndex], selected.contains("?subpath=") {
+                        let (archivePath, subpath) = MillerColumnItemRowView.parseVirtualURL(selected)
+                        if !subpath.isEmpty {
+                            let pwd = ArchivePasswordStore.shared.getPassword(for: archivePath)
+                            Task {
+                                try? await InPlaceMutationCoordinator.shared.deleteEntries(
+                                    archivePath: archivePath,
+                                    entryPaths: [subpath],
+                                    password: pwd
+                                )
+                            }
+                            return nil
+                        }
+                    }
+                }
                 if event.keyCode >= 123 && event.keyCode <= 126 {
                     if (event.keyCode == 123 || event.keyCode == 124) && MediaPlaybackCoordinator.shared.shouldInterceptMediaKeys() {
                         return event

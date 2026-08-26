@@ -119,6 +119,48 @@ public struct MillerColumnItemContextMenu: View {
             
             Divider()
             
+            if !item.isDirectory {
+                Button {
+                    onSelectItem(item, columnIndex, false, false, dirURL)
+                    let panel = NSOpenPanel()
+                    panel.canChooseDirectories = false
+                    panel.canChooseFiles = true
+                    panel.allowsMultipleSelection = false
+                    panel.prompt = "Replace"
+                    if panel.runModal() == .OK, let chosenURL = panel.url {
+                        let (archivePath, subpath) = MillerColumnItemRowView.parseVirtualURL(item.path)
+                        Task {
+                            let pwd = ArchivePasswordStore.shared.getPassword(for: archivePath)
+                            try? await InPlaceMutationCoordinator.shared.replaceEntry(
+                                archivePath: archivePath,
+                                entryPath: subpath,
+                                sourceFilePath: chosenURL.path,
+                                password: pwd
+                            )
+                        }
+                    }
+                } label: {
+                    Label("Replace with...", systemImage: "arrow.triangle.2.circlepath")
+                }
+            }
+            
+            Button(role: .destructive) {
+                onSelectItem(item, columnIndex, false, false, dirURL)
+                let (archivePath, subpath) = MillerColumnItemRowView.parseVirtualURL(item.path)
+                Task {
+                    let pwd = ArchivePasswordStore.shared.getPassword(for: archivePath)
+                    try? await InPlaceMutationCoordinator.shared.deleteEntries(
+                        archivePath: archivePath,
+                        entryPaths: [subpath],
+                        password: pwd
+                    )
+                }
+            } label: {
+                Label(l10n.t(L10n.Common.delete), systemImage: "trash")
+            }
+            
+            Divider()
+            
             Button {
                 let (_, subpath) = MillerColumnItemRowView.parseVirtualURL(item.path)
                 NSPasteboard.general.clearContents()

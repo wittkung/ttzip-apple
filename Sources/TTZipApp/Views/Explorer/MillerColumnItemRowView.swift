@@ -122,12 +122,26 @@ public struct MillerColumnItemRowView: View {
     }
     
     private func handleDrop(providers: [NSItemProvider]) -> Bool {
-        let targetDir = item.isDirectory ? URL(fileURLWithPath: item.path) : dirURL
+        let targetPath = item.isDirectory ? item.path : dirURL.absoluteString
         for provider in providers {
             _ = provider.loadObject(ofClass: URL.self) { url, _ in
                 if let srcURL = url, srcURL.isFileURL {
                     DispatchQueue.main.async {
-                        FileDragDropHelper.performMove(sources: [srcURL], to: targetDir)
+                        if targetPath.contains("?subpath=") {
+                            let (archivePath, subpath) = Self.parseVirtualURL(targetPath)
+                            let pwd = ArchivePasswordStore.shared.getPassword(for: archivePath)
+                            Task {
+                                try? await InPlaceMutationCoordinator.shared.appendFiles(
+                                    archivePath: archivePath,
+                                    sourceFilePaths: [srcURL.path],
+                                    destinationVirtualFolder: subpath.isEmpty ? nil : subpath,
+                                    password: pwd
+                                )
+                            }
+                        } else {
+                            let targetDir = item.isDirectory ? URL(fileURLWithPath: item.path) : dirURL
+                            FileDragDropHelper.performMove(sources: [srcURL], to: targetDir)
+                        }
                     }
                 }
             }

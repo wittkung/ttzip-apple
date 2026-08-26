@@ -12,17 +12,26 @@ public struct ArchiveExplorerTableView: View {
     public let filteredEntries: [ArchiveEntry]
     @Binding public var selectedEntryID: String?
     public let onSelectEntry: (String?) -> Void
+    public var onReplaceEntry: ((ArchiveEntry) -> Void)? = nil
+    public var onDeleteEntry: ((ArchiveEntry) -> Void)? = nil
+    public var onExtractEntry: ((ArchiveEntry) -> Void)? = nil
     
     @ObservedObject private var l10n = AppLocalizationState.shared
     
     public init(
         filteredEntries: [ArchiveEntry],
         selectedEntryID: Binding<String?>,
-        onSelectEntry: @escaping (String?) -> Void
+        onSelectEntry: @escaping (String?) -> Void,
+        onReplaceEntry: ((ArchiveEntry) -> Void)? = nil,
+        onDeleteEntry: ((ArchiveEntry) -> Void)? = nil,
+        onExtractEntry: ((ArchiveEntry) -> Void)? = nil
     ) {
         self.filteredEntries = filteredEntries
         self._selectedEntryID = selectedEntryID
         self.onSelectEntry = onSelectEntry
+        self.onReplaceEntry = onReplaceEntry
+        self.onDeleteEntry = onDeleteEntry
+        self.onExtractEntry = onExtractEntry
     }
     
     public var body: some View {
@@ -60,6 +69,42 @@ public struct ArchiveExplorerTableView: View {
             .width(min: 80, ideal: 100, max: 140)
         }
         .tableStyle(.inset(alternatesRowBackgrounds: false))
+        .contextMenu(forSelectionType: String.self) { items in
+            if let firstID = items.first, let entry = filteredEntries.first(where: { $0.id == firstID || $0.path == firstID }) {
+                Button {
+                    onExtractEntry?(entry)
+                } label: {
+                    Label(l10n.t(L10n.FinderSync.extractHereTitle), systemImage: "arrow.down.doc.fill")
+                }
+                
+                if !entry.isDirectory {
+                    Button {
+                        onReplaceEntry?(entry)
+                    } label: {
+                        Label("Replace with...", systemImage: "arrow.triangle.2.circlepath")
+                    }
+                }
+                
+                Button(role: .destructive) {
+                    onDeleteEntry?(entry)
+                } label: {
+                    Label(l10n.t(L10n.Common.delete), systemImage: "trash")
+                }
+                
+                Divider()
+                
+                Button {
+                    NSPasteboard.general.clearContents()
+                    NSPasteboard.general.setString(entry.path, forType: .string)
+                } label: {
+                    Label(l10n.t(L10n.Common.copy), systemImage: "doc.on.doc")
+                }
+            }
+        } primaryAction: { items in
+            if let firstID = items.first {
+                onSelectEntry(firstID)
+            }
+        }
         .onChange(of: selectedEntryID) { _, newID in
             onSelectEntry(newID)
         }

@@ -89,12 +89,18 @@ extension NativeArchiveOutlineView.Coordinator {
     func fileIconName(isDirectory: Bool, name: String) -> String {
         if isDirectory { return "folder.fill" }
         let ext = (name as NSString).pathExtension.lowercased()
+        if let fmt = ArchiveCompressionFormat.from(extensionOrName: ext) {
+            return fmt.iconName
+        }
+        if ArchiveCompressionFormat.isArchiveExtension(ext, path: name) {
+            return "archivebox.fill"
+        }
         switch ext {
-        case "png", "jpg", "jpeg", "gif", "webp", "heic", "svg", "bmp": return "photo.fill"
-        case "mp4", "mov", "m4v", "avi", "mkv": return "film.fill"
-        case "mp3", "wav", "m4a", "aac", "flac": return "music.note"
+        case "png", "jpg", "jpeg", "gif", "webp", "heic", "svg", "bmp", "tiff": return "photo.fill"
+        case "mp4", "mov", "m4v", "avi", "mkv", "webm": return "film.fill"
+        case "mp3", "wav", "m4a", "aac", "flac", "ogg": return "music.note"
         case "pdf": return "doc.richtext.fill"
-        case "swift", "json", "c", "cpp", "h", "md", "py", "sh", "xml", "html", "css": return "doc.text.fill"
+        case "swift", "json", "c", "cpp", "h", "md", "py", "sh", "xml", "html", "css", "rs", "go", "ts", "js": return "doc.text.fill"
         default: return "doc.fill"
         }
     }

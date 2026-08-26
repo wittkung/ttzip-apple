@@ -46,6 +46,21 @@ public struct ArchiveExplorerHeaderBar: View {
                 .font(.system(size: 15, weight: .semibold))
                 .foregroundStyle(.primary)
             
+            let detectedFmt = ArchiveCompressionFormat.from(extensionOrName: (archivePath as NSString).pathExtension)
+            if let fmt = detectedFmt {
+                HStack(spacing: 3) {
+                    Image(systemName: fmt.iconName)
+                        .font(.system(size: 9, weight: .bold))
+                    Text(fmt.displayName)
+                        .font(.system(size: 9.5, weight: .bold, design: .monospaced))
+                }
+                .foregroundStyle(TTZipTheme.bambooGreen)
+                .padding(.horizontal, 6)
+                .padding(.vertical, 2)
+                .background(TTZipTheme.bambooGreen.opacity(0.12))
+                .clipShape(Capsule())
+            }
+            
             if let status = syncStatusMessage {
                 HStack(spacing: 4) {
                     ProgressView()
