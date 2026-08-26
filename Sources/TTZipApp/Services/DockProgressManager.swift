@@ -43,14 +43,18 @@ public final class DockProgressManager: NSObject {
     public func clearProgress() {
         self.currentFraction = 0.0
         self.activeTasksCount = 0
-        let dockTile = NSApp.dockTile
+        guard let app = NSApplication.shared as NSApplication?, let dockTile = app.dockTile as NSDockTile? else {
+            return
+        }
         dockTile.contentView = nil
         dockTile.badgeLabel = nil
         dockTile.display()
     }
     
     private func renderDockTile() {
-        let dockTile = NSApp.dockTile
+        guard let app = NSApplication.shared as NSApplication?, let dockTile = app.dockTile as NSDockTile? else {
+            return
+        }
         
         if activeTasksCount == 0 {
             dockTile.contentView = nil

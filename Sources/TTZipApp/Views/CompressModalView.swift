@@ -143,8 +143,7 @@ public struct CompressModalView: View {
                 outputFileName: "\(session.outputName).\(session.selectedFormat.rawValue)",
                 progress: session.currentProgress,
                 onCancel: {
-                    session.activeCompressionTask?.cancel()
-                    session.isProgressModalPresented = false
+                    session.cancelCompression()
                 },
                 onMinimize: { session.isProgressModalPresented = false }
             )

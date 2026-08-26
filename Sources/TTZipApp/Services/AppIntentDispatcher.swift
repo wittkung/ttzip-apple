@@ -21,11 +21,28 @@ public final class AppIntentDispatcher {
     public static let shared = AppIntentDispatcher()
     
     private weak var appViewState: AppViewState?
+    private var registeredSessions: [UUID: ArchiveSessionContext] = [:]
     
     private init() {}
     
     public func bind(state: AppViewState) {
         self.appViewState = state
+    }
+
+    public func registerSession(_ session: ArchiveSessionContext) {
+        registeredSessions[session.id] = session
+    }
+
+    public func unregisterSession(id: UUID) {
+        registeredSessions.removeValue(forKey: id)
+    }
+
+    public func activeSession(for path: String) -> ArchiveSessionContext? {
+        return registeredSessions.values.first { $0.currentArchivePath == path }
+    }
+
+    public var allSessions: [ArchiveSessionContext] {
+        Array(registeredSessions.values)
     }
     
     @discardableResult

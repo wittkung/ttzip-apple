@@ -166,6 +166,16 @@ public struct MainView: View {
             let targetPath = viewModel.inspectingArchivePath ?? viewModel.selectedDiskItem?.path ?? viewModel.currentArchivePath ?? ""
             ArchiveInspectorContainerView(archivePath: targetPath)
         }
+        .sheet(isPresented: Binding(
+            get: { AppErrorReporter.shared.isPresentingError },
+            set: { if !$0 { AppErrorReporter.shared.dismiss() } }
+        )) {
+            if let payload = AppErrorReporter.shared.activeError {
+                ErrorPresentationSheetView(payload: payload) {
+                    AppErrorReporter.shared.dismiss()
+                }
+            }
+        }
         .overlay {
             if viewModel.showPasswordPrompt, let targetPath = viewModel.pendingEncryptedPath {
                 ZStack {

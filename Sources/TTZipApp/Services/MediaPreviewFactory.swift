@@ -59,7 +59,7 @@ public enum MediaPreviewFactory {
         if archiveExtensions.contains(ext) {
             return .unsupported("Archive loaded. Double-click to browse contents.")
         }
-        if imageExtensions.contains(ext), let image = NSImage(contentsOf: url) {
+        if imageExtensions.contains(ext), let image = DownsampledImageLoader.loadDownsampledImage(from: url) {
             return .image(image)
         }
         if videoExtensions.contains(ext) {
@@ -126,7 +126,7 @@ public enum MediaPreviewFactory {
         }
         
         if imageExtensions.contains(ext) {
-            if let image = NSImage(contentsOf: url) {
+            if let image = await DownsampledImageLoader.loadDownsampledImageAsync(from: url) {
                 return .image(image)
             }
         }
@@ -178,10 +178,10 @@ public enum MediaPreviewFactory {
         return "doc.fill"
     }
 
-    /// Detects MediaPreviewType directly from in-memory Data (Zero Disk I/O).
+    /// Detects MediaPreviewType directly from in-memory Data (Zero Disk I/O) with memory-budgeted downsampling.
     public static func detectTypeFromMemory(data: Data, suggestedName: String) -> MediaPreviewType {
         let sniff = NativeMicrokernelBridge.sniffMagic(data: data)
-        if sniff.kind == TTZIP_KIND_IMAGE, let image = NSImage(data: data) {
+        if sniff.kind == TTZIP_KIND_IMAGE, let image = DownsampledImageLoader.loadDownsampledImage(from: data) {
             return .image(image)
         }
         

@@ -125,6 +125,7 @@ public final class CompressFormSession {
     public var isProgressModalPresented: Bool = false
     public var currentProgress: ArchiveProgress = .zero
     public var activeCompressionTask: Task<Void, Never>? = nil
+    public var activeSessionTaskId: UUID? = nil
     
     public var isSummarySheetPresented: Bool = false
     public var completedSummary: CompressionCompletedSummary? = nil
@@ -180,7 +181,7 @@ public final class CompressFormSession {
             }
         }
     }
-    
+
     public func pickDirectory() {
         let panel = NSOpenPanel()
         panel.canChooseDirectories = true
@@ -195,13 +196,30 @@ public final class CompressFormSession {
         selectedItemIDs.removeAll()
     }
     
-    public func calculateCustomVolume() {
-        guard let val = Int64(customVolumeValueString) else {
+    public func removeItem(id: UUID) {
+        itemsList.removeAll { $0.id == id }
+    }
+    
+    public func removeItems(at offsets: IndexSet) {
+        itemsList.remove(atOffsets: offsets)
+    }
+    
+    public func clearAllItems() {
+        itemsList.removeAll()
+    }
+    
+    public func updateCustomVolume() {
+        guard isCustomVolumeSelected, let val = Int64(customVolumeValueString), val > 0 else {
             splitVolumeOption = nil
             return
         }
         let multiplier: Int64 = (customVolumeUnit == "GB") ? 1024 * 1024 * 1024 : 1024 * 1024
         splitVolumeOption = val * multiplier
+    }
+
+    public func calculateCustomVolume() {
+        self.isCustomVolumeSelected = true
+        updateCustomVolume()
     }
     
     public func applyPreset(id: UUID) {
@@ -216,6 +234,17 @@ public final class CompressFormSession {
         }
         self.skipMacJunk = snapshot.skipMacJunk
     }
+
+    public func cancelCompression() {
+        if let id = self.activeSessionTaskId {
+            ArchiveTaskCoordinator.shared.cancelTask(id: id)
+            ArchiveTaskCoordinator.shared.unregisterTask(id: id)
+            self.activeSessionTaskId = nil
+        }
+        activeCompressionTask?.cancel()
+        self.isProcessing = false
+        self.isProgressModalPresented = false
+    }
     
     public func startCompression() {
         guard !isProcessing && !itemsList.isEmpty && !outputName.isEmpty else { return }
@@ -224,12 +253,24 @@ public final class CompressFormSession {
         guard !inputPaths.isEmpty else { return }
         let fullOutputPath = (targetDirectory as NSString).appendingPathComponent("\(outputName).\(ext)")
         
+        let taskId = UUID()
+        self.activeSessionTaskId = taskId
+        let handle = ArchiveTaskCoordinator.shared.registerTask(id: taskId)
+        
         isProcessing = true
         isProgressModalPresented = true
         
         let throttler = ThrottledProgressPublisher(maxFrequencyHz: 60.0)
         activeCompressionTask = Task {
-            defer { Task { @MainActor in self.isProcessing = false } }
+            defer {
+                Task { @MainActor in
+                    self.isProcessing = false
+                    ArchiveTaskCoordinator.shared.unregisterTask(id: taskId)
+                    if self.activeSessionTaskId == taskId {
+                        self.activeSessionTaskId = nil
+                    }
+                }
+            }
             do {
                 let algo = (compressionLevel == .store) ? "Copy" : ((compressionAlgorithm == "Copy") ? "LZMA2" : compressionAlgorithm)
                 let dictMB = (compressionLevel == .store) ? 0 : effectiveDictionarySizeMB
@@ -246,7 +287,7 @@ public final class CompressFormSession {
                     .withPreservePosixAttributes(preservePosixAttributes)
                     .build()
                 
-                let cmdResult = try await TTZipEngineFacade.shared.compressWithCommand(
+                let result = try await TTZipEngineFacade.shared.quickCompress(
                     inputs: inputPaths,
                     outputPath: fullOutputPath,
                     format: selectedFormat,
@@ -267,17 +308,17 @@ public final class CompressFormSession {
                             Task { @MainActor in self.currentProgress = prog }
                         }
                     },
-                    engineFacade: TTZipEngineFacade.shared
+                    token: handle.uniffiToken
                 )
                 
                 if openFinderAfterCompress {
                     NSWorkspace.shared.selectFile(fullOutputPath, inFileViewerRootedAtPath: targetDirectory)
                 }
                 
-                let compressedSize = (cmdResult.metadata["compressedSize"] as NSString?)?.longLongValue ?? 0
-                let originalSize = (cmdResult.metadata["originalSize"] as NSString?)?.longLongValue ?? 0
-                let elapsed = cmdResult.executionDuration
-                let throughput = elapsed > 0 ? (Double(originalSize) / 1024.0 / 1024.0) / elapsed : 0.0
+                let compressedSize = result.compressedBytes
+                let originalSize = result.originalBytes
+                let elapsed = result.durationSeconds
+                let throughput = result.throughputMBs
                 
                 Task { @MainActor in
                     self.completedSummary = CompressionCompletedSummary(
@@ -293,7 +334,14 @@ public final class CompressFormSession {
                     self.isSummarySheetPresented = true
                 }
             } catch {
-                Task { @MainActor in self.isProgressModalPresented = false }
+                Task { @MainActor in
+                    self.isProgressModalPresented = false
+                    if (error as? ArchiveError) == .cancelled || handle.isCancelled {
+                        self.currentProgress = ArchiveProgress(state: .cancelled, currentFileName: "Compression cancelled")
+                    } else {
+                        AppErrorReporter.shared.reportError(error, contextTitle: "Compression Error")
+                    }
+                }
             }
         }
     }

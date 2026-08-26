@@ -83,9 +83,14 @@ extension AppViewState {
             }
         } catch {
             await MainActor.run {
-                self.statusMessage = "Extraction failed: \(error.localizedDescription)"
-                self.pendingEncryptedPath = archivePath
-                self.showPasswordPrompt = true
+                if let archiveErr = error as? ArchiveError, archiveErr.isPasswordRelated {
+                    self.pendingEncryptedPath = archivePath
+                    self.showPasswordPrompt = true
+                    self.statusMessage = "Archive is password-protected"
+                } else {
+                    self.statusMessage = "Extraction failed: \(error.localizedDescription)"
+                    AppErrorReporter.shared.reportError(error, contextTitle: "Extraction Error")
+                }
             }
         }
     }
@@ -108,6 +113,7 @@ extension AppViewState {
         } catch {
             await MainActor.run {
                 self.statusMessage = "Extraction failed: \(error.localizedDescription)"
+                AppErrorReporter.shared.reportError(error, contextTitle: "Single Entry Extraction Failed")
             }
         }
     }
@@ -140,9 +146,14 @@ extension AppViewState {
             NotificationCenter.default.post(name: NSNotification.Name("TTZipArchiveUnlockedRefresh"), object: path)
             return true
         } catch {
-            self.pendingEncryptedPath = path
-            self.showPasswordPrompt = true
-            self.statusMessage = "Archive is encrypted. Enter password to view contents."
+            if let archiveErr = error as? ArchiveError, archiveErr.isPasswordRelated {
+                self.pendingEncryptedPath = path
+                self.showPasswordPrompt = true
+                self.statusMessage = "Archive is encrypted. Enter password to view contents."
+            } else {
+                self.statusMessage = "Failed to inspect archive: \(error.localizedDescription)"
+                AppErrorReporter.shared.reportError(error, contextTitle: "Inspect Archive Failed")
+            }
             self.isLoading = false
             return false
         }

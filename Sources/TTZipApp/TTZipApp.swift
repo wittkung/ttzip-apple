@@ -72,6 +72,7 @@ struct TTZipApp: App {
         TempDirectoryCleanUpManager.shared.cleanupAllTemporaryDirectories()
         NSApplication.shared.setActivationPolicy(.regular)
         NSApplication.shared.activate(ignoringOtherApps: true)
+        NSWindow.allowsAutomaticWindowTabbing = true
         
         let possiblePaths = [
             Bundle.main.path(forResource: "TTZip_AppIcon_1024x1024_padded", ofType: "png"),
@@ -91,6 +92,7 @@ struct TTZipApp: App {
         WindowGroup {
             MainView()
                 .frame(minWidth: 460, minHeight: 380)
+                .background(WindowTabbingConfigurator())
                 .background(Color.clear)
                 .onOpenURL { url in
                     handleIncomingURL(url)
@@ -112,6 +114,26 @@ struct TTZipApp: App {
         if let envelope = AppIntentParser.parse(url: url) {
             Task { @MainActor in
                 AppIntentDispatcher.shared.dispatch(envelope)
+            }
+        }
+    }
+}
+
+private struct WindowTabbingConfigurator: NSViewRepresentable {
+    func makeNSView(context: Context) -> NSView {
+        let view = NSView()
+        DispatchQueue.main.async {
+            if let window = view.window {
+                window.tabbingMode = .preferred
+            }
+        }
+        return view
+    }
+
+    func updateNSView(_ nsView: NSView, context: Context) {
+        DispatchQueue.main.async {
+            if let window = nsView.window {
+                window.tabbingMode = .preferred
             }
         }
     }

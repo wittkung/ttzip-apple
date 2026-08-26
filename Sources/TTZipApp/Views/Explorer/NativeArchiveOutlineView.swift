@@ -241,6 +241,24 @@ public struct NativeArchiveOutlineView: NSViewRepresentable {
         return scrollView
     }
     
+    /// Recursively resolves the chain of parent nodes leading to targetPath with path-prefix pruning optimization.
+    public static func findAncestorChain(for targetPath: String, in nodes: [ArchiveTreeNode]) -> [ArchiveTreeNode]? {
+        for node in nodes {
+            if node.id == targetPath || node.path == targetPath {
+                return [node]
+            }
+            if let children = node.children, !children.isEmpty {
+                let prefix = node.path.hasSuffix("/") ? node.path : (node.path + "/")
+                if targetPath.hasPrefix(prefix) {
+                    if let subChain = findAncestorChain(for: targetPath, in: children) {
+                        return [node] + subChain
+                    }
+                }
+            }
+        }
+        return nil
+    }
+
     public func updateNSView(_ nsView: NSScrollView, context: Context) {
         context.coordinator.parent = self
         DispatchQueue.main.async {
@@ -256,16 +274,22 @@ public struct NativeArchiveOutlineView: NSViewRepresentable {
             }
             
             if let selectedPath = selectedPath {
-                var foundRow = -1
-                for i in 0..<outlineView.numberOfRows {
-                    if let node = outlineView.item(atRow: i) as? ArchiveTreeNode, node.id == selectedPath {
-                        foundRow = i
-                        break
+                if let chain = NativeArchiveOutlineView.findAncestorChain(for: selectedPath, in: nodes) {
+                    // Expand all parent containers along the hierarchy
+                    if chain.count > 1 {
+                        for ancestor in chain.dropLast() {
+                            if !outlineView.isItemExpanded(ancestor) {
+                                outlineView.expandItem(ancestor)
+                            }
+                        }
                     }
-                }
-                if foundRow >= 0, outlineView.selectedRow != foundRow {
-                    outlineView.selectRowIndexes(IndexSet(integer: foundRow), byExtendingSelection: false)
-                    outlineView.scrollRowToVisible(foundRow)
+                    if let leaf = chain.last {
+                        let targetRow = outlineView.row(forItem: leaf)
+                        if targetRow >= 0 && outlineView.selectedRow != targetRow {
+                            outlineView.selectRowIndexes(IndexSet(integer: targetRow), byExtendingSelection: false)
+                            outlineView.scrollRowToVisible(targetRow)
+                        }
+                    }
                 }
             } else {
                 if outlineView.selectedRow != -1 {

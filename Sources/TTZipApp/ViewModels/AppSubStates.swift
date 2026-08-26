@@ -60,6 +60,7 @@ public final class TaskExecutionState {
     public var canPauseTask: Bool = false
     public var canResumeTask: Bool = false
     public var canCancelTask: Bool = false
+    public var currentTaskID: UUID? = nil
     
     // Command History (Undo / Redo)
     public var canUndo: Bool = false

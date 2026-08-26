@@ -9,6 +9,13 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-WORKSPACE_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+APPLE_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
+LOC_SCRIPT="${REPO_ROOT}/core/scripts/lint_loc_gate.py"
 
-python3 "${SCRIPT_DIR}/lint_loc_gate.py" "$@"
+if [ -f "${LOC_SCRIPT}" ]; then
+    python3 "${LOC_SCRIPT}" --dir "${APPLE_ROOT}" --min-files 10 "$@"
+else
+    echo "⚠️ LOC script not found at ${LOC_SCRIPT}"
+    exit 1
+fi

@@ -97,6 +97,10 @@ public final class AppViewState {
         get { taskState.canCancelTask }
         set { taskState.canCancelTask = newValue }
     }
+    public var currentTaskID: UUID? {
+        get { taskState.currentTaskID }
+        set { taskState.currentTaskID = newValue }
+    }
     
     public var showCompressModal: Bool {
         get { overlayState.showCompressModal }

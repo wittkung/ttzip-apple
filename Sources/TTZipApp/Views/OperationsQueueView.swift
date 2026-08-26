@@ -11,7 +11,7 @@ import TTZipCore
 /// Real-time multi-task operations management window with live throughput telemetry and controls.
 public struct OperationsQueueView: View {
     @ObservedObject private var l10n = AppLocalizationState.shared
-    @StateObject private var viewModel = OperationsQueueViewModel()
+    @State private var viewModel = OperationsQueueViewModel()
     @Environment(\.dismiss) private var dismiss
     
     public init() {}
@@ -54,9 +54,12 @@ public struct OperationsQueueView: View {
                 ScrollView {
                     LazyVStack(spacing: 10) {
                         ForEach(viewModel.tasks) { task in
-                            TaskRowView(task: task) {
-                                viewModel.cancelTask(id: task.id)
-                            }
+                            TaskRowView(
+                                task: task,
+                                onPause: { viewModel.pauseTask(id: task.id) },
+                                onResume: { viewModel.resumeTask(id: task.id) },
+                                onCancel: { viewModel.cancelTask(id: task.id) }
+                            )
                         }
                     }
                 }
@@ -65,6 +68,15 @@ public struct OperationsQueueView: View {
             Divider()
             
             HStack {
+                if !viewModel.tasks.isEmpty {
+                    Button("Clear Completed") {
+                        viewModel.clearFinishedTasks()
+                    }
+                    .buttonStyle(.plain)
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                }
+
                 Spacer()
                 Button(l10n.t(L10n.Common.close)) {
                     dismiss()
@@ -79,6 +91,8 @@ public struct OperationsQueueView: View {
 
 private struct TaskRowView: View {
     let task: QueuedArchiveOperation
+    let onPause: () -> Void
+    let onResume: () -> Void
     let onCancel: () -> Void
     
     var body: some View {
@@ -103,7 +117,7 @@ private struct TaskRowView: View {
                         .cornerRadius(4)
                 }
                 
-                if task.state == .running {
+                if task.state == .running || task.state == .paused {
                     ProgressView(value: task.fractionCompleted)
                         .progressViewStyle(.linear)
                     
@@ -125,13 +139,31 @@ private struct TaskRowView: View {
                 }
             }
             
-            if task.state == .running || task.state == .queued {
-                Button(action: onCancel) {
-                    Image(systemName: "xmark.circle.fill")
-                        .foregroundColor(.secondary)
+            HStack(spacing: 8) {
+                if task.state == .running {
+                    Button(action: onPause) {
+                        Image(systemName: "pause.circle.fill")
+                            .foregroundColor(.secondary)
+                    }
+                    .buttonStyle(.plain)
+                    .help("Pause task")
+                } else if task.state == .paused {
+                    Button(action: onResume) {
+                        Image(systemName: "play.circle.fill")
+                            .foregroundColor(TTZipTheme.bambooGreen)
+                    }
+                    .buttonStyle(.plain)
+                    .help("Resume task")
                 }
-                .buttonStyle(.plain)
-                .help("Cancel task")
+
+                if task.state == .running || task.state == .paused || task.state == .queued {
+                    Button(action: onCancel) {
+                        Image(systemName: "xmark.circle.fill")
+                            .foregroundColor(.secondary)
+                    }
+                    .buttonStyle(.plain)
+                    .help("Cancel task")
+                }
             }
         }
         .padding(10)
@@ -150,12 +182,12 @@ private struct TaskRowView: View {
     
     private func stateColor(_ state: ArchiveTaskExecutionState) -> Color {
         switch state {
-        case .queued: return .secondary
-        case .running: return .blue
+        case .running: return TTZipTheme.bambooGreen
         case .paused: return .orange
-        case .completed: return .green
+        case .completed: return .blue
         case .failed: return .red
-        case .cancelled: return .gray
+        case .cancelled: return .secondary
+        case .queued: return .purple
         }
     }
 }

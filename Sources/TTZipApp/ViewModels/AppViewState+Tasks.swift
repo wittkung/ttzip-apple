@@ -12,20 +12,30 @@ extension AppViewState {
     // MARK: - Task State Control
     
     public func pauseCurrentTask() {
+        if let id = self.currentTaskID {
+            ArchiveTaskCoordinator.shared.pauseTask(id: id)
+        }
         self.canPauseTask = false
         self.canResumeTask = true
         self.taskStateName = "Paused"
     }
     
     public func resumeCurrentTask() {
+        if let id = self.currentTaskID {
+            ArchiveTaskCoordinator.shared.resumeTask(id: id)
+        }
         self.canPauseTask = true
         self.canResumeTask = false
         self.taskStateName = "Processing"
     }
     
     public func cancelCurrentTask() {
+        if let id = self.currentTaskID {
+            ArchiveTaskCoordinator.shared.cancelTask(id: id)
+        }
         self.canPauseTask = false
         self.canResumeTask = false
+        self.canCancelTask = false
         self.taskStateName = "Cancelled"
     }
     
@@ -34,5 +44,6 @@ extension AppViewState {
         self.canPauseTask = false
         self.canResumeTask = false
         self.canCancelTask = false
+        self.currentTaskID = nil
     }
 }
