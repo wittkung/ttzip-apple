@@ -39,6 +39,11 @@ public actor EphemeralPreviewCacheManager {
     
     /// Stages data into an isolated file in the sandbox and returns its secure URL.
     public func stageFile(data: Data, suggestedFileName: String) throws -> URL {
+        if !FileManager.default.fileExists(atPath: sessionRootDirectory.path) {
+            try? FileManager.default.createDirectory(at: sessionRootDirectory, withIntermediateDirectories: true, attributes: [
+                .posixPermissions: 0o700
+            ])
+        }
         let sanitizedName = suggestedFileName.replacingOccurrences(of: "/", with: "_")
         let fileURL = sessionRootDirectory.appendingPathComponent(sanitizedName)
         

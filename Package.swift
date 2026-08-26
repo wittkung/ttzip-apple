@@ -50,6 +50,9 @@ let package = Package(
     targets: [
         .target(
             name: "TTZipPluginKit",
+            dependencies: [
+                .product(name: "TTZipCore", package: corePackageName)
+            ],
             path: "Sources/TTZipPluginKit",
             exclude: [
                 "README.md",
@@ -99,7 +102,8 @@ let package = Package(
                 "TTZipApp",
                 "TTZipPluginKit",
                 "TTZipFinderSync",
-                "TTZipQuickLook"
+                "TTZipQuickLook",
+                .product(name: "TTZipCore", package: corePackageName)
             ],
             path: "Tests/TTZipAppTests",
             swiftSettings: swiftSettings

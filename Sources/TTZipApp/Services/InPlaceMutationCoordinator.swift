@@ -54,12 +54,18 @@ public final class InPlaceMutationCoordinator {
         destinationVirtualFolder: String? = nil,
         password: String? = nil
     ) async throws {
-        try InPlaceArchiveMutationEngine.shared.addFilesToArchiveSync(
-            archivePath: archivePath,
-            sourceFilePaths: sourceFilePaths,
-            destinationVirtualFolder: destinationVirtualFolder,
-            password: password
-        )
+        guard !sourceFilePaths.isEmpty else { return }
+        let actions = sourceFilePaths.map { path -> InPlaceMutationAction in
+            let baseName = URL(fileURLWithPath: path).lastPathComponent
+            let targetPath: String
+            if let dest = destinationVirtualFolder, !dest.isEmpty, dest != "." {
+                targetPath = "\(dest)/\(baseName)"
+            } else {
+                targetPath = baseName
+            }
+            return InPlaceMutationAction(isDelete: false, entryPath: targetPath, sourcePath: path)
+        }
+        try inPlaceMutateArchive(archivePath: archivePath, actions: actions)
         await invalidateAndRefresh(archivePath: archivePath)
     }
     
@@ -69,11 +75,11 @@ public final class InPlaceMutationCoordinator {
         entryPaths: [String],
         password: String? = nil
     ) async throws {
-        try await InPlaceArchiveMutationEngine.shared.deleteEntriesFromArchive(
-            archivePath: archivePath,
-            entryPathsToDelete: entryPaths,
-            password: password
-        )
+        guard !entryPaths.isEmpty else { return }
+        let actions = entryPaths.map { entry in
+            InPlaceMutationAction(isDelete: true, entryPath: entry, sourcePath: nil)
+        }
+        try inPlaceMutateArchive(archivePath: archivePath, actions: actions)
         await invalidateAndRefresh(archivePath: archivePath)
     }
 }

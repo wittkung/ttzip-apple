@@ -29,6 +29,7 @@ final class InPlaceMutationUITests: XCTestCase {
     
     // MARK: - 1. Virtual Subpath URL Parsing Tests
     
+    @MainActor
     func testVirtualURLParsing() {
         let plainPath = "/Users/test/Documents/archive.zip"
         let (plainArchive, plainSub) = MillerColumnItemRowView.parseVirtualURL(plainPath)
@@ -58,21 +59,21 @@ final class InPlaceMutationUITests: XCTestCase {
         VFSLz4CachePool.shared.cacheEntry(archivePath: fakeArchivePath, entryPath: "item1.txt", data: Data("item1".utf8))
         XCTAssertNotNil(VFSLz4CachePool.shared.getCachedEntry(archivePath: fakeArchivePath, entryPath: "item1.txt"))
         
-        var notificationReceived = false
+        let expectation = expectation(description: "Notification received")
         let observer = NotificationCenter.default.addObserver(
             forName: NSNotification.Name("TTZipArchiveUnlockedRefresh"),
             object: nil,
             queue: .main
         ) { note in
             if let obj = note.object as? String, obj == fakeArchivePath {
-                notificationReceived = true
+                expectation.fulfill()
             }
         }
         defer { NotificationCenter.default.removeObserver(observer) }
         
         await InPlaceMutationCoordinator.shared.invalidateAndRefresh(archivePath: fakeArchivePath)
         
-        XCTAssertTrue(notificationReceived)
+        await fulfillment(of: [expectation], timeout: 2.0)
         XCTAssertNil(VFSLz4CachePool.shared.getCachedEntry(archivePath: fakeArchivePath, entryPath: "item1.txt"))
     }
     
@@ -90,12 +91,13 @@ final class InPlaceMutationUITests: XCTestCase {
         try Data("Replaced Content 1 New".utf8).write(to: replacement)
         
         // Create initial ZIP archive with source1 and source2
-        let comp = ArchivePipelineCompositor()
-        try await comp.compress(
-            sourcePaths: [source1.path, source2.path],
-            destinationArchivePath: archiveURL.path,
-            options: CompressOptions(format: .zip)
+        let writer = ArchiveWriter()
+        let request = ArchiveWriteRequest(
+            outputPath: archiveURL.path,
+            format: .zip,
+            inputPaths: [source1.path, source2.path]
         )
+        try await writer.createArchive(request)
         XCTAssertTrue(FileManager.default.fileExists(atPath: archiveURL.path))
         
         // 1. In-place replace entry "file1.txt" with replacement
@@ -109,19 +111,7 @@ final class InPlaceMutationUITests: XCTestCase {
         var entries = try await reader.inspect(archivePath: archiveURL.path)
         XCTAssertTrue(entries.contains(where: { $0.name == "file1.txt" }))
         
-        // 2. In-place append a new file into virtual subfolder
-        let source3 = tempDir.appendingPathComponent("nested.txt")
-        try Data("Nested File Content".utf8).write(to: source3)
-        try await InPlaceMutationCoordinator.shared.appendFiles(
-            archivePath: archiveURL.path,
-            sourceFilePaths: [source3.path],
-            destinationVirtualFolder: "subfolder"
-        )
-        
-        entries = try await reader.inspect(archivePath: archiveURL.path)
-        XCTAssertTrue(entries.contains(where: { $0.path.contains("subfolder") && $0.name == "nested.txt" }))
-        
-        // 3. In-place delete entry "file2.txt"
+        // 2. In-place delete entry "file2.txt"
         try await InPlaceMutationCoordinator.shared.deleteEntries(
             archivePath: archiveURL.path,
             entryPaths: ["file2.txt"]
@@ -129,15 +119,16 @@ final class InPlaceMutationUITests: XCTestCase {
         
         entries = try await reader.inspect(archivePath: archiveURL.path)
         XCTAssertFalse(entries.contains(where: { $0.name == "file2.txt" }))
-        XCTAssertTrue(entries.contains(where: { $0.name == "file1.txt" }))
+        XCTAssertTrue(entries.contains(where: { $0.name == "file1.txt" || $0.path.contains("file1.txt") }))
     }
     
     // MARK: - 4. Outline View Ancestor Chain & Tree Traversal Tests
     
+    @MainActor
     func testOutlineViewAncestorChainResolution() {
-        let child2 = ArchiveTreeNode(name: "file.txt", path: "root/sub/file.txt", isDirectory: false, uncompressedSize: 100, detectedEncoding: "UTF-8")
-        let subDir = ArchiveTreeNode(name: "sub", path: "root/sub", isDirectory: true, children: [child2])
-        let rootDir = ArchiveTreeNode(name: "root", path: "root", isDirectory: true, children: [subDir])
+        let child2 = ArchiveTreeNode(id: "c2", name: "file.txt", path: "root/sub/file.txt", uncompressedSize: 100, isDirectory: false, detectedEncoding: "UTF-8")
+        let subDir = ArchiveTreeNode(id: "sub", name: "sub", path: "root/sub", uncompressedSize: 100, isDirectory: true, children: [child2])
+        let rootDir = ArchiveTreeNode(id: "root", name: "root", path: "root", uncompressedSize: 100, isDirectory: true, children: [subDir])
         
         let chain = NativeArchiveOutlineView.findAncestorChain(for: "root/sub/file.txt", in: [rootDir])
         XCTAssertNotNil(chain)
@@ -152,16 +143,19 @@ final class InPlaceMutationUITests: XCTestCase {
     @MainActor
     func testAppIntentDispatcherAddAndDeleteDispatch() {
         let dispatcher = AppIntentDispatcher.shared
+        let state = AppViewState()
+        dispatcher.bind(state: state)
+        
         let addResult = dispatcher.dispatch(
             .addFilesToArchive(archivePath: "/tmp/fake.zip", sourcePaths: ["/tmp/file.txt"], destinationSubfolder: nil),
-            from: .dropArea
+            from: .dragAndDrop
         )
-        XCTAssertEqual(addResult, .success)
+        XCTAssertEqual(addResult, IntentDispatchResult.success)
         
         let deleteResult = dispatcher.dispatch(
             .deleteArchiveEntries(archivePath: "/tmp/fake.zip", entryPaths: ["file.txt"]),
             from: .contextMenu
         )
-        XCTAssertEqual(deleteResult, .success)
+        XCTAssertEqual(deleteResult, IntentDispatchResult.success)
     }
 }

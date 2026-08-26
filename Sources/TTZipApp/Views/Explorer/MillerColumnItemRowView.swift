@@ -169,7 +169,7 @@ public struct MillerColumnItemRowView: View {
         }
     }
     
-    public static func parseVirtualURL(_ path: String) -> (archivePath: String, subpath: String) {
+    public nonisolated static func parseVirtualURL(_ path: String) -> (archivePath: String, subpath: String) {
         if let u = URL(string: path),
            let comp = URLComponents(url: u, resolvingAgainstBaseURL: false),
            let sub = comp.queryItems?.first(where: { $0.name == "subpath" })?.value {
@@ -180,7 +180,7 @@ public struct MillerColumnItemRowView: View {
         return (path, "")
     }
     
-    public static func makeDragItemProvider(for item: DiskItemInfo) -> NSItemProvider {
+    public nonisolated static func makeDragItemProvider(for item: DiskItemInfo) -> NSItemProvider {
         let (archivePath, subpath) = parseVirtualURL(item.path)
         if !subpath.isEmpty {
             let filename = (subpath as NSString).lastPathComponent
