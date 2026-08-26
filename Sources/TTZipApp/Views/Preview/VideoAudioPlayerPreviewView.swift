@@ -19,14 +19,18 @@ public final class SharedVideoPlayerStore: ObservableObject {
     @Published public var currentTime: Double = 0
     @Published public var duration: Double = 0
     @Published public var isMuted: Bool = false
+    @Published public var hasPlaybackError: Bool = false
+    @Published public var errorMessage: String? = nil
     
     private var timeObserverToken: Any?
+    private var statusObservation: NSKeyValueObservation?
+    private var failureNotificationToken: Any?
     
     public init() {}
     
     public func setup(url: URL) {
         if currentURL == url, let p = player {
-            if p.rate == 0 && isPlaying {
+            if !hasPlaybackError && p.rate == 0 && isPlaying {
                 p.play()
             }
             return
@@ -35,9 +39,45 @@ public final class SharedVideoPlayerStore: ObservableObject {
         cleanUp()
         
         self.currentURL = url
-        let newPlayer = AVPlayer(url: url)
+        
+        let ext = url.pathExtension.lowercased()
+        if MediaPreviewFactory.extendedVideoExtensions.contains(ext) {
+            self.hasPlaybackError = true
+            self.errorMessage = "Container \(ext.uppercased()) requires external player."
+            return
+        }
+        
+        let item = AVPlayerItem(url: url)
+        let newPlayer = AVPlayer(playerItem: item)
         self.player = newPlayer
         self.isPlaying = false
+        self.hasPlaybackError = false
+        self.errorMessage = nil
+        
+        statusObservation = item.observe(\.status, options: [.new, .initial]) { [weak self] observedItem, _ in
+            Task { @MainActor in
+                guard let self = self else { return }
+                if observedItem.status == .failed {
+                    self.hasPlaybackError = true
+                    self.errorMessage = observedItem.error?.localizedDescription ?? "Playback failed: unsupported media format."
+                }
+            }
+        }
+        
+        failureNotificationToken = NotificationCenter.default.addObserver(
+            forName: .AVPlayerItemFailedToPlayToEndTime,
+            object: item,
+            queue: .main
+        ) { [weak self] notif in
+            let errorDesc = (notif.userInfo?[AVPlayerItemFailedToPlayToEndTimeErrorKey] as? Error)?.localizedDescription
+            Task { @MainActor in
+                guard let self = self else { return }
+                self.hasPlaybackError = true
+                if let errorDesc = errorDesc {
+                    self.errorMessage = errorDesc
+                }
+            }
+        }
         
         let interval = CMTime(seconds: 0.1, preferredTimescale: 600)
         timeObserverToken = newPlayer.addPeriodicTimeObserver(forInterval: interval, queue: .main) { [weak self] time in
@@ -58,7 +98,7 @@ public final class SharedVideoPlayerStore: ObservableObject {
     }
     
     public func togglePlayPause() {
-        guard let p = player else { return }
+        guard let p = player, !hasPlaybackError else { return }
         if isPlaying {
             p.pause()
             isPlaying = false
@@ -69,11 +109,13 @@ public final class SharedVideoPlayerStore: ObservableObject {
     }
     
     public func seek(to seconds: Double) {
+        guard !hasPlaybackError else { return }
         currentTime = seconds
         player?.seek(to: CMTime(seconds: seconds, preferredTimescale: 600))
     }
     
     public func seekBy(_ seconds: Double) {
+        guard !hasPlaybackError else { return }
         let maxDur = duration > 0 ? duration : 36000
         let target = min(max(currentTime + seconds, 0), maxDur)
         seek(to: target)
@@ -84,6 +126,12 @@ public final class SharedVideoPlayerStore: ObservableObject {
             p.removeTimeObserver(obs)
             timeObserverToken = nil
         }
+        statusObservation?.invalidate()
+        statusObservation = nil
+        if let token = failureNotificationToken {
+            NotificationCenter.default.removeObserver(token)
+            failureNotificationToken = nil
+        }
         player?.pause()
         player?.rate = 0
         player?.replaceCurrentItem(with: nil)
@@ -92,6 +140,8 @@ public final class SharedVideoPlayerStore: ObservableObject {
         isPlaying = false
         currentTime = 0
         duration = 0
+        hasPlaybackError = false
+        errorMessage = nil
     }
 }
 
@@ -109,40 +159,49 @@ public struct UnifiedVideoPlayerView: View {
     }
     
     public var body: some View {
-        ZStack(alignment: .center) {
-            Color.black.ignoresSafeArea()
-            
-            if let player = store.player {
-                AVPlayerLayerContainerView(player: player)
-                    .onTapGesture {
-                        store.togglePlayPause()
-                    }
+        Group {
+            if store.hasPlaybackError {
+                VideoPlaybackFallbackView(
+                    url: url,
+                    fileName: url.lastPathComponent,
+                    containerName: url.pathExtension.uppercased(),
+                    errorMessage: store.errorMessage
+                )
             } else {
-                ProgressView()
-                    .controlSize(.large)
-            }
-            
-            if isHovering || !store.isPlaying {
-                Button(action: { store.togglePlayPause() }) {
-                    ZStack {
-                        Circle()
-                            .fill(.ultraThinMaterial.opacity(0.85))
-                            .frame(width: 64, height: 64)
-                            .shadow(color: Color.black.opacity(0.35), radius: 10, x: 0, y: 4)
-                            .overlay(
-                                Circle()
-                                    .strokeBorder(Color.white.opacity(0.25), lineWidth: 1)
-                            )
-                        
-                        Image(systemName: store.isPlaying ? "pause.fill" : "play.fill")
-                            .font(.system(size: 26, weight: .bold))
-                            .foregroundStyle(.white)
-                            .offset(x: store.isPlaying ? 0 : 2)
+                ZStack(alignment: .center) {
+                    Color.black.ignoresSafeArea()
+                    
+                    if let player = store.player {
+                        AVPlayerLayerContainerView(player: player)
+                            .onTapGesture {
+                                store.togglePlayPause()
+                            }
+                    } else {
+                        ProgressView()
+                            .controlSize(.large)
                     }
-                }
-                .buttonStyle(.plain)
-                .transition(.scale(scale: 0.85).combined(with: .opacity).animation(.spring(response: 0.2, dampingFraction: 0.8)))
-            }
+                    
+                    if isHovering || !store.isPlaying {
+                        Button(action: { store.togglePlayPause() }) {
+                            ZStack {
+                                Circle()
+                                    .fill(.ultraThinMaterial.opacity(0.85))
+                                    .frame(width: 64, height: 64)
+                                    .shadow(color: Color.black.opacity(0.35), radius: 10, x: 0, y: 4)
+                                    .overlay(
+                                        Circle()
+                                            .strokeBorder(Color.white.opacity(0.25), lineWidth: 1)
+                                    )
+                                
+                                Image(systemName: store.isPlaying ? "pause.fill" : "play.fill")
+                                    .font(.system(size: 26, weight: .bold))
+                                    .foregroundStyle(.white)
+                                    .offset(x: store.isPlaying ? 0 : 2)
+                            }
+                        }
+                        .buttonStyle(.plain)
+                        .transition(.scale(scale: 0.85).combined(with: .opacity).animation(.spring(response: 0.2, dampingFraction: 0.8)))
+                    }
             
             if isHovering || !store.isPlaying {
                 VStack {
@@ -189,6 +248,8 @@ public struct UnifiedVideoPlayerView: View {
                     .transition(.opacity.animation(.easeInOut(duration: 0.15)))
                 }
             }
+        }
+        }
         }
         .onContinuousHover { phase in
             switch phase {

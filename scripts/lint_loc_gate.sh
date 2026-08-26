@@ -10,8 +10,11 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 APPLE_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
-REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
-LOC_SCRIPT="${REPO_ROOT}/core/scripts/lint_loc_gate.py"
+LOC_SCRIPT="${SCRIPT_DIR}/lint_loc_gate.py"
+
+if [ ! -f "${LOC_SCRIPT}" ]; then
+    LOC_SCRIPT="$(cd "${SCRIPT_DIR}/../.." && pwd)/core/scripts/lint_loc_gate.py"
+fi
 
 if [ -f "${LOC_SCRIPT}" ]; then
     python3 "${LOC_SCRIPT}" --dir "${APPLE_ROOT}" --min-files 10 "$@"

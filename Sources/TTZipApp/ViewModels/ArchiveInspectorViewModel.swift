@@ -162,4 +162,14 @@ public final class ArchiveInspectorViewModel: ObservableObject {
             }
         }
     }
+    
+    /// Awaited inspection of archive at path.
+    @discardableResult
+    public func inspectArchiveAsync(atPath path: String) async -> ArchiveInspectorState {
+        inspectArchive(atPath: path)
+        if let task = currentTask {
+            _ = await task.value
+        }
+        return self.state
+    }
 }

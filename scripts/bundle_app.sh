@@ -19,12 +19,16 @@ ENTITLEMENTS=""
 OPEN_APP=false
 BUILD_CONFIG="release"
 FAST_MODE=false
+DIST_DIR="${REPO_ROOT}/dist"
+CUSTOM_BUILD_DIR=""
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --channel|-c) CHANNEL="$2"; shift 2 ;;
         --identity|-i) SIGN_IDENTITY="$2"; shift 2 ;;
         --entitlements|-e) ENTITLEMENTS="$2"; shift 2 ;;
+        --out-dir) DIST_DIR="$2"; shift 2 ;;
+        --build-path) CUSTOM_BUILD_DIR="$2"; shift 2 ;;
         --release|-r) BUILD_CONFIG="release"; shift ;;
         --debug|-d) BUILD_CONFIG="debug"; shift ;;
         --fast|-f) FAST_MODE=true; BUILD_CONFIG="debug"; shift ;;
@@ -32,6 +36,8 @@ while [[ $# -gt 0 ]]; do
         *) echo "Unknown option: $1"; exit 1 ;;
     esac
 done
+
+BUILD_DIR="${CUSTOM_BUILD_DIR:-${REPO_ROOT}/.build_${CHANNEL}}"
 
 # Resolve default channel-specific entitlements
 if [ -z "${ENTITLEMENTS}" ]; then
@@ -61,6 +67,8 @@ esac
 echo "======================================================================"
 echo "🍎 Building and Bundling TTZip.app [${BUILD_CONFIG} mode]"
 echo "   Target Channel  : ${CHANNEL}"
+echo "   Build Directory : ${BUILD_DIR}"
+echo "   Output Directory: ${DIST_DIR}"
 echo "   Signing Identity: ${SIGN_IDENTITY}"
 echo "   Entitlements    : ${ENTITLEMENTS}"
 echo "======================================================================"
@@ -68,9 +76,8 @@ echo "======================================================================"
 cd "${REPO_ROOT}"
 
 echo "--> [1/4] Compiling TTZipApp via Swift Package Manager in ${BUILD_CONFIG} mode..."
-swift build -c "${BUILD_CONFIG}" --product TTZipApp -Xlinker -rpath -Xlinker @executable_path/../Frameworks -Xswiftc -warnings-as-errors "${SWIFT_FLAGS[@]}"
+swift build --build-path "${BUILD_DIR}" -c "${BUILD_CONFIG}" --product TTZipApp -Xlinker -rpath -Xlinker @executable_path/../Frameworks -Xswiftc -warnings-as-errors "${SWIFT_FLAGS[@]}"
 
-DIST_DIR="${REPO_ROOT}/dist"
 APP_DIR="${DIST_DIR}/TTZip.app"
 CONTENTS_DIR="${APP_DIR}/Contents"
 MACOS_DIR="${CONTENTS_DIR}/MacOS"
@@ -78,7 +85,7 @@ FRAMEWORKS_DIR="${CONTENTS_DIR}/Frameworks"
 RESOURCES_DIR="${CONTENTS_DIR}/Resources"
 
 # Find compiled binary dynamically
-BIN_PATH="$(swift build -c "${BUILD_CONFIG}" --show-bin-path)/TTZipApp"
+BIN_PATH="$(swift build --build-path "${BUILD_DIR}" -c "${BUILD_CONFIG}" --show-bin-path)/TTZipApp"
 
 if [ "${FAST_MODE}" = true ] && [ -d "${APP_DIR}" ]; then
     echo "--> [Fast Mode] In-place updating TTZip binary..."
@@ -148,11 +155,10 @@ else
         done
     fi
 
-    # Copy official signed plugin archives to App Resources/Plugins/ (Offline / Fast source)
-    OFFICIAL_PLUGIN_ZIP="/Users/kevintung/Documents/dev/studio-lab/larksync/dist/LarkSync-v1.0.0.ttplugin.zip"
-    if [ -f "${OFFICIAL_PLUGIN_ZIP}" ]; then
+    # Copy pre-packaged official plugins to App Resources/Plugins/ (if provided in repository)
+    if [ -d "${REPO_ROOT}/Resources/Plugins" ]; then
         mkdir -p "${RESOURCES_DIR}/Plugins"
-        cp -f "${OFFICIAL_PLUGIN_ZIP}" "${RESOURCES_DIR}/Plugins/"
+        cp -Rf "${REPO_ROOT}/Resources/Plugins/"* "${RESOURCES_DIR}/Plugins/" 2>/dev/null || true
     fi
     # Optional: Copy Built-in Plugins (.ttplugin) from PlugIns/ directory
     PLUGINS_DIR="${CONTENTS_DIR}/PlugIns"
@@ -166,11 +172,11 @@ else
 
     echo "--> [3/4] Performing code signing with Hardened Runtime..."
     SIGN_ARGS=(--force --deep --sign "${SIGN_IDENTITY}")
+    if [ -f "${ENTITLEMENTS}" ]; then
+        SIGN_ARGS+=(--entitlements "${ENTITLEMENTS}")
+    fi
     if [ "${SIGN_IDENTITY}" != "-" ]; then
         SIGN_ARGS+=(--options runtime --timestamp)
-        if [ -f "${ENTITLEMENTS}" ]; then
-            SIGN_ARGS+=(--entitlements "${ENTITLEMENTS}")
-        fi
     fi
 
     codesign "${SIGN_ARGS[@]}" "${APP_DIR}"

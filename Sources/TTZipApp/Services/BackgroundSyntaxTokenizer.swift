@@ -6,6 +6,7 @@
 // TTZip: High-performance native archiving and compression engine.
 
 import Foundation
+import TTZipCore
 
 /// Syntax highlight token span passed from background tokenizer actor to main thread layout.
 public struct TokenSpan: Sendable {
@@ -34,36 +35,30 @@ public actor BackgroundSyntaxTokenizer {
     
     /// Tokenizes the target range in background without main thread regex compilation overhead.
     public func tokenize(text: String, ext: String, targetRange: NSRange) -> [TokenSpan] {
-        guard let rules = PrecompiledSyntaxEngine.shared.rules(for: ext) else { return [] }
-        var results: [TokenSpan] = []
-        let nsText = text as NSString
-        let scanRange = NSIntersectionRange(NSRange(location: 0, length: nsText.length), targetRange)
-        guard scanRange.length > 0 else { return [] }
+        let scanMax = targetRange.location == NSNotFound 
+            ? UInt32(text.utf16.count) 
+            : UInt32(max(0, targetRange.location + targetRange.length))
+        let rustSpans = TTZipCore.tokenizeSourceCode(
+            text: text,
+            fileExtension: ext,
+            maxLength: scanMax
+        )
         
-        if let reg = rules.commentRegex {
-            for m in reg.matches(in: text, options: [], range: scanRange) {
-                results.append(TokenSpan(range: m.range, colorType: .comment))
+        var results: [TokenSpan] = []
+        for span in rustSpans {
+            let nsRange = NSRange(location: Int(span.location), length: Int(span.length))
+            let intersection = NSIntersectionRange(nsRange, targetRange)
+            guard intersection.length > 0 else { continue }
+            
+            let colorType: ColorCategory = switch span.category {
+            case "comment": .comment
+            case "string": .string
+            case "keyword": .keyword
+            case "number": .number
+            case "type": .type
+            default: .keyword
             }
-        }
-        if let reg = rules.stringRegex {
-            for m in reg.matches(in: text, options: [], range: scanRange) {
-                results.append(TokenSpan(range: m.range, colorType: .string))
-            }
-        }
-        if let reg = rules.keywordRegex {
-            for m in reg.matches(in: text, options: [], range: scanRange) {
-                results.append(TokenSpan(range: m.range, colorType: .keyword))
-            }
-        }
-        if let reg = rules.numberRegex {
-            for m in reg.matches(in: text, options: [], range: scanRange) {
-                results.append(TokenSpan(range: m.range, colorType: .number))
-            }
-        }
-        if let reg = rules.typeRegex {
-            for m in reg.matches(in: text, options: [], range: scanRange) {
-                results.append(TokenSpan(range: m.range, colorType: .type))
-            }
+            results.append(TokenSpan(range: nsRange, colorType: colorType))
         }
         return results
     }

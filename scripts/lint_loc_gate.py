@@ -8,7 +8,7 @@
 
 """
 TTZip Single-File Line Count (LOC) Defense Gate
-Scans Sources/ and rust/ to enforce Single Responsibility Principle (SRP)
+Scans Sources/ to enforce Single Responsibility Principle (SRP)
 and block monolithic god-files exceeding the 800 LOC hard threshold.
 """
 
@@ -17,9 +17,10 @@ import os
 from pathlib import Path
 
 MAX_LOC_THRESHOLD = 800
-SOURCE_DIRS = ["Sources", "rust"]
-SOURCE_EXTENSIONS = {".swift", ".rs", ".c", ".h", ".cpp", ".hpp", ".m"}
-IGNORED_DIRS = {"target", ".build", "Vendor", ".git", "DerivedData"}
+SOURCE_DIRS = ["Sources"]
+SOURCE_EXTENSIONS = {".swift", ".m", ".h", ".c", ".cpp"}
+IGNORED_DIRS = {"target", ".build", "Vendor", ".git", "DerivedData", "Generated"}
+IGNORED_FILENAMES = set()
 
 # Terminal colors
 C_RESET = "\033[0m"
@@ -47,11 +48,13 @@ def scan_loc_gate(root_dir: Path, max_loc: int = MAX_LOC_THRESHOLD):
             dirs[:] = [d for d in dirs if d not in IGNORED_DIRS]
 
             for file in files:
+                if file in IGNORED_FILENAMES:
+                    continue
                 ext = os.path.splitext(file)[1].lower()
                 if ext in SOURCE_EXTENSIONS:
                     file_path = Path(root) / file
 
-                    # Skip symlinks (e.g. symlinked vendor C headers)
+                    # Skip symlinks
                     if file_path.is_symlink():
                         continue
 
@@ -72,9 +75,20 @@ def scan_loc_gate(root_dir: Path, max_loc: int = MAX_LOC_THRESHOLD):
 
 def main():
     repo_root = get_repo_root()
-    
-    # Allow override via CLI flag e.g. --max-loc 800
+    target_dir = repo_root
+    min_files = 1
     max_loc = MAX_LOC_THRESHOLD
+    
+    if "--dir" in sys.argv:
+        idx = sys.argv.index("--dir")
+        if idx + 1 < len(sys.argv):
+            target_dir = Path(sys.argv[idx + 1]).resolve()
+            
+    if "--min-files" in sys.argv:
+        idx = sys.argv.index("--min-files")
+        if idx + 1 < len(sys.argv):
+            min_files = int(sys.argv[idx + 1])
+            
     if "--max-loc" in sys.argv:
         idx = sys.argv.index("--max-loc")
         if idx + 1 < len(sys.argv):
@@ -83,11 +97,16 @@ def main():
     print(f"{C_CYAN}{C_BOLD}======================================================================{C_RESET}")
     print(f"{C_CYAN}{C_BOLD}   TTZip Single-File LOC Defense Gate (Hard Threshold: {max_loc} LOC)  {C_RESET}")
     print(f"{C_CYAN}{C_BOLD}======================================================================{C_RESET}")
-    print(f"Scanning target directories: {', '.join(SOURCE_DIRS)} (under {repo_root})")
+    print(f"Scanning target directories: {', '.join(SOURCE_DIRS)} (under {target_dir})")
 
-    scanned_files, total_loc, violations = scan_loc_gate(repo_root, max_loc=max_loc)
+    scanned_files, total_loc, violations = scan_loc_gate(target_dir, max_loc=max_loc)
 
     print(f"Scanned {scanned_files} source files ({total_loc:,} total lines of code).")
+
+    if scanned_files < min_files:
+        print(f"\n{C_RED}{C_BOLD}❌ LOC GATE FAILED: Scanned {scanned_files} files, below required baseline of {min_files} files!{C_RESET}\n")
+        print(f"{C_RED}Possible path error or missing source files under: {target_dir}{C_RESET}")
+        sys.exit(2)
 
     if violations:
         print(f"\n{C_RED}{C_BOLD}❌ LOC GATE FAILED: Found {len(violations)} monolithic file(s) exceeding {max_loc} LOC!{C_RESET}\n")
@@ -96,11 +115,11 @@ def main():
         for rel_path, loc in sorted(violations, key=lambda x: -x[1]):
             print(f"{C_RED}{loc:>8} LOC{C_RESET} | {rel_path}")
         print("-" * 70)
-        print(f"{C_RED}🚨 Refactoring Required: Decompose files > {max_loc} LOC into smaller, cohesive SRP submodules.{C_RESET}\n")
+        print(f"\n{C_YELLOW}💡 Action required: Refactor and decompose violating files into smaller SRP-compliant extensions or modules.{C_RESET}")
         sys.exit(1)
-    else:
-        print(f"{C_GREEN}{C_BOLD}✅ [PASS] All {scanned_files} source files are clean and under the {max_loc} LOC threshold.{C_RESET}\n")
-        sys.exit(0)
+
+    print(f"{C_GREEN}{C_BOLD}✅ [PASS] All {scanned_files} source files are clean and under the {max_loc} LOC threshold.{C_RESET}\n")
+    sys.exit(0)
 
 if __name__ == "__main__":
     main()

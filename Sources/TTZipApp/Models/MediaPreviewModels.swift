@@ -54,6 +54,7 @@ public struct EPUBBookModel {
 public enum MediaPreviewType {
     case image(NSImage)
     case video(URL)
+    case unsupportedVideo(URL, String)
     case audio(URL)
     case pdf(URL)
     case text(String)

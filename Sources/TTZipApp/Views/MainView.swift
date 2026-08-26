@@ -33,11 +33,11 @@ public struct MainView: View {
     
     public init() {}
     
-    @AppStorage("TTZip_UserLeftSidebarWidth") private var userLeftSidebarWidth: Double = 200.0
+    @AppStorage("TTZip_UserLeftSidebarWidth") private var userLeftSidebarWidth: Double = 215.0
     @AppStorage("TTZip_UserRightSidebarWidth") private var userRightSidebarWidth: Double = 280.0
-    @State private var leftSidebarWidth: CGFloat = 200
+    @State private var leftSidebarWidth: CGFloat = 215
     @State private var rightSidebarWidth: CGFloat = 280
-    @State private var initialLeftWidth: CGFloat = 200
+    @State private var initialLeftWidth: CGFloat = 215
     @State private var initialRightWidth: CGFloat = 280
     @State private var rightVerticalTopHeight: CGFloat = 300
     
@@ -50,6 +50,7 @@ public struct MainView: View {
         @Bindable var viewModel = viewModel
         GeometryReader { geo in
             let totalWidth = geo.size.width
+            let totalHeight = geo.size.height
             let tier = WindowLayoutTier.evaluate(width: totalWidth)
             let effectiveLeftSidebarWidth: CGFloat = (tier == .compact) ? 64 : leftSidebarWidth
             let isLeftCompact: Bool = (tier == .compact) || (leftSidebarWidth < 140)
@@ -66,8 +67,9 @@ public struct MainView: View {
                 return min(max(rightSidebarWidth, minRightWidth), maxAllowed)
             }()
             
-            ZStack(alignment: .top) {
+            ZStack(alignment: .topLeading) {
                 TTZipFluidBackgroundView(baseColor: TTZipTheme.bambooGreen)
+                    .frame(width: totalWidth, height: totalHeight)
                     .allowsHitTesting(false)
                 
                 HStack(alignment: .top, spacing: 0) {
@@ -76,7 +78,7 @@ public struct MainView: View {
                         currentArchivePath: viewModel.currentArchivePath,
                         isCompact: isLeftCompact
                     )
-                    .frame(width: effectiveLeftSidebarWidth)
+                    .frame(width: effectiveLeftSidebarWidth, height: totalHeight, alignment: .topLeading)
                     
                     if tier != .compact {
                         ResizableDividerHandle(
@@ -86,10 +88,11 @@ public struct MainView: View {
                             },
                             onDragEnd: { userLeftSidebarWidth = Double(leftSidebarWidth) }
                         )
+                        .frame(height: totalHeight)
                     }
                     
                     detailArea
-                        .frame(minWidth: 200, maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                        .frame(minWidth: 200, maxWidth: .infinity, maxHeight: totalHeight, alignment: .topLeading)
                     
                     if shouldShowRightPanel {
                         ResizableDividerHandle(
@@ -103,6 +106,7 @@ public struct MainView: View {
                             },
                             onDragEnd: { userRightSidebarWidth = Double(rightSidebarWidth) }
                         )
+                        .frame(height: totalHeight)
                         
                         RightInspectorSidePanel(viewModel: viewModel, rightVerticalTopHeight: $rightVerticalTopHeight)
                             .frame(width: effectiveRightWidth, alignment: .topLeading)
@@ -110,8 +114,11 @@ public struct MainView: View {
                             .padding(.leading, 4)
                             .padding(.trailing, 10)
                             .padding(.bottom, TTZipTheme.Spacing.md)
+                            .frame(maxHeight: totalHeight, alignment: .topLeading)
                     }
                 }
+                .frame(width: totalWidth, height: totalHeight, alignment: .topLeading)
+                .clipped()
                 
                 if viewModel.activeTab == .home {
                     let omnibarMaxWidth = min(480.0, max(180.0, totalWidth - 280.0))
@@ -128,6 +135,7 @@ public struct MainView: View {
                     }
                     .padding(.top, 2)
                     .padding(.horizontal, 16)
+                    .frame(width: totalWidth, alignment: .top)
                     .zIndex(998)
                     
                     if !searchQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
@@ -137,6 +145,8 @@ public struct MainView: View {
                     }
                 }
             }
+            .frame(width: totalWidth, height: totalHeight, alignment: .topLeading)
+            .clipped()
             .simultaneousGesture(TapGesture().onEnded { NSApp.keyWindow?.makeFirstResponder(nil) })
             .onAppear {
                 self.leftSidebarWidth = CGFloat(userLeftSidebarWidth)
@@ -146,6 +156,7 @@ public struct MainView: View {
             .onChange(of: viewModel.activeTab) { _, _ in NSApp.keyWindow?.makeFirstResponder(nil) }
             .onChange(of: viewModel.currentDirectory) { _, _ in NSApp.keyWindow?.makeFirstResponder(nil) }
         }
+        .ignoresSafeArea()
         .toolbar {
             mainToolbarContent
         }
@@ -220,7 +231,6 @@ public struct MainView: View {
     private var detailArea: some View {
         if let previewURL = viewModel.activePreviewFileURL, let name = viewModel.activePreviewFileName {
             TTZipWorkspaceScaffold(
-                sectionName: "PREVIEW & INSPECTION",
                 title: name,
                 isCardEnclosed: true
             ) {
@@ -275,7 +285,6 @@ public struct MainView: View {
                         pluginView
                     } else {
                         TTZipWorkspaceScaffold(
-                            sectionName: "EXTENSIONS & ECOSYSTEM",
                             title: "LarkSync",
                             isCardEnclosed: true
                         ) {

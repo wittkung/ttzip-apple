@@ -20,12 +20,16 @@ echo "======================================================================"
 cd "${REPO_ROOT}"
 
 # Stage 1: LOC Gate
-echo ">>> [Stage 1/2] LOC Defense Gate..."
+echo ">>> [Stage 1/3] LOC Defense Gate..."
 "${REPO_ROOT}/scripts/lint_loc_gate.sh"
 
 # Stage 2: Swift UI & Extensions Test Suite
-echo ">>> [Stage 2/2] Running macOS Swift App Tests..."
+echo ">>> [Stage 2/3] Running macOS Swift App Tests..."
 swift test --quiet
+
+# Stage 3: Multi-Channel Packaging & Sandbox Gate
+echo ">>> [Stage 3/3] Running Multi-Channel Packaging & Sandbox Gate..."
+"${REPO_ROOT}/scripts/verify_channel_distribution_gate.sh"
 
 echo "======================================================================"
 echo "✅ Local CI/CD Gate Passed! TTZip Apple Client 100% compliant."

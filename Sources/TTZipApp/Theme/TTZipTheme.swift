@@ -211,7 +211,7 @@ public enum TTZipTheme {
         public static let millerColumnMaxWidth: CGFloat = 600.0
         public static let omnibarWidth: CGFloat = 480.0
         public static let omnibarHeight: CGFloat = 30.0
-        public static let sidebarDefaultWidth: CGFloat = 200.0
+        public static let sidebarDefaultWidth: CGFloat = 215.0
         public static let rightPanelDefaultWidth: CGFloat = 280.0
     }
 }

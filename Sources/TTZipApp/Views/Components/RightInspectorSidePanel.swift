@@ -21,15 +21,9 @@ public struct RightInspectorSidePanel: View {
     public var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(spacing: 12) {
-                VStack(alignment: .leading, spacing: 1) {
-                    Text("INSPECTOR")
-                        .font(.system(size: 9, weight: .bold, design: .serif))
-                        .tracking(2)
-                        .foregroundStyle(TTZipTheme.kintsugiGold)
-                    Text(viewModel.selectedDiskItem?.isDirectory == true ? "Directory Canvas" : "File Properties & Preview")
-                        .font(.system(size: 16, weight: .bold, design: .serif))
-                        .foregroundStyle(.primary)
-                }
+                Text(viewModel.selectedDiskItem?.isDirectory == true ? "Directory Canvas" : "File Properties & Preview")
+                    .font(.system(size: 16, weight: .bold, design: .serif))
+                    .foregroundStyle(.primary)
                 
                 Spacer()
                 

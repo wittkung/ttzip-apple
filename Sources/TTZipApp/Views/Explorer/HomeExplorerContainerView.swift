@@ -28,7 +28,6 @@ public struct HomeExplorerContainerView: View {
     
     public var body: some View {
         TTZipWorkspaceScaffold(
-            sectionName: "EXPLORER",
             title: l10n.t(L10n.Explorer.fileExplorer),
             isCardEnclosed: true
         ) {

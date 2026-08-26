@@ -70,6 +70,7 @@ public struct FinderMillerColumnsView: View {
                             .id(index)
                     }
                 }
+                .frame(maxHeight: .infinity, alignment: .topLeading)
                 .onChange(of: columnPaths.count) { _, newCount in
                     if newCount > 0 {
                         withAnimation(.spring(response: 0.25, dampingFraction: 0.85)) {
@@ -93,6 +94,7 @@ public struct FinderMillerColumnsView: View {
                 }
             }
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .clipped()
         .alert("New Folder", isPresented: $showNewFolderAlert) {
             TextField("Folder Name", text: $newFolderName)
@@ -296,6 +298,7 @@ public struct FinderMillerColumnsView: View {
             onSelectAll: { selectAllInActiveColumn() },
             onWidthChanged: { w in columnWidths[index] = w }
         )
+        .frame(maxHeight: .infinity)
         .task(id: "\(cacheKey)_\(refreshKey.uuidString)") {
             if cachedColumnItems[cacheKey] == nil {
                 let dir = dirURL

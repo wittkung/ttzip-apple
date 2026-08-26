@@ -161,6 +161,10 @@ extension AppViewState {
     
     /// Prefetches initial or visible archive entries into the 16-way sharded VFS LZ4 cache pool.
     public func prefetchArchiveEntries(path: String, entries: [ArchiveEntry], count: Int = 16) {
+        // Bounded Guard: Suppress prefetch for large 7z solid archives to avoid CPU contention
+        if path.lowercased().hasSuffix(".7z") && entries.count > 100 {
+            return
+        }
         let candidates = Array(entries.filter { !$0.isDirectory && $0.uncompressedSize > 0 && $0.uncompressedSize <= 2 * 1024 * 1024 }.prefix(count))
         guard !candidates.isEmpty else { return }
         

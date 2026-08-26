@@ -24,6 +24,35 @@ public struct DiskItemInfo: Identifiable, Hashable, Equatable, Sendable {
         return lhs.path == rhs.path && lhs.rawSizeBytes == rhs.rawSizeBytes && lhs.modificationDate == rhs.modificationDate
     }
     
+    public init(summary: DiskItemSummary) {
+        self.path = summary.path
+        self.name = summary.name
+        self.isDirectory = summary.isDirectory
+        
+        let url = URL(fileURLWithPath: summary.path)
+        let rawExt = url.pathExtension.lowercased()
+        let isArch = ArchiveCompressionFormat.isArchiveExtension(rawExt, path: summary.path)
+        self.isArchive = isArch
+        
+        self.creationDate = nil
+        if summary.mtimeEpochSecs > 0 {
+            self.modificationDate = Date(timeIntervalSince1970: TimeInterval(summary.mtimeEpochSecs))
+        } else {
+            self.modificationDate = nil
+        }
+        
+        if !self.isDirectory {
+            let bytes = Int64(summary.size)
+            self.rawSizeBytes = bytes
+            self.sizeText = ByteCountFormatterFlyweight.shared.string(fromByteCount: bytes)
+            self.kindText = ArchiveCompressionFormat.kindDescription(forExtension: rawExt, isArchive: isArch, path: summary.path)
+        } else {
+            self.rawSizeBytes = 0
+            self.sizeText = "Folder"
+            self.kindText = "Folder"
+        }
+    }
+    
     public init(url: URL, resourceValues: URLResourceValues) {
         self.path = url.path
         self.name = url.lastPathComponent

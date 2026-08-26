@@ -33,7 +33,6 @@ public struct PluginsView: View {
     
     public var body: some View {
         TTZipWorkspaceScaffold(
-            sectionName: "EXTENSIONS & ECOSYSTEM",
             title: PluginL10n.title(locale: pluginLocale),
             isCardEnclosed: true
         ) {

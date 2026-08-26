@@ -45,40 +45,48 @@ extension AppViewState {
     }
     
     public func performUndo() {
-        guard !self.isLoading else { return }
-        self.isLoading = true
         Task { @MainActor in
-            defer {
-                self.isLoading = false
-            }
-            guard await historyManager.canUndo else { return }
-            do {
-                if let res = try await historyManager.undo() {
-                    self.statusMessage = "Undone: \(res.message)"
-                }
-            } catch {
-                self.statusMessage = "Undo failed: \(error.localizedDescription)"
-            }
-            await self.refreshUndoRedoState()
+            await performUndoAsync()
         }
     }
     
-    public func performRedo() {
+    public func performUndoAsync() async {
         guard !self.isLoading else { return }
         self.isLoading = true
-        Task { @MainActor in
-            defer {
-                self.isLoading = false
-            }
-            guard await historyManager.canRedo else { return }
-            do {
-                if let res = try await historyManager.redo() {
-                    self.statusMessage = "Redone: \(res.message)"
-                }
-            } catch {
-                self.statusMessage = "Redo failed: \(error.localizedDescription)"
-            }
-            await self.refreshUndoRedoState()
+        defer {
+            self.isLoading = false
         }
+        guard await historyManager.canUndo else { return }
+        do {
+            if let res = try await historyManager.undo() {
+                self.statusMessage = "Undone: \(res.message)"
+            }
+        } catch {
+            self.statusMessage = "Undo failed: \(error.localizedDescription)"
+        }
+        await self.refreshUndoRedoState()
+    }
+    
+    public func performRedo() {
+        Task { @MainActor in
+            await performRedoAsync()
+        }
+    }
+    
+    public func performRedoAsync() async {
+        guard !self.isLoading else { return }
+        self.isLoading = true
+        defer {
+            self.isLoading = false
+        }
+        guard await historyManager.canRedo else { return }
+        do {
+            if let res = try await historyManager.redo() {
+                self.statusMessage = "Redone: \(res.message)"
+            }
+        } catch {
+            self.statusMessage = "Redo failed: \(error.localizedDescription)"
+        }
+        await self.refreshUndoRedoState()
     }
 }

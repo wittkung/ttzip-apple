@@ -247,4 +247,50 @@ final class MediaPreviewAuditTests: XCTestCase {
         let physicalProvider = MillerColumnItemRowView.makeDragItemProvider(for: physicalItem)
         XCTAssertEqual(physicalProvider.suggestedName, "regular_document.txt", "物理文件拖拽 suggestedName 不匹配")
     }
+    
+    // MARK: - Test 5: MKV & Non-Native Video Container Classification & Fallback Resilience
+    
+    @MainActor
+    func testMKVAndNonNativeVideoContainerClassificationAndFallback() async throws {
+        let mkvURL = tempDirURL.appendingPathComponent("The.Invite.2026.2160p.iT.WEB-DL.DDP5.1.DV.HDR.H.265.mkv")
+        try Data("mock mkv video container stream".utf8).write(to: mkvURL)
+        
+        // 1. Verify synchronous classification returns unsupportedVideo
+        let syncType = MediaPreviewFactory.detectType(url: mkvURL)
+        switch syncType {
+        case .unsupportedVideo(let detectedURL, let container):
+            XCTAssertEqual(detectedURL, mkvURL)
+            XCTAssertEqual(container, "MKV")
+        default:
+            XCTFail("MKV file should be detected as .unsupportedVideo, got \(syncType)")
+        }
+        
+        // 2. Verify asynchronous classification returns unsupportedVideo
+        let asyncType = await MediaPreviewFactory.detectTypeAsync(url: mkvURL)
+        switch asyncType {
+        case .unsupportedVideo(let detectedURL, let container):
+            XCTAssertEqual(detectedURL, mkvURL)
+            XCTAssertEqual(container, "MKV")
+        default:
+            XCTFail("MKV file async should be detected as .unsupportedVideo, got \(asyncType)")
+        }
+        
+        // 3. Verify Native vs Extended Video Sets
+        XCTAssertTrue(MediaPreviewFactory.nativeVideoExtensions.contains("mp4"))
+        XCTAssertTrue(MediaPreviewFactory.nativeVideoExtensions.contains("mov"))
+        XCTAssertTrue(MediaPreviewFactory.extendedVideoExtensions.contains("mkv"))
+        XCTAssertTrue(MediaPreviewFactory.extendedVideoExtensions.contains("avi"))
+        XCTAssertTrue(MediaPreviewFactory.extendedVideoExtensions.contains("webm"))
+        
+        // 4. Verify SharedVideoPlayerStore gracefully enters hasPlaybackError on MKV
+        let store = SharedVideoPlayerStore()
+        store.setup(url: mkvURL)
+        XCTAssertTrue(store.hasPlaybackError, "SharedVideoPlayerStore should have playback error for MKV")
+        XCTAssertNotNil(store.errorMessage)
+        
+        // 5. Clean up store
+        store.cleanUp()
+        XCTAssertFalse(store.hasPlaybackError)
+        XCTAssertNil(store.errorMessage)
+    }
 }

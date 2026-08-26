@@ -1,8 +1,32 @@
+# macOS & System Clutter
 .DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+# SwiftPM & Xcode
 .build/
+.build_*/
+.swiftpm/
+.cache/
+DerivedData/
+xcuserdata/
 *.xcuserstate
 *.xcworkspace
-xcuserdata/
-*.swp
-*.orig
+*.dSYM/
+*.app
+*.ipa
+
+# Distribution & Packaging Artifacts
 dist/
+*.dmg
+*.pkg
+
+# Editor & Temporary
+.vscode/
+.idea/
+*.swp
+*.swo
+*.orig
+*.tmp
+*.log

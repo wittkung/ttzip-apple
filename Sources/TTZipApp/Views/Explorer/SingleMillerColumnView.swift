@@ -209,6 +209,7 @@ public struct SingleMillerColumnView: View {
                         }
                     }
                 }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .background(ConfigureNSScrollView())
                 .background(Color.primary.opacity(0.005))
                 .contentShape(Rectangle())
@@ -262,6 +263,7 @@ public struct SingleMillerColumnView: View {
                 }
             }
             .frame(width: currentWidth)
+            .frame(maxHeight: .infinity, alignment: .topLeading)
             .onHover { isHovered in
                 if isHovered {
                     onHoverColumn(index)
@@ -278,6 +280,7 @@ public struct SingleMillerColumnView: View {
             Rectangle()
                 .fill(Color.primary.opacity(0.12))
                 .frame(width: 1)
+                .frame(maxHeight: .infinity)
                 .overlay(
                     Rectangle()
                         .fill(Color.clear)
@@ -299,6 +302,8 @@ public struct SingleMillerColumnView: View {
             Rectangle()
                 .fill(TTZipTheme.hairlineBorder)
                 .frame(width: 0.5)
+                .frame(maxHeight: .infinity)
         }
+        .frame(maxHeight: .infinity, alignment: .topLeading)
     }
 }

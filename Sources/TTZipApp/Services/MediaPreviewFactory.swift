@@ -30,10 +30,18 @@ public enum MediaPreviewFactory {
         "png", "jpg", "jpeg", "gif", "webp", "heic", "svg", "bmp", "tiff", "ico"
     ]
     
-    /// Video extensions.
-    public static let videoExtensions: Set<String> = [
-        "mp4", "mov", "m4v", "avi", "mkv", "webm", "ogv", "flv", "3gp", "ts"
+    /// Native video extensions directly decodable and playable via AVPlayer with GPU hardware acceleration.
+    public static let nativeVideoExtensions: Set<String> = [
+        "mp4", "mov", "m4v", "qt"
     ]
+    
+    /// Extended video container extensions that require external player dispatch or specialized container demuxers.
+    public static let extendedVideoExtensions: Set<String> = [
+        "mkv", "avi", "webm", "ogv", "flv", "3gp", "ts", "wmv", "vob", "rmvb", "divx", "m2ts", "asf"
+    ]
+    
+    /// All recognizable video extensions.
+    public static let videoExtensions: Set<String> = nativeVideoExtensions.union(extendedVideoExtensions)
     
     /// Audio extensions.
     public static let audioExtensions: Set<String> = [
@@ -62,8 +70,11 @@ public enum MediaPreviewFactory {
         if imageExtensions.contains(ext), let image = DownsampledImageLoader.loadDownsampledImage(from: url) {
             return .image(image)
         }
-        if videoExtensions.contains(ext) {
+        if nativeVideoExtensions.contains(ext) {
             return .video(url)
+        }
+        if extendedVideoExtensions.contains(ext) {
+            return .unsupportedVideo(url, ext.uppercased())
         }
         if audioExtensions.contains(ext) {
             return .audio(url)
@@ -131,8 +142,12 @@ public enum MediaPreviewFactory {
             }
         }
         
-        if videoExtensions.contains(ext) {
+        if nativeVideoExtensions.contains(ext) {
             return .video(url)
+        }
+        
+        if extendedVideoExtensions.contains(ext) {
+            return .unsupportedVideo(url, ext.uppercased())
         }
         
         if audioExtensions.contains(ext) {
@@ -237,6 +252,16 @@ public enum MediaPreviewFactory {
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                 )
             }
+            
+        case .unsupportedVideo(let url, let containerName):
+            return AnyView(
+                VideoPlaybackFallbackView(
+                    url: url,
+                    fileName: fileName,
+                    containerName: containerName
+                )
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            )
             
         case .audio(let url):
             return AnyView(

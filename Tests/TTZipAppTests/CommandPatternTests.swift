@@ -691,20 +691,15 @@ final class CommandPatternTests: XCTestCase {
         XCTAssertFalse(viewState.canRedo)
         XCTAssertFalse(viewState.isLoading)
         
-        // macOS Cmd+Z
-        NotificationCenter.default.post(name: NSNotification.Name("TTZipPerformUndoNotification"), object: nil)
-        NotificationCenter.default.post(name: NSNotification.Name("TTZipPerformUndoNotification"), object: nil)
-        
-        // MainActor
-        try? await Task.sleep(nanoseconds: 50_000_000)
+        // Undo dispatch
+        await viewState.performUndoAsync()
         
         XCTAssertFalse(viewState.isLoading)
         XCTAssertFalse(viewState.canUndo)
         XCTAssertTrue(viewState.canRedo)
         
-        // macOS Cmd+Shift+Z
-        NotificationCenter.default.post(name: NSNotification.Name("TTZipPerformRedoNotification"), object: nil)
-        try? await Task.sleep(nanoseconds: 50_000_000)
+        // Redo dispatch
+        await viewState.performRedoAsync()
         
         XCTAssertFalse(viewState.isLoading)
         XCTAssertTrue(viewState.canUndo)

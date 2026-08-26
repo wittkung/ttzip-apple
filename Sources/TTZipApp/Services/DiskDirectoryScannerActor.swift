@@ -8,50 +8,23 @@
 import Foundation
 import TTZipCore
 
-/// Dedicated actor executing high-throughput non-blocking disk directory scans with batch attribute prefetching.
-/// Leveraging POSIX getattrlistbulk under the hood via Foundation resource pre-population.
+/// Dedicated actor executing high-throughput non-blocking disk directory scans.
+/// Delegated directly to the Rust engine for concurrent POSIX scanning and pre-sorted summaries.
 public actor DiskDirectoryScannerActor {
     public static let shared = DiskDirectoryScannerActor()
     
-    private static let resourceKeys: Set<URLResourceKey> = [
-        .isDirectoryKey,
-        .fileSizeKey,
-        .contentModificationDateKey,
-        .creationDateKey,
-        .isPackageKey,
-        .isHiddenKey
-    ]
-    
     private init() {}
     
-    /// Scans the target directory with batch resource key prefetching in a single bulk system call.
+    /// Scans the target directory via the high-performance Rust engine.
     public func scanDirectory(at dirURL: URL) async -> [DiskItemInfo] {
         await RootFolderAccessManager.shared.ensureAccess(for: dirURL, promptIfMissing: false)
         
         return await Task.detached(priority: .userInitiated) {
-            let keys = Array(Self.resourceKeys)
-            guard let contents = try? FileManager.default.contentsOfDirectory(
-                at: dirURL,
-                includingPropertiesForKeys: keys,
-                options: [.skipsHiddenFiles]
-            ) else {
+            do {
+                let summaries = try TTZipCore.scanDirectory(path: dirURL.path, maxDepth: 1)
+                return summaries.map { DiskItemInfo(summary: $0) }
+            } catch {
                 return []
-            }
-            
-            var items: [DiskItemInfo] = []
-            items.reserveCapacity(contents.count)
-            
-            for fileURL in contents {
-                if let values = try? fileURL.resourceValues(forKeys: Self.resourceKeys) {
-                    items.append(DiskItemInfo(url: fileURL, resourceValues: values))
-                } else {
-                    items.append(DiskItemInfo(url: fileURL))
-                }
-            }
-            
-            return items.sorted { a, b in
-                if a.isDirectory != b.isDirectory { return a.isDirectory }
-                return a.name.localizedStandardCompare(b.name) == .orderedAscending
             }
         }.value
     }

@@ -26,170 +26,226 @@ public struct MacEditorialSidebar: View {
     }
     
     public var body: some View {
-        VStack(alignment: isCompact ? .center : .leading, spacing: 0) {
-            if !isCompact {
-                VStack(alignment: .leading, spacing: 0) {
-                    VStack(alignment: .leading, spacing: 1) {
-                        Text("THE")
-                            .font(.system(size: 9, weight: .bold, design: .serif))
-                            .tracking(2.5)
-                            .foregroundStyle(TTZipTheme.kintsugiGold)
-                        HStack(spacing: 7) {
-                            if let logoImg = AppLogoCache.sharedLogoImage {
-                                Image(nsImage: logoImg)
-                                    .resizable()
-                                    .aspectRatio(contentMode: .fit)
-                                    .frame(width: 22, height: 22)
-                                    .clipShape(RoundedRectangle(cornerRadius: 5, style: .continuous))
-                                    .shadow(color: Color.black.opacity(0.15), radius: 3, x: 0, y: 1)
-                            }
-                            Text("TTZIP")
-                                .font(.system(size: 18, weight: .bold, design: .serif))
-                                .tracking(1.5)
-                            Text(l10n.t(L10n.Sidebar.proBadge))
-                                .font(.system(size: 10, weight: .heavy, design: .serif))
-                                .padding(.horizontal, 5)
-                                .padding(.vertical, 1.5)
-                                .background(TTZipTheme.kintsugiGold.opacity(0.18))
-                                .foregroundStyle(TTZipTheme.kintsugiGold)
-                                .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
+        GeometryReader { geo in
+            let availableHeight = geo.size.height
+            let layoutTier = SidebarLayoutTier.evaluate(height: availableHeight)
+            let isConstrainedHeight = (layoutTier == .constrained)
+            let isExtremelyConstrained = (layoutTier == .extremelyConstrained)
+            
+            VStack(alignment: isCompact ? .center : .leading, spacing: 0) {
+                // MARK: - 1. Pinned Header
+                headerSection
+                
+                // MARK: - 2. Scrollable Navigation Index Body
+                ScrollView(.vertical, showsIndicators: false) {
+                    VStack(alignment: isCompact ? .center : .leading, spacing: isCompact ? 4 : 2) {
+                        if !isCompact {
+                            Text(l10n.t(L10n.Sidebar.indexHeader))
+                                .font(.system(size: 9.5, weight: .bold, design: .serif))
+                                .tracking(2)
+                                .foregroundStyle(.secondary.opacity(0.8))
+                                .padding(.horizontal, 10)
+                                .padding(.bottom, 4)
+                                .lineLimit(1)
                         }
+                        
+                        // 1. Core Navigation Items
+                        SidebarItemView(title: l10n.t(L10n.Sidebar.homeAndExtract), icon: "archivebox", tab: .home, activeTab: $activeTab, isCompact: isCompact)
+                        SidebarItemView(title: l10n.t(L10n.Sidebar.newArchive), icon: "doc.badge.plus", tab: .compressWorkspace, activeTab: $activeTab, isCompact: isCompact)
+                        SidebarItemView(title: l10n.t(L10n.Sidebar.presets), icon: "slider.horizontal.3", tab: .presets, activeTab: $activeTab, isCompact: isCompact)
+                        SidebarItemView(title: l10n.t(L10n.Sidebar.benchmark), icon: "speedometer", tab: .benchmark, activeTab: $activeTab, isCompact: isCompact)
+                        SidebarItemView(title: l10n.t(L10n.Sidebar.vault), icon: "key.fill", tab: .vault, activeTab: $activeTab, isCompact: isCompact)
+                        
+                        // 2. Dynamic Plugin Contributions
+                        ForEach(registry.sidebarItems, id: \.id) { (contribution: TTZipSidebarContribution) in
+                            let isLark = contribution.id.contains("larksync")
+                            SidebarItemView(
+                                title: contribution.title,
+                                icon: contribution.icon,
+                                tab: isLark ? .larkSync : .plugins,
+                                activeTab: $activeTab,
+                                isCompact: isCompact
+                            )
+                        }
+                        
+                        // 3. Plugin Center & Licensing
+                        let pluginsTitle = l10n.currentLanguage == .zhHans ? "插件中心" : "Extensions"
+                        SidebarItemView(title: pluginsTitle, icon: "puzzlepiece.extension.fill", tab: .plugins, activeTab: $activeTab, isCompact: isCompact)
+                        SidebarItemView(title: l10n.t(L10n.Sidebar.licensing), icon: "checkmark.seal.fill", tab: .settings, activeTab: $activeTab, isCompact: isCompact)
                     }
-                    .padding(.horizontal, 16)
-                    .frame(height: 52)
+                    .padding(.horizontal, isCompact ? 0 : 6)
                     
-                    Rectangle()
-                        .fill(TTZipTheme.kintsugiGold)
-                        .frame(height: 1.5)
+                    if !isCompact, let path = currentArchivePath {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(l10n.t(L10n.Sidebar.openArchiveHeader))
+                                .font(.system(size: 9, weight: .bold, design: .serif))
+                                .tracking(1.5)
+                                .foregroundStyle(.secondary)
+                                .lineLimit(1)
+                            
+                            Text((path as NSString).lastPathComponent)
+                                .font(TTZipTheme.Typography.caption)
+                                .foregroundStyle(TTZipTheme.bambooGreen)
+                                .lineLimit(1)
+                        }
+                        .padding(.horizontal, 14)
+                        .padding(.top, 14)
+                    }
                 }
-                .padding(.top, 38)
-                .padding(.bottom, 16)
-            } else {
-                VStack {
+                .frame(maxWidth: .infinity)
+                
+                // MARK: - 3. Adaptive Hardware & Footer Section
+                if !isCompact && !isExtremelyConstrained {
+                    VStack(alignment: .leading, spacing: 0) {
+                        if isConstrainedHeight {
+                            compactHardwarePill
+                        } else {
+                            fullHardwareCard
+                        }
+                        
+                        footerSection
+                    }
+                }
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+        }
+        .background(Color.clear)
+    }
+    
+    // MARK: - Subviews
+    
+    @ViewBuilder
+    private var headerSection: some View {
+        if !isCompact {
+            VStack(alignment: .leading, spacing: 0) {
+                HStack(spacing: 6) {
                     if let logoImg = AppLogoCache.sharedLogoImage {
                         Image(nsImage: logoImg)
                             .resizable()
                             .aspectRatio(contentMode: .fit)
-                            .frame(width: 28, height: 28)
-                            .clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
-                    } else {
-                        Image(systemName: "archivebox.fill")
-                            .font(.system(size: 20))
-                            .foregroundStyle(TTZipTheme.bambooGreen)
+                            .frame(width: 20, height: 20)
+                            .clipShape(RoundedRectangle(cornerRadius: 5, style: .continuous))
+                            .shadow(color: Color.black.opacity(0.12), radius: 2, x: 0, y: 1)
                     }
-                }
-                .frame(maxWidth: .infinity)
-                .padding(.top, 38)
-                .padding(.bottom, 24)
-            }
-            
-            VStack(alignment: isCompact ? .center : .leading, spacing: isCompact ? 4 : 2) {
-                if !isCompact {
-                    Text(l10n.t(L10n.Sidebar.indexHeader))
-                        .font(.system(size: 9.5, weight: .bold, design: .serif))
-                        .tracking(2)
-                        .foregroundStyle(.secondary.opacity(0.8))
-                        .padding(.horizontal, 10)
-                        .padding(.bottom, 4)
-                }
-                
-                // 1. 核心内置项
-                SidebarItemView(title: l10n.t(L10n.Sidebar.homeAndExtract), icon: "archivebox", tab: .home, activeTab: $activeTab, isCompact: isCompact)
-                SidebarItemView(title: l10n.t(L10n.Sidebar.newArchive), icon: "doc.badge.plus", tab: .compressWorkspace, activeTab: $activeTab, isCompact: isCompact)
-                SidebarItemView(title: l10n.t(L10n.Sidebar.presets), icon: "slider.horizontal.3", tab: .presets, activeTab: $activeTab, isCompact: isCompact)
-                SidebarItemView(title: l10n.t(L10n.Sidebar.benchmark), icon: "speedometer", tab: .benchmark, activeTab: $activeTab, isCompact: isCompact)
-                SidebarItemView(title: l10n.t(L10n.Sidebar.vault), icon: "key.fill", tab: .vault, activeTab: $activeTab, isCompact: isCompact)
-                
-                // 2. 动态插件扩展项 (仅在已安装对应插件时渲染)
-                ForEach(registry.sidebarItems, id: \.id) { (contribution: TTZipSidebarContribution) in
-                    let isLark = contribution.id.contains("larksync")
-                    SidebarItemView(
-                        title: contribution.title,
-                        icon: contribution.icon,
-                        tab: isLark ? .larkSync : .plugins,
-                        activeTab: $activeTab,
-                        isCompact: isCompact
-                    )
-                }
-                
-                // 3. 插件中心与许可证
-                let pluginsTitle = l10n.currentLanguage == .zhHans ? "插件中心" : "Extensions"
-                SidebarItemView(title: pluginsTitle, icon: "puzzlepiece.extension.fill", tab: .plugins, activeTab: $activeTab, isCompact: isCompact)
-                SidebarItemView(title: l10n.t(L10n.Sidebar.licensing), icon: "checkmark.seal.fill", tab: .settings, activeTab: $activeTab, isCompact: isCompact)
-            }
-            .padding(.horizontal, isCompact ? 0 : 8)
-            
-            if !isCompact, let path = currentArchivePath {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(l10n.t(L10n.Sidebar.openArchiveHeader))
-                        .font(.system(size: 9, weight: .bold, design: .serif))
-                        .tracking(1.5)
-                        .foregroundStyle(.secondary)
-                    
-                    Text((path as NSString).lastPathComponent)
-                        .font(TTZipTheme.Typography.caption)
-                        .foregroundStyle(TTZipTheme.bambooGreen)
+                    Text("TTZip")
+                        .font(.system(size: 16, weight: .bold, design: .serif))
+                        .tracking(0.5)
+                        .foregroundStyle(.primary)
                         .lineLimit(1)
-                }
-                .padding(.horizontal, 16)
-                .padding(.top, 14)
-            }
-            
-            Spacer(minLength: 16)
-            
-            if !isCompact {
-                VStack(alignment: .leading, spacing: 5) {
-                    HStack(spacing: 5) {
-                        Image(systemName: "cpu")
-                            .font(.system(size: 10, weight: .medium))
-                            .foregroundStyle(TTZipTheme.bambooGreen)
-                        Text(tuner.topology.chipName)
-                            .font(.system(size: 11, weight: .semibold, design: .serif))
-                            .foregroundStyle(.primary.opacity(0.85))
-                    }
+                        .fixedSize(horizontal: true, vertical: false)
                     
-                    Text("\(tuner.topology.totalCores) 核心 (\(tuner.topology.performanceCores) 性能核 + \(tuner.topology.efficiencyCores) 能效核) • \(Int(tuner.topology.unifiedMemoryGB)) GB 统一内存")
-                        .font(.system(size: 9.5))
-                        .foregroundStyle(.secondary)
-                    
-                    HStack(spacing: 3) {
-                        Image(systemName: "bolt.fill")
-                            .font(.system(size: 8))
-                            .foregroundStyle(TTZipTheme.kintsugiGold)
-                        Text("零拷贝 SIMD 硬件加速")
-                            .font(.system(size: 9, weight: .medium))
-                            .foregroundStyle(TTZipTheme.kintsugiGold)
-                    }
-                    .padding(.top, 1)
+                    Text(l10n.t(L10n.Sidebar.proBadge))
+                        .font(.system(size: 9.5, weight: .bold, design: .serif))
+                        .padding(.horizontal, 5)
+                        .padding(.vertical, 2)
+                        .background(TTZipTheme.kintsugiGold.opacity(0.18))
+                        .foregroundStyle(TTZipTheme.kintsugiGold)
+                        .clipShape(RoundedRectangle(cornerRadius: 3.5, style: .continuous))
+                        .lineLimit(1)
+                        .fixedSize()
                 }
                 .padding(.horizontal, 14)
-                .padding(.vertical, 8)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .background(Color.primary.opacity(0.025))
-                .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 6, style: .continuous)
-                        .strokeBorder(Color.primary.opacity(0.04), lineWidth: 0.5)
-                )
-                .padding(.horizontal, 10)
-                .padding(.bottom, 6)
+                .frame(height: 52)
+                
+                Rectangle()
+                    .fill(TTZipTheme.kintsugiGold)
+                    .frame(height: 1.5)
+            }
+            .padding(.top, 38)
+            .padding(.bottom, 12)
+        } else {
+            VStack {
+                if let logoImg = AppLogoCache.sharedLogoImage {
+                    Image(nsImage: logoImg)
+                        .resizable()
+                        .aspectRatio(contentMode: .fit)
+                        .frame(width: 28, height: 28)
+                        .clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
+                } else {
+                    Image(systemName: "archivebox.fill")
+                        .font(.system(size: 20))
+                        .foregroundStyle(TTZipTheme.bambooGreen)
+                }
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.top, 38)
+            .padding(.bottom, 20)
+        }
+    }
+    
+    private var fullHardwareCard: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack(spacing: 5) {
+                Image(systemName: "cpu")
+                    .font(.system(size: 10, weight: .medium))
+                    .foregroundStyle(TTZipTheme.bambooGreen)
+                Text(tuner.topology.chipName)
+                    .font(.system(size: 11, weight: .semibold, design: .serif))
+                    .foregroundStyle(.primary.opacity(0.85))
+                    .lineLimit(1)
             }
             
-            if !isCompact {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(currentDateString)
-                        .font(.system(size: 9.5, weight: .regular))
-                        .foregroundStyle(.secondary.opacity(0.8))
-                    Text("原生 macOS 架构")
-                        .font(.system(size: 9.5, weight: .regular, design: .monospaced))
-                        .foregroundStyle(.secondary.opacity(0.6))
-                }
-                .padding(.horizontal, 16)
-                .padding(.bottom, 12)
+            Text("\(tuner.topology.totalCores) 核心 (\(tuner.topology.performanceCores)P+\(tuner.topology.efficiencyCores)E) • \(Int(tuner.topology.unifiedMemoryGB))GB 内存")
+                .font(.system(size: 9.5))
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+            
+            HStack(spacing: 3) {
+                Image(systemName: "bolt.fill")
+                    .font(.system(size: 8))
+                    .foregroundStyle(TTZipTheme.kintsugiGold)
+                Text("零拷贝 SIMD 加速")
+                    .font(.system(size: 9, weight: .medium))
+                    .foregroundStyle(TTZipTheme.kintsugiGold)
+                    .lineLimit(1)
             }
+            .padding(.top, 1)
         }
-        .frame(maxHeight: .infinity)
-        .background(TTZipTheme.paperWhite.opacity(0.98))
+        .padding(.horizontal, 10)
+        .padding(.vertical, 7)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.primary.opacity(0.025))
+        .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 6, style: .continuous)
+                .strokeBorder(Color.primary.opacity(0.04), lineWidth: 0.5)
+        )
+        .padding(.horizontal, 8)
+        .padding(.bottom, 6)
+    }
+    
+    private var compactHardwarePill: some View {
+        HStack(spacing: 4) {
+            Image(systemName: "cpu")
+                .font(.system(size: 9, weight: .medium))
+                .foregroundStyle(TTZipTheme.bambooGreen)
+            Text("\(tuner.topology.chipName) • \(Int(tuner.topology.unifiedMemoryGB))GB")
+                .font(.system(size: 9.5, weight: .medium))
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+        }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 4)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.primary.opacity(0.025))
+        .clipShape(RoundedRectangle(cornerRadius: 5, style: .continuous))
+        .padding(.horizontal, 8)
+        .padding(.bottom, 4)
+    }
+    
+    private var footerSection: some View {
+        VStack(alignment: .leading, spacing: 1) {
+            Text(currentDateString)
+                .font(.system(size: 9, weight: .regular))
+                .foregroundStyle(.secondary.opacity(0.8))
+                .lineLimit(1)
+            Text("原生 macOS 架构")
+                .font(.system(size: 9, weight: .regular, design: .monospaced))
+                .foregroundStyle(.secondary.opacity(0.6))
+                .lineLimit(1)
+        }
+        .padding(.horizontal, 14)
+        .padding(.bottom, 10)
     }
     
     private var currentDateString: String {
@@ -233,7 +289,7 @@ private struct SidebarItemView: View {
                 .frame(width: 36, height: 36)
                 .help(title)
             } else {
-                HStack(spacing: 8) {
+                HStack(spacing: 7) {
                     Capsule(style: .continuous)
                         .fill(isSelected ? TTZipTheme.bambooGreen : Color.clear)
                         .frame(width: 3, height: 16)
@@ -245,15 +301,15 @@ private struct SidebarItemView: View {
                         .foregroundStyle(isSelected ? TTZipTheme.bambooGreen : Color.primary.opacity(isHovered ? 0.85 : 0.6))
                     
                     Text(title)
-                        .font(.system(size: 12.5, weight: isSelected ? .semibold : .regular, design: .serif))
+                        .font(.system(size: 12, weight: isSelected ? .semibold : .regular, design: .serif))
                         .foregroundStyle(isSelected ? Color.primary : Color.primary.opacity(isHovered ? 0.95 : 0.75))
                         .lineLimit(1)
                     
                     Spacer(minLength: 0)
                 }
-                .padding(.vertical, 6)
-                .padding(.trailing, 8)
-                .padding(.leading, 4)
+                .padding(.vertical, 5.5)
+                .padding(.trailing, 6)
+                .padding(.leading, 3)
                 .background(
                     RoundedRectangle(cornerRadius: 6, style: .continuous)
                         .fill(

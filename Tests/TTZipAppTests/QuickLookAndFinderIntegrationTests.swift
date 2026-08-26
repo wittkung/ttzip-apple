@@ -8,6 +8,8 @@
 import XCTest
 @testable import TTZipApp
 @testable import TTZipCore
+@testable import TTZipFinderSync
+@testable import TTZipQuickLook
 
 final class QuickLookAndFinderIntegrationTests: XCTestCase {
     
@@ -94,5 +96,51 @@ final class QuickLookAndFinderIntegrationTests: XCTestCase {
         XCTAssertEqual(decoded.actionIdentifier, "extract_here")
         XCTAssertEqual(decoded.sourcePaths, ["/Users/test/archive.zip"])
         XCTAssertEqual(decoded.destinationDirectory, "/Users/test/output")
+    }
+    
+    @MainActor
+    func test_findersync_extension_lifecycle_and_badge_requests() {
+        let sync = FinderSync()
+        XCTAssertNotNil(sync)
+        
+        // Supported extensions get badge requested
+        sync.requestBadgeIdentifier(for: URL(fileURLWithPath: "/tmp/package.zip"))
+        sync.requestBadgeIdentifier(for: URL(fileURLWithPath: "/tmp/package.7z"))
+        sync.requestBadgeIdentifier(for: URL(fileURLWithPath: "/tmp/plain.txt"))
+    }
+    
+    @MainActor
+    func test_quicklook_preview_view_controller_view_hierarchy() async throws {
+        let vc = QuickLookPreviewViewController()
+        vc.loadView()
+        
+        XCTAssertNotNil(vc.view)
+        XCTAssertEqual(vc.view.frame.width, 800.0)
+        XCTAssertEqual(vc.view.frame.height, 600.0)
+        
+        // Create a temporary zip archive
+        let tempDir = FileManager.default.temporaryDirectory.appendingPathComponent("QLVCTest_\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: tempDir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: tempDir) }
+        
+        let dummyDoc = tempDir.appendingPathComponent("note.txt")
+        try "Preview content".write(to: dummyDoc, atomically: true, encoding: .utf8)
+        let zipURL = tempDir.appendingPathComponent("preview_test.zip")
+        
+        let writer = ArchiveWriter()
+        try await writer.createArchive(
+            outputPath: zipURL.path,
+            format: .zip,
+            level: .fast,
+            inputPaths: [dummyDoc.path]
+        )
+        
+        let exp = expectation(description: "Preview prepared")
+        vc.preparePreviewOfFile(at: zipURL) { error in
+            XCTAssertNil(error)
+            exp.fulfill()
+        }
+        
+        await fulfillment(of: [exp], timeout: 5.0)
     }
 }

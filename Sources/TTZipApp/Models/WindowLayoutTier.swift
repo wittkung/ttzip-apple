@@ -24,3 +24,21 @@ public enum WindowLayoutTier: String, CaseIterable, Equatable, Sendable {
         return .expanded
     }
 }
+
+/// Three-tier vertical adaptive layout tier for MacEditorialSidebar ergonomics.
+public enum SidebarLayoutTier: String, CaseIterable, Equatable, Sendable {
+    /// Extremely constrained mode: Height < 440pt (footer and hardware cards hidden)
+    case extremelyConstrained
+    /// Constrained mode: 440pt <= Height < 520pt (compact hardware pill)
+    case constrained
+    /// Full mode: Height >= 520pt (full WSJ hardware card and footer)
+    case full
+    
+    /// Evaluates vertical layout tier given available sidebar height.
+    public static func evaluate(height: CGFloat) -> SidebarLayoutTier {
+        if height < 440 { return .extremelyConstrained }
+        if height < 520 { return .constrained }
+        return .full
+    }
+}
+

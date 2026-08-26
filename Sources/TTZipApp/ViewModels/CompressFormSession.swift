@@ -71,6 +71,7 @@ public final class CompressFormSession {
     public var zipEncryptionMethod: String = "AES-256"
     
     // MARK: - 5. Format-Specific & Engine Parameters
+    public static let supportedDictionarySizesMB: [Int] = [16, 32, 64, 128, 256, 512, 1024, 1536]
     public var cpuThreadsOption: String = "All Cores"
     public var customDictionarySizeMB: Int? = nil // nil means "Auto (Follows Level & RAM)"
     public var compressionAlgorithm: String = "LZMA2"

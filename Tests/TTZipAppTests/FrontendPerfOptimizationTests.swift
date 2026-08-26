@@ -167,17 +167,32 @@ final class FrontendPerfOptimizationTests: XCTestCase {
         XCTAssertEqual(store.filteredEntries.count, 3)
     }
     
-    // MARK: - 5. AppViewState
+    // MARK: - 5. AppViewState High Frequency Progress Throttling
     
     @MainActor
     func testAppViewStateHighFrequencyProgress() async {
         let appState = AppViewState()
+        let throttler = ThrottledProgressPublisher(maxFrequencyHz: 60.0) // 16.6ms intervals
         
+        var updateCount = 0
         let total = 2000
+        let baseTime: UInt64 = 1_000_000_000
+        
         for i in 1...total {
-            appState.progressValue = Double(i) / Double(total)
+            let progress = Double(i) / Double(total)
+            // Simulate events occurring every 100 microseconds (0.1ms) -> 200ms total simulated span
+            let simulatedTime = baseTime + UInt64(i * 100_000)
+            let isTerminal = (i == total)
+            
+            if isTerminal || throttler.shouldEmit(now: simulatedTime) {
+                appState.progressValue = progress
+                updateCount += 1
+            }
         }
         
-        XCTAssertGreaterThan(appState.progressValue, 0.0)
+        // Over 200ms total simulated span at 60Hz (16.6ms frame time), expect ~13-15 updates instead of 2000
+        XCTAssertLessThan(updateCount, 25, "Throttler must cap 2000 high-frequency notifications to <= 25 observer updates")
+        XCTAssertGreaterThanOrEqual(updateCount, 10, "Throttler must allow periodic updates across time")
+        XCTAssertEqual(appState.progressValue, 1.0, "Terminal progress frame must be applied")
     }
 }

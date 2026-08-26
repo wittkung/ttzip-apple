@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BSD-3-Clause OR Apache-2.0
+// SPDX-License-Identifier: GPL-3.0-or-later
 //
 // Copyright (c) 2026 Witt Kung <witt.w.kung@gmail.com>
 // All rights reserved.
@@ -101,8 +101,10 @@ final class CooperativeCancellationLatencyTests: XCTestCase {
                     token: handle.uniffiToken
                 )
                 return false
+            } catch let error as ArchiveError {
+                return error == .cancelled
             } catch {
-                return true
+                return false
             }
         }
         
@@ -112,7 +114,7 @@ final class CooperativeCancellationLatencyTests: XCTestCase {
         let wasCancelledOrCaught = await backgroundTask.value
         let elapsed = CFAbsoluteTimeGetCurrent() - startCancelTime
         
-        XCTAssertTrue(wasCancelledOrCaught, "Task should abort or throw upon cancellation")
+        XCTAssertTrue(wasCancelledOrCaught, "Task should abort or throw upon cancellation specifically with ArchiveError.cancelled")
         XCTAssertLessThan(elapsed, 0.5, "Cancellation latency should be immediate (<500ms)")
     }
 }

@@ -22,31 +22,47 @@ final class AppNavigationStateFlowTests: XCTestCase {
         return (sut, tempDir)
     }
     
-    // MARK: - 1. Tab Transitions & Background Task Isolation
+    // MARK: - 1. Tab Transitions & Sub-Workspace Instance Persistence
     
     @MainActor
     func testTabSwitchingPreservesBackgroundExecutionState() {
         let (sut, tempDir) = createHarness()
         defer { try? FileManager.default.removeItem(at: tempDir) }
         
+        let initialNav = sut.navigationState
+        let initialExplorer = sut.explorerState
+        let initialTask = sut.taskState
+        let initialOverlay = sut.overlayState
+        let initialHistory = sut.historyManager
+        let initialVault = sut.passwordVaultManager
+        
         sut.activeTab = .home
         sut.taskState.isLoading = true
         sut.taskState.progressValue = 0.65
         sut.taskState.statusMessage = "Compressing large dataset..."
+        sut.explorerState.searchQuery = "test_query"
+        sut.overlayState.showCompressModal = false
         
-        // Navigate across tabs
-        sut.activeTab = .compressWorkspace
-        XCTAssertEqual(sut.activeTab, .compressWorkspace)
-        XCTAssertTrue(sut.isLoading)
-        XCTAssertEqual(sut.progressValue, 0.65)
-        
-        sut.activeTab = .vault
-        XCTAssertEqual(sut.activeTab, .vault)
-        XCTAssertEqual(sut.statusMessage, "Compressing large dataset...")
-        
-        sut.activeTab = .home
-        XCTAssertEqual(sut.activeTab, .home)
-        XCTAssertTrue(sut.isLoading)
+        // Navigate across all tabs and assert instance identity persistence
+        let tabsToTest: [WorkspaceTab] = [.compressWorkspace, .presets, .benchmark, .vault, .plugins, .settings, .home]
+        for tab in tabsToTest {
+            sut.activeTab = tab
+            XCTAssertEqual(sut.activeTab, tab)
+            
+            // Assert sub-state references remain strictly identical (sub-workspace instance persistence)
+            XCTAssertTrue(sut.navigationState === initialNav, "NavigationState instance must persist across tab switch to \(tab)")
+            XCTAssertTrue(sut.explorerState === initialExplorer, "ArchiveExplorerState instance must persist across tab switch to \(tab)")
+            XCTAssertTrue(sut.taskState === initialTask, "TaskExecutionState instance must persist across tab switch to \(tab)")
+            XCTAssertTrue(sut.overlayState === initialOverlay, "OverlayState instance must persist across tab switch to \(tab)")
+            XCTAssertTrue(sut.historyManager === initialHistory, "CommandHistoryManager instance must persist across tab switch to \(tab)")
+            XCTAssertTrue(sut.passwordVaultManager === initialVault, "PasswordVaultManager instance must persist across tab switch to \(tab)")
+            
+            // Assert domain property values are preserved
+            XCTAssertTrue(sut.isLoading)
+            XCTAssertEqual(sut.progressValue, 0.65)
+            XCTAssertEqual(sut.statusMessage, "Compressing large dataset...")
+            XCTAssertEqual(sut.searchQuery, "test_query")
+        }
     }
     
     // MARK: - 2. KeepAlive Container State Retention

@@ -17,5 +17,11 @@
 	<!-- Downloads Folder Read/Write for Direct One-Click Extraction -->
 	<key>com.apple.security.files.downloads.read-write</key>
 	<true/>
+	
+	<!-- App Group Container for Extension Spooling and IPC -->
+	<key>com.apple.security.application-groups</key>
+	<array>
+		<string>group.com.metastudyline.ttzip</string>
+	</array>
 </dict>
 </plist>

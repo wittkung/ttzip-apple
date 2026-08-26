@@ -45,38 +45,46 @@ public struct TTZipFluidBackgroundView: View {
     private var color3: Color { baseColor.opacity(0.6) }
     
     public var body: some View {
-        GeometryReader { geo in
-            let fullW = geo.size.width
-            let fullH = geo.size.height
-            let scale: CGFloat = 4.0
-            let w = max(fullW / scale, 100)
-            let h = max(fullH / scale, 100)
+        ZStack {
+            // 1. Base Zen solid background ensuring zero transparency bleed
+            (colorScheme == .dark ? TTZipTheme.inkCharcoal : TTZipTheme.paperWhite)
+                .ignoresSafeArea()
             
-            TimelineView(.animation(minimumInterval: 1.0 / 30.0)) { timeline in
-                let currentPhase = TTZipGlobalFluidState.shared.currentPhase(speed: speed)
+            // 2. Dynamic Fluid Light Pattern
+            GeometryReader { geo in
+                let fullW = geo.size.width
+                let fullH = geo.size.height
+                let scale: CGFloat = 4.0
+                let w = max(fullW / scale, 100)
+                let h = max(fullH / scale, 100)
                 
-                Canvas { context, size in
-                    let x1 = w / 2 + cos(currentPhase * 0.65) * (w * 0.3)
-                    let y1 = h / 2 + sin(currentPhase * 1.05) * (h * 0.2)
-                    let x2 = w / 2 + sin(currentPhase * 0.45) * (w * 0.4)
-                    let y2 = h / 2 + cos(currentPhase * 0.95) * (h * 0.3)
-                    let x3 = w / 2 + cos(currentPhase * 0.35) * (w * 0.25)
-                    let y3 = h / 2 + sin(currentPhase * 0.55) * (h * 0.4)
+                TimelineView(.animation(minimumInterval: 1.0 / 30.0)) { _ in
+                    let currentPhase = TTZipGlobalFluidState.shared.currentPhase(speed: speed)
                     
-                    let radius = min(w, h) * 0.6
-                    
-                    context.blendMode = .normal
-                    context.fill(Path(ellipseIn: CGRect(x: x1 - radius / 2, y: y1 - radius / 2, width: radius, height: radius)), with: .color(color1))
-                    context.fill(Path(ellipseIn: CGRect(x: x2 - radius / 2, y: y2 - radius / 2, width: radius, height: radius)), with: .color(color2))
-                    context.fill(Path(ellipseIn: CGRect(x: x3 - radius / 2, y: y3 - radius / 2, width: radius, height: radius)), with: .color(color3))
+                    Canvas { context, _ in
+                        let x1 = w / 2 + cos(currentPhase * 0.65) * (w * 0.3)
+                        let y1 = h / 2 + sin(currentPhase * 1.05) * (h * 0.2)
+                        let x2 = w / 2 + sin(currentPhase * 0.45) * (w * 0.4)
+                        let y2 = h / 2 + cos(currentPhase * 0.95) * (h * 0.3)
+                        let x3 = w / 2 + cos(currentPhase * 0.35) * (w * 0.25)
+                        let y3 = h / 2 + sin(currentPhase * 0.55) * (h * 0.4)
+                        
+                        let radius = min(w, h) * 0.6
+                        
+                        context.blendMode = .normal
+                        context.fill(Path(ellipseIn: CGRect(x: x1 - radius / 2, y: y1 - radius / 2, width: radius, height: radius)), with: .color(color1))
+                        context.fill(Path(ellipseIn: CGRect(x: x2 - radius / 2, y: y2 - radius / 2, width: radius, height: radius)), with: .color(color2))
+                        context.fill(Path(ellipseIn: CGRect(x: x3 - radius / 2, y: y3 - radius / 2, width: radius, height: radius)), with: .color(color3))
+                    }
+                    .frame(width: w, height: h)
+                    .blur(radius: 60 / scale)
+                    .scaleEffect(scale)
                 }
-                .frame(width: w, height: h)
-                .blur(radius: 60 / scale)
-                .scaleEffect(scale)
+                .frame(width: fullW, height: fullH, alignment: .center)
             }
-            .frame(width: fullW, height: fullH, alignment: .center)
+            .opacity(colorScheme == .dark ? 0.35 : 0.18)
+            .ignoresSafeArea()
         }
-        .opacity(colorScheme == .dark ? 0.35 : 0.18)
         .ignoresSafeArea()
     }
 }

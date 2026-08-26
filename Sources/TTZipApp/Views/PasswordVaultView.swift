@@ -24,7 +24,6 @@ public struct PasswordVaultView: View {
     
     public var body: some View {
         TTZipWorkspaceScaffold(
-            sectionName: "KEYCHAIN VAULT",
             title: l10n.t(L10n.Vault.title),
             isCardEnclosed: true
         ) {

@@ -100,9 +100,6 @@ public final class AsyncPathAutocompletionEngine: ObservableObject {
                 return item.name.lowercased().hasPrefix(lowerPrefix)
             }
             
-            guard !Task.isCancelled else { return }
-            
-            // Directories first (rank 0), archives second (rank 1), files third (rank 2)
             let sorted = filtered.sorted { a, b in
                 let rankA = a.isDirectory ? 0 : (a.isArchive ? 1 : 2)
                 let rankB = b.isDirectory ? 0 : (b.isArchive ? 1 : 2)

@@ -99,6 +99,7 @@ struct TTZipApp: App {
                 .frame(minWidth: 520, minHeight: 400)
                 .background(WindowTabbingConfigurator())
                 .background(Color.clear)
+                .ignoresSafeArea()
                 .onOpenURL { url in
                     handleIncomingURL(url)
                 }
@@ -124,22 +125,40 @@ struct TTZipApp: App {
     }
 }
 
+@MainActor
+private final class WindowConfiguratorNSView: NSView {
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        if let window = self.window {
+            Self.configure(window: window)
+        }
+    }
+    
+    static func configure(window: NSWindow) {
+        window.tabbingMode = .preferred
+        window.titlebarAppearsTransparent = true
+        window.titleVisibility = .hidden
+        window.isOpaque = true
+        window.backgroundColor = .windowBackgroundColor
+        window.styleMask.insert(.fullSizeContentView)
+        window.hasShadow = true
+    }
+}
+
 private struct WindowTabbingConfigurator: NSViewRepresentable {
     func makeNSView(context: Context) -> NSView {
-        let view = NSView()
-        DispatchQueue.main.async {
-            if let window = view.window {
-                window.tabbingMode = .preferred
+        let view = WindowConfiguratorNSView()
+        Task { @MainActor [weak view] in
+            if let window = view?.window {
+                WindowConfiguratorNSView.configure(window: window)
             }
         }
         return view
     }
 
     func updateNSView(_ nsView: NSView, context: Context) {
-        DispatchQueue.main.async {
-            if let window = nsView.window {
-                window.tabbingMode = .preferred
-            }
+        if let window = nsView.window {
+            WindowConfiguratorNSView.configure(window: window)
         }
     }
 }

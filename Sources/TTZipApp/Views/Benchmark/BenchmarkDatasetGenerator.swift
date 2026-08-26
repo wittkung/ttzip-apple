@@ -22,61 +22,11 @@ public final class BenchmarkDatasetGenerator: @unchecked Sendable {
     
     /// Generates synthetic dataset files on disk for deterministic benchmarking.
     public func generateSyntheticDataset(at path: String, targetBytes: Int64, profile: BenchmarkDatasetProfile) throws {
-        FileManager.default.createFile(atPath: path, contents: nil)
-        guard let handle = FileHandle(forWritingAtPath: path) else {
-            throw ArchiveError.readFailed(code: -1)
-        }
-        defer { try? handle.close() }
-        
-        let chunkSize = 4 * 1024 * 1024 // 4MB Chunk
-        var written: Int64 = 0
-        var seed: UInt64 = 0x8765432112345678
-        
-        while written < targetBytes {
-            let currentChunkSize = min(Int(targetBytes - written), chunkSize)
-            var chunkData = Data(count: currentChunkSize)
-            
-            switch profile {
-            case .codeText:
-                let sampleText = "{\"status\":200,\"message\":\"TTZip High Performance Core\",\"data\":[1,2,3,4,5,6,7,8,9,10],\"file\":\"BenchmarkEngine.swift\"}\n"
-                let textBytes = Array(sampleText.utf8)
-                chunkData.withUnsafeMutableBytes { ptr in
-                    guard let base = ptr.baseAddress?.assumingMemoryBound(to: UInt8.self) else { return }
-                    for i in 0..<currentChunkSize {
-                        base[i] = textBytes[i % textBytes.count]
-                    }
-                }
-            case .mixedOffice:
-                let sampleText = "{\"title\":\"Project Report 2026\",\"description\":\"TTZip High Efficiency Multi-Threaded Compression Benchmark Data Stream\"}\n"
-                let textBytes = Array(sampleText.utf8)
-                let half = currentChunkSize / 2
-                chunkData.withUnsafeMutableBytes { ptr in
-                    guard let base = ptr.baseAddress?.assumingMemoryBound(to: UInt8.self) else { return }
-                    for i in 0..<half {
-                        base[i] = textBytes[i % textBytes.count]
-                    }
-                    for i in half..<currentChunkSize {
-                        seed ^= (seed << 13)
-                        seed ^= (seed >> 7)
-                        seed ^= (seed << 17)
-                        base[i] = UInt8(truncatingIfNeeded: seed & 0xFF)
-                    }
-                }
-            case .mediaBinary:
-                chunkData.withUnsafeMutableBytes { ptr in
-                    guard let base = ptr.baseAddress?.assumingMemoryBound(to: UInt8.self) else { return }
-                    for i in 0..<currentChunkSize {
-                        seed ^= (seed << 13)
-                        seed ^= (seed >> 7)
-                        seed ^= (seed << 17)
-                        base[i] = UInt8(truncatingIfNeeded: seed & 0xFF)
-                    }
-                }
-            }
-            
-            handle.write(chunkData)
-            written += Int64(currentChunkSize)
-        }
+        try TTZipCore.generateSyntheticBenchmarkDataset(
+            targetPath: path,
+            targetBytes: UInt64(targetBytes),
+            profileName: profile.rawValue
+        )
     }
     
     /// Measures system ditto baseline throughput in MB/s.

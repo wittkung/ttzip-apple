@@ -17,7 +17,6 @@ public struct BenchmarkView: View {
     
     public var body: some View {
         TTZipWorkspaceScaffold(
-            sectionName: l10n.t(L10n.Benchmark.benchmarkMatrixTitle),
             title: l10n.t(L10n.Sidebar.benchmark),
             isCardEnclosed: true
         ) {

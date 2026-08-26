@@ -52,28 +52,15 @@ final class ArchiveInspectorViewTests: XCTestCase {
         )
         
         let vm = ArchiveInspectorViewModel()
-        vm.inspectArchive(atPath: zipURL.path)
+        let state = await vm.inspectArchiveAsync(atPath: zipURL.path)
         
-        // Wait for async task to complete
-        let expectation = XCTestExpectation(description: "Scan finished")
-        
-        for _ in 0..<50 {
-            if !vm.state.isScanning && vm.state.detectedFormat != nil {
-                expectation.fulfill()
-                break
-            }
-            try await Task.sleep(nanoseconds: 50_000_000) // 50ms
-        }
-        
-        await fulfillment(of: [expectation], timeout: 5.0)
-        
-        XCTAssertEqual(vm.state.detectedFormat, .zip)
-        XCTAssertEqual(vm.state.fileName, "sample.zip")
-        XCTAssertNotNil(vm.state.standardSpec)
-        XCTAssertEqual(vm.state.standardSpec?.officialName, "PKWARE ZIP File Format Specification")
-        XCTAssertEqual(vm.state.complianceReport?.isCompliant, true)
-        XCTAssertGreaterThan(vm.state.scanDurationMs, 0.0)
-        XCTAssertNil(vm.state.errorMessage)
+        XCTAssertEqual(state.detectedFormat, .zip)
+        XCTAssertEqual(state.fileName, "sample.zip")
+        XCTAssertNotNil(state.standardSpec)
+        XCTAssertEqual(state.standardSpec?.officialName, "PKWARE ZIP File Format Specification")
+        XCTAssertEqual(state.complianceReport?.isCompliant, true)
+        XCTAssertGreaterThan(state.scanDurationMs, 0.0)
+        XCTAssertNil(state.errorMessage)
     }
     
     @MainActor
@@ -91,17 +78,8 @@ final class ArchiveInspectorViewTests: XCTestCase {
         )
         
         let vm1 = ArchiveInspectorViewModel()
-        vm1.inspectArchive(atPath: tarURL.path)
-        
-        // Wait for initial scan
-        for _ in 0..<50 {
-            if !vm1.state.isScanning && vm1.state.detectedFormat != nil {
-                break
-            }
-            try await Task.sleep(nanoseconds: 50_000_000)
-        }
-        
-        XCTAssertEqual(vm1.state.detectedFormat, .tar)
+        let state1 = await vm1.inspectArchiveAsync(atPath: tarURL.path)
+        XCTAssertEqual(state1.detectedFormat, .tar)
         
         // Immediate second inspection with new ViewModel should be instant cache hit
         let vm2 = ArchiveInspectorViewModel()

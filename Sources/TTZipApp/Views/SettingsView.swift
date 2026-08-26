@@ -53,7 +53,6 @@ public struct SettingsView: View {
     
     public var body: some View {
         TTZipWorkspaceScaffold(
-            sectionName: "PREFERENCES & CONFIGURATION",
             title: l10n.t(L10n.Sidebar.settings),
             isCardEnclosed: true
         ) {

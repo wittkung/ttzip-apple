@@ -67,12 +67,18 @@ final class CompressFormSessionSmartConfigTests: XCTestCase {
     
     // MARK: - 4. 7-Zip Safety Limits for Ultra Dictionaries
     
+    @MainActor
     func testUltraLargeDictionarySafetyBounds() {
-        let supportedDictSizes: [Int] = [16, 32, 64, 128, 256, 512, 1024, 1536]
+        let exportedSizes = CompressFormSession.supportedDictionarySizesMB
+        XCTAssertEqual(exportedSizes, [16, 32, 64, 128, 256, 512, 1024, 1536])
         
-        for size in supportedDictSizes {
+        let session = CompressFormSession()
+        for size in exportedSizes {
             XCTAssertLessThanOrEqual(size, 1536, "Dictionary size \(size) MB must not exceed 7-Zip LZMA2 1536 MB architecture limit")
             XCTAssertGreaterThan(size, 0, "Dictionary size \(size) MB must be positive")
+            
+            session.customDictionarySizeMB = size
+            XCTAssertEqual(session.effectiveDictionarySizeMB, size, "Session effective dictionary size must reflect custom override \(size) MB")
         }
     }
     

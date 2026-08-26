@@ -19,7 +19,6 @@ public struct PresetWorkspaceView: View {
     
     public var body: some View {
         TTZipWorkspaceScaffold(
-            sectionName: l10n.t(L10n.Presets.proConfig),
             title: l10n.t(L10n.Sidebar.presets),
             isCardEnclosed: false
         ) {

@@ -37,10 +37,61 @@ final class GUILocalizationTests: XCTestCase {
     @MainActor
     func testAppKitMenuSynchronizer() {
         let synchronizer = AppKitMenuSynchronizer.shared
+        let originalMenu = NSApplication.shared.mainMenu
+        defer {
+            NSApplication.shared.mainMenu = originalMenu
+        }
+        
+        let mainMenu = NSMenu(title: "MainMenu")
+        
+        // 1. App Submenu
+        let appMenuItem = NSMenuItem(title: "App Old", action: nil, keyEquivalent: "")
+        let appSubmenu = NSMenu(title: "App Submenu")
+        let aboutItem = NSMenuItem(title: "About Old", action: nil, keyEquivalent: "")
+        aboutItem.tag = AppKitMenuSynchronizer.Tag.about
+        let quitItem = NSMenuItem(title: "Quit Old", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
+        appSubmenu.addItem(aboutItem)
+        appSubmenu.addItem(quitItem)
+        appMenuItem.submenu = appSubmenu
+        mainMenu.addItem(appMenuItem)
+        
+        // 2. File Submenu
+        let fileMenuItem = NSMenuItem(title: "File Old", action: nil, keyEquivalent: "")
+        fileMenuItem.tag = AppKitMenuSynchronizer.Tag.fileMenu
+        let fileSubmenu = NSMenu(title: "File Submenu")
+        let newItem = NSMenuItem(title: "New Old", action: nil, keyEquivalent: "n")
+        newItem.tag = AppKitMenuSynchronizer.Tag.newArchive
+        let openItem = NSMenuItem(title: "Open Old", action: nil, keyEquivalent: "o")
+        openItem.tag = AppKitMenuSynchronizer.Tag.openArchive
+        fileSubmenu.addItem(newItem)
+        fileSubmenu.addItem(openItem)
+        fileMenuItem.submenu = fileSubmenu
+        mainMenu.addItem(fileMenuItem)
+        
+        // 3. Edit Submenu
+        let editMenuItem = NSMenuItem(title: "Edit Old", action: nil, keyEquivalent: "")
+        editMenuItem.tag = AppKitMenuSynchronizer.Tag.editMenu
+        mainMenu.addItem(editMenuItem)
+        
+        NSApplication.shared.mainMenu = mainMenu
+        
+        // Test Synchronizing to Simplified Chinese
         synchronizer.synchronize(language: .zhHans)
+        XCTAssertEqual(fileMenuItem.title, "文件")
+        XCTAssertEqual(editMenuItem.title, "编辑")
+        XCTAssertEqual(newItem.title, "新建归档...")
+        XCTAssertEqual(openItem.title, "打开归档...")
+        XCTAssertEqual(aboutItem.title, "关于 TTZip")
+        XCTAssertEqual(quitItem.title, "退出 TTZip")
+        
+        // Test Synchronizing to English
         synchronizer.synchronize(language: .en)
-        // Passes cleanly without exception
-        XCTAssertTrue(true)
+        XCTAssertEqual(fileMenuItem.title, "File")
+        XCTAssertEqual(editMenuItem.title, "Edit")
+        XCTAssertEqual(newItem.title, "New Archive...")
+        XCTAssertEqual(openItem.title, "Open Archive...")
+        XCTAssertEqual(aboutItem.title, "About TTZip")
+        XCTAssertEqual(quitItem.title, "Quit TTZip")
     }
     
     func testLocaleCatalogCompleteness() {

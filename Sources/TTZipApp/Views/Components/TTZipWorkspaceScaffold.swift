@@ -10,7 +10,6 @@ import TTZipCore
 
 /// Unified workspace scaffold enforcing 52pt header, Y=90pt Kintsugi Gold Line, and macOS safe area isolation.
 public struct TTZipWorkspaceScaffold<HeaderTrailing: View, Content: View>: View {
-    public let sectionName: String
     public let title: String
     public let headerTrailing: HeaderTrailing
     public let content: Content
@@ -18,14 +17,12 @@ public struct TTZipWorkspaceScaffold<HeaderTrailing: View, Content: View>: View 
     public let contentPadding: EdgeInsets
     
     public init(
-        sectionName: String,
         title: String,
         isCardEnclosed: Bool = true,
         contentPadding: EdgeInsets = EdgeInsets(top: 0, leading: 0, bottom: 0, trailing: 0),
         @ViewBuilder headerTrailing: () -> HeaderTrailing,
         @ViewBuilder content: () -> Content
     ) {
-        self.sectionName = sectionName
         self.title = title
         self.isCardEnclosed = isCardEnclosed
         self.contentPadding = contentPadding
@@ -34,14 +31,12 @@ public struct TTZipWorkspaceScaffold<HeaderTrailing: View, Content: View>: View 
     }
     
     public init(
-        sectionName: String,
         title: String,
         isCardEnclosed: Bool = true,
         contentPadding: EdgeInsets = EdgeInsets(top: 0, leading: 0, bottom: 0, trailing: 0),
         @ViewBuilder content: () -> Content
     ) where HeaderTrailing == EmptyView {
         self.init(
-            sectionName: sectionName,
             title: title,
             isCardEnclosed: isCardEnclosed,
             contentPadding: contentPadding,
@@ -54,16 +49,9 @@ public struct TTZipWorkspaceScaffold<HeaderTrailing: View, Content: View>: View 
         VStack(alignment: .leading, spacing: 0) {
             // 1. 52pt Header Bar (Top=38pt + Height=52pt -> Golden line strictly at Y = 90.0pt)
             HStack(spacing: 12) {
-                VStack(alignment: .leading, spacing: 1) {
-                    Text(sectionName)
-                        .font(.system(size: 9, weight: .bold, design: .serif))
-                        .tracking(2)
-                        .foregroundStyle(TTZipTheme.kintsugiGold)
-                    
-                    Text(title)
-                        .font(.system(size: 16, weight: .bold, design: .serif))
-                        .foregroundStyle(.primary)
-                }
+                Text(title)
+                    .font(.system(size: 16, weight: .bold, design: .serif))
+                    .foregroundStyle(.primary)
                 
                 Spacer()
                 
@@ -94,6 +82,7 @@ public struct TTZipWorkspaceScaffold<HeaderTrailing: View, Content: View>: View 
         .padding(.top, TTZipTheme.Layout.topBarOffset)
         .padding(.horizontal, TTZipTheme.Spacing.md)
         .padding(.bottom, TTZipTheme.Spacing.md)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     }
 }
 
