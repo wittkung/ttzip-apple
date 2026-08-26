@@ -14,17 +14,20 @@ import Foundation
 final class AppViewStateArchiveOperationsTests: XCTestCase {
     
     private var tempDir: URL!
+    private var mockFileViewer: MockFileViewerHarness!
     
     override func setUp() async throws {
         try await super.setUp()
         tempDir = FileManager.default.temporaryDirectory.appendingPathComponent("AppViewStateOpsTests_\(UUID().uuidString)")
         try FileManager.default.createDirectory(at: tempDir, withIntermediateDirectories: true)
+        mockFileViewer = MockFileViewerHarness()
     }
     
     override func tearDown() async throws {
         if let dir = tempDir {
             try? FileManager.default.removeItem(at: dir)
         }
+        mockFileViewer = nil
         try await super.tearDown()
     }
     
@@ -76,7 +79,7 @@ final class AppViewStateArchiveOperationsTests: XCTestCase {
             "docs/manual.pdf": "PDF Specification Guide"
         ])
         
-        let sut = AppViewState()
+        let sut = AppViewState(fileViewer: mockFileViewer)
         sut.activeTab = .compressWorkspace
         
         let success = await sut.loadArchive(path: zipURL.path)
@@ -94,7 +97,7 @@ final class AppViewStateArchiveOperationsTests: XCTestCase {
     func testLoadArchivePasswordProtectedLifecycle() async throws {
         let lockedURL = try await createPasswordProtectedZipArchive()
         
-        let sut = AppViewState()
+        let sut = AppViewState(fileViewer: mockFileViewer)
         let success = await sut.loadArchive(path: lockedURL.path)
         
         // Listing zip entries succeeds
@@ -121,7 +124,7 @@ final class AppViewStateArchiveOperationsTests: XCTestCase {
         let extractTargetDir = tempDir.appendingPathComponent("Extracted_Output")
         try FileManager.default.createDirectory(at: extractTargetDir, withIntermediateDirectories: true)
         
-        let sut = AppViewState()
+        let sut = AppViewState(fileViewer: mockFileViewer)
         await sut.quickExtractArchive(
             archivePath: zipURL.path,
             targetDir: extractTargetDir.path,
@@ -129,6 +132,9 @@ final class AppViewStateArchiveOperationsTests: XCTestCase {
         )
         
         XCTAssertTrue(sut.statusMessage.contains("Extraction complete"))
+        XCTAssertEqual(mockFileViewer.revealedPaths.count, 1, "quickExtractArchive must call revealInFinder once")
+        let expectedExtractDir = extractTargetDir.appendingPathComponent("sample").path
+        XCTAssertEqual(mockFileViewer.revealedPaths.first, expectedExtractDir, "revealInFinder must target the extraction directory")
         
         let extractedFileA = extractTargetDir.appendingPathComponent("sample/file_a.txt")
         XCTAssertTrue(FileManager.default.fileExists(atPath: extractedFileA.path) || FileManager.default.fileExists(atPath: extractTargetDir.appendingPathComponent("file_a.txt").path))
@@ -139,7 +145,7 @@ final class AppViewStateArchiveOperationsTests: XCTestCase {
         let extractTargetDir = tempDir.appendingPathComponent("Extracted_Locked")
         try FileManager.default.createDirectory(at: extractTargetDir, withIntermediateDirectories: true)
         
-        let sut = AppViewState()
+        let sut = AppViewState(fileViewer: mockFileViewer)
         await sut.quickExtractArchive(
             archivePath: lockedURL.path,
             targetDir: extractTargetDir.path,
@@ -150,6 +156,7 @@ final class AppViewStateArchiveOperationsTests: XCTestCase {
         XCTAssertTrue(sut.showPasswordPrompt, "Password prompt must be shown when extracting encrypted archive without password")
         XCTAssertEqual(sut.pendingEncryptedPath, lockedURL.path)
         XCTAssertTrue(sut.statusMessage.lowercased().contains("password") || sut.statusMessage.lowercased().contains("encrypted"))
+        XCTAssertTrue(mockFileViewer.revealedPaths.isEmpty, "revealInFinder must not be called when password prompt is triggered")
     }
     
     // MARK: - 3. Open Archive As Folder & Reset
@@ -157,7 +164,7 @@ final class AppViewStateArchiveOperationsTests: XCTestCase {
     func testOpenArchiveAsFolderAndReset() async throws {
         let zipURL = try await createSampleZipArchive(contents: ["file.txt": "Hello"])
         
-        let sut = AppViewState()
+        let sut = AppViewState(fileViewer: mockFileViewer)
         sut.openArchiveAsFolder(url: zipURL)
         
         XCTAssertEqual(sut.selectedDiskItem?.path, zipURL.path)

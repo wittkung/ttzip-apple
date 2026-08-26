@@ -15,6 +15,7 @@ public final class IINAStreamBridge: @unchecked Sendable {
     private let lock = NSLock()
     public let mediaSize: UInt64
     public let mimeType: String
+    public private(set) var demuxSummary: UniFFIMediaDemuxSummary?
     
     public init(stream: VirtualFileStreamProtocol, mimeType: String = "video/mp4") {
         self.stream = stream
@@ -63,7 +64,58 @@ public final class IINAStreamBridge: @unchecked Sendable {
         
         let ext = (targetEntry as NSString).pathExtension.lowercased()
         let mime = ArchiveMimeMapper.mimeType(forExtension: ext)
-        return IINAStreamBridge(stream: vfs, mimeType: mime)
+        let bridge = IINAStreamBridge(stream: vfs, mimeType: mime)
+        _ = try? bridge.demuxContainer()
+        return bridge
+    }
+    
+    /// Demuxes container metadata (tracks, chapters, attachments) via Rust microkernel.
+    @discardableResult
+    public func demuxContainer(headerByteLimit: UInt32 = 1_048_576) throws -> UniFFIMediaDemuxSummary {
+        lock.lock()
+        defer { lock.unlock() }
+        
+        if let existing = demuxSummary {
+            return existing
+        }
+        
+        let total = stream.size()
+        guard total > 0 else {
+            throw ArchiveError.invalidFormat
+        }
+        let fetchLen = min(UInt32(total), headerByteLimit)
+        let sampleData = try stream.readExactAt(offset: 0, length: fetchLen)
+        let summary = try demuxMediaTracks(data: sampleData)
+        self.demuxSummary = summary
+        return summary
+    }
+    
+    /// Extracted media audio tracks.
+    public var audioTracks: [UniFFIMediaTrackInfo] {
+        lock.lock()
+        defer { lock.unlock() }
+        return demuxSummary?.tracks.filter { $0.trackType == .audio } ?? []
+    }
+    
+    /// Extracted media video tracks.
+    public var videoTracks: [UniFFIMediaTrackInfo] {
+        lock.lock()
+        defer { lock.unlock() }
+        return demuxSummary?.tracks.filter { $0.trackType == .video } ?? []
+    }
+    
+    /// Extracted media subtitle tracks.
+    public var subtitleTracks: [UniFFIMediaTrackInfo] {
+        lock.lock()
+        defer { lock.unlock() }
+        return demuxSummary?.tracks.filter { $0.trackType == .subtitle } ?? []
+    }
+    
+    /// Extracted media chapters.
+    public var chapters: [UniFFIMediaChapter] {
+        lock.lock()
+        defer { lock.unlock() }
+        return demuxSummary?.chapters ?? []
     }
     
     /// Reads exact byte slice at specified offset in-memory.

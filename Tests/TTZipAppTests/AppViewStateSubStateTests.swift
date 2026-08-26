@@ -22,7 +22,8 @@ final class AppViewStateSubStateTests: XCTestCase {
             navigationState: navState,
             explorerState: explorerState,
             taskState: taskState,
-            overlayState: overlayState
+            overlayState: overlayState,
+            fileViewer: NoOpFileViewer()
         )
         
         // 1. NavigationState

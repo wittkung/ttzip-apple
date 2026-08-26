@@ -677,7 +677,7 @@ final class CommandPatternTests: XCTestCase {
     @MainActor
     func testAppViewStateAsyncMainActorUndoRedoDispatch() async throws {
         let history = CommandHistoryManager(maxHistoryCapacity: 10)
-        let viewState = AppViewState(historyManager: history)
+        let viewState = AppViewState(fileViewer: NoOpFileViewer(), historyManager: history)
         
         let src = tempDir.appendingPathComponent("ui_src.txt").path
         let out = tempDir.appendingPathComponent("ui_out.zip").path

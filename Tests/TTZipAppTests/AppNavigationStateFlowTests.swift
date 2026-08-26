@@ -17,7 +17,7 @@ final class AppNavigationStateFlowTests: XCTestCase {
         let tempDir = FileManager.default.temporaryDirectory
             .appendingPathComponent("NavStateTests_\(UUID().uuidString)")
         try? FileManager.default.createDirectory(at: tempDir, withIntermediateDirectories: true)
-        let sut = AppViewState()
+        let sut = AppViewState(fileViewer: NoOpFileViewer())
         AppIntentDispatcher.shared.bind(state: sut)
         return (sut, tempDir)
     }

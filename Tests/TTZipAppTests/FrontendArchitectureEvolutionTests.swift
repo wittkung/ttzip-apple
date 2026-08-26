@@ -16,7 +16,7 @@ final class FrontendArchitectureEvolutionTests: XCTestCase {
     
     @MainActor
     func testAppSubStatesObservableGranularity() {
-        let appState = AppViewState()
+        let appState = AppViewState(fileViewer: NoOpFileViewer())
         XCTAssertEqual(appState.activeTab, .home)
         XCTAssertEqual(appState.isLoading, false)
         XCTAssertEqual(appState.progressValue, 0.0)

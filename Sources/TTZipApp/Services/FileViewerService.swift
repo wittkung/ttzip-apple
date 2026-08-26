@@ -22,3 +22,12 @@ public final class MacNSWorkspaceFileViewer: FileViewerServiceProtocol {
         NSWorkspace.shared.selectFile(path, inFileViewerRootedAtPath: "")
     }
 }
+
+/// Headless / no-op file viewer implementation for non-GUI environments and testing.
+public final class NoOpFileViewer: FileViewerServiceProtocol {
+    public init() {}
+    
+    public func revealInFinder(at path: String) {
+        // No-op for headless / non-GUI executions
+    }
+}

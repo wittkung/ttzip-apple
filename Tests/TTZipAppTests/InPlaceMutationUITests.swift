@@ -143,7 +143,7 @@ final class InPlaceMutationUITests: XCTestCase {
     @MainActor
     func testAppIntentDispatcherAddAndDeleteDispatch() {
         let dispatcher = AppIntentDispatcher.shared
-        let state = AppViewState()
+        let state = AppViewState(fileViewer: NoOpFileViewer())
         dispatcher.bind(state: state)
         
         let addResult = dispatcher.dispatch(

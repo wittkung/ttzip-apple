@@ -138,7 +138,7 @@ final class DestinationDispatcherTests: XCTestCase {
         let targetDir = tempDirectoryURL.appendingPathComponent("TargetDirectory")
         try FileManager.default.createDirectory(at: targetDir, withIntermediateDirectories: true)
         
-        let appViewState = AppViewState()
+        let appViewState = AppViewState(fileViewer: NoOpFileViewer())
         let initialURL = tempDirectoryURL!
         appViewState.currentDirectory = initialURL
         appViewState.selectedDiskItem = DiskItemInfo(url: tempDirectoryURL)
@@ -156,7 +156,7 @@ final class DestinationDispatcherTests: XCTestCase {
         let archiveURL = tempDirectoryURL.appendingPathComponent("BundleArchive.zip")
         try "archive payload".data(using: .utf8)?.write(to: archiveURL)
         
-        let appViewState = AppViewState()
+        let appViewState = AppViewState(fileViewer: NoOpFileViewer())
         let result = DestinationDispatcher.classify(path: archiveURL.path)
         let success = DestinationDispatcher.dispatch(result: result, appViewState: appViewState)
         
@@ -172,7 +172,7 @@ final class DestinationDispatcherTests: XCTestCase {
         let fileURL = tempDirectoryURL.appendingPathComponent("Readme.txt")
         try "text content".data(using: .utf8)?.write(to: fileURL)
         
-        let appViewState = AppViewState()
+        let appViewState = AppViewState(fileViewer: NoOpFileViewer())
         let result = DestinationDispatcher.classify(path: fileURL.path)
         let success = DestinationDispatcher.dispatch(result: result, appViewState: appViewState)
         
@@ -184,7 +184,7 @@ final class DestinationDispatcherTests: XCTestCase {
     
     @MainActor
     func testDispatchNotFoundRouting() {
-        let appViewState = AppViewState()
+        let appViewState = AppViewState(fileViewer: NoOpFileViewer())
         let initialDir = tempDirectoryURL!
         appViewState.currentDirectory = initialDir
         appViewState.selectedDiskItem = nil
@@ -203,7 +203,7 @@ final class DestinationDispatcherTests: XCTestCase {
         let targetDir = tempDirectoryURL.appendingPathComponent("ConvenienceDir")
         try FileManager.default.createDirectory(at: targetDir, withIntermediateDirectories: true)
         
-        let appViewState = AppViewState()
+        let appViewState = AppViewState(fileViewer: NoOpFileViewer())
         let success = DestinationDispatcher.dispatch(path: targetDir.path, appViewState: appViewState)
         
         XCTAssertTrue(success)

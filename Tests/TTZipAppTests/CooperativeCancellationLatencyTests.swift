@@ -50,7 +50,7 @@ final class CooperativeCancellationLatencyTests: XCTestCase {
     }
 
     func testAppViewStateTaskControlIntegration() async throws {
-        let viewState = AppViewState()
+        let viewState = AppViewState(fileViewer: NoOpFileViewer())
         let coordinator = ArchiveTaskCoordinator.shared
         let taskId = UUID()
         

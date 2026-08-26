@@ -171,7 +171,7 @@ final class FrontendPerfOptimizationTests: XCTestCase {
     
     @MainActor
     func testAppViewStateHighFrequencyProgress() async {
-        let appState = AppViewState()
+        let appState = AppViewState(fileViewer: NoOpFileViewer())
         let throttler = ThrottledProgressPublisher(maxFrequencyHz: 60.0) // 16.6ms intervals
         
         var updateCount = 0
