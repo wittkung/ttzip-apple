@@ -8,6 +8,7 @@
 import SwiftUI
 import TTZipCore
 import AppKit
+import TTZipPluginKit
 
 @MainActor
 public enum AppLogoCache {
@@ -24,6 +25,7 @@ public enum AppLogoCache {
 
 public struct MainView: View {
     @ObservedObject var l10n = AppLocalizationState.shared
+    @ObservedObject var registry = TTZipPluginRegistry.shared
     @State var viewModel = AppViewState()
     @State private var isSidebarVisible: Bool = true
     @State private var isRightSidebarVisible: Bool = true
@@ -48,14 +50,12 @@ public struct MainView: View {
         @Bindable var viewModel = viewModel
         GeometryReader { geo in
             let totalWidth = geo.size.width
-            let remainingWidth = max(totalWidth - leftSidebarWidth - 2, 200)
+            let tier = WindowLayoutTier.evaluate(width: totalWidth)
+            let effectiveLeftSidebarWidth: CGFloat = (tier == .compact) ? 64 : leftSidebarWidth
+            let isLeftCompact: Bool = (tier == .compact) || (leftSidebarWidth < 140)
+            let remainingWidth = max(totalWidth - effectiveLeftSidebarWidth - 2, 200)
             
-            let isRightPanelAvailable: Bool = {
-                if viewModel.activeTab == .compressWorkspace { return true }
-                if viewModel.activeTab == .home { return viewModel.selectedDiskItem != nil }
-                return false
-            }()
-            
+            let isRightPanelAvailable: Bool = (tier != .compact && viewModel.activeTab == .home && viewModel.selectedDiskItem != nil)
             let shouldShowRightPanel = isRightSidebarVisible && isRightPanelAvailable
             
             let effectiveRightWidth: CGFloat = {
@@ -76,15 +76,17 @@ public struct MainView: View {
                         currentArchivePath: viewModel.currentArchivePath,
                         isCompact: isLeftCompact
                     )
-                    .frame(width: leftSidebarWidth)
+                    .frame(width: effectiveLeftSidebarWidth)
                     
-                    ResizableDividerHandle(
-                        onDragStart: { initialLeftWidth = leftSidebarWidth },
-                        onDragChanged: { translation in
-                            leftSidebarWidth = min(max(initialLeftWidth + translation, 60), 280)
-                        },
-                        onDragEnd: { userLeftSidebarWidth = Double(leftSidebarWidth) }
-                    )
+                    if tier != .compact {
+                        ResizableDividerHandle(
+                            onDragStart: { initialLeftWidth = leftSidebarWidth },
+                            onDragChanged: { translation in
+                                leftSidebarWidth = min(max(initialLeftWidth + translation, 60), 280)
+                            },
+                            onDragEnd: { userLeftSidebarWidth = Double(leftSidebarWidth) }
+                        )
+                    }
                     
                     detailArea
                         .frame(minWidth: 200, maxWidth: .infinity, maxHeight: .infinity)
@@ -113,34 +115,25 @@ public struct MainView: View {
                     }
                 }
                 
-                if isRightPanelAvailable {
-                    HStack(spacing: 0) {
-                        Spacer()
-                        SidebarToggleButton(isSidebarVisible: $isRightSidebarVisible)
-                            .padding(.top, 42)
-                            .padding(.trailing, isRightSidebarVisible ? 16 : 14)
-                        
-                        if isRightSidebarVisible {
-                            Spacer().frame(width: effectiveRightWidth)
-                        }
-                    }
-                    .ignoresSafeArea()
-                }
-                
                 if viewModel.activeTab == .home {
-                    HStack {
-                        Spacer().frame(width: 60)
-                        Spacer()
-                        LiquidGlassOmnibar(searchQuery: $searchQuery, searchService: searchService, viewModel: viewModel)
-                        Spacer()
-                        Spacer().frame(width: 60)
+                    let omnibarMaxWidth = min(480.0, max(180.0, totalWidth - 280.0))
+                    HStack(spacing: 0) {
+                        Spacer(minLength: 140)
+                        LiquidGlassOmnibar(
+                            searchQuery: $searchQuery,
+                            searchService: searchService,
+                            viewModel: viewModel,
+                            maxContainerWidth: omnibarMaxWidth
+                        )
+                        .frame(minWidth: 180, idealWidth: 380, maxWidth: omnibarMaxWidth)
+                        Spacer(minLength: 140)
                     }
                     .padding(.top, 2)
                     .padding(.horizontal, 16)
                     .zIndex(998)
                     
                     if !searchQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                        liquidGlassSearchResultsOverlay
+                        liquidGlassSearchResultsOverlay(maxWidth: omnibarMaxWidth)
                             .transition(.move(edge: .top).combined(with: .opacity))
                             .zIndex(999)
                     }
@@ -279,6 +272,18 @@ public struct MainView: View {
                     BenchmarkView()
                 case .vault:
                     PasswordVaultView()
+                case .plugins:
+                    PluginsView()
+                case .larkSync:
+                    if let pluginView = registry.installedPlugins.first(where: { $0.manifest.id == "com.ttzip.plugin.larksync" })?.makeWorkspaceView(tabIdentifier: "larksync.workspace") {
+                        pluginView
+                    } else {
+                        ContentUnavailableView(
+                            "未加载飞书知识库插件",
+                            systemImage: "puzzlepiece.extension",
+                            description: Text("请前往「插件中心」启用或安装 LarkSync 扩展。")
+                        )
+                    }
                 case .settings:
                     SettingsView()
                 }
@@ -286,7 +291,7 @@ public struct MainView: View {
         }
     }
     
-    private var liquidGlassSearchResultsOverlay: some View {
+    private func liquidGlassSearchResultsOverlay(maxWidth: CGFloat) -> some View {
         VStack(spacing: 0) {
             if searchService.isSearching {
                 HStack(spacing: 8) {
@@ -328,7 +333,7 @@ public struct MainView: View {
                 .frame(maxHeight: 280)
             }
         }
-        .frame(width: 480)
+        .frame(width: maxWidth)
         .background(.ultraThinMaterial)
         .clipShape(RoundedRectangle(cornerRadius: 12))
         .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(TTZipTheme.hairlineBorder, lineWidth: 0.5))

@@ -27,7 +27,8 @@ let package = Package(
     dependencies: [
         .package(path: "../core"),
         .package(path: "../ttkit-localization/TTLocalizationKit"),
-        .package(url: "https://github.com/sparkle-project/Sparkle", exact: "2.6.0")
+        .package(url: "https://github.com/sparkle-project/Sparkle", exact: "2.6.0"),
+        .package(path: "../../../studio-lab/larksync")
     ],
     targets: [
         .executableTarget(
@@ -35,7 +36,8 @@ let package = Package(
             dependencies: [
                 .product(name: "TTZipCore", package: "core"),
                 .product(name: "TTLocalizationKit", package: "TTLocalizationKit"),
-                .product(name: "Sparkle", package: "Sparkle")
+                .product(name: "Sparkle", package: "Sparkle"),
+                .product(name: "TTZipPluginKit", package: "larksync")
             ],
             path: "Sources/TTZipApp",
             exclude: [
