@@ -8,6 +8,7 @@
 import SwiftUI
 import TTZipCore
 import AppKit
+import TTZipPluginKit
 
 final class AppDelegate: NSObject, NSApplicationDelegate, @unchecked Sendable {
     private var pendingURLs: [URL] = []
@@ -86,12 +87,16 @@ struct TTZipApp: App {
                 break
             }
         }
+        
+        Task { @MainActor in
+            await TTZipPluginLoader.loadInstalledPlugins(context: TTZipHostContextImpl.shared)
+        }
     }
     
     var body: some Scene {
         WindowGroup {
             MainView()
-                .frame(minWidth: 460, minHeight: 380)
+                .frame(minWidth: 520, minHeight: 400)
                 .background(WindowTabbingConfigurator())
                 .background(Color.clear)
                 .onOpenURL { url in

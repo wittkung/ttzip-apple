@@ -7,10 +7,12 @@
 
 import SwiftUI
 import TTZipCore
+import TTZipPluginKit
 
 /// Editorial style sidebar (WSJ Editorial Sidebar).
 public struct MacEditorialSidebar: View {
     @ObservedObject private var l10n = AppLocalizationState.shared
+    @ObservedObject private var registry = TTZipPluginRegistry.shared
     @Binding public var activeTab: WorkspaceTab
     public let currentArchivePath: String?
     public var isCompact: Bool = false
@@ -91,11 +93,28 @@ public struct MacEditorialSidebar: View {
                         .padding(.bottom, 4)
                 }
                 
+                // 1. 核心内置项
                 SidebarItemView(title: l10n.t(L10n.Sidebar.homeAndExtract), icon: "archivebox", tab: .home, activeTab: $activeTab, isCompact: isCompact)
                 SidebarItemView(title: l10n.t(L10n.Sidebar.newArchive), icon: "doc.badge.plus", tab: .compressWorkspace, activeTab: $activeTab, isCompact: isCompact)
                 SidebarItemView(title: l10n.t(L10n.Sidebar.presets), icon: "slider.horizontal.3", tab: .presets, activeTab: $activeTab, isCompact: isCompact)
                 SidebarItemView(title: l10n.t(L10n.Sidebar.benchmark), icon: "speedometer", tab: .benchmark, activeTab: $activeTab, isCompact: isCompact)
                 SidebarItemView(title: l10n.t(L10n.Sidebar.vault), icon: "key.fill", tab: .vault, activeTab: $activeTab, isCompact: isCompact)
+                
+                // 2. 动态插件扩展项 (仅在已安装对应插件时渲染)
+                ForEach(registry.sidebarItems, id: \.id) { (contribution: TTZipSidebarContribution) in
+                    let isLark = contribution.id.contains("larksync")
+                    SidebarItemView(
+                        title: contribution.title,
+                        icon: contribution.icon,
+                        tab: isLark ? .larkSync : .plugins,
+                        activeTab: $activeTab,
+                        isCompact: isCompact
+                    )
+                }
+                
+                // 3. 插件中心与许可证
+                let pluginsTitle = l10n.currentLanguage == .zhHans ? "插件中心" : "Extensions"
+                SidebarItemView(title: pluginsTitle, icon: "puzzlepiece.extension.fill", tab: .plugins, activeTab: $activeTab, isCompact: isCompact)
                 SidebarItemView(title: l10n.t(L10n.Sidebar.licensing), icon: "checkmark.seal.fill", tab: .settings, activeTab: $activeTab, isCompact: isCompact)
             }
             .padding(.horizontal, isCompact ? 0 : 8)
@@ -112,80 +131,95 @@ public struct MacEditorialSidebar: View {
                         .foregroundStyle(TTZipTheme.bambooGreen)
                         .lineLimit(1)
                 }
-                .padding(.horizontal, 14)
-                .padding(.top, 16)
+                .padding(.horizontal, 16)
+                .padding(.top, 14)
             }
             
-            Spacer()
+            Spacer(minLength: 16)
             
             if !isCompact {
-                VStack(alignment: .leading, spacing: 4) {
-                    HStack(spacing: 4) {
-                        Image(systemName: "cpu.fill")
-                            .font(.system(size: 10))
+                VStack(alignment: .leading, spacing: 5) {
+                    HStack(spacing: 5) {
+                        Image(systemName: "cpu")
+                            .font(.system(size: 10, weight: .medium))
                             .foregroundStyle(TTZipTheme.bambooGreen)
                         Text(tuner.topology.chipName)
-                            .font(.system(size: 11, weight: .bold, design: .serif))
-                            .foregroundStyle(.primary)
+                            .font(.system(size: 11, weight: .semibold, design: .serif))
+                            .foregroundStyle(.primary.opacity(0.85))
                     }
-                    Text(l10n.format(L10n.Benchmark.hardwareCoresFormat, tuner.topology.totalCores, tuner.topology.performanceCores, tuner.topology.efficiencyCores) + " · " + l10n.format(L10n.Benchmark.hardwareMemoryFormat, tuner.topology.unifiedMemoryGB))
-                        .font(.system(size: 10))
+                    
+                    Text("\(tuner.topology.totalCores) 核心 (\(tuner.topology.performanceCores) 性能核 + \(tuner.topology.efficiencyCores) 能效核) • \(Int(tuner.topology.unifiedMemoryGB)) GB 统一内存")
+                        .font(.system(size: 9.5))
                         .foregroundStyle(.secondary)
                     
-                    HStack(spacing: 4) {
+                    HStack(spacing: 3) {
                         Image(systemName: "bolt.fill")
-                            .font(.system(size: 9))
-                            .foregroundStyle(TTZipTheme.bambooGreen)
-                        Text(l10n.t(L10n.Sidebar.zeroCopyAcceleration))
+                            .font(.system(size: 8))
+                            .foregroundStyle(TTZipTheme.kintsugiGold)
+                        Text("零拷贝 SIMD 硬件加速")
                             .font(.system(size: 9, weight: .medium))
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(TTZipTheme.kintsugiGold)
                     }
+                    .padding(.top, 1)
                 }
                 .padding(.horizontal, 14)
-                .padding(.bottom, 10)
-                
-                VStack(alignment: .leading, spacing: 4) {
-                    Rectangle()
-                        .fill(Color.primary.opacity(0.15))
-                        .frame(height: 0.5)
-                        .padding(.bottom, 12)
-                    
-                    Text(l10n.formatDate(Date()))
-                        .font(.system(size: 11, design: .serif))
-                        .foregroundStyle(.primary.opacity(0.8))
-                    Text(l10n.t(L10n.Sidebar.printedInMacOS))
-                        .font(.system(size: 9, weight: .bold, design: .serif))
-                        .tracking(1)
-                        .foregroundStyle(.secondary)
+                .padding(.vertical, 8)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(Color.primary.opacity(0.025))
+                .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 6, style: .continuous)
+                        .strokeBorder(Color.primary.opacity(0.04), lineWidth: 0.5)
+                )
+                .padding(.horizontal, 10)
+                .padding(.bottom, 6)
+            }
+            
+            if !isCompact {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(currentDateString)
+                        .font(.system(size: 9.5, weight: .regular))
+                        .foregroundStyle(.secondary.opacity(0.8))
+                    Text("原生 macOS 架构")
+                        .font(.system(size: 9.5, weight: .regular, design: .monospaced))
+                        .foregroundStyle(.secondary.opacity(0.6))
                 }
-                .padding(.horizontal, 14)
-                .padding(.bottom, 20)
+                .padding(.horizontal, 16)
+                .padding(.bottom, 12)
             }
         }
-        .frame(maxWidth: .infinity, alignment: isCompact ? .center : .leading)
+        .frame(maxHeight: .infinity)
+        .background(TTZipTheme.paperWhite.opacity(0.98))
+        .overlay(
+            Rectangle()
+                .fill(TTZipTheme.kintsugiGold.opacity(0.4))
+                .frame(width: 0.5),
+            alignment: .trailing
+        )
+    }
+    
+    private var currentDateString: String {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "zh_CN")
+        formatter.dateFormat = "yyyy年M月d日 HH:mm"
+        return formatter.string(from: Date())
     }
 }
 
-public struct SidebarItemView: View {
-    public let title: String
-    public let icon: String
-    public let tab: WorkspaceTab
-    @Binding public var activeTab: WorkspaceTab
-    public var isCompact: Bool = false
+private struct SidebarItemView: View {
+    let title: String
+    let icon: String
+    let tab: WorkspaceTab
+    @Binding var activeTab: WorkspaceTab
+    let isCompact: Bool
     
-    @State private var isHovered = false
+    @State private var isHovered: Bool = false
     
-    public init(title: String, icon: String, tab: WorkspaceTab, activeTab: Binding<WorkspaceTab>, isCompact: Bool = false) {
-        self.title = title
-        self.icon = icon
-        self.tab = tab
-        self._activeTab = activeTab
-        self.isCompact = isCompact
+    private var isSelected: Bool {
+        activeTab == tab
     }
     
-    public var body: some View {
-        let isSelected = activeTab == tab
-        
+    var body: some View {
         Button(action: {
             activeTab = tab
         }) {

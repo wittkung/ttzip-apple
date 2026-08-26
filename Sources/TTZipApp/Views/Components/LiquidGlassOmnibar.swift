@@ -15,6 +15,7 @@ public struct LiquidGlassOmnibar: View {
     @Binding public var searchQuery: String
     @ObservedObject public var searchService: SpotlightSearchService
     public var viewModel: AppViewState
+    public var maxContainerWidth: CGFloat
     
     @StateObject private var autocompletionEngine = AsyncPathAutocompletionEngine()
     @State private var isEditing: Bool = false
@@ -27,11 +28,13 @@ public struct LiquidGlassOmnibar: View {
     public init(
         searchQuery: Binding<String>,
         searchService: SpotlightSearchService,
-        viewModel: AppViewState
+        viewModel: AppViewState,
+        maxContainerWidth: CGFloat = 480
     ) {
         self._searchQuery = searchQuery
         self.searchService = searchService
         self.viewModel = viewModel
+        self.maxContainerWidth = maxContainerWidth
     }
     
     private var isPathMode: Bool {
@@ -49,6 +52,7 @@ public struct LiquidGlassOmnibar: View {
                     // Idle Breadcrumb Mode
                     BreadcrumbPathBarView(
                         currentDirectory: viewModel.currentDirectory,
+                        maxAvailableWidth: maxContainerWidth,
                         onSelectDirectory: { targetURL in
                             DestinationDispatcher.directDispatch(path: targetURL.path, appViewState: viewModel)
                         },
@@ -134,7 +138,8 @@ public struct LiquidGlassOmnibar: View {
                     .transition(.opacity.combined(with: .scale(scale: 0.98)))
                 }
             }
-            .frame(width: 480, height: 30)
+            .frame(maxWidth: maxContainerWidth)
+            .frame(height: 30)
             .background(
                 RoundedRectangle(cornerRadius: 15)
                     .fill(isEditing ? Color.primary.opacity(0.06) : (isHovered ? Color.primary.opacity(0.035) : Color.primary.opacity(0.02)))

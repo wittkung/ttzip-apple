@@ -82,20 +82,37 @@ extension FolderMediaArtboardView {
     }
     
     func detailRow(label: String, value: String, isHighlight: Bool = false) -> some View {
-        HStack(alignment: .firstTextBaseline, spacing: 4) {
-            Text(label)
-                .font(.system(size: 11, weight: .medium))
-                .foregroundStyle(.secondary)
-                .lineLimit(1)
-                .fixedSize(horizontal: true, vertical: false)
+        ViewThatFits(in: .horizontal) {
+            // Wide layout: single line
+            HStack(alignment: .firstTextBaseline, spacing: 4) {
+                Text(label)
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .fixedSize(horizontal: true, vertical: false)
+                
+                Spacer(minLength: 4)
+                
+                Text(value)
+                    .font(.system(size: isHighlight ? 13 : 11, weight: isHighlight ? .bold : .regular, design: isHighlight ? .default : .monospaced))
+                    .foregroundStyle(isHighlight ? TTZipTheme.bambooGreen : .primary)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+            }
             
-            Spacer(minLength: 4)
-            
-            Text(value)
-                .font(.system(size: isHighlight ? 13 : 11, weight: isHighlight ? .bold : .regular, design: isHighlight ? .default : .monospaced))
-                .foregroundStyle(isHighlight ? TTZipTheme.bambooGreen : .primary)
-                .lineLimit(1)
-                .truncationMode(.tail)
+            // Narrow layout: double line stacked
+            VStack(alignment: .leading, spacing: 2) {
+                Text(label)
+                    .font(.system(size: 10, weight: .medium))
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                
+                Text(value)
+                    .font(.system(size: isHighlight ? 12 : 11, weight: isHighlight ? .bold : .regular, design: isHighlight ? .default : .monospaced))
+                    .foregroundStyle(isHighlight ? TTZipTheme.bambooGreen : .primary)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+            }
         }
     }
     

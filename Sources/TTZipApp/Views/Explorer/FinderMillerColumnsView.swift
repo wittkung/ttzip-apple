@@ -77,6 +77,20 @@ public struct FinderMillerColumnsView: View {
                         }
                     }
                 }
+                .onChange(of: hoveredColumnIndex) { _, newHover in
+                    if let idx = newHover, idx >= 0 && idx < columnPaths.count {
+                        withAnimation(.spring(response: 0.25, dampingFraction: 0.85)) {
+                            proxy.scrollTo(idx, anchor: .trailing)
+                        }
+                    }
+                }
+                .onChange(of: activeColumnIndex) { _, newActive in
+                    if newActive >= 0 && newActive < columnPaths.count {
+                        withAnimation(.spring(response: 0.25, dampingFraction: 0.85)) {
+                            proxy.scrollTo(newActive, anchor: .trailing)
+                        }
+                    }
+                }
             }
         }
         .clipped()

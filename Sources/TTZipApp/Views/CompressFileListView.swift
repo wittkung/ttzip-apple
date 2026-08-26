@@ -108,42 +108,10 @@ public struct CompressFileListView: View {
                     }
                     .padding(.vertical, 32)
                 } else {
-                    List(itemsList, selection: $selectedItemIDs) { item in
-                        HStack(spacing: 8) {
-                            Image(systemName: item.isDirectory ? "folder.fill" : "doc.fill")
-                                .foregroundStyle(item.isDirectory ? TTZipTheme.bambooGreen : Color.blue)
-                                .font(.system(size: 13))
-                            
-                            Text(item.name)
-                                .font(.system(size: 12, weight: .medium))
-                                .lineLimit(1)
-                            
-                            Spacer()
-                            
-                            Text(formatBytes(item.size))
-                                .font(.system(size: 10.5, design: .monospaced))
-                                .foregroundStyle(.secondary)
-                            
-                            Button(action: {
-                                if let idx = itemsList.firstIndex(where: { $0.id == item.id }) {
-                                    itemsList.remove(at: idx)
-                                    selectedItemIDs.remove(item.id)
-                                }
-                            }) {
-                                Image(systemName: "xmark.circle.fill")
-                                    .font(.system(size: 13))
-                                    .foregroundStyle(.secondary.opacity(0.7))
-                            }
-                            .buttonStyle(.plain)
-                            .help("Remove")
-                        }
-                        .padding(.vertical, 2)
-                    }
-                    .listStyle(.inset(alternatesRowBackgrounds: true))
-                    .frame(height: 140)
-                    .clipShape(RoundedRectangle(cornerRadius: 8))
+                    fileListContent
                 }
             }
+            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
             .onDrop(of: [.fileURL], isTargeted: nil) { providers in
                 for provider in providers {
                     _ = provider.loadObject(ofClass: URL.self) { url, _ in
@@ -157,6 +125,91 @@ public struct CompressFileListView: View {
                     }
                 }
                 return true
+            }
+        }
+    }
+    
+    @ViewBuilder
+    private var fileListContent: some View {
+        if itemsList.count <= 4 {
+            VStack(spacing: 0) {
+                ForEach(Array(itemsList.enumerated()), id: \.element.id) { index, item in
+                    fileRow(for: item)
+                    if index < itemsList.count - 1 {
+                        Divider().opacity(0.3)
+                    }
+                }
+            }
+            .padding(.vertical, 2)
+        } else {
+            ScrollView(.vertical, showsIndicators: true) {
+                VStack(spacing: 0) {
+                    ForEach(Array(itemsList.enumerated()), id: \.element.id) { index, item in
+                        fileRow(for: item)
+                        if index < itemsList.count - 1 {
+                            Divider().opacity(0.3)
+                        }
+                    }
+                }
+                .padding(.vertical, 2)
+            }
+            .frame(maxHeight: 180)
+            .overlay(alignment: .bottom) {
+                LinearGradient(
+                    colors: [Color.clear, Color.primary.opacity(0.06)],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+                .frame(height: 24)
+                .allowsHitTesting(false)
+            }
+        }
+    }
+    
+    private func fileRow(for item: CompressFileItem) -> some View {
+        let isSelected = selectedItemIDs.contains(item.id)
+        return HStack(spacing: 8) {
+            Image(systemName: item.isDirectory ? "folder.fill" : "doc.fill")
+                .foregroundStyle(item.isDirectory ? TTZipTheme.bambooGreen : Color.blue)
+                .font(.system(size: 13))
+            
+            Text(item.name)
+                .font(.system(size: 12, weight: .medium))
+                .lineLimit(1)
+                .truncationMode(.middle)
+            
+            Spacer()
+            
+            Text(formatBytes(item.size))
+                .font(.system(size: 10.5, design: .monospaced))
+                .foregroundStyle(.secondary)
+            
+            Button(action: {
+                if let idx = itemsList.firstIndex(where: { $0.id == item.id }) {
+                    itemsList.remove(at: idx)
+                    selectedItemIDs.remove(item.id)
+                }
+            }) {
+                Image(systemName: "xmark.circle.fill")
+                    .font(.system(size: 13))
+                    .foregroundStyle(.secondary.opacity(0.7))
+            }
+            .buttonStyle(.plain)
+            .help("Remove")
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 6)
+        .background(
+            isSelected
+                ? TTZipTheme.bambooGreen.opacity(0.12)
+                : Color.clear
+        )
+        .contentShape(Rectangle())
+        .onTapGesture {
+            if isSelected {
+                selectedItemIDs.remove(item.id)
+            } else {
+                selectedItemIDs.insert(item.id)
             }
         }
     }

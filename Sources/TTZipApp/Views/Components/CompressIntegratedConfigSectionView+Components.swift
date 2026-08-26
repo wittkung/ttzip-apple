@@ -132,7 +132,7 @@ extension CompressIntegratedConfigSectionView {
         return HStack(alignment: .top, spacing: 12) {
             L10nText(L10n.Compress.level)
                 .font(.system(size: 11.5, weight: .medium)).foregroundStyle(.secondary).frame(width: 85, alignment: .trailing).padding(.top, 4)
-            LazyVGrid(columns: [GridItem(.adaptive(minimum: 95, maximum: 180), spacing: 6)], spacing: 6) {
+            TTFlowLayout(horizontalSpacing: 6, verticalSpacing: 6) {
                 ForEach(levelsList, id: \.rawValue) { lvl in
                     self.levelTileView(fmt: fmt, lvl: lvl)
                 }
@@ -159,7 +159,8 @@ extension CompressIntegratedConfigSectionView {
         }) {
             Text(titleName).font(.system(size: 10.5, weight: isSel ? .bold : .regular))
                 .lineLimit(1)
-                .frame(maxWidth: .infinity)
+                .minimumScaleFactor(0.85)
+                .frame(minWidth: 110)
                 .padding(.horizontal, 8).padding(.vertical, 5)
                 .background(isSel ? TTZipTheme.bambooGreen.opacity(0.14) : Color.primary.opacity(0.03))
                 .foregroundStyle(isSel ? TTZipTheme.bambooGreen : Color.primary)

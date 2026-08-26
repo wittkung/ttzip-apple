@@ -71,14 +71,23 @@ public struct FolderMediaArtboardView: View {
                     
                     GeometryReader { btnGeo in
                         let w = btnGeo.size.width
-                        HStack(spacing: w >= 320 ? 12 : 6) {
+                        HStack(spacing: w > 380 ? 12 : (w >= 260 ? 8 : 6)) {
                             Button(action: {
                                 NSWorkspace.shared.selectFile(item.path, inFileViewerRootedAtPath: "")
                             }) {
-                                if w >= 320 {
+                                if w > 380 {
                                     HStack(spacing: 4) {
                                         Image(systemName: "folder").font(.system(size: 11))
                                         Text("Reveal in Finder")
+                                            .font(.system(size: 11, weight: .semibold))
+                                            .lineLimit(1)
+                                            .fixedSize(horizontal: true, vertical: false)
+                                    }
+                                    .foregroundStyle(TTZipTheme.bambooGreen)
+                                } else if w >= 260 {
+                                    HStack(spacing: 4) {
+                                        Image(systemName: "folder").font(.system(size: 11))
+                                        Text("Reveal")
                                             .font(.system(size: 11, weight: .semibold))
                                             .lineLimit(1)
                                             .fixedSize(horizontal: true, vertical: false)
@@ -99,10 +108,19 @@ public struct FolderMediaArtboardView: View {
                             Button(action: {
                                 showCreateSubfolderAlert = true
                             }) {
-                                if w >= 320 {
+                                if w > 380 {
                                     HStack(spacing: 4) {
                                         Image(systemName: "folder.badge.plus").font(.system(size: 11))
                                         Text("New Folder")
+                                            .font(.system(size: 11, weight: .medium))
+                                            .lineLimit(1)
+                                            .fixedSize(horizontal: true, vertical: false)
+                                    }
+                                    .foregroundStyle(TTZipTheme.bambooGreen)
+                                } else if w >= 260 {
+                                    HStack(spacing: 4) {
+                                        Image(systemName: "folder.badge.plus").font(.system(size: 11))
+                                        Text("Folder")
                                             .font(.system(size: 11, weight: .medium))
                                             .lineLimit(1)
                                             .fixedSize(horizontal: true, vertical: false)
@@ -123,10 +141,19 @@ public struct FolderMediaArtboardView: View {
                             Button(action: {
                                 showCreateFileAlert = true
                             }) {
-                                if w >= 320 {
+                                if w > 380 {
                                     HStack(spacing: 4) {
                                         Image(systemName: "doc.badge.plus").font(.system(size: 11))
                                         Text("New File")
+                                            .font(.system(size: 11, weight: .medium))
+                                            .lineLimit(1)
+                                            .fixedSize(horizontal: true, vertical: false)
+                                    }
+                                    .foregroundStyle(TTZipTheme.bambooGreen)
+                                } else if w >= 260 {
+                                    HStack(spacing: 4) {
+                                        Image(systemName: "doc.badge.plus").font(.system(size: 11))
+                                        Text("File")
                                             .font(.system(size: 11, weight: .medium))
                                             .lineLimit(1)
                                             .fixedSize(horizontal: true, vertical: false)
@@ -148,10 +175,19 @@ public struct FolderMediaArtboardView: View {
                                 NSPasteboard.general.clearContents()
                                 NSPasteboard.general.setString(item.path, forType: .string)
                             }) {
-                                if w >= 320 {
+                                if w > 380 {
                                     HStack(spacing: 4) {
                                         Image(systemName: "doc.on.doc").font(.system(size: 11))
                                         Text("Copy Path")
+                                            .font(.system(size: 11, weight: .medium))
+                                            .lineLimit(1)
+                                            .fixedSize(horizontal: true, vertical: false)
+                                    }
+                                    .foregroundStyle(.secondary)
+                                } else if w >= 260 {
+                                    HStack(spacing: 4) {
+                                        Image(systemName: "doc.on.doc").font(.system(size: 11))
+                                        Text("Copy")
                                             .font(.system(size: 11, weight: .medium))
                                             .lineLimit(1)
                                             .fixedSize(horizontal: true, vertical: false)

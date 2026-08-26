@@ -52,50 +52,59 @@ public struct SettingsView: View {
     public init() {}
     
     public var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            HStack(spacing: 4) {
-                ForEach(SettingsTab.allCases) { tab in
-                    Button(action: { selectedTab = tab }) {
-                        HStack(spacing: 6) {
-                            Image(systemName: tab.systemImage)
-                            Text(l10n.t(tab.titleKey))
+        TTZipWorkspaceScaffold(
+            sectionName: "PREFERENCES & CONFIGURATION",
+            title: l10n.t(L10n.Sidebar.settings),
+            isCardEnclosed: true
+        ) {
+            EmptyView()
+        } content: {
+            VStack(alignment: .leading, spacing: 0) {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 4) {
+                        ForEach(SettingsTab.allCases) { tab in
+                            Button(action: { selectedTab = tab }) {
+                                HStack(spacing: 6) {
+                                    Image(systemName: tab.systemImage)
+                                    Text(l10n.t(tab.titleKey))
+                                }
+                                .font(TTZipTheme.Typography.caption)
+                                .bold()
+                                .padding(.horizontal, TTZipTheme.Spacing.sm)
+                                .padding(.vertical, 6)
+                                .background(selectedTab == tab ? Color.primary.opacity(0.12) : Color.clear)
+                                .foregroundStyle(selectedTab == tab ? Color.primary : Color.secondary)
+                                .clipShape(Capsule())
+                            }
+                            .buttonStyle(.plain)
                         }
-                        .font(TTZipTheme.Typography.caption)
-                        .bold()
-                        .padding(.horizontal, TTZipTheme.Spacing.sm)
-                        .padding(.vertical, 6)
-                        .background(selectedTab == tab ? Color.primary.opacity(0.12) : Color.clear)
-                        .foregroundStyle(selectedTab == tab ? Color.primary : Color.secondary)
-                        .clipShape(Capsule())
                     }
-                    .buttonStyle(.plain)
+                    .padding(.horizontal, TTZipTheme.Spacing.xl)
+                    .padding(.top, 14)
+                    .padding(.bottom, 12)
                 }
-                Spacer()
-            }
-            .padding(.horizontal, TTZipTheme.Spacing.xl)
-            .padding(.top, 16)
-            .padding(.bottom, 12)
-            
-            Divider()
-            
-            ScrollView {
-                VStack(alignment: .leading, spacing: TTZipTheme.Spacing.lg) {
-                    switch selectedTab {
-                    case .general:
-                        generalSection
-                    case .localization:
-                        localizationSection
-                    case .presets:
-                        presetsSection
-                    case .vault:
-                        vaultSection
-                    case .license:
-                        licenseAndHardwareSection
+                
+                Divider()
+                
+                ScrollView {
+                    VStack(alignment: .leading, spacing: TTZipTheme.Spacing.lg) {
+                        switch selectedTab {
+                        case .general:
+                            generalSection
+                        case .localization:
+                            localizationSection
+                        case .presets:
+                            presetsSection
+                        case .vault:
+                            vaultSection
+                        case .license:
+                            licenseAndHardwareSection
+                        }
                     }
+                    .padding(.top, 20)
+                    .padding(.horizontal, TTZipTheme.Spacing.xl)
+                    .padding(.bottom, TTZipTheme.Spacing.xl)
                 }
-                .padding(.top, 20)
-                .padding(.horizontal, TTZipTheme.Spacing.xl)
-                .padding(.bottom, TTZipTheme.Spacing.xl)
             }
         }
     }

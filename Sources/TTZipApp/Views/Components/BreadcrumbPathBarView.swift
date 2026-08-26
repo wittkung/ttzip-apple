@@ -11,6 +11,7 @@ import TTZipCore
 /// Interactive clickable breadcrumb bar representing current filesystem path.
 public struct BreadcrumbPathBarView: View {
     public let currentDirectory: URL
+    public let maxAvailableWidth: CGFloat
     public let onSelectDirectory: (URL) -> Void
     public let onClickToEdit: () -> Void
     
@@ -18,15 +19,17 @@ public struct BreadcrumbPathBarView: View {
     
     public init(
         currentDirectory: URL,
+        maxAvailableWidth: CGFloat = 480,
         onSelectDirectory: @escaping (URL) -> Void,
         onClickToEdit: @escaping () -> Void
     ) {
         self.currentDirectory = currentDirectory
+        self.maxAvailableWidth = maxAvailableWidth
         self.onSelectDirectory = onSelectDirectory
         self.onClickToEdit = onClickToEdit
     }
     
-    public var segments: [BreadcrumbSegment] {
+    public var allSegments: [BreadcrumbSegment] {
         let homePath = NSHomeDirectory()
         let fullPath = currentDirectory.standardizedFileURL.path
         
@@ -85,6 +88,25 @@ public struct BreadcrumbPathBarView: View {
         return result
     }
     
+    public var segments: [BreadcrumbSegment] {
+        let all = allSegments
+        if all.count > 3 && maxAvailableWidth < 340 {
+            let first = all[0]
+            let secondToLast = all[all.count - 2]
+            let last = all[all.count - 1]
+            
+            let ellipsis = BreadcrumbSegment(
+                id: "__ellipsis__",
+                title: "…",
+                fullURL: secondToLast.fullURL.deletingLastPathComponent(),
+                isRoot: false,
+                isLast: false
+            )
+            return [first, ellipsis, secondToLast, last]
+        }
+        return all
+    }
+    
     public var body: some View {
         HStack(spacing: 3) {
             Image(systemName: "folder.fill")
@@ -97,7 +119,11 @@ public struct BreadcrumbPathBarView: View {
                     ForEach(segments) { segment in
                         HStack(spacing: 2) {
                             Button(action: {
-                                onSelectDirectory(segment.fullURL)
+                                if segment.id == "__ellipsis__" {
+                                    onClickToEdit()
+                                } else {
+                                    onSelectDirectory(segment.fullURL)
+                                }
                             }) {
                                 Text(segment.title)
                                     .font(.system(size: 11, weight: segment.isLast ? .bold : .medium, design: .monospaced))

@@ -25,165 +25,169 @@ public struct PasswordVaultLockedView: View {
     }
     
     public var body: some View {
-        VStack(spacing: 24) {
-            ZStack {
-                Circle()
-                    .fill(TTZipTheme.bambooGreen.opacity(0.12))
-                    .frame(width: 84, height: 84)
+        ScrollView(.vertical, showsIndicators: false) {
+            VStack(spacing: 20) {
+                ZStack {
+                    Circle()
+                        .fill(TTZipTheme.bambooGreen.opacity(0.12))
+                        .frame(width: 76, height: 76)
+                    
+                    Circle()
+                        .strokeBorder(TTZipTheme.bambooGreen.opacity(0.4), lineWidth: 1.5)
+                        .frame(width: 88, height: 88)
+                    
+                    Image(systemName: viewModel.isMasterPasswordSet ? "lock.shield.fill" : "key.radiowaves.forward.fill")
+                        .font(.system(size: 34, weight: .semibold))
+                        .foregroundStyle(TTZipTheme.bambooGreen)
+                }
                 
-                Circle()
-                    .strokeBorder(TTZipTheme.bambooGreen.opacity(0.4), lineWidth: 1.5)
-                    .frame(width: 96, height: 96)
+                VStack(spacing: 6) {
+                    Text(viewModel.isMasterPasswordSet ? l10n.t(L10n.Vault.title) : l10n.t(L10n.Vault.addPassword))
+                        .font(.system(size: 18, weight: .bold, design: .serif))
+                        .foregroundStyle(.primary)
+                    
+                    Text(viewModel.isMasterPasswordSet ? l10n.t(L10n.Vault.unlockPrompt) : l10n.t(L10n.Vault.volatileZeroingDesc))
+                        .font(.system(size: 11))
+                        .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center)
+                        .frame(maxWidth: 320)
+                }
                 
-                Image(systemName: viewModel.isMasterPasswordSet ? "lock.shield.fill" : "key.radiowaves.forward.fill")
-                    .font(.system(size: 38, weight: .semibold))
-                    .foregroundStyle(TTZipTheme.bambooGreen)
-            }
-            
-            VStack(spacing: 6) {
-                Text(viewModel.isMasterPasswordSet ? l10n.t(L10n.Vault.title) : l10n.t(L10n.Vault.addPassword))
-                    .font(.system(size: 18, weight: .bold, design: .serif))
-                    .foregroundStyle(.primary)
-                
-                Text(viewModel.isMasterPasswordSet ? l10n.t(L10n.Vault.unlockPrompt) : l10n.t(L10n.Vault.volatileZeroingDesc))
-                    .font(.system(size: 11))
-                    .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.center)
-                    .frame(maxWidth: 320)
-            }
-            
-            VStack(spacing: 12) {
-                if !viewModel.isMasterPasswordSet {
-                    TTSecureTextField(l10n.t(L10n.Vault.passwordPlaceholder), text: $viewModel.masterPasswordInput)
-                        .font(.system(size: 12, weight: .medium))
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 8)
-                        .background(Color.primary.opacity(0.035))
-                        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
-                        .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).strokeBorder(Color.primary.opacity(0.08), lineWidth: 0.8))
-                        .frame(width: 320)
-                    
-                    TTSecureTextField(l10n.t(L10n.Vault.passwordPlaceholder), text: $viewModel.confirmMasterPasswordInput)
-                        .font(.system(size: 12, weight: .medium))
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 8)
-                        .background(Color.primary.opacity(0.035))
-                        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
-                        .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).strokeBorder(Color.primary.opacity(0.08), lineWidth: 0.8))
-                        .frame(width: 320)
-                    
-                    if !viewModel.unlockErrorMessage.isEmpty {
-                        Text(viewModel.unlockErrorMessage)
-                            .font(.system(size: 11, weight: .semibold))
-                            .foregroundStyle(TTZipTheme.cinnabarRed)
-                    }
-                    
-                    Button(action: { viewModel.setupFirstMasterPassword() }) {
-                        Text(l10n.t(L10n.Vault.addPassword))
-                            .font(.system(size: 12, weight: .bold))
-                            .foregroundStyle(.white)
-                            .frame(width: 320)
-                            .padding(.vertical, 9)
-                            .background(
-                                LinearGradient(
-                                    colors: [TTZipTheme.bambooGreen, TTZipTheme.bambooGreen.opacity(0.85)],
-                                    startPoint: .topLeading,
-                                    endPoint: .bottomTrailing
-                                )
-                            )
-                            .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
-                            .shadow(color: TTZipTheme.bambooGreen.opacity(0.3), radius: 6, x: 0, y: 2)
-                    }
-                    .buttonStyle(.plain)
-                    .keyboardShortcut(.return, modifiers: [])
-                    .disabled(viewModel.masterPasswordInput.isEmpty || viewModel.confirmMasterPasswordInput.isEmpty)
-                } else {
-                    TTSecureTextField(l10n.t(L10n.Vault.passwordPlaceholder), text: $viewModel.masterPasswordInput)
-                        .font(.system(size: 12, weight: .medium))
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 8)
-                        .background(Color.primary.opacity(0.035))
-                        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
-                        .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).strokeBorder(Color.primary.opacity(0.08), lineWidth: 0.8))
-                        .frame(width: 320)
-                        .focused($isMasterPasswordFocused)
-                    
-                    if !viewModel.unlockErrorMessage.isEmpty {
-                        Text(viewModel.unlockErrorMessage)
-                            .font(.system(size: 11, weight: .semibold))
-                            .foregroundStyle(TTZipTheme.cinnabarRed)
-                    }
-                    
-                    HStack(spacing: 10) {
-                        Button(action: { viewModel.authenticateWithBiometrics() }) {
-                            HStack(spacing: 4) {
-                                Image(systemName: "touchid")
-                                    .font(.system(size: 12, weight: .bold))
-                                Text("Touch ID")
-                                    .font(.system(size: 11, weight: .bold))
-                            }
-                            .foregroundStyle(.white)
-                            .padding(.horizontal, 14)
+                VStack(spacing: 12) {
+                    if !viewModel.isMasterPasswordSet {
+                        TTSecureTextField(l10n.t(L10n.Vault.passwordPlaceholder), text: $viewModel.masterPasswordInput)
+                            .font(.system(size: 12, weight: .medium))
+                            .padding(.horizontal, 12)
                             .padding(.vertical, 8)
-                            .background(
-                                LinearGradient(
-                                    colors: [TTZipTheme.bambooGreen, TTZipTheme.bambooGreen.opacity(0.85)],
-                                    startPoint: .topLeading,
-                                    endPoint: .bottomTrailing
-                                )
-                            )
-                            .clipShape(Capsule())
-                            .shadow(color: TTZipTheme.bambooGreen.opacity(0.3), radius: 4, x: 0, y: 2)
-                        }
-                        .buttonStyle(.plain)
+                            .background(Color.primary.opacity(0.035))
+                            .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                            .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).strokeBorder(Color.primary.opacity(0.08), lineWidth: 0.8))
+                            .frame(width: 320)
                         
-                        Button(action: { viewModel.unlockVault() }) {
-                            Text(l10n.t(L10n.Vault.unlockButton))
-                                .font(.system(size: 11, weight: .bold))
-                                .foregroundStyle(Color.primary)
-                                .padding(.horizontal, 14)
-                                .padding(.vertical, 8)
-                                .background(Color.primary.opacity(0.06))
-                                .clipShape(Capsule())
-                                .overlay(Capsule().strokeBorder(Color.primary.opacity(0.1), lineWidth: 0.8))
+                        TTSecureTextField(l10n.t(L10n.Vault.passwordPlaceholder), text: $viewModel.confirmMasterPasswordInput)
+                            .font(.system(size: 12, weight: .medium))
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 8)
+                            .background(Color.primary.opacity(0.035))
+                            .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                            .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).strokeBorder(Color.primary.opacity(0.08), lineWidth: 0.8))
+                            .frame(width: 320)
+                        
+                        if !viewModel.unlockErrorMessage.isEmpty {
+                            Text(viewModel.unlockErrorMessage)
+                                .font(.system(size: 11, weight: .semibold))
+                                .foregroundStyle(TTZipTheme.cinnabarRed)
+                        }
+                        
+                        Button(action: { viewModel.setupFirstMasterPassword() }) {
+                            Text(l10n.t(L10n.Vault.addPassword))
+                                .font(.system(size: 12, weight: .bold))
+                                .foregroundStyle(.white)
+                                .frame(width: 320)
+                                .padding(.vertical, 9)
+                                .background(
+                                    LinearGradient(
+                                        colors: [TTZipTheme.bambooGreen, TTZipTheme.bambooGreen.opacity(0.85)],
+                                        startPoint: .topLeading,
+                                        endPoint: .bottomTrailing
+                                    )
+                                )
+                                .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                                .shadow(color: TTZipTheme.bambooGreen.opacity(0.3), radius: 6, x: 0, y: 2)
                         }
                         .buttonStyle(.plain)
                         .keyboardShortcut(.return, modifiers: [])
-                        .disabled(viewModel.masterPasswordInput.isEmpty)
-                    }
-                    
-                    HStack(spacing: 16) {
-                        Button(l10n.t(L10n.Common.retry)) {
-                            viewModel.newMasterPasswordInput = ""
-                            viewModel.isResetSheetPresented = true
-                        }
-                        .buttonStyle(.plain)
-                        .font(.system(size: 10))
-                        .foregroundStyle(.secondary)
+                        .disabled(viewModel.masterPasswordInput.isEmpty || viewModel.confirmMasterPasswordInput.isEmpty)
+                    } else {
+                        TTSecureTextField(l10n.t(L10n.Vault.passwordPlaceholder), text: $viewModel.masterPasswordInput)
+                            .font(.system(size: 12, weight: .medium))
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 8)
+                            .background(Color.primary.opacity(0.035))
+                            .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                            .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).strokeBorder(Color.primary.opacity(0.08), lineWidth: 0.8))
+                            .frame(width: 320)
+                            .focused($isMasterPasswordFocused)
                         
-                        if viewModel.hasBackupVault {
-                            Button(l10n.t(L10n.Common.importAction)) {
-                                viewModel.oldMasterPasswordInput = ""
-                                viewModel.recoverErrorMessage = ""
-                                viewModel.isRecoverSheetPresented = true
+                        if !viewModel.unlockErrorMessage.isEmpty {
+                            Text(viewModel.unlockErrorMessage)
+                                .font(.system(size: 11, weight: .semibold))
+                                .foregroundStyle(TTZipTheme.cinnabarRed)
+                        }
+                        
+                        HStack(spacing: 10) {
+                            Button(action: { viewModel.authenticateWithBiometrics() }) {
+                                HStack(spacing: 4) {
+                                    Image(systemName: "touchid")
+                                        .font(.system(size: 12, weight: .bold))
+                                    Text("Touch ID")
+                                        .font(.system(size: 11, weight: .bold))
+                                }
+                                .foregroundStyle(.white)
+                                .padding(.horizontal, 14)
+                                .padding(.vertical, 8)
+                                .background(
+                                    LinearGradient(
+                                        colors: [TTZipTheme.bambooGreen, TTZipTheme.bambooGreen.opacity(0.85)],
+                                        startPoint: .topLeading,
+                                        endPoint: .bottomTrailing
+                                    )
+                                )
+                                .clipShape(Capsule())
+                                .shadow(color: TTZipTheme.bambooGreen.opacity(0.3), radius: 4, x: 0, y: 2)
                             }
                             .buttonStyle(.plain)
-                            .font(.system(size: 10, weight: .bold))
-                            .foregroundStyle(TTZipTheme.bambooGreen)
+                            
+                            Button(action: { viewModel.unlockVault() }) {
+                                Text(l10n.t(L10n.Vault.unlockButton))
+                                    .font(.system(size: 11, weight: .bold))
+                                    .foregroundStyle(Color.primary)
+                                    .padding(.horizontal, 14)
+                                    .padding(.vertical, 8)
+                                    .background(Color.primary.opacity(0.06))
+                                    .clipShape(Capsule())
+                                    .overlay(Capsule().strokeBorder(Color.primary.opacity(0.1), lineWidth: 0.8))
+                            }
+                            .buttonStyle(.plain)
+                            .keyboardShortcut(.return, modifiers: [])
+                            .disabled(viewModel.masterPasswordInput.isEmpty)
                         }
+                        
+                        HStack(spacing: 16) {
+                            Button(l10n.t(L10n.Common.retry)) {
+                                viewModel.newMasterPasswordInput = ""
+                                viewModel.isResetSheetPresented = true
+                            }
+                            .buttonStyle(.plain)
+                            .font(.system(size: 10))
+                            .foregroundStyle(.secondary)
+                            
+                            if viewModel.hasBackupVault {
+                                Button(l10n.t(L10n.Common.importAction)) {
+                                    viewModel.oldMasterPasswordInput = ""
+                                    viewModel.recoverErrorMessage = ""
+                                    viewModel.isRecoverSheetPresented = true
+                                }
+                                .buttonStyle(.plain)
+                                .font(.system(size: 10, weight: .bold))
+                                .foregroundStyle(TTZipTheme.bambooGreen)
+                            }
+                        }
+                        .padding(.top, 4)
                     }
-                    .padding(.top, 4)
                 }
             }
+            .padding(28)
+            .background(Color.primary.opacity(0.025))
+            .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 20, style: .continuous)
+                    .strokeBorder(Color.primary.opacity(0.07), lineWidth: 1)
+            )
+            .padding(.horizontal, 20)
+            .padding(.vertical, 20)
+            .frame(maxWidth: .infinity)
         }
-        .padding(36)
-        .background(Color.primary.opacity(0.025))
-        .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 20, style: .continuous)
-                .strokeBorder(Color.primary.opacity(0.07), lineWidth: 1)
-        )
-        .padding(40)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }

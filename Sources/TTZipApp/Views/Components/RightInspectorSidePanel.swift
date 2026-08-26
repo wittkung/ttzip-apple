@@ -13,7 +13,7 @@ public struct RightInspectorSidePanel: View {
     public var viewModel: AppViewState
     @Binding public var rightVerticalTopHeight: CGFloat
     
-    public init(viewModel: AppViewState, rightVerticalTopHeight: Binding<CGFloat>) {
+    public init(viewModel: AppViewState, rightVerticalTopHeight: Binding<CGFloat> = .constant(300)) {
         self.viewModel = viewModel
         self._rightVerticalTopHeight = rightVerticalTopHeight
     }
@@ -67,93 +67,34 @@ public struct RightInspectorSidePanel: View {
                 .frame(height: 1.5)
             
             VStack(alignment: .leading, spacing: 0) {
-                if viewModel.activeTab == .compressWorkspace {
-                    if let item = viewModel.selectedDiskItem {
-                        DiskDirectoryBrowserView(
-                            rootDirectory: viewModel.currentDirectory,
-                            onSelectArchive: { archivePath in
-                                let u = URL(fileURLWithPath: archivePath)
-                                viewModel.openArchiveAsFolder(url: u)
-                            },
-                            onCompressPath: { folderPath in
-                                viewModel.openCompressWorkspace(paths: [folderPath])
-                            },
-                            onPreviewFile: { _ in },
-                            onSelectItem: { item in
-                                viewModel.selectedDiskItem = item
-                            }
-                        )
-                        .frame(height: max(160, rightVerticalTopHeight))
-                        .clipped()
-                        
-                        ResizableHorizontalDividerHandle(
-                            height: $rightVerticalTopHeight,
-                            minHeight: 120,
-                            maxHeight: 650
-                        )
-                        .padding(.vertical, 2)
-                        
-                        InspectorColumnView(
-                            item: item,
-                            onSelectArchive: { archivePath in
-                                Task { await viewModel.loadArchive(path: archivePath) }
-                            },
-                            onCompressPath: { folderPath in
-                                viewModel.openCompressWorkspace(paths: [folderPath])
-                            },
-                            onPreviewFile: { _ in }
-                        )
-                        .id(item.path)
-                        .frame(maxHeight: .infinity)
-                        .clipped()
-                    } else {
-                        DiskDirectoryBrowserView(
-                            rootDirectory: viewModel.currentDirectory,
-                            onSelectArchive: { archivePath in
-                                let u = URL(fileURLWithPath: archivePath)
-                                viewModel.openArchiveAsFolder(url: u)
-                            },
-                            onCompressPath: { folderPath in
-                                viewModel.openCompressWorkspace(paths: [folderPath])
-                            },
-                            onPreviewFile: { _ in },
-                            onSelectItem: { item in
-                                viewModel.selectedDiskItem = item
-                            }
-                        )
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                        .clipped()
-                    }
+                if let item = viewModel.selectedDiskItem {
+                    InspectorColumnView(
+                        item: item,
+                        onSelectArchive: { archivePath in
+                            Task { await viewModel.loadArchive(path: archivePath) }
+                        },
+                        onCompressPath: { folderPath in
+                            viewModel.openCompressWorkspace(paths: [folderPath])
+                        },
+                        onPreviewFile: { _ in }
+                    )
+                    .id(item.path)
+                    .frame(maxHeight: .infinity)
                 } else {
-                    if let item = viewModel.selectedDiskItem {
-                        InspectorColumnView(
-                            item: item,
-                            onSelectArchive: { archivePath in
-                                Task { await viewModel.loadArchive(path: archivePath) }
-                            },
-                            onCompressPath: { folderPath in
-                                viewModel.openCompressWorkspace(paths: [folderPath])
-                            },
-                            onPreviewFile: { _ in }
-                        )
-                        .id(item.path)
-                        .frame(maxHeight: .infinity)
-                    } else {
-                        VStack(spacing: 12) {
-                            Spacer()
-                            Image(systemName: "photo.on.rectangle.angled")
-                                .font(.system(size: 36))
-                                .foregroundStyle(.tertiary)
-                            Text("Select a file or folder in the explorer")
-                                .font(.system(size: 12, weight: .medium))
-                                .foregroundStyle(.secondary)
-                            Text("Selected items can be previewed directly")
-                                .font(.system(size: 10))
-                                .foregroundStyle(.tertiary)
-                            Spacer()
-                        }
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    VStack(spacing: 12) {
+                        Spacer()
+                        Image(systemName: "photo.on.rectangle.angled")
+                            .font(.system(size: 36))
+                            .foregroundStyle(.tertiary)
+                        Text("Select a file or folder in the explorer")
+                            .font(.system(size: 12, weight: .medium))
+                            .foregroundStyle(.secondary)
+                        Text("Selected items can be previewed directly")
+                            .font(.system(size: 10))
+                            .foregroundStyle(.tertiary)
+                        Spacer()
                     }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
                 }
             }
         }

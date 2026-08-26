@@ -38,6 +38,8 @@ public struct PasswordVaultUnlockedView: View {
                         .foregroundStyle(.primary)
                 }
                 
+                Spacer()
+                
                 Toggle(isOn: $viewModel.autoUnlockArchives) {
                     HStack(spacing: 4) {
                         Image(systemName: "bolt.shield.fill")

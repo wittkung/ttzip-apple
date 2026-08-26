@@ -14,6 +14,8 @@ public enum WorkspaceTab: String, CaseIterable, Identifiable, Codable, Sendable 
     case presets = "presets"
     case benchmark = "benchmark"
     case vault = "vault"
+    case plugins = "plugins"           // 插件中心 / 插件商店
+    case larkSync = "larksync.workspace" // 飞书知识库同步插件
     case settings = "settings"
 
     public var id: String { rawValue }

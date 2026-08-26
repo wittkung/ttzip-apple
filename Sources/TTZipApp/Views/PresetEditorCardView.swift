@@ -32,6 +32,90 @@ public struct PresetEditorCardView: View {
     public var body: some View {
         VStack(spacing: 16) {
             VStack(alignment: .leading, spacing: 14) {
+                Label("Target Format & Container", systemImage: "archivebox.fill")
+                    .font(.system(size: 13, weight: .bold, design: .serif))
+                    .foregroundStyle(TTZipTheme.bambooGreen)
+                
+                LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 8) {
+                    PresetFormatOptionTile(
+                        format: .sevenZip,
+                        name: "7-Zip",
+                        ext: ".7z",
+                        desc: "High ratio LZMA2/ZSTD engine",
+                        activeFormat: $editorFormat
+                    )
+                    PresetFormatOptionTile(
+                        format: .zip,
+                        name: "ZIP",
+                        ext: ".zip",
+                        desc: "Universal standard compatibility",
+                        activeFormat: $editorFormat
+                    )
+                    PresetFormatOptionTile(
+                        format: .tarZst,
+                        name: "TAR.ZST",
+                        ext: ".tar.zst",
+                        desc: "Modern ultra-fast streaming",
+                        activeFormat: $editorFormat
+                    )
+                    PresetFormatOptionTile(
+                        format: .tarGz,
+                        name: "TAR.GZ",
+                        ext: ".tar.gz",
+                        desc: "Classic Unix distribution archive",
+                        activeFormat: $editorFormat
+                    )
+                }
+            }
+            .padding(18)
+            .background(Color.primary.opacity(0.025))
+            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .stroke(Color.primary.opacity(0.06), lineWidth: 1)
+            )
+            
+            VStack(alignment: .leading, spacing: 14) {
+                Label("Compression Level", systemImage: "gauge.with.dots.needle.50percent")
+                    .font(.system(size: 13, weight: .bold, design: .serif))
+                    .foregroundStyle(TTZipTheme.bambooGreen)
+                
+                LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 8) {
+                    PresetLevelOptionTile(
+                        level: .store,
+                        name: "Store (0x)",
+                        desc: "Store without compression",
+                        activeLevel: $editorLevel
+                    )
+                    PresetLevelOptionTile(
+                        level: .fastest,
+                        name: "Fast (1x)",
+                        desc: "Maximum multi-core throughput",
+                        activeLevel: $editorLevel
+                    )
+                    PresetLevelOptionTile(
+                        level: .normal,
+                        name: "Standard (6x)",
+                        desc: "Balanced speed and ratio",
+                        activeLevel: $editorLevel
+                    )
+                    PresetLevelOptionTile(
+                        level: .ultra,
+                        name: "Ultra (9x)",
+                        desc: "Maximum compression ratio",
+                        activeLevel: $editorLevel
+                    )
+                }
+            }
+            .padding(18)
+            .background(Color.primary.opacity(0.025))
+            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .stroke(Color.primary.opacity(0.06), lineWidth: 1)
+            )
+            
+            VStack(alignment: .leading, spacing: 14) {
                 Label("Volume Splitting", systemImage: "scissors")
                     .font(.system(size: 13, weight: .bold, design: .serif))
                     .foregroundStyle(TTZipTheme.kintsugiGold)

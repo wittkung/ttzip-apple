@@ -139,6 +139,28 @@ else
         fi
     fi
 
+    # Copy any auxiliary dylibs from build directory
+    BUILD_BIN_DIR="$(swift build -c "${BUILD_CONFIG}" --show-bin-path 2>/dev/null || true)"
+    if [ -n "${BUILD_BIN_DIR}" ] && [ -d "${BUILD_BIN_DIR}" ]; then
+        find "${BUILD_BIN_DIR}" -name "*.dylib" -type f 2>/dev/null | while read -r dylib_file; do
+            cp -f "${dylib_file}" "${FRAMEWORKS_DIR}/"
+            codesign --force --sign "-" "${FRAMEWORKS_DIR}/$(basename "${dylib_file}")" 2>/dev/null || true
+        done
+    fi
+
+    # Copy official signed plugin archives to App Resources/Plugins/ (Offline / Fast source)
+    OFFICIAL_PLUGIN_ZIP="/Users/kevintung/Documents/dev/studio-lab/larksync/dist/LarkSync-v1.0.0.ttplugin.zip"
+    if [ -f "${OFFICIAL_PLUGIN_ZIP}" ]; then
+        mkdir -p "${RESOURCES_DIR}/Plugins"
+        cp -f "${OFFICIAL_PLUGIN_ZIP}" "${RESOURCES_DIR}/Plugins/"
+    fi
+    # Optional: Copy Built-in Plugins (.ttplugin) from PlugIns/ directory
+    PLUGINS_DIR="${CONTENTS_DIR}/PlugIns"
+    if [ -d "${REPO_ROOT}/PlugIns" ]; then
+        mkdir -p "${PLUGINS_DIR}"
+        cp -R "${REPO_ROOT}/PlugIns/"* "${PLUGINS_DIR}/" 2>/dev/null || true
+    fi
+
     # If Frameworks is empty, remove it
     rmdir "${FRAMEWORKS_DIR}" 2>/dev/null || true
 

@@ -10,6 +10,7 @@ import TTZipCore
 
 /// Algorithm characteristics and performance comparison matrix sheet.
 public struct AlgorithmMatrixSheetView: View {
+    @ObservedObject private var l10n = AppLocalizationState.shared
     @Binding public var isPresented: Bool
     
     public init(isPresented: Binding<Bool>) {
@@ -26,77 +27,92 @@ public struct AlgorithmMatrixSheetView: View {
         public let color: Color
     }
     
-    public let rows: [AlgoRow] = [
-        AlgoRow(name: "Store (No Compression)", speed: "8,450 MB/s", ratio: "0% (Store)", compatibility: "100%", recommendedFor: "Pre-compressed media, large archive packaging", color: .green),
-        AlgoRow(name: "Zstd (Zstandard)", speed: "4,450 MB/s", ratio: "High (~85%)", compatibility: "95% (Modern platforms)", recommendedFor: "Daily backups, source code repos, databases", color: .orange),
-        AlgoRow(name: "LZMA2 (7-Zip Default)", speed: "320 ~ 1,600 MB/s", ratio: "Maximum (~92%)", compatibility: "98% (Universal)", recommendedFor: "Documents, software binaries, maximum space savings", color: .blue),
-        AlgoRow(name: "Deflate (ZIP Standard)", speed: "85 ~ 600 MB/s", ratio: "Standard (~70%)", compatibility: "100% (Universal default)", recommendedFor: "Cross-platform email attachments, legacy devices", color: .purple),
-        AlgoRow(name: "Bzip2", speed: "40 ~ 120 MB/s", ratio: "High (~88%)", compatibility: "90%", recommendedFor: "Large repetitive logs, scientific datasets", color: .indigo)
-    ]
+    public var rows: [AlgoRow] {
+        [
+            AlgoRow(name: "Store (No Compression)", speed: "8,450 MB/s", ratio: "0% (Store)", compatibility: "100%", recommendedFor: "Pre-compressed media, large archive packaging", color: TTZipTheme.bambooGreen),
+            AlgoRow(name: "Zstd (Zstandard)", speed: "4,450 MB/s", ratio: "High (~85%)", compatibility: "95% (Modern platforms)", recommendedFor: "Daily backups, source code repos, databases", color: TTZipTheme.archiveAmber),
+            AlgoRow(name: "LZMA2 (7-Zip Default)", speed: "320 ~ 1,600 MB/s", ratio: "Maximum (~92%)", compatibility: "98% (Universal)", recommendedFor: "Documents, software binaries, maximum space savings", color: TTZipTheme.kintsugiGold),
+            AlgoRow(name: "Deflate (ZIP Standard)", speed: "85 ~ 600 MB/s", ratio: "Standard (~70%)", compatibility: "100% (Universal default)", recommendedFor: "Cross-platform email attachments, legacy devices", color: TTZipTheme.statusInfo),
+            AlgoRow(name: "Bzip2", speed: "40 ~ 120 MB/s", ratio: "High (~88%)", compatibility: "90%", recommendedFor: "Large repetitive logs, scientific datasets", color: TTZipTheme.cinnabarRed)
+        ]
+    }
     
     public var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             HStack {
                 Image(systemName: "chart.bar.doc.horizontal.fill")
                     .font(.title2)
-                    .foregroundStyle(.blue)
-                Text("TTZip Compression Algorithm Matrix")
-                    .font(.title3)
-                    .fontWeight(.bold)
+                    .foregroundStyle(TTZipTheme.bambooGreen)
+                
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("TTZip Compression Algorithm Matrix")
+                        .font(.title3)
+                        .fontWeight(.bold)
+                    Text("Comparative speed, ratio & compatibility benchmarks")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                
                 Spacer()
-                Button("Close") { isPresented = false }
+                
+                Button(l10n.t(L10n.Common.close)) { isPresented = false }
                     .buttonStyle(.borderedProminent)
+                    .tint(TTZipTheme.bambooGreen)
             }
             
             Divider()
             
-            VStack(alignment: .leading, spacing: 10) {
-                ForEach(rows) { row in
-                    HStack(alignment: .top, spacing: 12) {
-                        Circle()
-                            .fill(row.color)
-                            .frame(width: 8, height: 8)
-                            .padding(.top, 5)
-                        
-                        VStack(alignment: .leading, spacing: 4) {
-                            HStack {
-                                Text(row.name)
-                                    .font(.headline)
-                                    .foregroundStyle(row.color)
-                                Spacer()
-                                Text("Throughput: \(row.speed)")
-                                    .font(.caption)
-                                    .fontWeight(.semibold)
-                                    .padding(.horizontal, 6)
-                                    .padding(.vertical, 2)
-                                    .background(row.color.opacity(0.15))
-                                    .cornerRadius(4)
-                            }
+            ScrollView(.vertical, showsIndicators: false) {
+                VStack(alignment: .leading, spacing: 10) {
+                    ForEach(rows) { row in
+                        HStack(alignment: .top, spacing: 12) {
+                            Circle()
+                                .fill(row.color)
+                                .frame(width: 8, height: 8)
+                                .padding(.top, 5)
                             
-                            HStack(spacing: 16) {
-                                Text("Ratio: \(row.ratio)")
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                                Text("Compatibility: \(row.compatibility)")
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
+                            VStack(alignment: .leading, spacing: 5) {
+                                HStack {
+                                    Text(row.name)
+                                        .font(.headline)
+                                        .foregroundStyle(row.color)
+                                    Spacer()
+                                    Text("Throughput: \(row.speed)")
+                                        .font(.caption)
+                                        .fontWeight(.semibold)
+                                        .padding(.horizontal, 7)
+                                        .padding(.vertical, 2.5)
+                                        .background(row.color.opacity(0.15))
+                                        .clipShape(RoundedRectangle(cornerRadius: TTZipTheme.Radius.xs, style: .continuous))
+                                }
+                                
+                                HStack(spacing: 16) {
+                                    Text("Ratio: \(row.ratio)")
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                    Text("Compatibility: \(row.compatibility)")
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                }
+                                
+                                Text("Best For: \(row.recommendedFor)")
+                                    .font(.caption2)
+                                    .foregroundStyle(.primary)
                             }
-                            
-                            Text("Best For: \(row.recommendedFor)")
-                                .font(.caption2)
-                                .foregroundStyle(.primary)
                         }
+                        .padding(12)
+                        .background(Color.primary.opacity(0.035))
+                        .clipShape(RoundedRectangle(cornerRadius: TTZipTheme.Radius.md, style: .continuous))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: TTZipTheme.Radius.md, style: .continuous)
+                                .strokeBorder(Color.primary.opacity(0.06), lineWidth: 0.8)
+                        )
                     }
-                    .padding(10)
-                    .background(Color.primary.opacity(0.06))
-                    .cornerRadius(8)
                 }
             }
-            
-            Spacer()
         }
-        .padding(20)
-        .frame(width: 620, height: 480)
+        .padding(22)
+        .frame(width: 620, height: 500)
     }
 }
 

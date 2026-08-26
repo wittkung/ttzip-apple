@@ -91,7 +91,7 @@ public struct CompressIntegratedConfigSectionView: View {
                     L10nText(L10n.Compress.splitVolume)
                         .font(.system(size: 11.5, weight: .medium)).foregroundStyle(.secondary).frame(width: 85, alignment: .trailing).padding(.top, 4)
                     VStack(alignment: .leading, spacing: 6) {
-                        HStack(spacing: 6) {
+                        TTFlowLayout(horizontalSpacing: 6, verticalSpacing: 6) {
                             volTile(size: nil, name: l10n.t(L10n.Compress.splitVolumeNone))
                             volTile(size: 700 * 1024 * 1024, name: "700 MB")
                             volTile(size: 4700 * 1024 * 1024, name: "4.7 GB")
@@ -148,7 +148,7 @@ public struct CompressIntegratedConfigSectionView: View {
                     }
                 }
                 
-                LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 8) {
+                TTFlowLayout(horizontalSpacing: 12, verticalSpacing: 6) {
                     Toggle(l10n.t(L10n.Compress.filterMacJunk), isOn: $session.skipMacJunk).tint(TTZipTheme.bambooGreen)
                     Toggle(l10n.t(L10n.Compress.createSeparateArchives), isOn: $session.createSeparateArchives).tint(TTZipTheme.bambooGreen)
                     Toggle(l10n.t(L10n.Compress.deleteSource), isOn: $session.deleteSourceAfterCompress).tint(TTZipTheme.bambooGreen)
