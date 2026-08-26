@@ -98,22 +98,23 @@ public actor TTZipMarketplaceService {
     
     /// 官方内嵌旗舰全能视频播放插件
     public static let iinaplayerPlugin = TTZipMarketplacePlugin(
-        id: "com.metastudyline.ttzip.plugin.iinaplayer",
+        id: "com.ttzip.plugin.iina",
         name: "IINAPlayer",
         displayName: "IINAPlayer 官方全能播放器",
         version: "1.0.0",
-        author: "MetaStudyLine & TTZip Team",
-        description: "官方内嵌 16-bit Float Metal EDR 1600nits 全能视频播放器，支持 ASS 矢量字幕与 ttzip:// 零磁盘内存流播。",
+        author: "Witt Kung <witt.w.kung@gmail.com>",
+        description: "官方开源 16-bit Float Metal EDR 1600nits 全能视频播放器，支持纯 Safe Rust ASS 矢量字幕与 ttzip:// 零磁盘内存流播。",
         minHostVersion: "1.0.0",
-        homepage: "https://github.com/metastudyline/iinaplayer",
-        downloadUrl: "builtin://iinaplayer",
-        size: 1048576,
-        sha256: "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08",
-        signature: "MEYCIQC3Zl6K8Q4k7Z0qjH4r2sN8uQ6y1V3w5x7z9A2b4C6d8QIhAONbVcDeFgHiJkLmNoPqRsTuVwXyZ0123456789abc==",
-        publicKey: "f1WZtTR4xp4EanpE1hGrjfSwt7Fffsy3MvmJNraK6c8=",
+        homepage: "https://github.com/wittkung/ttzip-plugin-iina",
+        downloadUrl: "https://github.com/wittkung/ttzip-plugin-iina/releases/download/v1.0.0/IINA-v1.0.0.ttplugin.zip",
+        size: 28416000,
+        sha256: "4cd678ee9050184114250da631bdc751fb17014893f9fd7fa2c86f7dc3a988a8",
+        signature: "",
+        publicKey: "",
         permissions: ["FS-Read", "ArchiveEngine"],
         publishedAt: "2026-08-27T00:00:00Z"
     )
+
     
     public static let defaultCatalog: [TTZipMarketplacePlugin] = [
         iinaplayerPlugin,

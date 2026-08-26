@@ -185,24 +185,28 @@ public final class TTZipPluginInstaller: NSObject, ObservableObject, URLSessionD
     }
     
     private func resolveLocalFallbackArchive(pluginId: String) throws -> URL {
+        let isIINA = pluginId.localizedCaseInsensitiveContains("iina")
+        let keyword = isIINA ? "IINA" : "LarkSync"
+        let fallbackFolderName = isIINA ? "ttzip-plugin-iina" : "larksync"
+        
         // 1. 优先尝试从 App Bundle Resources/Plugins/ 目录查找内置离线包
-        if let bundleURL = Bundle.main.url(forResource: "LarkSync-v1.0.0.ttplugin", withExtension: "zip", subdirectory: "Plugins"),
+        if let bundleURL = Bundle.main.url(forResource: "\(keyword)-v1.0.0.ttplugin", withExtension: "zip", subdirectory: "Plugins"),
            FileManager.default.fileExists(atPath: bundleURL.path) {
             return bundleURL
         }
         
         if let resourcePath = Bundle.main.resourcePath {
             let appPluginsDir = URL(fileURLWithPath: resourcePath).appendingPathComponent("Plugins")
-            let localZip = appPluginsDir.appendingPathComponent("LarkSync-v1.0.0.ttplugin.zip")
+            let localZip = appPluginsDir.appendingPathComponent("\(keyword)-v1.0.0.ttplugin.zip")
             if FileManager.default.fileExists(atPath: localZip.path) {
                 return localZip
             }
         }
         
         // 2. 尝试从本地工程构建目录查找 (开发调试自适应，动态寻找最新版本)
-        let distPath = "/Users/kevintung/Documents/dev/studio-lab/larksync/dist"
+        let distPath = "/Users/kevintung/Documents/dev/studio-lab/\(fallbackFolderName)/dist"
         if let filenames = try? FileManager.default.contentsOfDirectory(atPath: distPath) {
-            let zipNames = filenames.filter { $0.hasSuffix(".zip") && $0.contains("LarkSync") }
+            let zipNames = filenames.filter { $0.hasSuffix(".zip") && $0.localizedCaseInsensitiveContains(keyword) }
                 .sorted(by: >)
             if let latest = zipNames.first {
                 return URL(fileURLWithPath: (distPath as NSString).appendingPathComponent(latest))
@@ -216,6 +220,7 @@ public final class TTZipPluginInstaller: NSObject, ObservableObject, URLSessionD
             userInfo: [NSLocalizedDescriptionKey: "云端插件包下载失败 (远程资产尚未就绪或网络不可达)。请检查网络设置。"]
         )
     }
+
     
     private func extractArchive(zipURL: URL, to stagingDir: URL) async throws -> URL {
         // Native Swift memory-safe ZIP decompression with zero external subprocess dependencies
