@@ -23,12 +23,18 @@ public struct ResizableDividerHandle: View {
         self.onDragEnd = onDragEnd
     }
     
+    public static let gutterWidth: CGFloat = 8.0
+    
     public var body: some View {
         ZStack {
-            // 1. Subtle baseline hairline (1px)
+            // 1. Zen Gutter: Transparent in rest state, glowing gold when hovered/dragged
             Rectangle()
-                .fill(isHovered || isDragging ? TTZipTheme.kintsugiGold.opacity(0.45) : Color.primary.opacity(0.08))
-                .frame(width: 1)
+                .fill(
+                    isHovered || isDragging
+                        ? TTZipTheme.kintsugiGold.opacity(0.55)
+                        : Color.clear
+                )
+                .frame(width: 1.5)
             
             // 2. Elegant floating tactile grip pill
             if isHovered || isDragging {
@@ -44,24 +50,24 @@ public struct ResizableDividerHandle: View {
                                 endPoint: .bottom
                             )
                         )
-                        .frame(width: 3.5, height: 22)
-                        .shadow(color: Color.black.opacity(0.2), radius: 2, x: 0, y: 1)
+                        .frame(width: 4, height: 24)
+                        .shadow(color: TTZipTheme.kintsugiGold.opacity(0.35), radius: 3, y: 1)
                     
                     VStack(spacing: 3) {
                         Circle()
-                            .fill(Color.white.opacity(0.9))
+                            .fill(Color.white.opacity(0.95))
                             .frame(width: 1.5, height: 1.5)
                         Circle()
-                            .fill(Color.white.opacity(0.9))
+                            .fill(Color.white.opacity(0.95))
                             .frame(width: 1.5, height: 1.5)
                     }
                 }
                 .transition(.opacity.combined(with: .scale(scale: 0.85)))
             }
         }
-        .frame(width: 1)
-        .contentShape(Rectangle().inset(by: -5))
-        .animation(.easeInOut(duration: 0.15), value: isHovered || isDragging)
+        .frame(width: Self.gutterWidth)
+        .contentShape(Rectangle())
+        .animation(.spring(response: 0.22, dampingFraction: 0.82), value: isHovered || isDragging)
         .onHover { hovering in
             isHovered = hovering
             if hovering {

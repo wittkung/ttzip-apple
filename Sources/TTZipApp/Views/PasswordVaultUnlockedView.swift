@@ -27,95 +27,6 @@ public struct PasswordVaultUnlockedView: View {
     
     public var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            HStack(spacing: 12) {
-                VStack(alignment: .leading, spacing: 1) {
-                    Text("KEYCHAIN VAULT")
-                        .font(.system(size: 9, weight: .bold, design: .serif))
-                        .tracking(2)
-                        .foregroundStyle(TTZipTheme.kintsugiGold)
-                    Text(l10n.t(L10n.Vault.title))
-                        .font(.system(size: 16, weight: .bold, design: .serif))
-                        .foregroundStyle(.primary)
-                }
-                
-                Spacer()
-                
-                Toggle(isOn: $viewModel.autoUnlockArchives) {
-                    HStack(spacing: 4) {
-                        Image(systemName: "bolt.shield.fill")
-                            .font(.system(size: 10))
-                            .foregroundStyle(TTZipTheme.bambooGreen)
-                        Text("Auto-Unlock Archives")
-                            .font(.system(size: 10.5, weight: .bold))
-                            .foregroundStyle(.primary)
-                    }
-                }
-                .toggleStyle(.switch)
-                .controlSize(.small)
-                .tint(TTZipTheme.bambooGreen)
-                .help("Auto-matches saved passwords when opening encrypted archives")
-                
-                Button(action: { viewModel.isRecoverySheetPresented = true }) {
-                    HStack(spacing: 4) {
-                        Image(systemName: "bolt.badge.clock.fill")
-                            .font(.system(size: 10))
-                            .foregroundStyle(TTZipTheme.bambooGreen)
-                        Text("Parallel Recovery")
-                            .font(.system(size: 10.5, weight: .bold))
-                    }
-                    .foregroundStyle(.primary)
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 5)
-                    .background(Color.primary.opacity(0.05))
-                    .clipShape(Capsule())
-                }
-                .buttonStyle(.plain)
-                .help("Run multi-core parallel dictionary recovery on encrypted archives")
-                
-                Button(action: { viewModel.lockVault() }) {
-                    HStack(spacing: 4) {
-                        Image(systemName: "lock.fill")
-                            .font(.system(size: 10))
-                        Text(l10n.t(L10n.Vault.lockVault))
-                            .font(.system(size: 10.5, weight: .bold))
-                    }
-                    .foregroundStyle(.secondary)
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 5)
-                    .background(Color.primary.opacity(0.05))
-                    .clipShape(Capsule())
-                }
-                .buttonStyle(.plain)
-                
-                Button(action: { viewModel.isAddModalPresented = true }) {
-                    HStack(spacing: 4) {
-                        Image(systemName: "plus.circle.fill")
-                            .font(.system(size: 11, weight: .bold))
-                        Text(l10n.t(L10n.Vault.addPassword) + " (⌘N)")
-                            .font(.system(size: 11, weight: .bold))
-                    }
-                    .foregroundStyle(.white)
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 5)
-                    .background(
-                        LinearGradient(
-                            colors: [TTZipTheme.bambooGreen, TTZipTheme.bambooGreen.opacity(0.85)],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
-                    )
-                    .clipShape(Capsule())
-                    .shadow(color: TTZipTheme.bambooGreen.opacity(0.25), radius: 4, x: 0, y: 1)
-                }
-                .buttonStyle(.plain)
-                .keyboardShortcut("n", modifiers: [.command])
-            }
-            .padding(.horizontal, 20)
-            .frame(height: 52)
-            
-            Rectangle()
-                .fill(TTZipTheme.kintsugiGold)
-                .frame(height: 1.5)
             
             if viewModel.entries.isEmpty {
                 VStack(spacing: 12) {
@@ -187,14 +98,6 @@ public struct PasswordVaultUnlockedView: View {
                 }
             }
         }
-        .background(Color.primary.opacity(0.025))
-        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .strokeBorder(Color.primary.opacity(0.07), lineWidth: 1)
-        )
-        .padding(.top, 38)
-        .padding(.horizontal, 16)
-        .padding(.bottom, 16)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     }
 }

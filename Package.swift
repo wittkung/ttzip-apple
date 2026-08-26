@@ -26,7 +26,7 @@ let package = Package(
     ],
     dependencies: [
         .package(path: "../core"),
-        .package(path: "../ttkit-localization/TTLocalizationKit"),
+        .package(path: "../../../infra/ttkit/ttkit-localization/TTLocalizationKit"),
         .package(url: "https://github.com/sparkle-project/Sparkle", exact: "2.6.0"),
         .package(path: "../../../studio-lab/larksync")
     ],

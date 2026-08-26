@@ -16,51 +16,35 @@ public struct BenchmarkView: View {
     public init() {}
     
     public var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            HStack(spacing: 12) {
-                VStack(alignment: .leading, spacing: 1) {
-                    Text(l10n.t(L10n.Benchmark.benchmarkMatrixTitle))
-                        .font(.system(size: 9, weight: .bold, design: .serif))
-                        .tracking(2)
-                        .foregroundStyle(TTZipTheme.kintsugiGold)
-                    Text(l10n.t(L10n.Sidebar.benchmark))
-                        .font(.system(size: 16, weight: .bold, design: .serif))
-                        .foregroundStyle(.primary)
+        TTZipWorkspaceScaffold(
+            sectionName: l10n.t(L10n.Benchmark.benchmarkMatrixTitle),
+            title: l10n.t(L10n.Sidebar.benchmark),
+            isCardEnclosed: true
+        ) {
+            Button(action: { viewModel.startAllPresetsSuite() }) {
+                HStack(spacing: 6) {
+                    Image(systemName: "bolt.fill")
+                        .font(.system(size: 11, weight: .bold))
+                    Text(viewModel.isRunning ? l10n.t(L10n.Common.processing) : l10n.t(L10n.Benchmark.benchmarkSuiteShortcut))
+                        .font(.system(size: 11, weight: .bold))
                 }
-                
-                Spacer()
-                
-                Button(action: { viewModel.startAllPresetsSuite() }) {
-                    HStack(spacing: 6) {
-                        Image(systemName: "bolt.fill")
-                            .font(.system(size: 11, weight: .bold))
-                        Text(viewModel.isRunning ? l10n.t(L10n.Common.processing) : l10n.t(L10n.Benchmark.benchmarkSuiteShortcut))
-                            .font(.system(size: 11, weight: .bold))
-                    }
-                    .foregroundStyle(.white)
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 6)
-                    .background(
-                        LinearGradient(
-                            colors: [TTZipTheme.bambooGreen, TTZipTheme.bambooGreen.opacity(0.85)],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
+                .foregroundStyle(.white)
+                .padding(.horizontal, 14)
+                .padding(.vertical, 6)
+                .background(
+                    LinearGradient(
+                        colors: [TTZipTheme.bambooGreen, TTZipTheme.bambooGreen.opacity(0.85)],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
                     )
-                    .clipShape(Capsule())
-                    .shadow(color: TTZipTheme.bambooGreen.opacity(0.25), radius: 4, x: 0, y: 1)
-                }
-                .buttonStyle(.plain)
-                .keyboardShortcut("r", modifiers: [.command])
-                .disabled(viewModel.isRunning || (viewModel.testMode == .customFile && viewModel.customPath == nil))
+                )
+                .clipShape(Capsule())
+                .shadow(color: TTZipTheme.bambooGreen.opacity(0.25), radius: 4, x: 0, y: 1)
             }
-            .padding(.horizontal, 20)
-            .frame(height: 52)
-            
-            Rectangle()
-                .fill(TTZipTheme.kintsugiGold)
-                .frame(height: 1.5)
-            
+            .buttonStyle(.plain)
+            .keyboardShortcut("r", modifiers: [.command])
+            .disabled(viewModel.isRunning || (viewModel.testMode == .customFile && viewModel.customPath == nil))
+        } content: {
             ScrollView(.vertical, showsIndicators: false) {
                 VStack(alignment: .leading, spacing: 18) {
                     BenchmarkHardwareBannerView()
@@ -101,17 +85,8 @@ public struct BenchmarkView: View {
                 }
                 .padding(20)
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         }
-        .background(Color.primary.opacity(0.025))
-        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .strokeBorder(Color.primary.opacity(0.07), lineWidth: 1)
-        )
-        .padding(.top, 38)
-        .padding(.horizontal, 16)
-        .padding(.bottom, 16)
-        .frame(minWidth: 320, minHeight: 300)
         .alert("Homebrew Package Manager Installation", isPresented: $viewModel.showHomebrewConsentModal) {
             Button("Agree and Install Homebrew & 7-Zip") {
                 viewModel.installSevenZipToolchain(consentedHomebrew: true)

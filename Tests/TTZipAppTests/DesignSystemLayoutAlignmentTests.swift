@@ -13,11 +13,19 @@ final class DesignSystemLayoutAlignmentTests: XCTestCase {
     
     func test_sidebar_workspace_inspector_golden_rule_aligned_at_y90() {
         // Design system baseline invariants
-        let topInset: CGFloat = 38.0
-        let headerHeight: CGFloat = 52.0
+        let topInset: CGFloat = TTZipTheme.Layout.topBarOffset
+        let headerHeight: CGFloat = TTZipTheme.Layout.headerBarHeight
         let goldenLineY: CGFloat = topInset + headerHeight
         
+        XCTAssertEqual(topInset, 38.0, "Top safety offset must be exactly 38.0pt")
+        XCTAssertEqual(headerHeight, 52.0, "Header bar height must be exactly 52.0pt")
         XCTAssertEqual(goldenLineY, 90.0, "Golden Rule Line across 3 columns must align precisely at Y = 90pt")
+    }
+    
+    func test_zen_gutter_and_scaffold_spacing_tokens() {
+        XCTAssertEqual(ResizableDividerHandle.gutterWidth, 8.0, "Zen Gutter width must be strictly 8.0pt")
+        XCTAssertEqual(TTZipTheme.Spacing.xs, 8.0, "Inset card leading spacing must be 8.0pt")
+        XCTAssertEqual(TTZipTheme.Layout.kintsugiGoldLineHeight, 1.5, "Kintsugi gold line height must be 1.5pt")
     }
     
     func test_52pt_header_bar_typography_tokens() {

@@ -190,12 +190,6 @@ public struct MacEditorialSidebar: View {
         }
         .frame(maxHeight: .infinity)
         .background(TTZipTheme.paperWhite.opacity(0.98))
-        .overlay(
-            Rectangle()
-                .fill(TTZipTheme.kintsugiGold.opacity(0.4))
-                .frame(width: 0.5),
-            alignment: .trailing
-        )
     }
     
     private var currentDateString: String {

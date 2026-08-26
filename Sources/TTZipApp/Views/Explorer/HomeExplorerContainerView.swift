@@ -12,6 +12,7 @@ import TTZipCore
 public struct HomeExplorerContainerView: View {
     public var viewModel: AppViewState
     @ObservedObject private var quickLookCoordinator = QuickLookPreviewCoordinator.shared
+    @ObservedObject private var l10n = AppLocalizationState.shared
     public let isRightSidebarVisible: Bool
     public let isActive: Bool
     
@@ -21,21 +22,17 @@ public struct HomeExplorerContainerView: View {
         self.isActive = isActive
     }
     
+    private var hasRightInspector: Bool {
+        isRightSidebarVisible && viewModel.selectedDiskItem != nil
+    }
+    
     public var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            HStack(spacing: 12) {
-                VStack(alignment: .leading, spacing: 1) {
-                    Text("EXPLORER")
-                        .font(.system(size: 9, weight: .bold, design: .serif))
-                        .tracking(2)
-                        .foregroundStyle(TTZipTheme.kintsugiGold)
-                    L10nText(L10n.Explorer.fileExplorer)
-                        .font(.system(size: 16, weight: .bold, design: .serif))
-                        .foregroundStyle(.primary)
-                }
-                
-                Spacer()
-                
+        TTZipWorkspaceScaffold(
+            sectionName: "EXPLORER",
+            title: l10n.t(L10n.Explorer.fileExplorer),
+            isCardEnclosed: true
+        ) {
+            HStack(spacing: 8) {
                 Button(action: {
                     RootFolderAccessManager.shared.requestRootAccess(for: RootFolderAccessManager.shared.highestRootURL(for: viewModel.currentDirectory))
                 }) {
@@ -73,13 +70,7 @@ public struct HomeExplorerContainerView: View {
                 .buttonStyle(.plain)
                 .help("Current directory (Click or press ⌘L / ⇧⌘G to navigate by path)")
             }
-            .padding(.horizontal, 20)
-            .frame(height: 52)
-            
-            Rectangle()
-                .fill(TTZipTheme.kintsugiGold)
-                .frame(height: 1.5)
-            
+        } content: {
             DiskDirectoryBrowserView(
                 rootDirectory: viewModel.currentDirectory,
                 isActive: isActive,
@@ -97,17 +88,10 @@ public struct HomeExplorerContainerView: View {
                     viewModel.selectedDiskItem = item
                 }
             )
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         }
         .quickLookPreview($quickLookCoordinator.activePreviewURL)
-        .background(Color.primary.opacity(0.025))
-        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .strokeBorder(Color.primary.opacity(0.07), lineWidth: 1)
-        )
-        .padding(.top, 38)
-        .padding(.leading, 0)
-        .padding(.trailing, (isRightSidebarVisible && viewModel.selectedDiskItem != nil) ? 4 : TTZipTheme.Spacing.md)
-        .padding(.bottom, TTZipTheme.Spacing.md)
+        .padding(.leading, TTZipTheme.Spacing.xs)
+        .padding(.trailing, hasRightInspector ? 4 : TTZipTheme.Spacing.md)
     }
 }

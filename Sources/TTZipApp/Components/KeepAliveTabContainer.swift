@@ -35,17 +35,19 @@ public struct KeepAliveTabContainer<Content: View>: View {
     }
     
     public var body: some View {
-        ZStack {
+        ZStack(alignment: .topLeading) {
             ForEach(WorkspaceTab.allCases) { tab in
                 let isActive = (activeTab == tab)
                 if visitedTabs.contains(tab) {
                     content(tab, isActive)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
                         .opacity(isActive ? 1.0 : 0.0)
                         .allowsHitTesting(isActive)
                         .accessibilityHidden(!isActive)
                 }
             }
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .onAppear {
             visitedTabs.insert(activeTab)
         }

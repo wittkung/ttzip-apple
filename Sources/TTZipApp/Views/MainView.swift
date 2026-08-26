@@ -70,7 +70,7 @@ public struct MainView: View {
                 TTZipFluidBackgroundView(baseColor: TTZipTheme.bambooGreen)
                     .allowsHitTesting(false)
                 
-                HStack(spacing: 0) {
+                HStack(alignment: .top, spacing: 0) {
                     MacEditorialSidebar(
                         activeTab: $viewModel.activeTab,
                         currentArchivePath: viewModel.currentArchivePath,
@@ -89,8 +89,7 @@ public struct MainView: View {
                     }
                     
                     detailArea
-                        .frame(minWidth: 200, maxWidth: .infinity, maxHeight: .infinity)
-                        .clipped()
+                        .frame(minWidth: 200, maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
                     
                     if shouldShowRightPanel {
                         ResizableDividerHandle(
@@ -106,9 +105,8 @@ public struct MainView: View {
                         )
                         
                         RightInspectorSidePanel(viewModel: viewModel, rightVerticalTopHeight: $rightVerticalTopHeight)
-                            .frame(width: effectiveRightWidth)
-                            .clipped()
-                            .padding(.top, 38)
+                            .frame(width: effectiveRightWidth, alignment: .topLeading)
+                            .padding(.top, TTZipTheme.Layout.topBarOffset)
                             .padding(.leading, 4)
                             .padding(.trailing, 10)
                             .padding(.bottom, TTZipTheme.Spacing.md)
@@ -221,27 +219,25 @@ public struct MainView: View {
     @ViewBuilder
     private var detailArea: some View {
         if let previewURL = viewModel.activePreviewFileURL, let name = viewModel.activePreviewFileName {
-            VStack(alignment: .leading, spacing: 0) {
-                HStack {
-                    Button(action: { viewModel.closeMediaPreview() }) {
-                        HStack(spacing: 4) {
-                            Image(systemName: "chevron.left")
-                            Text(l10n.t(L10n.Common.close))
-                        }
-                        .font(.system(size: 12, weight: .medium))
-                        .foregroundStyle(TTZipTheme.bambooGreen)
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 5)
-                        .background(TTZipTheme.bambooGreen.opacity(0.12))
-                        .clipShape(Capsule())
+            TTZipWorkspaceScaffold(
+                sectionName: "PREVIEW & INSPECTION",
+                title: name,
+                isCardEnclosed: true
+            ) {
+                Button(action: { viewModel.closeMediaPreview() }) {
+                    HStack(spacing: 4) {
+                        Image(systemName: "xmark")
+                        Text(l10n.t(L10n.Common.close))
                     }
-                    .buttonStyle(.plain)
-                    Spacer()
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(TTZipTheme.cinnabarRed)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 4)
+                    .background(TTZipTheme.cinnabarRed.opacity(0.12))
+                    .clipShape(Capsule())
                 }
-                .padding(.top, 38)
-                .padding(.horizontal, TTZipTheme.Spacing.lg)
-                .padding(.bottom, 8)
-                
+                .buttonStyle(.plain)
+            } content: {
                 MediaPreviewView(fileURL: previewURL, fileName: name)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
@@ -263,7 +259,7 @@ public struct MainView: View {
                             viewModel.openArchiveAsFolder(url: u)
                         }
                     )
-                    .padding(.top, 38)
+                    .padding(.top, TTZipTheme.Layout.topBarOffset)
                     .padding(.horizontal, TTZipTheme.Spacing.md)
                     .padding(.bottom, TTZipTheme.Spacing.md)
                 case .presets:
@@ -278,11 +274,20 @@ public struct MainView: View {
                     if let pluginView = registry.installedPlugins.first(where: { $0.manifest.id == "com.ttzip.plugin.larksync" })?.makeWorkspaceView(tabIdentifier: "larksync.workspace") {
                         pluginView
                     } else {
-                        ContentUnavailableView(
-                            "未加载飞书知识库插件",
-                            systemImage: "puzzlepiece.extension",
-                            description: Text("请前往「插件中心」启用或安装 LarkSync 扩展。")
-                        )
+                        TTZipWorkspaceScaffold(
+                            sectionName: "EXTENSIONS & ECOSYSTEM",
+                            title: "LarkSync",
+                            isCardEnclosed: true
+                        ) {
+                            EmptyView()
+                        } content: {
+                            ContentUnavailableView(
+                                "未加载飞书知识库插件",
+                                systemImage: "puzzlepiece.extension",
+                                description: Text("请前往「插件中心」启用或安装 LarkSync 扩展。")
+                            )
+                            .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        }
                     }
                 case .settings:
                     SettingsView()

@@ -177,17 +177,10 @@ public struct PasswordVaultLockedView: View {
                     }
                 }
             }
-            .padding(28)
-            .background(Color.primary.opacity(0.025))
-            .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
-            .overlay(
-                RoundedRectangle(cornerRadius: 20, style: .continuous)
-                    .strokeBorder(Color.primary.opacity(0.07), lineWidth: 1)
-            )
-            .padding(.horizontal, 20)
-            .padding(.vertical, 20)
+            .padding(.vertical, 32)
+            .padding(.horizontal, 24)
             .frame(maxWidth: .infinity)
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
     }
 }

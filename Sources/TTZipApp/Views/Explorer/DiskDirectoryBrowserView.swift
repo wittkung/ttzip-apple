@@ -96,6 +96,7 @@ public struct DiskDirectoryBrowserView: View {
                         .buttonStyle(.plain)
                         .help("Add any custom folder on Mac to shortcuts")
                     }
+                    .padding(.horizontal, 4)
                     .padding(.vertical, 2)
                 }
                 .mask(
@@ -143,8 +144,9 @@ public struct DiskDirectoryBrowserView: View {
                 onPreviewFile: onPreviewFile,
                 onSelectItem: onSelectItem
             )
-            .frame(maxHeight: .infinity)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .task {
             let favs = await Task.detached(priority: .userInitiated) {
                 FinderFavoritesReader.fetchFavorites()
