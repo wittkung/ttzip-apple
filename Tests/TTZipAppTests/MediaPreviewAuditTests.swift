@@ -251,31 +251,29 @@ final class MediaPreviewAuditTests: XCTestCase {
         XCTAssertEqual(physicalProvider.suggestedName, "regular_document.txt", "物理文件拖拽 suggestedName 不匹配")
     }
     
-    // MARK: - Test 5: MKV & Non-Native Video Container Classification & Fallback Resilience
+    // MARK: - Test 5: MKV & Non-Native Video Container Classification & Zero-Kickout In-App Routing
     
     @MainActor
     func testMKVAndNonNativeVideoContainerClassificationAndFallback() async throws {
         let mkvURL = tempDirURL.appendingPathComponent("The.Invite.2026.2160p.iT.WEB-DL.DDP5.1.DV.HDR.H.265.mkv")
         try Data("mock mkv video container stream".utf8).write(to: mkvURL)
         
-        // 1. Verify synchronous classification returns unsupportedVideo
+        // 1. Verify synchronous classification returns .video for zero-kickout in-app playback
         let syncType = MediaPreviewFactory.detectType(url: mkvURL)
         switch syncType {
-        case .unsupportedVideo(let detectedURL, let container):
+        case .video(let detectedURL):
             XCTAssertEqual(detectedURL, mkvURL)
-            XCTAssertEqual(container, "MKV")
         default:
-            XCTFail("MKV file should be detected as .unsupportedVideo, got \(syncType)")
+            XCTFail("MKV file should be detected as .video for zero-kickout playback, got \(syncType)")
         }
         
-        // 2. Verify asynchronous classification returns unsupportedVideo
+        // 2. Verify asynchronous classification returns .video
         let asyncType = await MediaPreviewFactory.detectTypeAsync(url: mkvURL)
         switch asyncType {
-        case .unsupportedVideo(let detectedURL, let container):
+        case .video(let detectedURL):
             XCTAssertEqual(detectedURL, mkvURL)
-            XCTAssertEqual(container, "MKV")
         default:
-            XCTFail("MKV file async should be detected as .unsupportedVideo, got \(asyncType)")
+            XCTFail("MKV file async should be detected as .video, got \(asyncType)")
         }
         
         // 3. Verify Native vs Extended Video Sets
@@ -284,17 +282,19 @@ final class MediaPreviewAuditTests: XCTestCase {
         XCTAssertTrue(MediaPreviewFactory.extendedVideoExtensions.contains("mkv"))
         XCTAssertTrue(MediaPreviewFactory.extendedVideoExtensions.contains("avi"))
         XCTAssertTrue(MediaPreviewFactory.extendedVideoExtensions.contains("webm"))
+        XCTAssertTrue(MediaPreviewFactory.videoExtensions.contains("mkv"))
+        XCTAssertTrue(MediaPreviewFactory.videoExtensions.contains("ts"))
         
-        // 4. Verify SharedVideoPlayerStore gracefully enters hasPlaybackError on MKV
+        // 4. Verify SharedVideoPlayerStore initializes without artificial kickout error
         let store = SharedVideoPlayerStore()
         store.setup(url: mkvURL)
-        XCTAssertTrue(store.hasPlaybackError, "SharedVideoPlayerStore should have playback error for MKV")
-        XCTAssertNotNil(store.errorMessage)
+        XCTAssertNotNil(store.player, "SharedVideoPlayerStore should initialize AVPlayer pipeline for MKV")
+        XCTAssertEqual(store.currentURL, mkvURL)
         
         // 5. Clean up store
         store.cleanUp()
-        XCTAssertFalse(store.hasPlaybackError)
-        XCTAssertNil(store.errorMessage)
+        XCTAssertNil(store.player)
+        XCTAssertNil(store.currentURL)
     }
     
     // MARK: - Test 6: Audio Format Matrix & Unified In-App Embedded Audio Classification

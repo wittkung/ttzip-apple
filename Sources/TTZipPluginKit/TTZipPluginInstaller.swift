@@ -64,16 +64,20 @@ public final class TTZipPluginInstaller: NSObject, ObservableObject, URLSessionD
         defer { activeInstallingId = nil }
         
         // 0-Delay 1-Click Instant Activation for Built-in Official Plugins
-        if plugin.id == IINAPlayerPlugin.pluginId || plugin.downloadUrl.hasPrefix("builtin://") {
+        if plugin.downloadUrl.hasPrefix("builtin://") {
             currentPhase = .hotLoading
-            let scoped = PluginScopedHostContext(
-                pluginIdentifier: IINAPlayerPlugin.pluginId,
-                baseContext: context,
-                masterKeychain: context.keychain
-            )
-            await TTZipPluginRegistry.shared.register(plugin: IINAPlayerPlugin.shared, context: scoped)
-            currentPhase = .installed(pluginId: plugin.id)
-            return
+            if TTZipPluginRegistry.shared.installedPlugins.contains(where: { $0.manifest.id == plugin.id }) {
+                currentPhase = .installed(pluginId: plugin.id)
+                return
+            }
+            if let builtIn = TTZipPluginLoader.builtInPluginsDirectory {
+                let bundleURL = builtIn.appendingPathComponent("\(plugin.name).ttplugin")
+                if FileManager.default.fileExists(atPath: bundleURL.path) {
+                    await TTZipPluginLoader.loadPluginBundle(at: bundleURL, context: context)
+                    currentPhase = .installed(pluginId: plugin.id)
+                    return
+                }
+            }
         }
         
         let fileManager = FileManager.default

@@ -13,11 +13,10 @@ import WebKit
 import TTZipCore
 import TTZipPluginKit
 
-/// Media preview view factory for dynamic media previews.
+/// Media preview view factory for dynamic media previews with zero-kickout video routing.
 @MainActor
 public enum MediaPreviewFactory {
 
-    
     /// Archive extensions.
     public static let archiveExtensions: Set<String> = [
         "7z", "zip", "rar", "tar", "gz", "tgz", "bz2", "xz", "001", "002", "003", "zst", "iso"
@@ -38,12 +37,12 @@ public enum MediaPreviewFactory {
         "mp4", "mov", "m4v", "qt"
     ]
     
-    /// Extended video container extensions that require external player dispatch or specialized container demuxers.
+    /// Extended video container extensions handled in-app via Rust demuxing and AVFoundation.
     public static let extendedVideoExtensions: Set<String> = [
         "mkv", "avi", "webm", "ogv", "flv", "3gp", "ts", "wmv", "vob", "rmvb", "divx", "m2ts", "asf"
     ]
     
-    /// All recognizable video extensions.
+    /// All recognizable video extensions routed to in-app zero-kickout playback.
     public static let videoExtensions: Set<String> = nativeVideoExtensions.union(extendedVideoExtensions)
     
     /// All audio extensions supported for unified in-app embedded playback and waveform inspection.
@@ -95,11 +94,8 @@ public enum MediaPreviewFactory {
         if imageExtensions.contains(ext), let image = DownsampledImageLoader.loadDownsampledImage(from: url) {
             return .image(image)
         }
-        if nativeVideoExtensions.contains(ext) {
+        if videoExtensions.contains(ext) {
             return .video(url)
-        }
-        if extendedVideoExtensions.contains(ext) {
-            return .unsupportedVideo(url, ext.uppercased())
         }
         if audioExtensions.contains(ext) {
             return .audio(url)
@@ -183,12 +179,8 @@ public enum MediaPreviewFactory {
             }
         }
         
-        if nativeVideoExtensions.contains(ext) {
+        if videoExtensions.contains(ext) {
             return .video(url)
-        }
-        
-        if extendedVideoExtensions.contains(ext) {
-            return .unsupportedVideo(url, ext.uppercased())
         }
         
         if audioExtensions.contains(ext) {
@@ -229,12 +221,10 @@ public enum MediaPreviewFactory {
             if let content = MediaPreviewView.readTextContent(from: url) {
                 return .text(content)
             }
-            // If text sniffing rejected due to null bytes, route to Hex viewer
             let sampleData = readInitialSampleData(from: url)
             return .hexViewer(sampleData, url)
         }
         
-        // Sniff unknown files: if binary sniffing finds null bytes, fallback to Hex viewer
         if let handle = try? FileHandle(forReadingFrom: url) {
             defer { try? handle.close() }
             if let sample = try? handle.read(upToCount: 4096), !sample.isEmpty {
@@ -269,7 +259,7 @@ public enum MediaPreviewFactory {
         return "doc.fill"
     }
 
-    /// Detects MediaPreviewType directly from in-memory Data (Zero Disk I/O) with memory-budgeted downsampling.
+    /// Detects MediaPreviewType directly from in-memory Data (Zero Disk I/O).
     public static func detectTypeFromMemory(data: Data, suggestedName: String) -> MediaPreviewType {
         let sniff = NativeMicrokernelBridge.sniffMagic(data: data)
         if sniff.kind == TTZIP_KIND_IMAGE, let image = DownsampledImageLoader.loadDownsampledImage(from: data) {
@@ -309,146 +299,5 @@ public enum MediaPreviewFactory {
         }
         
         return .unsupported("Format: \(sniff.format) (\(sniff.mime))")
-    }
-
-    @MainActor
-    public static func makePreviewView(url: URL, fileName: String = "") async -> AnyView {
-        let previewType = await detectTypeAsync(url: url)
-        let name = fileName.isEmpty ? url.lastPathComponent : fileName
-        return makePreviewView(type: previewType, fileName: name, fileURL: url)
-    }
-
-    @MainActor
-    public static func makePreviewView(
-        type: MediaPreviewType,
-        fileName: String,
-        fileURL: URL?,
-        isFullScreenActive: Bool = false
-    ) -> AnyView {
-        if let fileURL = fileURL,
-           let provider = TTZipPluginRegistry.shared.previewProviders.first(where: { $0.canPreview(fileURL: fileURL) }) {
-            return provider.makePreviewView(fileURL: fileURL)
-        }
-        
-        switch type {
-        case .pluginView(let customView):
-            return customView
-            
-        case .image(let nsImage):
-            return AnyView(
-                InteractiveZoomImageView(image: nsImage)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-            )
-            
-        case .video(let url):
-            if isFullScreenActive {
-                return AnyView(
-                    ZStack {
-                        Color.black
-                        VStack(spacing: 8) {
-                            Image(systemName: "arrow.up.left.and.arrow.down.right")
-                                .font(.system(size: 24))
-                                .foregroundStyle(TTZipTheme.bambooGreen)
-                            Text("Full-screen playback active...")
-                                .font(.system(size: 12, weight: .bold))
-                                .foregroundStyle(.secondary)
-                        }
-                    }
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                )
-            } else {
-                return AnyView(
-                    UnifiedVideoPlayerView(url: url)
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                )
-            }
-            
-        case .unsupportedVideo(let url, let containerName):
-            return AnyView(
-                VideoPlaybackFallbackView(
-                    url: url,
-                    fileName: fileName,
-                    containerName: containerName
-                )
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-            )
-            
-        case .audio(let url), .unsupportedAudio(let url, _):
-            return AnyView(
-                UnifiedAudioPlayerView(url: url, fileName: fileName)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-            )
-            
-        case .pdf(let url):
-            return AnyView(
-                InteractivePDFPreviewContainerView(url: url)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-            )
-            
-        case .text(let textContent):
-            return AnyView(
-                CodeTextEditorContainerView(initialText: textContent, fileURL: fileURL, fileName: fileName)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-            )
-            
-        case .docxDocument(let attrStr, let url):
-            return AnyView(
-                DocxDocumentReaderView(attributedString: attrStr, url: url)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-            )
-            
-        case .epubBook(let bookModel):
-            return AnyView(
-                InteractiveEPUBReaderView(bookModel: bookModel)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-            )
-            
-        case .ebook(let metadata):
-            return AnyView(
-                EBookReaderPreviewView(metadata: metadata)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-            )
-            
-        case .hexViewer(let data, let targetURL):
-            return AnyView(
-                HexDataPreviewView(data: data, fileURL: targetURL ?? fileURL, fileName: fileName)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-            )
-            
-        case .markdown(let markdownText, let targetURL):
-            return AnyView(
-                MarkdownRichPreviewView(initialMarkdown: markdownText, fileURL: targetURL ?? fileURL, fileName: fileName)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-            )
-            
-        case .spreadsheetTable(let csvContent, let targetURL):
-            return AnyView(
-                SpreadsheetTablePreviewView(initialContent: csvContent, fileURL: targetURL ?? fileURL, fileName: fileName)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-            )
-            
-        case .quickLook(let url):
-            return AnyView(
-                QuickLookNSView(url: url)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-            )
-            
-        case .unsupported(let msg):
-            return AnyView(
-                VStack(spacing: 12) {
-                    Image(systemName: "doc.viewfinder.fill")
-                        .font(.system(size: 48))
-                        .foregroundStyle(.secondary)
-                    Text(msg)
-                        .font(.subheadline)
-                }
-            )
-        }
-    }
-    
-    private static func readInitialSampleData(from url: URL, maxBytes: Int = 64 * 1024) -> Data {
-        guard let handle = try? FileHandle(forReadingFrom: url) else { return Data() }
-        defer { try? handle.close() }
-        return (try? handle.read(upToCount: maxBytes)) ?? Data()
     }
 }

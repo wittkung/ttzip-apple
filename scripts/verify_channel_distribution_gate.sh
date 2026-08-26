@@ -116,7 +116,7 @@ echo -e "\n${C_BOLD}[Stage 4/5] ${C_BLUE}Verifying CodeSign Entitlements & App S
 
 # 1. MAS Sandbox Entitlements
 MAS_ENT_TMP=$(mktemp)
-codesign -d --entitlements :- "${DIST_MAS}" 2>&1 > "${MAS_ENT_TMP}" || true
+codesign -d --entitlements - --xml "${DIST_MAS}" > "${MAS_ENT_TMP}" 2>/dev/null || true
 if ! grep -q '<key>com.apple.security.app-sandbox</key>[[:space:]]*<true/>' "${MAS_ENT_TMP}"; then
     echo -e "  ${C_RED}❌ FAIL: MAS build missing '<key>com.apple.security.app-sandbox</key><true/>'!${C_RESET}"
     rm -f "${MAS_ENT_TMP}"
@@ -127,7 +127,7 @@ rm -f "${MAS_ENT_TMP}"
 
 # 2. Direct Sandbox Absence (must NOT have app-sandbox set to true)
 DIRECT_ENT_TMP=$(mktemp)
-codesign -d --entitlements :- "${DIST_DIRECT}" 2>&1 > "${DIRECT_ENT_TMP}" || true
+codesign -d --entitlements - --xml "${DIST_DIRECT}" > "${DIRECT_ENT_TMP}" 2>/dev/null || true
 if grep -q '<key>com.apple.security.app-sandbox</key>[[:space:]]*<true/>' "${DIRECT_ENT_TMP}"; then
     echo -e "  ${C_RED}❌ FAIL: Direct build should NOT have App Sandbox enabled!${C_RESET}"
     rm -f "${DIRECT_ENT_TMP}"
@@ -135,6 +135,7 @@ if grep -q '<key>com.apple.security.app-sandbox</key>[[:space:]]*<true/>' "${DIR
 fi
 echo -e "  ${C_GREEN}✓${C_RESET} Direct: Non-sandbox entitlement confirmed (<false/>)."
 rm -f "${DIRECT_ENT_TMP}"
+
 
 # -----------------------------------------------------------------------------
 # Stage 5: Resource & Cryptographic Integrity Gate

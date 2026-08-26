@@ -10,17 +10,19 @@ import AVFoundation
 import AVKit
 import TTZipCore
 
-/// Shared video player state store.
+/// Shared video player state store integrating Rust demuxing and AVFoundation hardware playback.
 @MainActor
 public final class SharedVideoPlayerStore: ObservableObject {
     @Published public var player: AVPlayer?
     @Published public var currentURL: URL?
-    @Published public var isPlaying: Bool = true
+    @Published public var isPlaying: Bool = false
     @Published public var currentTime: Double = 0
     @Published public var duration: Double = 0
     @Published public var isMuted: Bool = false
     @Published public var hasPlaybackError: Bool = false
+    @Published public var hasDecoderLimitation: Bool = false
     @Published public var errorMessage: String? = nil
+    @Published public var demuxSummary: UniFfiMediaDemuxSummary? = nil
     
     private var timeObserverToken: Any?
     private var statusObservation: NSKeyValueObservation?
@@ -39,27 +41,48 @@ public final class SharedVideoPlayerStore: ObservableObject {
         cleanUp()
         
         self.currentURL = url
+        self.isPlaying = false
+        self.hasPlaybackError = false
+        self.hasDecoderLimitation = false
+        self.errorMessage = nil
         
-        let ext = url.pathExtension.lowercased()
-        if MediaPreviewFactory.extendedVideoExtensions.contains(ext) {
-            self.hasPlaybackError = true
-            self.errorMessage = "Container \(ext.uppercased()) requires external player."
-            return
+        // 1. Asynchronously extract tracks, chapters, and container metadata via Rust microkernel
+        Task.detached(priority: .userInitiated) { [weak self] in
+            guard let handle = try? FileHandle(forReadingFrom: url) else { return }
+            defer { try? handle.close() }
+            let headerData = (try? handle.read(upToCount: 2 * 1024 * 1024)) ?? Data()
+            if !headerData.isEmpty {
+                let summary = try? demuxMediaTracks(data: headerData)
+                await MainActor.run { [weak self] in
+                    guard let self = self, self.currentURL == url else { return }
+                    self.demuxSummary = summary
+                    if self.duration == 0, let durMs = summary?.durationMs, durMs > 0 {
+                        self.duration = Double(durMs) / 1000.0
+                    }
+                }
+            }
         }
         
+        // 2. Initialize native AVPlayer hardware accelerated playback pipeline
         let item = AVPlayerItem(url: url)
         let newPlayer = AVPlayer(playerItem: item)
         self.player = newPlayer
-        self.isPlaying = false
-        self.hasPlaybackError = false
-        self.errorMessage = nil
         
         statusObservation = item.observe(\.status, options: [.new, .initial]) { [weak self] observedItem, _ in
             Task { @MainActor in
-                guard let self = self else { return }
-                if observedItem.status == .failed {
-                    self.hasPlaybackError = true
-                    self.errorMessage = observedItem.error?.localizedDescription ?? "Playback failed: unsupported media format."
+                guard let self = self, self.currentURL == url else { return }
+                switch observedItem.status {
+                case .readyToPlay:
+                    let d = CMTimeGetSeconds(observedItem.duration)
+                    if d.isFinite && d > 0 {
+                        self.duration = d
+                    }
+                    self.hasPlaybackError = false
+                case .failed:
+                    self.hasDecoderLimitation = true
+                    self.errorMessage = observedItem.error?.localizedDescription ?? "Hardware decoder unavailable for this container/stream."
+                default:
+                    break
                 }
             }
         }
@@ -71,8 +94,8 @@ public final class SharedVideoPlayerStore: ObservableObject {
         ) { [weak self] notif in
             let errorDesc = (notif.userInfo?[AVPlayerItemFailedToPlayToEndTimeErrorKey] as? Error)?.localizedDescription
             Task { @MainActor in
-                guard let self = self else { return }
-                self.hasPlaybackError = true
+                guard let self = self, self.currentURL == url else { return }
+                self.hasDecoderLimitation = true
                 if let errorDesc = errorDesc {
                     self.errorMessage = errorDesc
                 }
@@ -87,8 +110,8 @@ public final class SharedVideoPlayerStore: ObservableObject {
                 if secs.isFinite && secs >= 0 {
                     self.currentTime = secs
                 }
-                if let item = newPlayer.currentItem {
-                    let d = CMTimeGetSeconds(item.duration)
+                if let currentItem = newPlayer.currentItem {
+                    let d = CMTimeGetSeconds(currentItem.duration)
                     if d.isFinite && d > 0 {
                         self.duration = d
                     }
@@ -141,217 +164,8 @@ public final class SharedVideoPlayerStore: ObservableObject {
         currentTime = 0
         duration = 0
         hasPlaybackError = false
+        hasDecoderLimitation = false
         errorMessage = nil
-    }
-}
-
-/// Unified video player view based on AVPlayerLayer GPU acceleration.
-public struct UnifiedVideoPlayerView: View {
-    public let url: URL
-    
-    @StateObject private var store = SharedVideoPlayerStore()
-    @State private var isHovering = false
-    @State private var hideTimer: Timer? = nil
-    @State private var sessionId = UUID().uuidString
-    
-    public init(url: URL) {
-        self.url = url
-    }
-    
-    public var body: some View {
-        Group {
-            if store.hasPlaybackError {
-                VideoPlaybackFallbackView(
-                    url: url,
-                    fileName: url.lastPathComponent,
-                    containerName: url.pathExtension.uppercased(),
-                    errorMessage: store.errorMessage
-                )
-            } else {
-                ZStack(alignment: .center) {
-                    Color.black.ignoresSafeArea()
-                    
-                    if let player = store.player {
-                        AVPlayerLayerContainerView(player: player)
-                            .onTapGesture {
-                                store.togglePlayPause()
-                            }
-                    } else {
-                        ProgressView()
-                            .controlSize(.large)
-                    }
-                    
-                    if isHovering || !store.isPlaying {
-                        Button(action: { store.togglePlayPause() }) {
-                            ZStack {
-                                Circle()
-                                    .fill(.ultraThinMaterial.opacity(0.85))
-                                    .frame(width: 64, height: 64)
-                                    .shadow(color: Color.black.opacity(0.35), radius: 10, x: 0, y: 4)
-                                    .overlay(
-                                        Circle()
-                                            .strokeBorder(Color.white.opacity(0.25), lineWidth: 1)
-                                    )
-                                
-                                Image(systemName: store.isPlaying ? "pause.fill" : "play.fill")
-                                    .font(.system(size: 26, weight: .bold))
-                                    .foregroundStyle(.white)
-                                    .offset(x: store.isPlaying ? 0 : 2)
-                            }
-                        }
-                        .buttonStyle(.plain)
-                        .transition(.scale(scale: 0.85).combined(with: .opacity).animation(.spring(response: 0.2, dampingFraction: 0.8)))
-                    }
-            
-            if isHovering || !store.isPlaying {
-                VStack {
-                    Spacer()
-                    
-                    HStack(spacing: 12) {
-                        Button(action: { store.togglePlayPause() }) {
-                            Image(systemName: store.isPlaying ? "pause.fill" : "play.fill")
-                                .font(.system(size: 13, weight: .bold))
-                                .foregroundStyle(.white)
-                        }
-                        .buttonStyle(.plain)
-                        
-                        Text("\(formatTime(store.currentTime)) / \(formatTime(store.duration))")
-                            .font(.system(size: 10.5, weight: .bold, design: .monospaced))
-                            .foregroundStyle(.white.opacity(0.9))
-                        
-                        Slider(
-                            value: Binding(
-                                get: { store.currentTime },
-                                set: { newValue in store.seek(to: newValue) }
-                            ),
-                            in: 0...max(store.duration, 0.1)
-                        )
-                        .tint(TTZipTheme.bambooGreen)
-                        
-                        Button(action: {
-                            store.isMuted.toggle()
-                            store.player?.isMuted = store.isMuted
-                        }) {
-                            Image(systemName: store.isMuted ? "speaker.slash.fill" : "speaker.wave.2.fill")
-                                .font(.system(size: 12, weight: .bold))
-                                .foregroundStyle(.white)
-                        }
-                        .buttonStyle(.plain)
-                    }
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 8)
-                    .background(.ultraThinMaterial.opacity(0.85))
-                    .clipShape(Capsule())
-                    .shadow(color: Color.black.opacity(0.35), radius: 8, x: 0, y: 3)
-                    .padding(.horizontal, 20)
-                    .padding(.bottom, 20)
-                    .transition(.opacity.animation(.easeInOut(duration: 0.15)))
-                }
-            }
-        }
-        }
-        }
-        .onContinuousHover { phase in
-            switch phase {
-            case .active:
-                isHovering = true
-                MediaPlaybackCoordinator.shared.setHovered(id: sessionId, isHovered: true)
-                resetHideTimer()
-            case .ended:
-                isHovering = false
-                MediaPlaybackCoordinator.shared.setHovered(id: sessionId, isHovered: false)
-            }
-        }
-        .onAppear {
-            store.setup(url: url)
-            MediaPlaybackCoordinator.shared.registerSession(
-                id: sessionId,
-                isPlaying: store.isPlaying,
-                togglePlayPause: { [weak store] in
-                    store?.togglePlayPause()
-                },
-                seekBy: { [weak store] delta in
-                    store?.seekBy(delta)
-                }
-            )
-        }
-        .onChange(of: url) { _, newURL in
-            store.setup(url: newURL)
-        }
-        .onChange(of: store.isPlaying) { _, playing in
-            MediaPlaybackCoordinator.shared.updatePlaybackState(id: sessionId, isPlaying: playing)
-        }
-        .onDisappear {
-            hideTimer?.invalidate()
-            hideTimer = nil
-            MediaPlaybackCoordinator.shared.unregisterSession(id: sessionId)
-            store.cleanUp()
-        }
-    }
-    
-    private func resetHideTimer() {
-        hideTimer?.invalidate()
-        hideTimer = Timer.scheduledTimer(withTimeInterval: 2.2, repeats: false) { _ in
-            Task { @MainActor in
-                withAnimation {
-                    if store.isPlaying {
-                        isHovering = false
-                    }
-                }
-            }
-        }
-    }
-    
-    private func formatTime(_ seconds: Double) -> String {
-        guard seconds.isFinite && seconds >= 0 else { return "00:00" }
-        let secs = Int(seconds)
-        let m = secs / 60
-        let s = secs % 60
-        return String(format: "%02d:%02d", m, s)
-    }
-}
-
-public struct AVPlayerLayerContainerView: NSViewRepresentable {
-    public let player: AVPlayer
-    
-    public init(player: AVPlayer) {
-        self.player = player
-    }
-    
-    public func makeNSView(context: Context) -> PlayerNSView {
-        let view = PlayerNSView()
-        view.playerLayer.player = player
-        view.playerLayer.videoGravity = .resizeAspect
-        return view
-    }
-    
-    public func updateNSView(_ nsView: PlayerNSView, context: Context) {
-        nsView.playerLayer.player = player
-        nsView.playerLayer.videoGravity = .resizeAspect
-    }
-    
-    public final class PlayerNSView: NSView {
-        public let playerLayer = AVPlayerLayer()
-        
-        public override init(frame frameRect: NSRect) {
-            super.init(frame: frameRect)
-            self.wantsLayer = true
-            self.layer?.backgroundColor = NSColor.black.cgColor
-            playerLayer.frame = self.bounds
-            playerLayer.videoGravity = .resizeAspect
-            self.layer?.addSublayer(playerLayer)
-        }
-        
-        public required init?(coder: NSCoder) {
-            fatalError("init(coder:) has not been implemented")
-        }
-        
-        public override func layout() {
-            super.layout()
-            CATransaction.begin()
-            CATransaction.setDisableActions(true)
-            playerLayer.frame = self.bounds
-            CATransaction.commit()
-        }
+        demuxSummary = nil
     }
 }
