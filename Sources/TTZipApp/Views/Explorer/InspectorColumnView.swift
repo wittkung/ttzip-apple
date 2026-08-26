@@ -7,6 +7,7 @@
 
 import SwiftUI
 import AppKit
+import CryptoKit
 import TTZipCore
 
 public struct InspectorColumnView: View {
@@ -240,7 +241,9 @@ public struct InspectorColumnView: View {
             
             if isVirtual {
                 let filename = (subpath as NSString).lastPathComponent
-                let hash = abs(realArchivePath.hashValue).description + "_" + abs(filename.hashValue).description
+                let fullId = "\(realArchivePath)::\(subpath)"
+                let shaDigest = SHA256.hash(data: Data(fullId.utf8))
+                let hash = shaDigest.map { String(format: "%02x", $0) }.joined()
                 
                 if let cached = PreviewLRUCacheManager.shared.cachedURL(forKey: hash) {
                     self.localPreviewURL = cached
@@ -256,7 +259,9 @@ public struct InspectorColumnView: View {
                         PreviewLRUCacheManager.shared.register(key: hash, fileURL: targetFileURL)
                         self.localPreviewURL = targetFileURL
                     } else if let contents = try? fm.contentsOfDirectory(atPath: tempDir),
-                              let first = contents.first(where: { !$0.hasPrefix(".") }) {
+                              let first = contents.first(where: { !$0.hasPrefix(".") }),
+                              let attr = try? fm.attributesOfItem(atPath: (tempDir as NSString).appendingPathComponent(first)),
+                              (attr[.size] as? Int64 ?? 0) > 0 {
                         let matchURL = URL(fileURLWithPath: (tempDir as NSString).appendingPathComponent(first))
                         PreviewLRUCacheManager.shared.register(key: hash, fileURL: matchURL)
                         self.localPreviewURL = matchURL
@@ -293,15 +298,24 @@ public struct InspectorColumnView: View {
                                 try? await Task.sleep(nanoseconds: 10_000_000)
                             }
                             _ = try? await extractTask.value
+                            if fm.fileExists(atPath: extractedPath) {
+                                await MainActor.run {
+                                    PreviewLRUCacheManager.shared.register(key: hash, fileURL: targetFileURL)
+                                }
+                            }
                         } else {
                             _ = try? await extractTask.value
-                            if fm.fileExists(atPath: extractedPath) {
+                            if fm.fileExists(atPath: extractedPath),
+                               let attr = try? fm.attributesOfItem(atPath: extractedPath),
+                               (attr[.size] as? Int64 ?? 0) > 0 {
                                 await MainActor.run {
                                     PreviewLRUCacheManager.shared.register(key: hash, fileURL: targetFileURL)
                                     self.localPreviewURL = targetFileURL
                                 }
                             } else if let contents = try? fm.contentsOfDirectory(atPath: tempDir),
-                                      let firstFile = contents.first(where: { !$0.hasPrefix(".") }) {
+                                      let firstFile = contents.first(where: { !$0.hasPrefix(".") }),
+                                      let attr = try? fm.attributesOfItem(atPath: (tempDir as NSString).appendingPathComponent(firstFile)),
+                                      (attr[.size] as? Int64 ?? 0) > 0 {
                                  let matchURL = URL(fileURLWithPath: (tempDir as NSString).appendingPathComponent(firstFile))
                                  await MainActor.run {
                                      PreviewLRUCacheManager.shared.register(key: hash, fileURL: matchURL)

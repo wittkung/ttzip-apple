@@ -56,11 +56,30 @@ public enum MediaPreviewType {
     case video(URL)
     case unsupportedVideo(URL, String)
     case audio(URL)
+    case unsupportedAudio(URL, String)
     case pdf(URL)
     case text(String)
     case docxDocument(NSAttributedString, URL)
     case epubBook(EPUBBookModel)
     case ebook(EBookMetadata)
+    case hexViewer(Data, URL?)
+    case markdown(String, URL?)
+    case spreadsheetTable(String, URL?)
     case quickLook(URL)
     case unsupported(String)
+    
+    /// Convenience helper for .hexViewer
+    public static func hexData(_ data: Data, _ url: URL? = nil) -> MediaPreviewType {
+        .hexViewer(data, url)
+    }
+    
+    /// Convenience helper for .markdown
+    public static func markdownDoc(_ text: String, _ url: URL? = nil) -> MediaPreviewType {
+        .markdown(text, url)
+    }
+    
+    /// Convenience helper for .spreadsheetTable
+    public static func spreadsheet(_ text: String, _ url: URL? = nil) -> MediaPreviewType {
+        .spreadsheetTable(text, url)
+    }
 }

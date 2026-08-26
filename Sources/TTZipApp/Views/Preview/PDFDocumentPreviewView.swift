@@ -81,6 +81,9 @@ public struct InteractivePDFPreviewContainerView: View {
 public struct PDFThreePageTileGridView: View {
     public let url: URL
     @State private var document: PDFDocument?
+    @State private var passwordInput: String = ""
+    @State private var isUnlocking: Bool = false
+    @State private var unlockError: String? = nil
     
     public init(url: URL) {
         self.url = url
@@ -94,26 +97,91 @@ public struct PDFThreePageTileGridView: View {
     
     public var body: some View {
         ScrollView(.vertical, showsIndicators: true) {
-            if let doc = document, doc.pageCount > 0 {
-                LazyVGrid(columns: columns, spacing: 6) {
-                    ForEach(0..<doc.pageCount, id: \.self) { pageIndex in
-                        if let page = doc.page(at: pageIndex) {
-                            PDFPageThumbnailCard(page: page, pageIndex: pageIndex + 1)
+            if let doc = document {
+                if doc.isLocked {
+                    VStack(spacing: 16) {
+                        Image(systemName: "lock.shield.fill")
+                            .font(.system(size: 40))
+                            .foregroundStyle(TTZipTheme.kintsugiGold)
+                        
+                        Text("Encrypted PDF Document")
+                            .font(.system(size: 14, weight: .bold))
+                        
+                        Text("This document is password protected. Enter password to view contents.")
+                            .font(.system(size: 11))
+                            .foregroundStyle(.secondary)
+                            .multilineTextAlignment(.center)
+                            .padding(.horizontal, 20)
+                        
+                        HStack(spacing: 8) {
+                            SecureField("Enter Password", text: $passwordInput)
+                                .textFieldStyle(.roundedBorder)
+                                .frame(width: 180)
+                                .onSubmit { unlockDocument(doc: doc) }
+                            
+                            Button(action: { unlockDocument(doc: doc) }) {
+                                Text("Unlock")
+                                    .font(.system(size: 12, weight: .bold))
+                                    .foregroundStyle(.white)
+                                    .padding(.horizontal, 12)
+                                    .padding(.vertical, 5)
+                                    .background(TTZipTheme.bambooGreen)
+                                    .clipShape(RoundedRectangle(cornerRadius: 6))
+                            }
+                            .buttonStyle(.plain)
+                        }
+                        
+                        if let err = unlockError {
+                            Text(err)
+                                .font(.system(size: 11, weight: .semibold))
+                                .foregroundStyle(TTZipTheme.cinnabarRed)
                         }
                     }
+                    .padding(32)
+                    .frame(maxWidth: .infinity, minHeight: 280)
+                } else if doc.pageCount > 0 {
+                    LazyVGrid(columns: columns, spacing: 6) {
+                        ForEach(0..<doc.pageCount, id: \.self) { pageIndex in
+                            if let page = doc.page(at: pageIndex) {
+                                PDFPageThumbnailCard(page: page, pageIndex: pageIndex + 1)
+                            }
+                        }
+                    }
+                    .padding(6)
+                } else {
+                    VStack(spacing: 8) {
+                        Image(systemName: "doc.text.magnifyingglass")
+                            .font(.system(size: 32))
+                            .foregroundStyle(.secondary)
+                        Text("PDF Document has no pages or is empty.")
+                            .font(.system(size: 12))
+                            .foregroundStyle(.secondary)
+                    }
+                    .padding(40)
+                    .frame(maxWidth: .infinity, minHeight: 200)
                 }
-                .padding(6)
             } else {
                 VStack {
                     Spacer()
-                    ProgressView("Rendering layout...")
+                    ProgressView("Loading PDF...")
                     Spacer()
                 }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .frame(maxWidth: .infinity, minHeight: 200)
             }
         }
         .task(id: url) {
             self.document = PDFDocument(url: url)
+        }
+    }
+    
+    private func unlockDocument(doc: PDFDocument) {
+        guard !passwordInput.isEmpty else { return }
+        if doc.unlock(withPassword: passwordInput) {
+            self.unlockError = nil
+            // Trigger SwiftUI re-render
+            self.document = doc
+        } else {
+            self.unlockError = "Incorrect password. Please try again."
         }
     }
 }
@@ -276,7 +344,7 @@ public struct QuickLookNSView: NSViewRepresentable {
     }
     
     public func makeNSView(context: Context) -> QLPreviewView {
-        let preview = QLPreviewView(frame: .zero, style: .normal)!
+        let preview = QLPreviewView(frame: .zero, style: .normal) ?? QLPreviewView()
         preview.previewItem = url as QLPreviewItem
         return preview
     }

@@ -51,6 +51,20 @@ public final class PreviewLRUCacheManager: @unchecked Sendable {
         try? fileManager.createDirectory(at: baseDir, withIntermediateDirectories: true)
         self.cacheDir = baseDir
         
+        // Reconcile untracked cache directories from prior sessions
+        if let subdirs = try? fileManager.contentsOfDirectory(at: baseDir, includingPropertiesForKeys: [.fileSizeKey, .contentModificationDateKey]) {
+            for dir in subdirs where dir.hasDirectoryPath {
+                let key = dir.lastPathComponent
+                if let files = try? fileManager.contentsOfDirectory(at: dir, includingPropertiesForKeys: [.fileSizeKey, .contentModificationDateKey]),
+                   let file = files.first(where: { !$0.lastPathComponent.hasPrefix(".") }) {
+                    let attrs = try? fileManager.attributesOfItem(atPath: file.path)
+                    let size = (attrs?[.size] as? Int64) ?? 0
+                    let date = (attrs?[.modificationDate] as? Date) ?? Date()
+                    self.items[key] = CacheItem(key: key, fileURL: file, sizeBytes: size, lastAccessed: date)
+                }
+            }
+        }
+        
         NotificationCenter.default.addObserver(
             self,
             selector: #selector(purgeAll),

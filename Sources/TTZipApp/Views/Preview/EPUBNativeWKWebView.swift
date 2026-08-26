@@ -84,9 +84,13 @@ public struct EPUBNativeWKWebView: NSViewRepresentable {
             } else {
                 injectedHTML = customCSS + rawHTML
             }
-            webView.loadHTMLString(injectedHTML, baseURL: baseDirectory)
-        } else {
+            webView.loadHTMLString(injectedHTML, baseURL: chapterURL.deletingLastPathComponent())
+        } else if FileManager.default.fileExists(atPath: chapterURL.path) {
             webView.loadFileURL(chapterURL, allowingReadAccessTo: baseDirectory)
+        } else {
+            let title = chapterURL.lastPathComponent.replacingOccurrences(of: ".xhtml", with: "").replacingOccurrences(of: ".html", with: "")
+            let placeholder = "\(customCSS)<div style='padding: 60px 20px; text-align: center;'><h2>\(title)</h2><p style='color: #8e8e93;'>Loading chapter resources...</p></div>"
+            webView.loadHTMLString(placeholder, baseURL: nil)
         }
     }
 }

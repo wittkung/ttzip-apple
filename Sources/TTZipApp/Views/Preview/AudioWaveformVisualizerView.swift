@@ -161,23 +161,26 @@ public struct AudioWaveformVisualizerView: View {
                     }
                     
                     // 6. Hover Scrub Timecode Tooltip
-                    if let hX = hoverLocationX, duration > 0 {
-                        let hoverTime = max(0.0, min(duration, Double(hX / width) * duration))
-                        VStack(spacing: 2) {
-                            Text(formatTimePrecise(hoverTime))
-                                .font(.system(size: 9.5, weight: .bold, design: .monospaced))
-                                .foregroundStyle(Color.white)
-                                .padding(.horizontal, 6)
-                                .padding(.vertical, 2)
-                                .background(Color.black.opacity(0.85))
-                                .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 4, style: .continuous)
-                                        .strokeBorder(TTZipTheme.kintsugiGold.opacity(0.5), lineWidth: 0.5)
+                    if let hX = hoverLocationX, duration > 0, width > 1.0 {
+                        let rawRatio = Double(hX / width)
+                        if !rawRatio.isNaN && !rawRatio.isInfinite {
+                            let hoverTime = max(0.0, min(duration, rawRatio * duration))
+                            VStack(spacing: 2) {
+                                Text(formatTimePrecise(hoverTime))
+                                    .font(.system(size: 9.5, weight: .bold, design: .monospaced))
+                                    .foregroundStyle(Color.white)
+                                    .padding(.horizontal, 6)
+                                    .padding(.vertical, 2)
+                                    .background(Color.black.opacity(0.85))
+                                    .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 4, style: .continuous)
+                                            .strokeBorder(TTZipTheme.kintsugiGold.opacity(0.5), lineWidth: 0.5)
                                     )
+                            }
+                            .offset(x: max(10, min(width - 60, hX - 25)), y: 4)
+                            .allowsHitTesting(false)
                         }
-                        .offset(x: max(10, min(width - 60, hX - 25)), y: 4)
-                        .allowsHitTesting(false)
                     }
                     
                     // 7. Decibel Scale Marks (Top Right & Center Right)
@@ -215,8 +218,10 @@ public struct AudioWaveformVisualizerView: View {
                 .gesture(
                     DragGesture(minimumDistance: 0)
                         .onChanged { value in
-                            guard duration > 0 else { return }
-                            let ratio = max(0.0, min(1.0, value.location.x / width))
+                            guard duration > 0, width > 1.0 else { return }
+                            let rawRatio = value.location.x / width
+                            guard !rawRatio.isNaN && !rawRatio.isInfinite else { return }
+                            let ratio = max(0.0, min(1.0, rawRatio))
                             let targetSec = ratio * duration
                             onSeek?(targetSec)
                         }

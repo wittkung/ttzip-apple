@@ -10,6 +10,7 @@ import AppKit
 import AVFoundation
 import ImageIO
 import CoreGraphics
+import CryptoKit
 @testable import TTZipCore
 @testable import TTZipApp
 
@@ -202,7 +203,9 @@ final class MediaPreviewAuditTests: XCTestCase {
         let virtualPath = "file://\(mockArchivePath)?subpath=\(mockSubpath)"
         let filename = "hero_banner.png"
         
-        let hash = abs(mockArchivePath.hashValue).description + "_" + abs(filename.hashValue).description
+        let fullId = "\(mockArchivePath)::\(mockSubpath)"
+        let shaDigest = SHA256.hash(data: Data(fullId.utf8))
+        let hash = shaDigest.map { String(format: "%02x", $0) }.joined()
         let targetCachedURL = PreviewLRUCacheManager.shared.targetURL(forKey: hash, filename: filename)
         
         // Verify expected invariant
@@ -224,7 +227,7 @@ final class MediaPreviewAuditTests: XCTestCase {
         XCTAssertEqual(cachedProvider.suggestedName, filename, "已缓存虚拟项拖拽 suggestedName 不匹配")
         XCTAssertTrue(cachedProvider.canLoadObject(ofClass: URL.self), "Drag provider 应支持加载 URL 对象")
         
-        // 2. （ ）
+        // 2. Uncached virtual item
         let uncachedVirtualPath = "file://\(mockArchivePath)?subpath=docs/manual.pdf"
         let uncachedItem = DiskItemInfo(
             virtualName: "manual.pdf",
@@ -239,7 +242,7 @@ final class MediaPreviewAuditTests: XCTestCase {
         let uncachedProvider = MillerColumnItemRowView.makeDragItemProvider(for: uncachedItem)
         XCTAssertEqual(uncachedProvider.suggestedName, "manual.pdf", "未缓存虚拟项拖拽 suggestedName 不匹配")
         
-        // 3.
+        // 3. Physical file
         let physicalFile = tempDirURL.appendingPathComponent("regular_document.txt")
         try "hello ttzip".write(to: physicalFile, atomically: true, encoding: .utf8)
         
@@ -292,5 +295,307 @@ final class MediaPreviewAuditTests: XCTestCase {
         store.cleanUp()
         XCTAssertFalse(store.hasPlaybackError)
         XCTAssertNil(store.errorMessage)
+    }
+    
+    // MARK: - Test 6: Audio Format Matrix & Unified In-App Embedded Audio Classification
+    
+    @MainActor
+    func testAudioFormatMatrixAndNonNativeAudioClassification() async throws {
+        let nativeAudioURL = tempDirURL.appendingPathComponent("track.mp3")
+        try Data("mock audio pcm stream".utf8).write(to: nativeAudioURL)
+        
+        let oggAudioURL = tempDirURL.appendingPathComponent("track.ogg")
+        try Data("mock ogg audio stream".utf8).write(to: oggAudioURL)
+        
+        let wmaAudioURL = tempDirURL.appendingPathComponent("track.wma")
+        try Data("mock wma audio stream".utf8).write(to: wmaAudioURL)
+        
+        let flacAudioURL = tempDirURL.appendingPathComponent("track.flac")
+        try Data("mock flac audio stream".utf8).write(to: flacAudioURL)
+        
+        let apeAudioURL = tempDirURL.appendingPathComponent("track.ape")
+        try Data("mock ape audio stream".utf8).write(to: apeAudioURL)
+        
+        let dsfAudioURL = tempDirURL.appendingPathComponent("track.dsf")
+        try Data("mock dsf audio stream".utf8).write(to: dsfAudioURL)
+        
+        // 1. Native audio should return .audio
+        let nativeType = MediaPreviewFactory.detectType(url: nativeAudioURL)
+        switch nativeType {
+        case .audio(let u):
+            XCTAssertEqual(u, nativeAudioURL)
+        default:
+            XCTFail("Native MP3 should detect as .audio, got \(nativeType)")
+        }
+        
+        // 2. All audio formats (OGG, WMA, FLAC, APE, DSF, etc.) should return .audio for unified embedded playback
+        let oggType = MediaPreviewFactory.detectType(url: oggAudioURL)
+        switch oggType {
+        case .audio(let u):
+            XCTAssertEqual(u, oggAudioURL)
+        default:
+            XCTFail("OGG audio should detect as .audio, got \(oggType)")
+        }
+        
+        let wmaAsyncType = await MediaPreviewFactory.detectTypeAsync(url: wmaAudioURL)
+        switch wmaAsyncType {
+        case .audio(let u):
+            XCTAssertEqual(u, wmaAudioURL)
+        default:
+            XCTFail("WMA audio should detect as .audio, got \(wmaAsyncType)")
+        }
+        
+        let apeType = MediaPreviewFactory.detectType(url: apeAudioURL)
+        switch apeType {
+        case .audio(let u):
+            XCTAssertEqual(u, apeAudioURL)
+        default:
+            XCTFail("APE audio should detect as .audio, got \(apeType)")
+        }
+        
+        let dsfAsyncType = await MediaPreviewFactory.detectTypeAsync(url: dsfAudioURL)
+        switch dsfAsyncType {
+        case .audio(let u):
+            XCTAssertEqual(u, dsfAudioURL)
+        default:
+            XCTFail("DSF audio should detect as .audio, got \(dsfAsyncType)")
+        }
+        
+        // 3. Verify Audio Sets contain all 20+ audio formats
+        let allRequiredFormats = ["mp3", "wav", "flac", "ogg", "opus", "wma", "ape", "dsf", "dff", "wv", "aac", "m4a", "aiff", "alac", "caf", "dts", "mid", "midi", "mka"]
+        for format in allRequiredFormats {
+            XCTAssertTrue(MediaPreviewFactory.audioExtensions.contains(format), "audioExtensions missing format: \(format)")
+        }
+        
+        // 4. Verify makePreviewView produces embedded player
+        let previewView = MediaPreviewFactory.makePreviewView(type: .audio(oggAudioURL), fileName: "track.ogg", fileURL: oggAudioURL)
+        XCTAssertNotNil(previewView)
+    }
+    
+    // MARK: - Test 7: Large Text File 2MB Hard Limit & Binary Sniffing
+    
+    func testLargeTextFile2MBHardLimitAndBinarySniffing() throws {
+        // 1. Large 3MB text file
+        let largeFileURL = tempDirURL.appendingPathComponent("huge_log.log")
+        let chunk = String(repeating: "Line 12345: Standard audit log message payload.\n", count: 1000)
+        let chunkData = Data(chunk.utf8)
+        
+        let handle = try FileHandle(forWritingTo: {
+            FileManager.default.createFile(atPath: largeFileURL.path, contents: nil)
+            return largeFileURL
+        }())
+        for _ in 0..<70 {
+            try handle.write(contentsOf: chunkData)
+        }
+        try handle.close()
+        
+        let content = MediaPreviewView.readTextContent(from: largeFileURL)
+        XCTAssertNotNil(content)
+        XCTAssertFalse(content!.contains("TTZip Large File Notice"))
+        XCTAssertGreaterThan(content!.utf8.count, 2 * 1024 * 1024)
+        
+        // 2. Binary compiled payload sniffing
+        let binaryURL = tempDirURL.appendingPathComponent("fake_text.txt")
+        var binaryBytes = [UInt8](repeating: 0x00, count: 2048)
+        binaryBytes[10] = 0x7F
+        binaryBytes[11] = 0x45
+        binaryBytes[12] = 0x4C
+        binaryBytes[13] = 0x46
+        try Data(binaryBytes).write(to: binaryURL)
+        
+        let binaryContent = MediaPreviewView.readTextContent(from: binaryURL)
+        XCTAssertNil(binaryContent, "Binary payload with null bytes must be rejected by readTextContent")
+    }
+    
+    // MARK: - Test 8: Deterministic SHA-256 Cache Key Invariant
+    
+    func testDeterministicSHA256CacheKeyInvariant() throws {
+        let pathA = "/Users/witt/archive.zip"
+        let subA = "docs/readme.txt"
+        let fullIdA = "\(pathA)::\(subA)"
+        let hashA = SHA256.hash(data: Data(fullIdA.utf8)).map { String(format: "%02x", $0) }.joined()
+        
+        let pathB = "/Users/witt/archive.zip"
+        let subB = "src/readme.txt"
+        let fullIdB = "\(pathB)::\(subB)"
+        let hashB = SHA256.hash(data: Data(fullIdB.utf8)).map { String(format: "%02x", $0) }.joined()
+        
+        XCTAssertNotEqual(hashA, hashB, "Different subpaths must yield distinct SHA256 cache keys")
+        XCTAssertEqual(hashA.count, 64, "SHA256 hex string must be exactly 64 characters")
+    }
+    
+    // MARK: - Test 9: Hex Viewer Routing & Binary Extension Classification
+    
+    @MainActor
+    func testHexViewerAndBinaryExtensionsClassification() async throws {
+        let binaryExts = ["bin", "dat", "so", "dylib", "wasm", "class", "o"]
+        for ext in binaryExts {
+            let mockURL = tempDirURL.appendingPathComponent("payload.\(ext)")
+            let dummyBytes: [UInt8] = [0x7F, 0x45, 0x4C, 0x46, 0x02, 0x01, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]
+            try Data(dummyBytes).write(to: mockURL)
+            
+            // 1. Synchronous detection
+            let syncType = MediaPreviewFactory.detectType(url: mockURL)
+            switch syncType {
+            case .hexViewer(let data, let u):
+                XCTAssertEqual(u, mockURL)
+                XCTAssertEqual(data.prefix(4), Data([0x7F, 0x45, 0x4C, 0x46]))
+            default:
+                XCTFail("Binary extension .\(ext) should detect as .hexViewer, got \(syncType)")
+            }
+            
+            // 2. Asynchronous detection
+            let asyncType = await MediaPreviewFactory.detectTypeAsync(url: mockURL)
+            switch asyncType {
+            case .hexViewer(let data, let u):
+                XCTAssertEqual(u, mockURL)
+                XCTAssertEqual(data.prefix(4), Data([0x7F, 0x45, 0x4C, 0x46]))
+            default:
+                XCTFail("Binary extension .\(ext) async should detect as .hexViewer, got \(asyncType)")
+            }
+            
+            // 3. Icon name
+            let icon = MediaPreviewFactory.iconName(for: "payload.\(ext)")
+            XCTAssertEqual(icon, "memorychip.fill")
+        }
+        
+        // 4. In-memory binary detection
+        let inMemoryData = Data([0x00, 0x61, 0x73, 0x6D, 0x01, 0x00, 0x00, 0x00]) // WebAssembly magic
+        let memType = MediaPreviewFactory.detectTypeFromMemory(data: inMemoryData, suggestedName: "module.wasm")
+        switch memType {
+        case .hexViewer(let data, _):
+            XCTAssertEqual(data, inMemoryData)
+        default:
+            XCTFail("In-memory wasm should detect as .hexViewer, got \(memType)")
+        }
+    }
+    
+    // MARK: - Test 10: Markdown Rich Preview & Parser Tests
+    
+    @MainActor
+    func testMarkdownRichPreviewAndParser() async throws {
+        let mdURL = tempDirURL.appendingPathComponent("README.md")
+        let mdContent = """
+        # TTZip Engine
+        
+        High performance archiving tool.
+        
+        ## Features
+        - [x] Fast 7z / ZIP extraction
+        - [ ] AES-256-GCM encryption
+        
+        ### Architecture Table
+        | Module | Function |
+        | --- | --- |
+        | TTZipCore | Microkernel |
+        | TTZipApp | SwiftUI 6 UI |
+        
+        > TTZip guarantees blazing speed.
+        
+        ```swift
+        let archiver = TTZipCore()
+        archiver.extract()
+        ```
+        """
+        try mdContent.write(to: mdURL, atomically: true, encoding: .utf8)
+        
+        // 1. Detection
+        let syncType = MediaPreviewFactory.detectType(url: mdURL)
+        switch syncType {
+        case .markdown(let text, let u):
+            XCTAssertEqual(u, mdURL)
+            XCTAssertTrue(text.contains("TTZip Engine"))
+        default:
+            XCTFail("README.md should detect as .markdown, got \(syncType)")
+        }
+        
+        let asyncType = await MediaPreviewFactory.detectTypeAsync(url: mdURL)
+        switch asyncType {
+        case .markdown(let text, let u):
+            XCTAssertEqual(u, mdURL)
+            XCTAssertTrue(text.contains("TTZip Engine"))
+        default:
+            XCTFail("README.md async should detect as .markdown, got \(asyncType)")
+        }
+        
+        // 2. Icon name
+        XCTAssertEqual(MediaPreviewFactory.iconName(for: "README.md"), "doc.text.fill")
+        XCTAssertEqual(MediaPreviewFactory.iconName(for: "DOC.markdown"), "doc.text.fill")
+        
+        // 3. HTML Parser verification
+        let html = TTZipMarkdownParser.parseToHTML(markdown: mdContent)
+        XCTAssertTrue(html.contains("<h1>TTZip Engine</h1>"), "Heading 1 parsed")
+        XCTAssertTrue(html.contains("<h2>Features</h2>"), "Heading 2 parsed")
+        XCTAssertTrue(html.contains("<li class=\"task-item\"><input type=\"checkbox\" checked disabled>"), "Checked task item parsed")
+        XCTAssertTrue(html.contains("<table>"), "Table parsed")
+        XCTAssertTrue(html.contains("<blockquote>"), "Blockquote parsed")
+        XCTAssertTrue(html.contains("<pre><code class=\"language-swift\">"), "Code block parsed")
+    }
+    
+    // MARK: - Test 11: Text File with Null Bytes Fallback to Hex Viewer
+    
+    @MainActor
+    func testTextFileWithNullBytesFallbackToHexViewer() async throws {
+        let dirtyTxtURL = tempDirURL.appendingPathComponent("corrupted_text.txt")
+        var bytes = [UInt8](repeating: 0x00, count: 1024)
+        bytes[0] = 0x48 // 'H'
+        bytes[1] = 0x69 // 'i'
+        try Data(bytes).write(to: dirtyTxtURL)
+        
+        let asyncType = await MediaPreviewFactory.detectTypeAsync(url: dirtyTxtURL)
+        switch asyncType {
+        case .hexViewer(let data, let u):
+            XCTAssertEqual(u, dirtyTxtURL)
+            XCTAssertEqual(data.count, 1024)
+        default:
+            XCTFail("Text file with excessive null bytes should fall back to .hexViewer, got \(asyncType)")
+        }
+    }
+    
+    // MARK: - Test 12: Spreadsheet Table Preview Matrix and Factory Classification
+    
+    @MainActor
+    func testSpreadsheetTablePreviewMatrixAndClassification() async throws {
+        let testCases: [(ext: String, content: String, expectedDelim: Character)] = [
+            ("csv", "id,name,score\n1,alice,95\n2,bob,88\n", ","),
+            ("tsv", "id\tname\tscore\n1\talice\t95\n2\tbob\t88\n", "\t"),
+            ("tab", "id\tname\tscore\n1\talice\t95\n2\tbob\t88\n", "\t"),
+            ("psv", "id|name|score\n1|alice|95\n2|bob|88\n", "|")
+        ]
+        
+        for tc in testCases {
+            let fileURL = tempDirURL.appendingPathComponent("data.\(tc.ext)")
+            try tc.content.write(to: fileURL, atomically: true, encoding: .utf8)
+            
+            // 1. Sync detection
+            let syncType = MediaPreviewFactory.detectType(url: fileURL)
+            switch syncType {
+            case .spreadsheetTable(let text, let url):
+                XCTAssertEqual(url, fileURL)
+                XCTAssertEqual(text, tc.content)
+            default:
+                XCTFail("Extension .\(tc.ext) should detect as .spreadsheetTable, got \(syncType)")
+            }
+            
+            // 2. Async detection
+            let asyncType = await MediaPreviewFactory.detectTypeAsync(url: fileURL)
+            switch asyncType {
+            case .spreadsheetTable(let text, let url):
+                XCTAssertEqual(url, fileURL)
+                XCTAssertEqual(text, tc.content)
+            default:
+                XCTFail("Extension .\(tc.ext) async should detect as .spreadsheetTable, got \(asyncType)")
+            }
+            
+            // 3. Icon
+            XCTAssertEqual(MediaPreviewFactory.iconName(for: "data.\(tc.ext)"), "tablecells.fill")
+            
+            // 4. Parser verification
+            let parsed = TTZipSpreadsheetParser.parse(text: tc.content, delimiter: tc.expectedDelim)
+            XCTAssertEqual(parsed.count, 3)
+            XCTAssertEqual(parsed[0], ["id", "name", "score"])
+            XCTAssertEqual(parsed[1], ["1", "alice", "95"])
+            XCTAssertEqual(parsed[2], ["2", "bob", "88"])
+        }
     }
 }

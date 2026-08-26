@@ -82,6 +82,20 @@ public struct VideoPlaybackFallbackView: View {
         return badges
     }
     
+    private var containerDescription: String {
+        switch containerName.uppercased() {
+        case "MKV": return "MKV (Matroska Video)"
+        case "AVI": return "AVI (Audio Video Interleave)"
+        case "WEBM": return "WebM (Open Web Video)"
+        case "WMV": return "WMV (Windows Media Video)"
+        case "FLV": return "FLV (Flash Video)"
+        case "TS", "M2TS": return "MPEG Transport Stream"
+        case "OGV": return "Ogg Theora Video"
+        case "3GP": return "3GPP Multimedia"
+        default: return "\(containerName.uppercased()) Video"
+        }
+    }
+    
     public var body: some View {
         ScrollView(.vertical, showsIndicators: true) {
             VStack(spacing: 20) {
@@ -183,6 +197,32 @@ public struct VideoPlaybackFallbackView: View {
                         }
                         .padding(.horizontal, 24)
                     }
+                }
+                
+                if let error = errorMessage, !error.isEmpty {
+                    HStack(spacing: 8) {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                            .font(.system(size: 12, weight: .bold))
+                            .foregroundStyle(TTZipTheme.cinnabarRed)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(isChinese ? "解码诊断信息" : "Decoder Diagnostics")
+                                .font(.system(size: 11, weight: .bold))
+                                .foregroundStyle(TTZipTheme.cinnabarRed)
+                            Text(error)
+                                .font(.system(size: 10.5, weight: .regular))
+                                .foregroundStyle(.secondary)
+                                .lineLimit(2)
+                        }
+                        Spacer()
+                    }
+                    .padding(10)
+                    .background(TTZipTheme.cinnabarRed.opacity(0.08))
+                    .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 10, style: .continuous)
+                            .strokeBorder(TTZipTheme.cinnabarRed.opacity(0.25), lineWidth: 0.8)
+                    )
+                    .padding(.horizontal, 20)
                 }
                 
                 // MARK: - 3. Explanatory Callout Card
@@ -297,7 +337,7 @@ public struct VideoPlaybackFallbackView: View {
                     
                     Grid(alignment: .leading, horizontalSpacing: 12, verticalSpacing: 6) {
                         GridRow {
-                            metaRowItem(title: isChinese ? "容器格式" : "Container", value: "\(containerName) (Matroska)")
+                            metaRowItem(title: isChinese ? "容器格式" : "Container", value: containerDescription)
                             metaRowItem(title: isChinese ? "文件大小" : "File Size", value: fileSizeString)
                         }
                         GridRow {

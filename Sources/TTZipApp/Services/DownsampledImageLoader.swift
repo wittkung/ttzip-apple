@@ -35,7 +35,8 @@ public enum DownsampledImageLoader {
             return nil
         }
         
-        return NSImage(cgImage: downsampledImage, size: NSSize(width: downsampledImage.width, height: downsampledImage.height))
+        let normalized = normalizeColorSpace(downsampledImage)
+        return NSImage(cgImage: normalized, size: NSSize(width: normalized.width, height: normalized.height))
     }
 
     /// Loads a downsampled `NSImage` from in-memory Data without decoding the full uncompressed bitmap.
@@ -59,7 +60,8 @@ public enum DownsampledImageLoader {
             return nil
         }
         
-        return NSImage(cgImage: downsampledImage, size: NSSize(width: downsampledImage.width, height: downsampledImage.height))
+        let normalized = normalizeColorSpace(downsampledImage)
+        return NSImage(cgImage: normalized, size: NSSize(width: normalized.width, height: normalized.height))
     }
 
     /// Loads a downsampled `NSImage` asynchronously on a background cooperative thread.
@@ -70,6 +72,26 @@ public enum DownsampledImageLoader {
         await Task.detached(priority: .userInitiated) {
             loadDownsampledImage(from: url, maxPixelSize: maxPixelSize)
         }.value
+    }
+    
+    /// Normalizes non-standard color spaces (such as CMYK) to standard sRGB to prevent SwiftUI Metal inverted rendering.
+    private static func normalizeColorSpace(_ image: CGImage) -> CGImage {
+        guard image.colorSpace?.model == .cmyk else { return image }
+        let width = image.width
+        let height = image.height
+        let colorSpace = CGColorSpace(name: CGColorSpace.sRGB) ?? CGColorSpaceCreateDeviceRGB()
+        let bitmapInfo = CGImageAlphaInfo.premultipliedLast.rawValue
+        guard let context = CGContext(
+            data: nil,
+            width: width,
+            height: height,
+            bitsPerComponent: 8,
+            bytesPerRow: width * 4,
+            space: colorSpace,
+            bitmapInfo: bitmapInfo
+        ) else { return image }
+        context.draw(image, in: CGRect(x: 0, y: 0, width: width, height: height))
+        return context.makeImage() ?? image
     }
 }
 

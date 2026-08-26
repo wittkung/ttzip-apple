@@ -201,18 +201,10 @@ public final class TTZipPluginInstaller: NSObject, ObservableObject, URLSessionD
     }
     
     private func extractArchive(zipURL: URL, to stagingDir: URL) async throws -> URL {
-        // 使用 macOS 原生 ditto 安全解压
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/usr/bin/ditto")
-        process.arguments = ["-x", "-k", zipURL.path, stagingDir.path]
-        try process.run()
-        process.waitUntilExit()
-        
-        let contents = try FileManager.default.contentsOfDirectory(at: stagingDir, includingPropertiesForKeys: nil)
-        guard let bundleURL = contents.first(where: { $0.pathExtension == "ttplugin" }) else {
-            throw TTZipPluginSecurity.SecurityError.fileNotFound(stagingDir)
-        }
-        return bundleURL
+        // Native Swift memory-safe ZIP decompression with zero external subprocess dependencies
+        try await Task.detached(priority: .userInitiated) {
+            try TTZipNativeZipExtractor.extract(archiveURL: zipURL, destinationDirectory: stagingDir)
+        }.value
     }
     
     // MARK: - URLSessionDownloadDelegate

@@ -54,7 +54,7 @@ public actor ImageIOThumbnailService {
         inFlightTasks.removeValue(forKey: keyStr)
         
         if let cgImage = result {
-            let cost = cgImage.width * cgImage.height * 4
+            let cost = cgImage.bytesPerRow * cgImage.height
             cache.setObject(cgImage, forKey: key, cost: cost)
         }
         return result

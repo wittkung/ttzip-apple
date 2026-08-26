@@ -173,29 +173,48 @@ public struct MediaPreviewView: View {
     }
     
     nonisolated static func readTextContent(from url: URL) -> String? {
-        guard let data = try? Data(contentsOf: url, options: .mappedIfSafe) else { return nil }
+        guard let fileSize = (try? FileManager.default.attributesOfItem(atPath: url.path)[.size] as? Int64) ?? (try? url.resourceValues(forKeys: [.fileSizeKey]).fileSize.map(Int64.init)) else {
+            return nil
+        }
         
+        // 1. Binary sniffing on first 4KB
+        guard let fileHandle = try? FileHandle(forReadingFrom: url) else { return nil }
+        defer { try? fileHandle.close() }
+        
+        let sampleData = (try? fileHandle.read(upToCount: 4096)) ?? Data()
+        if !sampleData.isEmpty {
+            let nullCount = sampleData.filter { $0 == 0 }.count
+            if Double(nullCount) / Double(sampleData.count) > 0.01 {
+                // High concentration of null bytes indicates compiled/binary payload
+                return nil
+            }
+        }
+        
+        // 2. Read full content up to safety budget (50MB) without truncation
+        let maxTextBudget = 50 * 1024 * 1024
+        guard fileSize <= Int64(maxTextBudget) else { return nil }
+        
+        try? fileHandle.seek(toOffset: 0)
+        guard let data = try? fileHandle.readToEnd(), !data.isEmpty else { return nil }
+        
+        var text: String?
         if let s = String(data: data, encoding: .utf8) {
-            return s
+            text = s
+        } else {
+            let detectedStr = CharsetDetector.sanitizeFilename(bytes: data)
+            if !detectedStr.isEmpty {
+                text = detectedStr
+            } else if let s = String(data: data, encoding: .utf16) {
+                text = s
+            } else if let s = String(data: data, encoding: .ascii) {
+                text = s
+            } else if let s = String(data: data, encoding: .isoLatin1) {
+                text = s
+            } else {
+                text = String(decoding: data, as: UTF8.self)
+            }
         }
         
-        let detectedStr = CharsetDetector.sanitizeFilename(bytes: data)
-        if !detectedStr.isEmpty {
-            return detectedStr
-        }
-        
-        if let s = String(data: data, encoding: .utf16) {
-            return s
-        }
-        
-        if let s = String(data: data, encoding: .ascii) {
-            return s
-        }
-        
-        if let s = String(data: data, encoding: .isoLatin1) {
-            return s
-        }
-        
-        return String(decoding: data, as: UTF8.self)
+        return text
     }
 }

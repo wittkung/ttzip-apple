@@ -136,4 +136,50 @@ final class AudioWaveformExtractionTests: XCTestCase {
         XCTAssertEqual(def.count, 32)
         XCTAssertTrue(def.allSatisfy { $0 > 0 && $0 <= 1.0 })
     }
+    
+    // MARK: - Test 5: 1600-Sample Waveform Extraction for DAW Oscillogram
+    
+    func test1600SampleWaveformExtractionFromWavFile() async throws {
+        let wavURL = try createTestWavFile(durationSec: 2.0)
+        let extractor = AudioWaveformExtractor()
+        
+        let sampleCount = 1600
+        let peaks = await extractor.extractWaveform(from: wavURL, targetSampleCount: sampleCount)
+        
+        XCTAssertEqual(peaks.count, sampleCount, "Waveform bucket count must equal exactly 1600 samples")
+        XCTAssertTrue(peaks.allSatisfy { $0 >= 0.0 && $0 <= 1.0 }, "Waveform peaks must be bounded in [0.0, 1.0]")
+        XCTAssertTrue(peaks.contains { $0 > 0.1 }, "Waveform should contain positive audio signal peaks")
+    }
+    
+    // MARK: - Test 6: All Audio Formats Unified In-App Embedded View Instantiation
+    
+    @MainActor
+    func testAllAudioFormatsUnifiedPlaybackViewInstantiation() async throws {
+        let allExtensions = [
+            "ogg", "opus", "flac", "ape", "wma", "wav", "mp3", "aac",
+            "m4a", "aiff", "alac", "caf", "dsf", "dff", "wv", "aifc", "m4b", "dts", "mid", "midi", "mka"
+        ]
+        
+        for ext in allExtensions {
+            let fileURL = tempDirURL.appendingPathComponent("test_track.\(ext)")
+            try Data("dummy audio stream payload for format \(ext)".utf8).write(to: fileURL)
+            
+            // 1. Verify MediaPreviewFactory routes to .audio(url)
+            let detected = MediaPreviewFactory.detectType(url: fileURL)
+            switch detected {
+            case .audio(let u):
+                XCTAssertEqual(u, fileURL, "Format .\(ext) must route to .audio(url)")
+            default:
+                XCTFail("Format .\(ext) failed to route to .audio, got \(detected)")
+            }
+            
+            // 2. Verify UnifiedAudioPlayerView instantiation
+            let playerView = UnifiedAudioPlayerView(url: fileURL, fileName: "test_track.\(ext)")
+            XCTAssertEqual(playerView.formatBadge, ext.uppercased())
+            
+            // 3. Verify AudioPlaybackFallbackView embeds UnifiedAudioPlayerView
+            let fallbackView = AudioPlaybackFallbackView(url: fileURL, fileName: "test_track.\(ext)")
+            XCTAssertEqual(fallbackView.fileName, "test_track.\(ext)")
+        }
+    }
 }

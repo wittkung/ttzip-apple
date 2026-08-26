@@ -126,13 +126,9 @@ public actor AudioWaveformExtractor {
         cache[key] = value
     }
     
-    /// Generates a pleasant fallback organic waveform.
+    /// Generates a subtle minimal baseline waveform when decoding is unavailable.
     public func defaultWaveform(count: Int) -> [CGFloat] {
-        return (0..<count).map { idx in
-            let progress = Double(idx) / Double(count)
-            let curve = sin(progress * Double.pi * 3.2) * 0.4 + cos(progress * Double.pi * 1.8) * 0.3
-            return CGFloat(max(0.12, min(0.9, 0.35 + abs(curve))))
-        }
+        return Array(repeating: CGFloat(0.04), count: max(count, 1))
     }
     
     /// Clears the cached waveform profiles.

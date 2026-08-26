@@ -15,6 +15,9 @@ public enum TTZipPluginSecurity {
         case invalidSignature
         case invalidPublicKey
         case zipSlipDetected(path: String)
+        case corruptArchive(String)
+        case unsupportedCompressionMethod(UInt16)
+        case decompressionFailed(String)
         
         public var errorDescription: String? {
             switch self {
@@ -28,6 +31,12 @@ public enum TTZipPluginSecurity {
                 return "无效的 Ed25519 发布者公钥"
             case .zipSlipDetected(let path):
                 return "检测到 Zip Slip 路径穿越攻击，非法目标路径: \(path)"
+            case .corruptArchive(let reason):
+                return "ZIP 归档格式损坏或结构异常: \(reason)"
+            case .unsupportedCompressionMethod(let method):
+                return "不支持的 ZIP 压缩算法代码: \(method)"
+            case .decompressionFailed(let details):
+                return "ZIP 内存解压失败: \(details)"
             }
         }
     }
