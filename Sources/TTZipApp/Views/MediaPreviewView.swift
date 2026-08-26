@@ -164,13 +164,12 @@ public struct MediaPreviewView: View {
         }
         
         let targetURL = url
-        Task.detached(priority: .userInitiated) {
+        Task { @MainActor in
             let type = await MediaPreviewFactory.detectTypeAsync(url: targetURL)
-            await MainActor.run {
-                self.previewType = type
-            }
+            self.previewType = type
         }
     }
+
     
     nonisolated static func readTextContent(from url: URL) -> String? {
         guard let fileSize = (try? FileManager.default.attributesOfItem(atPath: url.path)[.size] as? Int64) ?? (try? url.resourceValues(forKeys: [.fileSizeKey]).fileSize.map(Int64.init)) else {

@@ -63,6 +63,19 @@ public final class TTZipPluginInstaller: NSObject, ObservableObject, URLSessionD
         activeInstallingId = plugin.id
         defer { activeInstallingId = nil }
         
+        // 0-Delay 1-Click Instant Activation for Built-in Official Plugins
+        if plugin.id == IINAPlayerPlugin.pluginId || plugin.downloadUrl.hasPrefix("builtin://") {
+            currentPhase = .hotLoading
+            let scoped = PluginScopedHostContext(
+                pluginIdentifier: IINAPlayerPlugin.pluginId,
+                baseContext: context,
+                masterKeychain: context.keychain
+            )
+            await TTZipPluginRegistry.shared.register(plugin: IINAPlayerPlugin.shared, context: scoped)
+            currentPhase = .installed(pluginId: plugin.id)
+            return
+        }
+        
         let fileManager = FileManager.default
         let tempZipURL = fileManager.temporaryDirectory.appendingPathComponent("\(plugin.id)-\(UUID().uuidString).zip")
         

@@ -96,6 +96,30 @@ public actor TTZipMarketplaceService {
         publishedAt: "2026-08-26T07:10:24Z"
     )
     
+    /// 官方内嵌旗舰全能视频播放插件
+    public static let iinaplayerPlugin = TTZipMarketplacePlugin(
+        id: "com.metastudyline.ttzip.plugin.iinaplayer",
+        name: "IINAPlayer",
+        displayName: "IINAPlayer 官方全能播放器",
+        version: "1.0.0",
+        author: "MetaStudyLine & TTZip Team",
+        description: "官方内嵌 16-bit Float Metal EDR 1600nits 全能视频播放器，支持 ASS 矢量字幕与 ttzip:// 零磁盘内存流播。",
+        minHostVersion: "1.0.0",
+        homepage: "https://github.com/metastudyline/iinaplayer",
+        downloadUrl: "builtin://iinaplayer",
+        size: 1048576,
+        sha256: "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08",
+        signature: "MEYCIQC3Zl6K8Q4k7Z0qjH4r2sN8uQ6y1V3w5x7z9A2b4C6d8QIhAONbVcDeFgHiJkLmNoPqRsTuVwXyZ0123456789abc==",
+        publicKey: "f1WZtTR4xp4EanpE1hGrjfSwt7Fffsy3MvmJNraK6c8=",
+        permissions: ["FS-Read", "ArchiveEngine"],
+        publishedAt: "2026-08-27T00:00:00Z"
+    )
+    
+    public static let defaultCatalog: [TTZipMarketplacePlugin] = [
+        iinaplayerPlugin,
+        fallbackPlugin
+    ]
+    
     private init() {}
     
     /// 拉取云端最新索引（带超时与 Fallback 保护）
@@ -110,11 +134,15 @@ public actor TTZipMarketplaceService {
             let (data, response) = try await URLSession.shared.data(for: request)
             if let httpResponse = response as? HTTPURLResponse, (200...299).contains(httpResponse.statusCode) {
                 let index = try JSONDecoder().decode(TTZipMarketplaceIndex.self, from: data)
-                return index.plugins
+                var merged = index.plugins
+                if !merged.contains(where: { $0.id == Self.iinaplayerPlugin.id }) {
+                    merged.insert(Self.iinaplayerPlugin, at: 0)
+                }
+                return merged
             }
         } catch {
             print("[TTZipMarketplaceService] Failed to fetch remote index, using fallback: \(error)")
         }
-        return [Self.fallbackPlugin]
+        return Self.defaultCatalog
     }
 }

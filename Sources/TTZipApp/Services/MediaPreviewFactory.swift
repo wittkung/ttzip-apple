@@ -11,9 +11,12 @@ import PDFKit
 import QuickLookUI
 import WebKit
 import TTZipCore
+import TTZipPluginKit
 
 /// Media preview view factory for dynamic media previews.
+@MainActor
 public enum MediaPreviewFactory {
+
     
     /// Archive extensions.
     public static let archiveExtensions: Set<String> = [
@@ -322,7 +325,15 @@ public enum MediaPreviewFactory {
         fileURL: URL?,
         isFullScreenActive: Bool = false
     ) -> AnyView {
+        if let fileURL = fileURL,
+           let provider = TTZipPluginRegistry.shared.previewProviders.first(where: { $0.canPreview(fileURL: fileURL) }) {
+            return provider.makePreviewView(fileURL: fileURL)
+        }
+        
         switch type {
+        case .pluginView(let customView):
+            return customView
+            
         case .image(let nsImage):
             return AnyView(
                 InteractiveZoomImageView(image: nsImage)
