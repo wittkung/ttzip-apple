@@ -25,13 +25,12 @@ public struct TTZipMenuCommands: Commands {
         
         CommandGroup(replacing: .newItem) {
             Button(l10n.t(L10n.Menu.newArchiveMenu)) {
-                // Trigger new archive workflow
-                NotificationCenter.default.post(name: NSNotification.Name("TTZip_TriggerNewArchive"), object: nil)
+                AppIntentDispatcher.shared.dispatch(.createArchive(sourcePaths: [], options: CompressIntentOptions()), from: .appKitMenu)
             }
             .keyboardShortcut("n", modifiers: .command)
             
             Button(l10n.t(L10n.Menu.openArchive)) {
-                NotificationCenter.default.post(name: NSNotification.Name("TTZip_TriggerOpenArchive"), object: nil)
+                AppIntentDispatcher.shared.dispatch(.pickAndOpenArchive, from: .appKitMenu)
             }
             .keyboardShortcut("o", modifiers: .command)
         }

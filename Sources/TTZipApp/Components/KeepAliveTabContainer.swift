@@ -8,31 +8,41 @@
 import SwiftUI
 import TTZipCore
 
-/// Lazy-loaded and keep-alive persistent tab container.
+/// Lazy-loaded and keep-alive persistent tab container with lifecycle propagation.
 ///
-/// Prevents redundant destruction and recreation of view hierarchy and ViewModels during tab switching.
+/// Prevents redundant destruction and recreation of view hierarchy and ViewModels during tab switching
+/// while delivering active/inactive lifecycle states to child tabs.
 public struct KeepAliveTabContainer<Content: View>: View {
     public let activeTab: WorkspaceTab
-    public let content: (WorkspaceTab) -> Content
+    public let content: (WorkspaceTab, Bool) -> Content
     
     @State private var visitedTabs: Set<WorkspaceTab> = []
+    
+    public init(
+        activeTab: WorkspaceTab,
+        @ViewBuilder content: @escaping (WorkspaceTab, Bool) -> Content
+    ) {
+        self.activeTab = activeTab
+        self.content = content
+    }
     
     public init(
         activeTab: WorkspaceTab,
         @ViewBuilder content: @escaping (WorkspaceTab) -> Content
     ) {
         self.activeTab = activeTab
-        self.content = content
+        self.content = { tab, _ in content(tab) }
     }
     
     public var body: some View {
         ZStack {
             ForEach(WorkspaceTab.allCases) { tab in
+                let isActive = (activeTab == tab)
                 if visitedTabs.contains(tab) {
-                    content(tab)
-                        .opacity(activeTab == tab ? 1.0 : 0.0)
-                        .allowsHitTesting(activeTab == tab)
-                        .accessibilityHidden(activeTab != tab)
+                    content(tab, isActive)
+                        .opacity(isActive ? 1.0 : 0.0)
+                        .allowsHitTesting(isActive)
+                        .accessibilityHidden(!isActive)
                 }
             }
         }

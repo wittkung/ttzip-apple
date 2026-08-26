@@ -81,14 +81,14 @@ public struct MacEditorialSidebar: View {
                 .padding(.bottom, 24)
             }
             
-            VStack(alignment: isCompact ? .center : .leading, spacing: 6) {
+            VStack(alignment: isCompact ? .center : .leading, spacing: isCompact ? 4 : 2) {
                 if !isCompact {
                     Text(l10n.t(L10n.Sidebar.indexHeader))
-                        .font(.system(size: 10, weight: .bold, design: .serif))
+                        .font(.system(size: 9.5, weight: .bold, design: .serif))
                         .tracking(2)
-                        .foregroundStyle(.secondary)
-                        .padding(.horizontal, 14)
-                        .padding(.bottom, 6)
+                        .foregroundStyle(.secondary.opacity(0.8))
+                        .padding(.horizontal, 10)
+                        .padding(.bottom, 4)
                 }
                 
                 SidebarItemView(title: l10n.t(L10n.Sidebar.homeAndExtract), icon: "archivebox", tab: .home, activeTab: $activeTab, isCompact: isCompact)
@@ -98,6 +98,7 @@ public struct MacEditorialSidebar: View {
                 SidebarItemView(title: l10n.t(L10n.Sidebar.vault), icon: "key.fill", tab: .vault, activeTab: $activeTab, isCompact: isCompact)
                 SidebarItemView(title: l10n.t(L10n.Sidebar.licensing), icon: "checkmark.seal.fill", tab: .settings, activeTab: $activeTab, isCompact: isCompact)
             }
+            .padding(.horizontal, isCompact ? 0 : 8)
             
             if !isCompact, let path = currentArchivePath {
                 VStack(alignment: .leading, spacing: 4) {
@@ -190,47 +191,65 @@ public struct SidebarItemView: View {
         }) {
             if isCompact {
                 ZStack {
-                    RoundedRectangle(cornerRadius: 8)
-                        .fill(isSelected ? Color.primary.opacity(0.06) : (isHovered ? Color.primary.opacity(0.03) : Color.clear))
+                    RoundedRectangle(cornerRadius: 7, style: .continuous)
+                        .fill(
+                            isSelected
+                                ? TTZipTheme.bambooGreen.opacity(0.16)
+                                : (isHovered ? Color.primary.opacity(0.05) : Color.clear)
+                        )
                     
                     Image(systemName: icon)
-                        .font(.system(size: 16))
-                        .foregroundStyle(isSelected ? TTZipTheme.bambooGreen : Color.primary.opacity(0.7))
+                        .font(.system(size: 15, weight: isSelected ? .semibold : .regular))
+                        .foregroundStyle(isSelected ? TTZipTheme.bambooGreen : Color.primary.opacity(0.75))
                 }
                 .frame(width: 36, height: 36)
                 .help(title)
             } else {
                 HStack(spacing: 8) {
+                    Capsule(style: .continuous)
+                        .fill(isSelected ? TTZipTheme.bambooGreen : Color.clear)
+                        .frame(width: 3, height: 16)
+                        .opacity(isSelected ? 1.0 : 0.0)
+                    
                     Image(systemName: icon)
-                        .font(.system(size: 13))
+                        .font(.system(size: 13, weight: isSelected ? .medium : .regular))
                         .frame(width: 18)
-                        .foregroundStyle(isSelected ? TTZipTheme.bambooGreen : Color.primary.opacity(0.6))
+                        .foregroundStyle(isSelected ? TTZipTheme.bambooGreen : Color.primary.opacity(isHovered ? 0.85 : 0.6))
                     
                     Text(title)
                         .font(.system(size: 12.5, weight: isSelected ? .semibold : .regular, design: .serif))
+                        .foregroundStyle(isSelected ? Color.primary : Color.primary.opacity(isHovered ? 0.95 : 0.75))
                         .lineLimit(1)
                     
                     Spacer(minLength: 0)
                 }
                 .padding(.vertical, 6)
-                .padding(.horizontal, 10)
+                .padding(.trailing, 8)
+                .padding(.leading, 4)
                 .background(
-                    isSelected ? Color.primary.opacity(0.04) : (isHovered ? Color.primary.opacity(0.02) : Color.clear)
+                    RoundedRectangle(cornerRadius: 6, style: .continuous)
+                        .fill(
+                            isSelected
+                                ? TTZipTheme.bambooGreen.opacity(0.10)
+                                : (isHovered ? Color.primary.opacity(0.04) : Color.clear)
+                        )
                 )
-                .overlay(alignment: .leading) {
-                    if isSelected {
-                        Rectangle()
-                            .fill(TTZipTheme.bambooGreen)
-                            .frame(width: 2.5)
-                            .padding(.vertical, 2)
-                    }
-                }
+                .overlay(
+                    RoundedRectangle(cornerRadius: 6, style: .continuous)
+                        .strokeBorder(
+                            isSelected
+                                ? TTZipTheme.bambooGreen.opacity(0.20)
+                                : (isHovered ? Color.primary.opacity(0.06) : Color.clear),
+                            lineWidth: 0.5
+                        )
+                )
             }
         }
         .buttonStyle(.plain)
-        .foregroundColor(isSelected ? .primary : .primary.opacity(0.7))
         .onHover { hovering in
             isHovered = hovering
         }
+        .animation(.easeInOut(duration: 0.12), value: isSelected)
+        .animation(.easeInOut(duration: 0.12), value: isHovered)
     }
 }

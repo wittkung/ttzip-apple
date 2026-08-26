@@ -220,7 +220,10 @@ extension AppViewState {
     }
     
     public func openCompressWorkspace(paths: [String] = []) {
-        selectedPathsToCompress = paths
+        let flattened = paths.flatMap { $0.components(separatedBy: "\n") }
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty && FileManager.default.fileExists(atPath: $0) }
+        selectedPathsToCompress = flattened
         activeTab = .compressWorkspace
     }
     

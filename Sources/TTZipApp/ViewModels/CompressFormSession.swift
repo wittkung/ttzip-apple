@@ -133,13 +133,25 @@ public final class CompressFormSession {
     
     public init(initialInputPaths: [String] = []) {
         if !initialInputPaths.isEmpty {
-            self.itemsList = initialInputPaths.map { CompressFileItem(path: $0) }
-            if let first = initialInputPaths.first {
-                let parent = (first as NSString).deletingLastPathComponent
-                if !parent.isEmpty { self.targetDirectory = parent }
-                let name = (first as NSString).lastPathComponent
-                self.outputName = (name as NSString).deletingPathExtension
-            }
+            loadInputPaths(initialInputPaths)
+        }
+    }
+    
+    public func loadInputPaths(_ paths: [String]) {
+        let validPaths = paths.filter { FileManager.default.fileExists(atPath: $0) }
+        guard !validPaths.isEmpty else { return }
+        self.isProcessing = false
+        self.isProgressModalPresented = false
+        self.currentProgress = .zero
+        self.isSummarySheetPresented = false
+        self.completedSummary = nil
+        self.itemsList = validPaths.map { CompressFileItem(path: $0) }
+        if let first = validPaths.first {
+            let parent = (first as NSString).deletingLastPathComponent
+            if !parent.isEmpty { self.targetDirectory = parent }
+            let name = (first as NSString).lastPathComponent
+            let baseName = (name as NSString).deletingPathExtension
+            self.outputName = baseName.isEmpty ? name : baseName
         }
     }
     

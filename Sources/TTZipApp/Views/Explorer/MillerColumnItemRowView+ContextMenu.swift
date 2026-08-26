@@ -72,7 +72,7 @@ public struct MillerColumnItemContextMenu: View {
             Divider()
             
             Button {
-                onCompressPath(Array(multiSelectedPaths).joined(separator: "\n"))
+                AppIntentDispatcher.shared.dispatch(.createArchive(sourcePaths: Array(multiSelectedPaths), options: CompressIntentOptions()), from: .contextMenu)
             } label: {
                 Label("\(l10n.t(L10n.Sidebar.newArchive)) (\(multiSelectedPaths.count))...", systemImage: "archivebox.fill")
             }
@@ -163,15 +163,14 @@ public struct MillerColumnItemContextMenu: View {
             
             Button {
                 onSelectItem(item, columnIndex, false, false, dirURL)
-                let u = URL(fileURLWithPath: item.path)
-                NSWorkspace.shared.activateFileViewerSelecting([u])
+                AppIntentDispatcher.shared.dispatch(.previewItem(url: URL(fileURLWithPath: item.path)), from: .contextMenu)
             } label: {
                 Label(l10n.t(L10n.Explorer.quickLook), systemImage: "eye")
             }
             
             Button {
                 onSelectItem(item, columnIndex, false, false, dirURL)
-                NSWorkspace.shared.selectFile(item.path, inFileViewerRootedAtPath: "")
+                AppIntentDispatcher.shared.dispatch(.revealInFinder(url: URL(fileURLWithPath: item.path)), from: .contextMenu)
             } label: {
                 Label(l10n.t(L10n.Common.revealInFinder), systemImage: "folder")
             }
@@ -195,35 +194,35 @@ public struct MillerColumnItemContextMenu: View {
             if item.isArchive {
                 Button {
                     onSelectItem(item, columnIndex, false, false, dirURL)
-                    onSelectArchive(item.path)
+                    AppIntentDispatcher.shared.dispatch(.openArchive(url: URL(fileURLWithPath: item.path), password: nil), from: .contextMenu)
                 } label: {
                     Label(l10n.t(L10n.Sidebar.homeAndExtract), systemImage: "sidebar.right")
                 }
                 
                 Button {
                     onSelectItem(item, columnIndex, false, false, dirURL)
-                    NotificationCenter.default.post(name: NSNotification.Name("TTZipQuickExtractArchive"), object: item.path)
+                    AppIntentDispatcher.shared.dispatch(.extractArchive(archivePaths: [item.path], options: ExtractIntentOptions(isSmartExtract: false)), from: .contextMenu)
                 } label: {
                     Label(l10n.t(L10n.FinderSync.extractHereTitle), systemImage: "arrow.down.circle.fill")
                 }
                 
                 Button {
                     onSelectItem(item, columnIndex, false, false, dirURL)
-                    NotificationCenter.default.post(name: NSNotification.Name("TTZipOpenArchiveInspector"), object: item.path)
+                    AppIntentDispatcher.shared.dispatch(.inspectArchive(archivePath: item.path), from: .contextMenu)
                 } label: {
                     Label(l10n.t(L10n.Diagnostics.title), systemImage: "doc.badge.gearshape")
                 }
                 
                 Button {
                     onSelectItem(item, columnIndex, false, false, dirURL)
-                    NotificationCenter.default.post(name: NSNotification.Name("TTZipEncryptedArchivePromptRequired"), object: item.path)
+                    AppIntentDispatcher.shared.dispatch(.promptPassword(archivePath: item.path), from: .contextMenu)
                 } label: {
                     Label(l10n.t(L10n.Extract.passwordPrompt), systemImage: "key.fill")
                 }
             } else {
                 Button {
                     onSelectItem(item, columnIndex, false, false, dirURL)
-                    onCompressPath(item.path)
+                    AppIntentDispatcher.shared.dispatch(.createArchive(sourcePaths: [item.path], options: CompressIntentOptions()), from: .contextMenu)
                 } label: {
                     Label(l10n.t(L10n.Sidebar.newArchive), systemImage: "archivebox.fill")
                 }

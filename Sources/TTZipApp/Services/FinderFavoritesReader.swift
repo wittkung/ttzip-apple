@@ -17,46 +17,24 @@ public final class FinderFavoritesReader {
         var seenPaths = Set<String>()
         let fm = FileManager.default
         
-        // 1. Attempt to query CoreServices LSSharedFileList for Finder FavoriteItems
-        let listType = "com.apple.LSSharedFileList.FavoriteItems" as CFString
-        if let list = LSSharedFileListCreate(kCFAllocatorDefault, listType, nil)?.takeRetainedValue() {
-            if let snapshotUnmanaged = LSSharedFileListCopySnapshot(list, nil) {
-                let snapshot = snapshotUnmanaged.takeRetainedValue() as NSArray
-                for i in 0..<snapshot.count {
-                    let item = snapshot[i] as! LSSharedFileListItem
-                    let name = (LSSharedFileListItemCopyDisplayName(item).takeRetainedValue()) as String
-                    var error: Unmanaged<CFError>?
-                    if let resolvedURL = LSSharedFileListItemCopyResolvedURL(item, 0, &error)?.takeRetainedValue() as URL? {
-                        let path = resolvedURL.path
-                        guard !seenPaths.contains(path), fm.fileExists(atPath: path) else { continue }
-                        seenPaths.insert(path)
-                        let icon = iconFor(path: path, name: name)
-                        results.append(FinderFavoriteItem(name: name, path: path, systemImage: icon))
-                    }
-                }
-            }
-        }
+        // 1. Fetch macOS standard user directories
+        let home = NSHomeDirectory()
+        let standardPaths: [(String, String)] = [
+            ((home as NSString).appendingPathComponent("Downloads"), "arrow.down.circle.fill"),
+            ((home as NSString).appendingPathComponent("Documents"), "doc.text.fill"),
+            ((home as NSString).appendingPathComponent("Desktop"), "desktopcomputer"),
+            (home, "house.fill"),
+            ((home as NSString).appendingPathComponent("Pictures"), "photo.fill"),
+            ((home as NSString).appendingPathComponent("Movies"), "film.fill"),
+            ((home as NSString).appendingPathComponent("Music"), "music.note"),
+            ("/Applications", "app.badge")
+        ]
         
-        // 2. If dynamic list is empty (e.g. sandbox or restricted environment), fallback to standard directories
-        if results.isEmpty {
-            let home = NSHomeDirectory()
-            let standardPaths: [(String, String)] = [
-                ((home as NSString).appendingPathComponent("Downloads"), "arrow.down.circle.fill"),
-                ((home as NSString).appendingPathComponent("Documents"), "doc.text.fill"),
-                ((home as NSString).appendingPathComponent("Desktop"), "desktopcomputer"),
-                (home, "house.fill"),
-                ((home as NSString).appendingPathComponent("Pictures"), "photo.fill"),
-                ((home as NSString).appendingPathComponent("Movies"), "film.fill"),
-                ((home as NSString).appendingPathComponent("Music"), "music.note"),
-                ("/Applications", "app.badge")
-            ]
-            
-            for (path, icon) in standardPaths {
-                if !seenPaths.contains(path), fm.fileExists(atPath: path) {
-                    seenPaths.insert(path)
-                    let displayName = fm.displayName(atPath: path)
-                    results.append(FinderFavoriteItem(name: displayName, path: path, systemImage: icon))
-                }
+        for (path, icon) in standardPaths {
+            if !seenPaths.contains(path), fm.fileExists(atPath: path) {
+                seenPaths.insert(path)
+                let displayName = fm.displayName(atPath: path)
+                results.append(FinderFavoriteItem(name: displayName, path: path, systemImage: icon))
             }
         }
         

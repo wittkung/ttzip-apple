@@ -12,9 +12,9 @@ import TTZipCore
 public struct L10nText: View {
     @ObservedObject private var l10n = AppLocalizationState.shared
     private let key: any LocaleKeyProtocol
-    private let args: [CVarArg]
+    private let args: [any CVarArg]
     
-    public init(_ key: any LocaleKeyProtocol, _ args: CVarArg...) {
+    public init(_ key: any LocaleKeyProtocol, _ args: any CVarArg...) {
         self.key = key
         self.args = args
     }
@@ -35,9 +35,9 @@ public struct L10nLabel: View {
     @ObservedObject private var l10n = AppLocalizationState.shared
     private let key: any LocaleKeyProtocol
     private let systemImage: String
-    private let args: [CVarArg]
+    private let args: [any CVarArg]
     
-    public init(_ key: any LocaleKeyProtocol, systemImage: String, _ args: CVarArg...) {
+    public init(_ key: any LocaleKeyProtocol, systemImage: String, _ args: any CVarArg...) {
         self.key = key
         self.systemImage = systemImage
         self.args = args

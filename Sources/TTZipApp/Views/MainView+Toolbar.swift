@@ -43,7 +43,12 @@ extension MainView {
     func openArchiveFromURL(_ url: URL) {
         let path = url.path
         guard !path.isEmpty, FileManager.default.fileExists(atPath: path) else { return }
-        viewModel.openArchiveAsFolder(url: url)
+        var isDir: ObjCBool = false
+        if FileManager.default.fileExists(atPath: path, isDirectory: &isDir), isDir.boolValue {
+            viewModel.openCompressWorkspace(paths: [path])
+        } else {
+            viewModel.openArchiveAsFolder(url: url)
+        }
     }
     
     func pickAndOpenArchive() {

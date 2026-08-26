@@ -62,7 +62,10 @@ public final class QuickLookPreviewViewController: NSViewController, @preconcurr
             } catch {
                 self.activityIndicator.stopAnimation(nil)
                 self.renderErrorFallback(error: error, fileURL: url, language: targetLanguage)
-                handler(nil)
+                if let completion = self.pendingCompletion {
+                    self.pendingCompletion = nil
+                    completion(nil)
+                }
             }
         }
     }

@@ -216,3 +216,21 @@ public final class PresetWorkspaceViewModel: ObservableObject {
         }
     }
 }
+
+extension PresetWorkspaceViewModel: StatefulTabViewModelProtocol {
+    public func onTabActivated(payload: TabActivationPayload) {
+        loadPresets()
+        if case .presets(let targetPresetID, _) = payload, let id = targetPresetID {
+            if let preset = presets.first(where: { $0.id == id }) {
+                selectedPresetID = id
+                loadPresetIntoEditor(preset)
+            }
+        }
+    }
+    
+    public func onTabDeactivated() {}
+    
+    public func onReceiveDynamicPayload(_ payload: TabActivationPayload) {
+        onTabActivated(payload: payload)
+    }
+}

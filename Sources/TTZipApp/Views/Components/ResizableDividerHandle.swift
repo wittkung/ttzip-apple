@@ -59,8 +59,8 @@ public struct ResizableDividerHandle: View {
                 .transition(.opacity.combined(with: .scale(scale: 0.85)))
             }
         }
-        .frame(width: 12)
-        .contentShape(Rectangle())
+        .frame(width: 1)
+        .contentShape(Rectangle().inset(by: -5))
         .animation(.easeInOut(duration: 0.15), value: isHovered || isDragging)
         .onHover { hovering in
             isHovered = hovering

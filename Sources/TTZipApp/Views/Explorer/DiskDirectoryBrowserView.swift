@@ -24,15 +24,18 @@ public struct DiskDirectoryBrowserView: View {
     @State private var targetSelectedPath: String? = nil
     @State private var dynamicFinderFavorites: [FinderFavoriteItem] = []
     @State private var draggingFavorite: FinderFavoriteItem? = nil
+    public let isActive: Bool
     
     public init(
         rootDirectory: URL = FileManager.default.urls(for: .downloadsDirectory, in: .userDomainMask).first ?? URL(fileURLWithPath: NSHomeDirectory()),
+        isActive: Bool = true,
         onSelectArchive: @escaping (String) -> Void,
         onCompressPath: @escaping (String) -> Void,
         onPreviewFile: @escaping (String) -> Void,
         onSelectItem: @escaping (DiskItemInfo) -> Void = { _ in }
     ) {
         self.rootDirectory = rootDirectory
+        self.isActive = isActive
         self._currentDirectory = State(initialValue: rootDirectory)
         self.onSelectArchive = onSelectArchive
         self.onCompressPath = onCompressPath
@@ -133,6 +136,7 @@ public struct DiskDirectoryBrowserView: View {
                 rootDirectory: currentDirectory,
                 initialSelectedPath: targetSelectedPath,
                 sortOption: sortOption,
+                isActive: isActive,
                 onNavigateUp: canNavigateUp ? { navigateUp() } : nil,
                 onSelectArchive: onSelectArchive,
                 onCompressPath: onCompressPath,
@@ -148,6 +152,9 @@ public struct DiskDirectoryBrowserView: View {
             await MainActor.run {
                 self.dynamicFinderFavorites = favs
             }
+        }
+        .onChange(of: rootDirectory) { _, newRoot in
+            self.currentDirectory = newRoot
         }
     }
     

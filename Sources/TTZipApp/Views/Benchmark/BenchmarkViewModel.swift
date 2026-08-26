@@ -251,3 +251,24 @@ public final class BenchmarkViewModel: ObservableObject {
         self.suiteResults = [res1, res2, res3, res4]
     }
 }
+
+extension BenchmarkViewModel: StatefulTabViewModelProtocol {
+    public func onTabActivated(payload: TabActivationPayload) {
+        refreshCompetitors()
+        if case .benchmark(let path, let mode) = payload {
+            if let p = path {
+                self.customPath = p
+                self.testMode = .customFile
+            }
+            if let m = mode, let parsedMode = BenchmarkMode(rawValue: m) {
+                self.testMode = parsedMode
+            }
+        }
+    }
+    
+    public func onTabDeactivated() {}
+    
+    public func onReceiveDynamicPayload(_ payload: TabActivationPayload) {
+        onTabActivated(payload: payload)
+    }
+}

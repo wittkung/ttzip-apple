@@ -8,6 +8,10 @@
 
 import PackageDescription
 
+let swiftSettings: [SwiftSetting] = [
+    .enableUpcomingFeature("StrictConcurrency")
+]
+
 let package = Package(
     name: "TTZipApp",
     defaultLocalization: "en",
@@ -22,6 +26,7 @@ let package = Package(
     ],
     dependencies: [
         .package(path: "../core"),
+        .package(path: "../ttkit-localization/TTLocalizationKit"),
         .package(url: "https://github.com/sparkle-project/Sparkle", exact: "2.6.0")
     ],
     targets: [
@@ -29,6 +34,7 @@ let package = Package(
             name: "TTZipApp",
             dependencies: [
                 .product(name: "TTZipCore", package: "core"),
+                .product(name: "TTLocalizationKit", package: "TTLocalizationKit"),
                 .product(name: "Sparkle", package: "Sparkle")
             ],
             path: "Sources/TTZipApp",
@@ -39,7 +45,8 @@ let package = Package(
             ],
             resources: [
                 .process("Resources")
-            ]
+            ],
+            swiftSettings: swiftSettings
         ),
         .target(
             name: "TTZipQuickLook",
@@ -47,7 +54,8 @@ let package = Package(
                 .product(name: "TTZipCore", package: "core")
             ],
             path: "Sources/TTZipQuickLook",
-            exclude: ["Info.plist"]
+            exclude: ["Info.plist"],
+            swiftSettings: swiftSettings
         ),
         .target(
             name: "TTZipFinderSync",
@@ -55,12 +63,14 @@ let package = Package(
                 .product(name: "TTZipCore", package: "core")
             ],
             path: "Sources/TTZipFinderSync",
-            exclude: ["Info.plist"]
+            exclude: ["Info.plist"],
+            swiftSettings: swiftSettings
         ),
         .testTarget(
             name: "TTZipAppTests",
             dependencies: ["TTZipApp"],
-            path: "Tests/TTZipAppTests"
+            path: "Tests/TTZipAppTests",
+            swiftSettings: swiftSettings
         )
     ]
 )

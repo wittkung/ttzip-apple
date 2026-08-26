@@ -18,6 +18,7 @@ public struct FinderMillerColumnsView: View {
     public let onCompressPath: (String) -> Void
     public let onPreviewFile: (String) -> Void
     public let onSelectItem: (DiskItemInfo) -> Void
+    public let isActive: Bool
     
     @State var columnPaths: [URL] = []
     @State var selectedPaths: [Int: String] = [:]
@@ -42,6 +43,7 @@ public struct FinderMillerColumnsView: View {
         rootDirectory: URL,
         initialSelectedPath: String? = nil,
         sortOption: DiskSortOption = .nameAsc,
+        isActive: Bool = true,
         onNavigateUp: (() -> Void)? = nil,
         onSelectArchive: @escaping (String) -> Void,
         onCompressPath: @escaping (String) -> Void,
@@ -51,6 +53,7 @@ public struct FinderMillerColumnsView: View {
         self.rootDirectory = rootDirectory
         self.initialSelectedPath = initialSelectedPath
         self.sortOption = sortOption
+        self.isActive = isActive
         self.onNavigateUp = onNavigateUp
         self.onSelectArchive = onSelectArchive
         self.onCompressPath = onCompressPath
@@ -125,6 +128,7 @@ public struct FinderMillerColumnsView: View {
             }
             
             eventMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
+                guard self.isActive else { return event }
                 if let firstResponder = NSApp.keyWindow?.firstResponder {
                     if firstResponder.isKind(of: NSTextView.self) && (firstResponder as? NSTextView)?.isFieldEditor == true {
                         return event

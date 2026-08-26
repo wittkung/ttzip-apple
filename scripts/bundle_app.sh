@@ -17,7 +17,7 @@ SIGN_IDENTITY="-"
 CHANNEL="direct"
 ENTITLEMENTS=""
 OPEN_APP=false
-BUILD_CONFIG="debug"
+BUILD_CONFIG="release"
 FAST_MODE=false
 
 while [[ $# -gt 0 ]]; do
@@ -68,7 +68,7 @@ echo "======================================================================"
 cd "${REPO_ROOT}"
 
 echo "--> [1/4] Compiling TTZipApp via Swift Package Manager in ${BUILD_CONFIG} mode..."
-swift build -c "${BUILD_CONFIG}" --product TTZipApp -Xlinker -rpath -Xlinker @executable_path/../Frameworks "${SWIFT_FLAGS[@]}"
+swift build -c "${BUILD_CONFIG}" --product TTZipApp -Xlinker -rpath -Xlinker @executable_path/../Frameworks -Xswiftc -warnings-as-errors "${SWIFT_FLAGS[@]}"
 
 DIST_DIR="${REPO_ROOT}/dist"
 APP_DIR="${DIST_DIR}/TTZip.app"
@@ -77,15 +77,15 @@ MACOS_DIR="${CONTENTS_DIR}/MacOS"
 FRAMEWORKS_DIR="${CONTENTS_DIR}/Frameworks"
 RESOURCES_DIR="${CONTENTS_DIR}/Resources"
 
-# Find compiled binary directly without second swift build invocation
-BIN_PATH="${REPO_ROOT}/.build/arm64-apple-macosx/${BUILD_CONFIG}/TTZipApp"
-if [ ! -f "${BIN_PATH}" ]; then
-    BIN_PATH="$(swift build -c "${BUILD_CONFIG}" --show-bin-path)/TTZipApp"
-fi
+# Find compiled binary dynamically
+BIN_PATH="$(swift build -c "${BUILD_CONFIG}" --show-bin-path)/TTZipApp"
 
 if [ "${FAST_MODE}" = true ] && [ -d "${APP_DIR}" ]; then
     echo "--> [Fast Mode] In-place updating TTZip binary..."
     cp -f "${BIN_PATH}" "${MACOS_DIR}/TTZip"
+    if [ "${BUILD_CONFIG}" = "release" ]; then
+        strip -x "${MACOS_DIR}/TTZip" 2>/dev/null || true
+    fi
     install_name_tool -add_rpath @executable_path/../Frameworks "${MACOS_DIR}/TTZip" 2>/dev/null || true
     chmod +x "${MACOS_DIR}/TTZip"
     codesign --force --sign "${SIGN_IDENTITY}" "${MACOS_DIR}/TTZip" 2>/dev/null || true
@@ -97,6 +97,9 @@ else
 
     # Copy Binary and ensure Frameworks rpath
     cp "${BIN_PATH}" "${MACOS_DIR}/TTZip"
+    if [ "${BUILD_CONFIG}" = "release" ]; then
+        strip -x "${MACOS_DIR}/TTZip" 2>/dev/null || true
+    fi
     install_name_tool -add_rpath @executable_path/../Frameworks "${MACOS_DIR}/TTZip" 2>/dev/null || true
     chmod +x "${MACOS_DIR}/TTZip"
 
@@ -128,7 +131,11 @@ else
         SPARKLE_SRC="$(find "${REPO_ROOT}/.build" -name "Sparkle.framework" -type d 2>/dev/null | grep -E "xcframework.*macos|release/Sparkle.framework|debug/Sparkle.framework" | head -n 1 || true)"
         if [ -n "${SPARKLE_SRC}" ] && [ -d "${SPARKLE_SRC}" ]; then
             cp -R "${SPARKLE_SRC}" "${FRAMEWORKS_DIR}/"
-            codesign --force --deep --sign "${SIGN_IDENTITY}" "${FRAMEWORKS_DIR}/Sparkle.framework" 2>/dev/null || true
+            if [ "${SIGN_IDENTITY}" != "-" ]; then
+                codesign --force --options runtime --timestamp --sign "${SIGN_IDENTITY}" "${FRAMEWORKS_DIR}/Sparkle.framework" 2>/dev/null || true
+            else
+                codesign --force --sign "-" "${FRAMEWORKS_DIR}/Sparkle.framework" 2>/dev/null || true
+            fi
         fi
     fi
 

@@ -256,3 +256,15 @@ public final class PasswordVaultViewModel: ObservableObject {
         refreshState()
     }
 }
+
+extension PasswordVaultViewModel: StatefulTabViewModelProtocol {
+    public func onTabActivated(payload: TabActivationPayload) {
+        refreshState()
+    }
+    
+    public func onTabDeactivated() {}
+    
+    public func onReceiveDynamicPayload(_ payload: TabActivationPayload) {
+        onTabActivated(payload: payload)
+    }
+}

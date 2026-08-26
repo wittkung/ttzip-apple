@@ -30,7 +30,15 @@ final class FrontendArchitectureEvolutionTests: XCTestCase {
     
     @MainActor
     func testCompressFormSessionEncapsulation() {
-        let session = CompressFormSession(initialInputPaths: ["/tmp/test1.txt", "/tmp/test2.txt"])
+        let tempDir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try? FileManager.default.createDirectory(at: tempDir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: tempDir) }
+        let f1 = tempDir.appendingPathComponent("test1.txt")
+        let f2 = tempDir.appendingPathComponent("test2.txt")
+        try? "test1".write(to: f1, atomically: true, encoding: .utf8)
+        try? "test2".write(to: f2, atomically: true, encoding: .utf8)
+        
+        let session = CompressFormSession(initialInputPaths: [f1.path, f2.path])
         XCTAssertEqual(session.itemsList.count, 2)
         XCTAssertEqual(session.selectedFormat, .sevenZip)
         XCTAssertEqual(session.compressionLevel, .normal)

@@ -13,6 +13,7 @@ import AppKit
 public struct CompressModalView: View {
     @ObservedObject var l10n = AppLocalizationState.shared
     @Binding public var isPresented: Bool
+    public let initialInputPaths: [String]
     public var onCompleteOpenArchive: ((String) -> Void)? = nil
     
     @State private var session: CompressFormSession
@@ -23,6 +24,7 @@ public struct CompressModalView: View {
         onCompleteOpenArchive: ((String) -> Void)? = nil
     ) {
         self._isPresented = isPresented
+        self.initialInputPaths = initialInputPaths
         self.onCompleteOpenArchive = onCompleteOpenArchive
         self._session = State(initialValue: CompressFormSession(initialInputPaths: initialInputPaths))
     }
@@ -62,6 +64,16 @@ public struct CompressModalView: View {
             modalBottomBar
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .onAppear {
+            if !initialInputPaths.isEmpty {
+                session.loadInputPaths(initialInputPaths)
+            }
+        }
+        .onChange(of: initialInputPaths) { _, newPaths in
+            if !newPaths.isEmpty {
+                session.loadInputPaths(newPaths)
+            }
+        }
         .sheet(isPresented: $session.isCompressionGuidePresented) {
             CompressionGuideSheetView(isPresented: $session.isCompressionGuidePresented)
         }

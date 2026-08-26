@@ -13,10 +13,12 @@ public struct HomeExplorerContainerView: View {
     public var viewModel: AppViewState
     @ObservedObject private var quickLookCoordinator = QuickLookPreviewCoordinator.shared
     public let isRightSidebarVisible: Bool
+    public let isActive: Bool
     
-    public init(viewModel: AppViewState, isRightSidebarVisible: Bool) {
+    public init(viewModel: AppViewState, isRightSidebarVisible: Bool, isActive: Bool = true) {
         self.viewModel = viewModel
         self.isRightSidebarVisible = isRightSidebarVisible
+        self.isActive = isActive
     }
     
     public var body: some View {
@@ -80,6 +82,7 @@ public struct HomeExplorerContainerView: View {
             
             DiskDirectoryBrowserView(
                 rootDirectory: viewModel.currentDirectory,
+                isActive: isActive,
                 onSelectArchive: { archivePath in
                     let u = URL(fileURLWithPath: archivePath)
                     viewModel.openArchiveAsFolder(url: u)

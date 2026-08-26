@@ -47,6 +47,13 @@ public final class FinderSync: FIFinderSync {
         }
     }
     
+    deinit {
+        let center = CFNotificationCenterGetDarwinNotifyCenter()
+        let observer = Unmanaged.passUnretained(self).toOpaque()
+        let name = CFNotificationName(TTZipPreferencesStore.darwinNotificationName as CFString)
+        CFNotificationCenterRemoveObserver(center, observer, name, nil)
+    }
+    
     // MARK: - Primary Finder Sync Menu Overrides
     
     public override func menu(for menuKind: FIMenuKind) -> NSMenu? {

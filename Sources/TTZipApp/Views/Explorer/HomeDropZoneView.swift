@@ -133,39 +133,19 @@ public struct HomeDropZoneView: View {
     }
     
     private func handleDrop(providers: [NSItemProvider]) -> Bool {
-        final class SafePathArray: @unchecked Sendable {
-            private var array: [String] = []
-            private let lock = NSLock()
-            func append(_ path: String) { lock.withLock { array.append(path) } }
-            var values: [String] { lock.withLock { array } }
-        }
-        
-        let pathsHolder = SafePathArray()
-        let group = DispatchGroup()
-        
-        for provider in providers {
-            group.enter()
-            provider.loadItem(forTypeIdentifier: "public.file-url", options: nil) { item, _ in
-                if let data = item as? Data,
-                   let url = URL(dataRepresentation: data, relativeTo: nil) {
-                    pathsHolder.append(url.path)
-                }
-                group.leave()
-            }
-        }
-        
-        group.notify(queue: .main) {
-            let droppedPaths = pathsHolder.values
+        Task { @MainActor in
+            let droppedPaths = await AppIntentParser.extractPaths(from: providers)
             guard !droppedPaths.isEmpty else { return }
+            
             if droppedPaths.count == 1, let path = droppedPaths.first {
                 let ext = (path as NSString).pathExtension.lowercased()
                 let archiveExts = ["zip", "7z", "tar", "gz", "bz2", "xz", "zst", "rar", "iso", "cab", "cpio", "ar", "001"]
                 if archiveExts.contains(ext) || path.lowercased().contains(".7z.") || path.lowercased().contains(".zip.") {
-                    viewModel.openArchiveAsFolder(url: URL(fileURLWithPath: path))
+                    AppIntentDispatcher.shared.dispatch(.openArchive(url: URL(fileURLWithPath: path), password: nil), from: .dragAndDrop)
                     return
                 }
             }
-            viewModel.openCompressWorkspace(paths: droppedPaths)
+            AppIntentDispatcher.shared.dispatch(.createArchive(sourcePaths: droppedPaths, options: CompressIntentOptions()), from: .dragAndDrop)
         }
         return true
     }

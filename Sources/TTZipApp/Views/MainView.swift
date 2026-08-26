@@ -181,9 +181,15 @@ public struct MainView: View {
             }
         }
         .onAppear {
-            (NSApp.delegate as? AppDelegate)?.registerHandler { url in Task { @MainActor in openArchiveFromURL(url) } }
+            AppIntentDispatcher.shared.bind(state: viewModel)
+            (NSApp.delegate as? AppDelegate)?.registerHandler { url in
+                Task { @MainActor in
+                    if let envelope = AppIntentParser.parse(url: url) {
+                        AppIntentDispatcher.shared.dispatch(envelope)
+                    }
+                }
+            }
         }
-        .onOpenURL { openArchiveFromURL($0) }
         .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("TTZipEncryptedArchivePromptRequired"))) { notif in
             if let path = notif.object as? String {
                 viewModel.pendingEncryptedPath = path
@@ -200,6 +206,11 @@ public struct MainView: View {
             if let path = notif.object as? String {
                 viewModel.overlayState.inspectingArchivePath = path
                 viewModel.overlayState.showArchiveInspectorModal = true
+            }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("TTZipOpenCompressWorkspaceWithPaths"))) { notif in
+            if let paths = notif.object as? [String] {
+                viewModel.openCompressWorkspace(paths: paths)
             }
         }
     }
@@ -232,10 +243,10 @@ public struct MainView: View {
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         } else {
-            KeepAliveTabContainer(activeTab: viewModel.activeTab) { tab in
+            KeepAliveTabContainer(activeTab: viewModel.activeTab) { tab, isActive in
                 switch tab {
                 case .home:
-                    HomeExplorerContainerView(viewModel: viewModel, isRightSidebarVisible: isRightSidebarVisible)
+                    HomeExplorerContainerView(viewModel: viewModel, isRightSidebarVisible: isRightSidebarVisible, isActive: isActive)
                 case .compressWorkspace:
                     CompressModalView(
                         isPresented: Binding(
