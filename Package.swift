@@ -27,6 +27,7 @@ let coreDependency: Package.Dependency = isLocalCoreAvailable
 let corePackageName = isLocalCoreAvailable ? "core" : "ttzip-core"
 
 let swiftSettings: [SwiftSetting] = [
+    .define("GL_SILENCE_DEPRECATION"),
     .enableUpcomingFeature("StrictConcurrency")
 ]
 
@@ -53,20 +54,21 @@ let package = Package(
             path: "Sources/CMPVBridge",
             publicHeadersPath: "include",
             cSettings: [
-                .headerSearchPath("include")
+                .headerSearchPath("include"),
+                .define("GL_SILENCE_DEPRECATION")
             ],
             linkerSettings: [
                 .linkedLibrary("mpv"),
                 .unsafeFlags([
-                    "-LVendor",
+                    "-LFrameworks",
                     "-Xlinker", "-rpath",
-                    "-Xlinker", "@loader_path/../../../../../../Vendor",
+                    "-Xlinker", "@loader_path/../../../../../../Frameworks",
                     "-Xlinker", "-rpath",
-                    "-Xlinker", "@loader_path/../../../../../Vendor",
+                    "-Xlinker", "@loader_path/../../../../../Frameworks",
                     "-Xlinker", "-rpath",
-                    "-Xlinker", "@loader_path/../../../../Vendor",
+                    "-Xlinker", "@loader_path/../../../../Frameworks",
                     "-Xlinker", "-rpath",
-                    "-Xlinker", "@loader_path/../../../Vendor",
+                    "-Xlinker", "@loader_path/../../../Frameworks",
                     "-Xlinker", "-rpath",
                     "-Xlinker", "@executable_path/../Frameworks"
                 ])

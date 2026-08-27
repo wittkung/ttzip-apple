@@ -26,8 +26,8 @@ echo "============================================================"
 
 # 智能检测本地微内核 (TTZipCore) 是否需要重新编译
 if [ -d "../core" ]; then
-    VENDOR_LIB="../core/Vendor/TTZipVendor.xcframework/macos-arm64_x86_64/libTTZipVendor.a"
-    [ ! -f "$VENDOR_LIB" ] && VENDOR_LIB="../core/Vendor/TTZipVendor.xcframework/macos-arm64/libTTZipVendor.a"
+    VENDOR_LIB="../core/Frameworks/TTZipVendor.xcframework/macos-arm64_x86_64/libTTZipVendor.a"
+    [ ! -f "$VENDOR_LIB" ] && VENDOR_LIB="../core/Frameworks/TTZipVendor.xcframework/macos-arm64/libTTZipVendor.a"
 
     NEED_CORE_BUILD=false
     if [ ! -f "$VENDOR_LIB" ]; then

@@ -239,7 +239,7 @@ else
 fi
 
 # 5. Handle libmpv.dylib (Stamp-based change detection to avoid codesign diff loop)
-MPV_SRC="${REPO_ROOT}/Vendor/libmpv.dylib"
+MPV_SRC="${REPO_ROOT}/Frameworks/libmpv.dylib"
 
 if [ -n "${MPV_SRC}" ] && [ -f "${MPV_SRC}" ]; then
     TARGET_MPV="${FRAMEWORKS_DIR}/libmpv.dylib"

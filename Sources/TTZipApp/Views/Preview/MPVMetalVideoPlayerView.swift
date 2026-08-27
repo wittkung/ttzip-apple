@@ -289,7 +289,6 @@ public struct MPVNativeMetalContainerView: NSViewRepresentable {
         view.onDropSubtitle = onDropSubtitle
         view.onTogglePlayPause = onTogglePlayPause
         view.onToggleFullScreen = onToggleFullScreen
-        store.setup(view: view)
         return view
     }
     
@@ -306,10 +305,25 @@ public struct MPVNativeMetalContainerView: NSViewRepresentable {
 
 /// High-performance NSView subclass configured for XDR Extended Dynamic Range, keyboard shortcuts, and subtitle drag operations.
 public final class MPVMetalNSView: NSView {
-    public weak var store: MPVMetalPlayerStore?
+    public weak var store: MPVMetalPlayerStore? {
+        didSet {
+            if let window = self.window, let store = store {
+                if let glLayer = self.layer as? MPVOpenGLLayer {
+                    glLayer.contentsScale = window.backingScaleFactor
+                    glLayer.bind(store: store)
+                }
+            }
+        }
+    }
     public var onDropSubtitle: ((URL) -> Void)?
     public var onTogglePlayPause: (() -> Void)?
     public var onToggleFullScreen: (() -> Void)?
+    
+    public override func makeBackingLayer() -> CALayer {
+        let glLayer = MPVOpenGLLayer()
+        glLayer.contentsScale = NSScreen.main?.backingScaleFactor ?? 2.0
+        return glLayer
+    }
     
     public override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
@@ -326,6 +340,7 @@ public final class MPVMetalNSView: NSView {
         self.layer?.backgroundColor = NSColor.black.cgColor
         self.layerContentsRedrawPolicy = .duringViewResize
         self.layer?.wantsExtendedDynamicRangeContent = true
+        self.layer?.masksToBounds = true
     }
     
     public override var acceptsFirstResponder: Bool { true }
@@ -333,10 +348,22 @@ public final class MPVMetalNSView: NSView {
     public override func viewDidMoveToWindow() {
         super.viewDidMoveToWindow()
         let targetStore = self.store ?? MPVMetalPlayerStore.shared
-        if self.window != nil {
-            targetStore.setup(view: self)
+        if let window = self.window {
+            if let glLayer = self.layer as? MPVOpenGLLayer {
+                glLayer.contentsScale = window.backingScaleFactor
+                glLayer.bind(store: targetStore)
+            }
         } else {
-            targetStore.detachView()
+            if let glLayer = self.layer as? MPVOpenGLLayer {
+                glLayer.unbind()
+            }
+        }
+    }
+    
+    public override func viewDidChangeBackingProperties() {
+        super.viewDidChangeBackingProperties()
+        if let window = self.window {
+            self.layer?.contentsScale = window.backingScaleFactor
         }
     }
     

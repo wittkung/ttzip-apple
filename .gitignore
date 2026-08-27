@@ -21,6 +21,8 @@ xcuserdata/
 dist/
 *.dmg
 *.pkg
+vendor/
+upstream/
 
 # Editor & Temporary
 .vscode/

@@ -317,6 +317,7 @@ final class NativeMPVPlaybackTests: XCTestCase {
         
         XCTAssertTrue(nsView.wantsLayer, "MPVMetalNSView must set wantsLayer = true")
         XCTAssertNotNil(nsView.layer)
+        XCTAssertTrue(nsView.layer is MPVOpenGLLayer, "Backing layer must be MPVOpenGLLayer")
         XCTAssertTrue(nsView.layer?.wantsExtendedDynamicRangeContent == true, "Layer must request EDR content")
         XCTAssertTrue(nsView.acceptsFirstResponder)
         
@@ -331,6 +332,27 @@ final class NativeMPVPlaybackTests: XCTestCase {
         nsView.onToggleFullScreen?()
         XCTAssertTrue(fullScreenToggled)
         
+        // Render Context Manager verification
+        XCTAssertNotNil(store.renderContextManager)
+        
+        store.cleanUp()
+    }
+    
+    // MARK: - Test 9: MPVOpenGLLayer Binding and Pixel Format Allocation
+    
+    @MainActor
+    func testMPVOpenGLLayerPixelFormatAndBinding() {
+        let store = MPVMetalPlayerStore()
+        let layer = MPVOpenGLLayer()
+        layer.bind(store: store)
+        
+        let pf = layer.copyCGLPixelFormat(forDisplayMask: 0)
+        XCTAssertNotNil(pf, "copyCGLPixelFormat must allocate a valid CGLPixelFormatObj")
+        
+        let ctx = layer.copyCGLContext(forPixelFormat: pf)
+        XCTAssertNotNil(ctx, "copyCGLContext must allocate a valid CGLContextObj")
+        
+        layer.unbind()
         store.cleanUp()
     }
 }

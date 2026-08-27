@@ -8,6 +8,10 @@
 #ifndef CMPVBridge_h
 #define CMPVBridge_h
 
+#ifndef GL_SILENCE_DEPRECATION
+#define GL_SILENCE_DEPRECATION 1
+#endif
+
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
@@ -18,3 +22,4 @@
 #include "mpv/stream_cb.h"
 
 #endif /* CMPVBridge_h */
+

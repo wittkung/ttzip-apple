@@ -65,10 +65,10 @@ public final class MPVMetalPlayerStore: ObservableObject {
     public var onFilePlaybackEnded: (@MainActor (URL?) -> Void)?
     
     /// Native libmpv client handle pointer.
-    public var mpv: OpaquePointer? { handleHolder?.rawHandle }
+    nonisolated public var mpv: OpaquePointer? { handleHolder?.rawHandle }
     
     /// Backward-compatible handle accessor.
-    public var player: OpaquePointer? { mpv }
+    nonisolated public var player: OpaquePointer? { mpv }
     
     private struct UncheckedHandle: @unchecked Sendable {
         let pointer: OpaquePointer
@@ -88,9 +88,11 @@ public final class MPVMetalPlayerStore: ObservableObject {
         }
     }
     
-    private var handleHolder: MPVHandleHolder?
+    /// Dedicated render context manager for vo=libmpv OpenGL pipeline.
+    public let renderContextManager = MPVRenderContextManager()
+    
+    private nonisolated(unsafe) var handleHolder: MPVHandleHolder?
     var discoveredCompanionSubtitles: [MPVSubtitleItem] = []
-    private weak var attachedView: NSView?
     
     public init() {}
     
@@ -156,10 +158,16 @@ public final class MPVMetalPlayerStore: ObservableObject {
             return
         }
         self.handleHolder = MPVHandleHolder(rawHandle: handle)
-        
-        let isTesting = NSClassFromString("XCTestCase") != nil ||
-            ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil ||
-            Bundle.main.bundlePath.hasSuffix(".xctest")
+        let isTesting: Bool = {
+            if NSClassFromString("XCTestCase") != nil { return true }
+            if ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil { return true }
+            if Bundle.main.bundlePath.hasSuffix(".xctest") { return true }
+            let proc = ProcessInfo.processInfo.processName.lowercased()
+            if proc.contains("test") || proc.contains("xctest") { return true }
+            let args = ProcessInfo.processInfo.arguments.joined(separator: " ").lowercased()
+            if args.contains("test") || args.contains("xctest") { return true }
+            return false
+        }()
         
         mpv_request_log_messages(handle, "v")
         
@@ -181,12 +189,8 @@ public final class MPVMetalPlayerStore: ObservableObject {
         mpv_set_option_string(handle, "input-vo-keyboard", "no")
         mpv_set_option_string(handle, "input-app-events", "no")
         
-        // Video output, Metal pipeline, and Hardware acceleration
-        mpv_set_option_string(handle, "vo", isTesting ? "null" : "gpu-next")
-        if !isTesting {
-            mpv_set_option_string(handle, "gpu-api", "metal")
-            mpv_set_option_string(handle, "gpu-context", "macos")
-        }
+        // Video output strictly locked to libmpv render API and hardware acceleration
+        mpv_set_option_string(handle, "vo", isTesting ? "null" : "libmpv")
         mpv_set_option_string(handle, "hwdec", isTesting ? "no" : "videotoolbox")
         mpv_set_option_string(handle, "ao", isTesting ? "null" : "auto")
         
@@ -214,6 +218,11 @@ public final class MPVMetalPlayerStore: ObservableObject {
             return
         }
         
+        // Initialize render context manager only when vo=libmpv is active
+        if !isTesting {
+            renderContextManager.createRenderContext(mpvHandle: handle)
+        }
+        
         let properties: [(UInt64, String, mpv_format)] = [
             (1, "time-pos", MPV_FORMAT_DOUBLE),
             (2, "duration", MPV_FORMAT_DOUBLE),
@@ -238,39 +247,7 @@ public final class MPVMetalPlayerStore: ObservableObject {
         mpv_set_wakeup_callback(handle, mpvWakeupHandler, context)
     }
     
-    // MARK: - Viewport Binding & Media Loading
-    
-    public func setup(view: NSView) { bindView(view) }
-    
-    public func bindView(_ view: NSView) {
-        if self.attachedView === view { return }
-        self.attachedView = view
-        ensureMpvInitialized()
-        if let handle = self.mpv {
-            var wid = Int64(Int(bitPattern: Unmanaged.passUnretained(view).toOpaque()))
-            let status = mpv_set_property(handle, "wid", MPV_FORMAT_INT64, &wid)
-            logger.info("Synchronously bound wid to NSView (status: \(status)): \(wid, privacy: .public)")
-        }
-    }
-    
-    public func unbindView(_ view: NSView? = nil) {
-        if view == nil || self.attachedView === view {
-            self.attachedView = nil
-            if let handle = self.mpv {
-                var wid: Int64 = 0
-                _ = mpv_set_property(handle, "wid", MPV_FORMAT_INT64, &wid)
-            }
-            logger.info("Synchronously unbound wid from NSView")
-        }
-    }
-    
-    /// Safely detaches the viewport, pauses playback, and resets wid to prevent memory leaks and dangling pointers.
-    public func detachView() {
-        pause()
-        unbindView()
-    }
-    
-    public func attachViewport(_ view: NSView) { bindView(view) }
+    // MARK: - Media Loading API
     
     public func load(url: URL) { loadMedia(url: url) }
     
@@ -315,17 +292,12 @@ public final class MPVMetalPlayerStore: ObservableObject {
         self.updateEDRMetrics()
         self.discoverCompanionSubtitles(for: url)
         self.ensureMpvInitialized()
-        if let view = self.attachedView, let handle = self.mpv {
-            var wid = Int64(Int(bitPattern: Unmanaged.passUnretained(view).toOpaque()))
-            _ = mpv_set_property(handle, "wid", MPV_FORMAT_INT64, &wid)
-        }
         
         logger.info("Executing loadfile asynchronously for: \(url.path, privacy: .public)")
         executeCommandAsync(["loadfile", url.path, "replace"])
     }
     
-    public func setup(url: URL, view: NSView? = nil, isAudioOnly: Bool = false) {
-        if let view = view { bindView(view) }
+    public func setup(url: URL, isAudioOnly: Bool = false) {
         loadMedia(url: url)
     }
     
@@ -665,8 +637,8 @@ public final class MPVMetalPlayerStore: ObservableObject {
     /// Explicit termination of the native libmpv engine during application teardown.
     public func terminate() {
         cleanUp()
+        renderContextManager.detachAndFree()
         handleHolder?.terminateAndClear()
         handleHolder = nil
-        attachedView = nil
     }
 }

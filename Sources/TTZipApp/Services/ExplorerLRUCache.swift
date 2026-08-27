@@ -29,21 +29,21 @@ public final class ExplorerLRUCache<Key: Hashable & Sendable, Value: Sendable>: 
     private var map: [Key: Node] = [:]
     private var head: Node? // MRU (Most Recently Used)
     private var tail: Node? // LRU (Least Recently Used)
-    private var lock = os_unfair_lock_s()
+    private let lock = NSLock()
     
     public init(capacity: Int = 64) {
         self.capacity = max(1, capacity)
     }
     
     public var count: Int {
-        os_unfair_lock_lock(&lock)
-        defer { os_unfair_lock_unlock(&lock) }
+        lock.lock()
+        defer { lock.unlock() }
         return map.count
     }
     
     public func get(_ key: Key) -> Value? {
-        os_unfair_lock_lock(&lock)
-        defer { os_unfair_lock_unlock(&lock) }
+        lock.lock()
+        defer { lock.unlock() }
         
         guard let node = map[key] else { return nil }
         moveToHead(node)
@@ -51,8 +51,8 @@ public final class ExplorerLRUCache<Key: Hashable & Sendable, Value: Sendable>: 
     }
     
     public func set(_ key: Key, value: Value) {
-        os_unfair_lock_lock(&lock)
-        defer { os_unfair_lock_unlock(&lock) }
+        lock.lock()
+        defer { lock.unlock() }
         
         if let existing = map[key] {
             existing.value = value
@@ -73,8 +73,8 @@ public final class ExplorerLRUCache<Key: Hashable & Sendable, Value: Sendable>: 
     
     @discardableResult
     public func remove(_ key: Key) -> Value? {
-        os_unfair_lock_lock(&lock)
-        defer { os_unfair_lock_unlock(&lock) }
+        lock.lock()
+        defer { lock.unlock() }
         
         guard let node = map.removeValue(forKey: key) else { return nil }
         removeNode(node)
@@ -82,8 +82,8 @@ public final class ExplorerLRUCache<Key: Hashable & Sendable, Value: Sendable>: 
     }
     
     public func removeAll() {
-        os_unfair_lock_lock(&lock)
-        defer { os_unfair_lock_unlock(&lock) }
+        lock.lock()
+        defer { lock.unlock() }
         
         var current = head
         while let node = current {
