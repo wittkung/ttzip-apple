@@ -103,15 +103,18 @@ public final class MPVRenderContextManager: @unchecked Sendable {
         let apiType = ("opengl" as NSString).utf8String
         var advancedControl: Int32 = 1
         
-        var params: [mpv_render_param] = [
-            mpv_render_param(type: MPV_RENDER_PARAM_API_TYPE, data: UnsafeMutableRawPointer(mutating: apiType)),
-            mpv_render_param(type: MPV_RENDER_PARAM_OPENGL_INIT_PARAMS, data: &initParams),
-            mpv_render_param(type: MPV_RENDER_PARAM_ADVANCED_CONTROL, data: &advancedControl),
-            mpv_render_param(type: MPV_RENDER_PARAM_INVALID, data: nil)
-        ]
-        
         var ctx: OpaquePointer?
-        let status = mpv_render_context_create(&ctx, mpvHandle, &params)
+        let status = withUnsafeMutablePointer(to: &initParams) { initParamsPtr in
+            withUnsafeMutablePointer(to: &advancedControl) { advPtr in
+                var params: [mpv_render_param] = [
+                    mpv_render_param(type: MPV_RENDER_PARAM_API_TYPE, data: UnsafeMutableRawPointer(mutating: apiType)),
+                    mpv_render_param(type: MPV_RENDER_PARAM_OPENGL_INIT_PARAMS, data: initParamsPtr),
+                    mpv_render_param(type: MPV_RENDER_PARAM_ADVANCED_CONTROL, data: advPtr),
+                    mpv_render_param(type: MPV_RENDER_PARAM_INVALID, data: nil)
+                ]
+                return mpv_render_context_create(&ctx, mpvHandle, &params)
+            }
+        }
         guard status >= 0, let validCtx = ctx else {
             let errStr = mpv_error_string(status).map { String(cString: $0) } ?? "Code \(status)"
             logger.error("Failed to create mpv_render_context: \(errStr, privacy: .public)")
@@ -158,13 +161,16 @@ public final class MPVRenderContextManager: @unchecked Sendable {
             internal_format: 0
         )
         var flipY: Int32 = 1
-        var renderParams: [mpv_render_param] = [
-            mpv_render_param(type: MPV_RENDER_PARAM_OPENGL_FBO, data: &glFbo),
-            mpv_render_param(type: MPV_RENDER_PARAM_FLIP_Y, data: &flipY),
-            mpv_render_param(type: MPV_RENDER_PARAM_INVALID, data: nil)
-        ]
-        
-        _ = mpv_render_context_render(ctx, &renderParams)
+        withUnsafeMutablePointer(to: &glFbo) { fboPtr in
+            withUnsafeMutablePointer(to: &flipY) { flipYPtr in
+                var renderParams: [mpv_render_param] = [
+                    mpv_render_param(type: MPV_RENDER_PARAM_OPENGL_FBO, data: fboPtr),
+                    mpv_render_param(type: MPV_RENDER_PARAM_FLIP_Y, data: flipYPtr),
+                    mpv_render_param(type: MPV_RENDER_PARAM_INVALID, data: nil)
+                ]
+                _ = mpv_render_context_render(ctx, &renderParams)
+            }
+        }
     }
     
     /// Informs libmpv that the backbuffer swap occurred to keep audio/video sync locked to display vsync.

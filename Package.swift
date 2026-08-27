@@ -28,6 +28,7 @@ let corePackageName = isLocalCoreAvailable ? "core" : "ttzip-core"
 
 let swiftSettings: [SwiftSetting] = [
     .define("GL_SILENCE_DEPRECATION"),
+    .unsafeFlags(["-Xcc", "-DGL_SILENCE_DEPRECATION"]),
     .enableUpcomingFeature("StrictConcurrency")
 ]
 
