@@ -86,7 +86,6 @@ final class ResponsiveLayoutBoundsTests: XCTestCase {
         let rightPanelPadding: CGFloat = 14.0 // leading 4 + trailing 10
         let minSafeWorkspaceWidth: CGFloat = 420.0
         let minRightSidebarWidth: CGFloat = 200.0
-        let maxRightSidebarWidth: CGFloat = 480.0
         
         let testWindowWidths: [CGFloat] = [600.0, 800.0, 900.0, 1200.0, 1600.0, 2560.0]
         
@@ -94,12 +93,13 @@ final class ResponsiveLayoutBoundsTests: XCTestCase {
             let tier = WindowLayoutTier.evaluate(width: totalWidth)
             let effectiveLeftWidth = (tier == .compact) ? 64.0 : leftSidebarWidth
             let effectiveLeftDivider = (tier == .compact) ? 0.0 : leftDividerWidth
+            let maxRightSidebarWidth: CGFloat = max(850.0, totalWidth * 0.55)
             
             let totalChrome = effectiveLeftWidth + effectiveLeftDivider + rightDividerWidth + rightPanelPadding
             let maxRightAllowedByWorkspace = max(minRightSidebarWidth, totalWidth - totalChrome - minSafeWorkspaceWidth)
             let effectiveMaxRight = min(maxRightSidebarWidth, maxRightAllowedByWorkspace)
             
-            // Invariant 1: effectiveMaxRight must NEVER exceed absolute ceiling 480pt
+            // Invariant 1: effectiveMaxRight must NEVER exceed adaptive upper bound
             XCTAssertLessThanOrEqual(
                 effectiveMaxRight,
                 maxRightSidebarWidth,

@@ -8,7 +8,6 @@
 import SwiftUI
 import AppKit
 @preconcurrency import PDFKit
-import QuickLookUI
 import TTZipCore
 
 public enum PDFLayoutMode: String, CaseIterable, Identifiable {
@@ -336,30 +335,4 @@ public struct PDFKitView: NSViewRepresentable {
     }
 }
 
-public struct QuickLookNSView: NSViewRepresentable {
-    public let url: URL
-    
-    public init(url: URL) {
-        self.url = url
-    }
-    
-    public func makeNSView(context: Context) -> QLPreviewView {
-        let preview = QLPreviewView(frame: .zero, style: .normal) ?? QLPreviewView()
-        preview.previewItem = url as QLPreviewItem
-        return preview
-    }
-    
-    public func updateNSView(_ nsView: QLPreviewView, context: Context) {
-        guard let currentItem = nsView.previewItem as? URL, currentItem != url else {
-            if nsView.previewItem == nil {
-                nsView.previewItem = url as QLPreviewItem
-            }
-            return
-        }
-        DispatchQueue.main.async {
-            guard nsView.window != nil else { return }
-            nsView.previewItem = url as QLPreviewItem
-        }
-    }
-}
-
+public typealias PDFKitRepresentedView = PDFKitView

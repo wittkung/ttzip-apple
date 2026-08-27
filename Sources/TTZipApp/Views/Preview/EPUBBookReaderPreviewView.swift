@@ -8,67 +8,88 @@
 import SwiftUI
 import AppKit
 import WebKit
-import QuickLookUI
+import CryptoKit
 import TTZipCore
 
 public struct EBookReaderPreviewView: View {
     public let metadata: EBookMetadata
+    @State private var sha256Checksum: String? = nil
+    @State private var isCalculatingHash: Bool = false
+    @State private var copiedHash: Bool = false
     
     public init(metadata: EBookMetadata) {
         self.metadata = metadata
     }
     
     public var body: some View {
-        VStack(spacing: 0) {
+        VStack(spacing: 12) {
+            // Header Hero Banner
             HStack(spacing: 16) {
                 ZStack {
                     RoundedRectangle(cornerRadius: 8, style: .continuous)
                         .fill(
                             LinearGradient(
-                                colors: [TTZipTheme.bambooGreen.opacity(0.85), TTZipTheme.bambooGreen.opacity(0.45)],
+                                colors: [
+                                    TTZipTheme.fileCategoryColor(for: metadata.formatName).opacity(0.9),
+                                    TTZipTheme.fileCategoryColor(for: metadata.formatName).opacity(0.5)
+                                ],
                                 startPoint: .topLeading,
                                 endPoint: .bottomTrailing
                             )
                         )
                         .shadow(color: Color.black.opacity(0.18), radius: 8, x: 2, y: 4)
                     
-                    VStack(spacing: 6) {
-                        Image(systemName: "book.closed.fill")
-                            .font(.system(size: 28))
-                            .foregroundStyle(.white)
-                        
-                        Text(metadata.formatName)
-                            .font(.system(size: 10, weight: .bold, design: .monospaced))
-                            .foregroundStyle(.white.opacity(0.95))
-                            .padding(.horizontal, 6)
-                            .padding(.vertical, 2)
-                            .background(Color.black.opacity(0.25))
-                            .clipShape(Capsule())
+                    if let cover = metadata.coverImage {
+                        Image(nsImage: cover)
+                            .resizable()
+                            .scaledToFill()
+                            .frame(width: 80, height: 110)
+                            .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                    } else {
+                        VStack(spacing: 6) {
+                            Image(systemName: "book.closed.fill")
+                                .font(.system(size: 28))
+                                .foregroundStyle(.white)
+                            
+                            Text(metadata.formatName.uppercased())
+                                .font(.system(size: 10, weight: .bold, design: .monospaced))
+                                .foregroundStyle(.white.opacity(0.95))
+                                .padding(.horizontal, 6)
+                                .padding(.vertical, 2)
+                                .background(Color.black.opacity(0.25))
+                                .clipShape(Capsule())
+                        }
                     }
                 }
                 .frame(width: 80, height: 110)
                 
                 VStack(alignment: .leading, spacing: 6) {
                     Text(metadata.title)
-                        .font(.system(size: 14, weight: .bold))
+                        .font(.system(size: 15, weight: .bold))
                         .foregroundStyle(.primary)
-                        .lineLimit(1)
+                        .lineLimit(2)
                     
                     HStack(spacing: 8) {
-                        Label(metadata.formatName, systemImage: "book.fill")
+                        Label(metadata.formatName.uppercased(), systemImage: "doc.text.fill")
                             .font(.system(size: 10, weight: .bold))
-                            .foregroundStyle(TTZipTheme.bambooGreen)
+                            .foregroundStyle(TTZipTheme.fileCategoryColor(for: metadata.formatName))
+                        
+                        Text("•")
+                            .font(.system(size: 10))
+                            .foregroundStyle(.secondary)
                         
                         Text(metadata.fileSizeDescription)
-                            .font(.system(size: 10, weight: .medium, design: .monospaced))
+                            .font(.system(size: 11, weight: .medium, design: .monospaced))
                             .foregroundStyle(.secondary)
                             .lineLimit(1)
                     }
                     
-                    Text(metadata.excerptText)
-                        .font(.system(size: 11))
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
+                    if !metadata.excerptText.isEmpty {
+                        Text(metadata.excerptText)
+                            .font(.system(size: 11))
+                            .foregroundStyle(.secondary)
+                            .lineLimit(2)
+                    }
                     
                     HStack(spacing: 8) {
                         Button(action: {
@@ -76,7 +97,7 @@ public struct EBookReaderPreviewView: View {
                         }) {
                             HStack(spacing: 4) {
                                 Image(systemName: "arrow.up.forward.app.fill")
-                                Text("Open in Reader")
+                                Text("Open in Default App")
                             }
                             .font(.system(size: 10, weight: .semibold))
                             .foregroundStyle(.white)
@@ -112,15 +133,150 @@ public struct EBookReaderPreviewView: View {
             .background(Color.white.opacity(0.5))
             .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
             .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).strokeBorder(Color.white.opacity(0.85), lineWidth: 0.8))
-            .padding(12)
+            .padding(.horizontal, 12)
+            .padding(.top, 12)
             
-            QuickLookNSView(url: metadata.url)
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .clipShape(RoundedRectangle(cornerRadius: 10))
-                .padding([.horizontal, .bottom], 12)
+            // Native SwiftUI Information & Security Dashboard
+            ScrollView(.vertical, showsIndicators: false) {
+                VStack(spacing: 12) {
+                    // Document Attributes Board
+                    VStack(alignment: .leading, spacing: 10) {
+                        HStack {
+                            Image(systemName: "info.circle.fill")
+                                .font(.system(size: 12, weight: .bold))
+                                .foregroundStyle(TTZipTheme.bambooGreen)
+                            Text("Document Information")
+                                .font(.system(size: 12, weight: .bold))
+                                .foregroundStyle(.primary)
+                            Spacer()
+                        }
+                        
+                        Divider()
+                            .opacity(0.5)
+                        
+                        infoRow(title: "File Name", value: metadata.url.lastPathComponent, isMonospaced: true)
+                        infoRow(title: "Format", value: metadata.formatName.uppercased(), isMonospaced: true)
+                        infoRow(title: "File Size", value: metadata.fileSizeDescription, isMonospaced: true)
+                        infoRow(title: "Location", value: metadata.url.deletingLastPathComponent().path, isMonospaced: false)
+                    }
+                    .padding(14)
+                    .background(Color.primary.opacity(0.025))
+                    .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                    .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).strokeBorder(Color.primary.opacity(0.06), lineWidth: 0.8))
+                    
+                    // Integrity & Security Overview
+                    VStack(alignment: .leading, spacing: 10) {
+                        HStack {
+                            Image(systemName: "shield.checkerboard")
+                                .font(.system(size: 12, weight: .bold))
+                                .foregroundStyle(TTZipTheme.kintsugiGold)
+                            Text("Integrity & Checksum")
+                                .font(.system(size: 12, weight: .bold))
+                                .foregroundStyle(.primary)
+                            Spacer()
+                            
+                            if let hash = sha256Checksum {
+                                Button(action: {
+                                    NSPasteboard.general.clearContents()
+                                    NSPasteboard.general.setString(hash, forType: .string)
+                                    copiedHash = true
+                                    DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
+                                        copiedHash = false
+                                    }
+                                }) {
+                                    HStack(spacing: 3) {
+                                        Image(systemName: copiedHash ? "checkmark.circle.fill" : "doc.on.doc.fill")
+                                        Text(copiedHash ? "Copied" : "Copy SHA-256")
+                                    }
+                                    .font(.system(size: 9, weight: .semibold))
+                                    .foregroundStyle(copiedHash ? TTZipTheme.bambooGreen : .secondary)
+                                    .padding(.horizontal, 6)
+                                    .padding(.vertical, 3)
+                                    .background(Color.primary.opacity(0.04))
+                                    .clipShape(Capsule())
+                                }
+                                .buttonStyle(.plain)
+                            }
+                        }
+                        
+                        Divider()
+                            .opacity(0.5)
+                        
+                        if isCalculatingHash {
+                            HStack(spacing: 8) {
+                                ProgressView()
+                                    .controlSize(.small)
+                                Text("Computing SHA-256 Checksum...")
+                                    .font(.system(size: 11))
+                                    .foregroundStyle(.secondary)
+                            }
+                            .padding(.vertical, 4)
+                        } else if let hash = sha256Checksum {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("SHA-256")
+                                    .font(.system(size: 10, weight: .bold))
+                                    .foregroundStyle(.secondary)
+                                Text(hash)
+                                    .font(.system(size: 10, design: .monospaced))
+                                    .foregroundStyle(.primary)
+                                    .textSelection(.enabled)
+                                    .lineLimit(2)
+                            }
+                        } else {
+                            Text("Checksum unavailable")
+                                .font(.system(size: 11))
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    .padding(14)
+                    .background(Color.primary.opacity(0.025))
+                    .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                    .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).strokeBorder(Color.primary.opacity(0.06), lineWidth: 0.8))
+                }
+                .padding(.horizontal, 12)
+                .padding(.bottom, 12)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+        }
+        .task(id: metadata.url) {
+            await computeSHA256()
+        }
+    }
+    
+    private func infoRow(title: String, value: String, isMonospaced: Bool) -> some View {
+        HStack(alignment: .top) {
+            Text(title)
+                .font(.system(size: 11, weight: .medium))
+                .foregroundStyle(.secondary)
+                .frame(width: 80, alignment: .leading)
+            
+            Text(value)
+                .font(isMonospaced ? .system(size: 11, design: .monospaced) : .system(size: 11))
+                .foregroundStyle(.primary)
+                .lineLimit(2)
+                .textSelection(.enabled)
+            
+            Spacer()
+        }
+    }
+    
+    private func computeSHA256() async {
+        guard sha256Checksum == nil, !isCalculatingHash else { return }
+        isCalculatingHash = true
+        let url = metadata.url
+        let hashStr: String? = await Task.detached(priority: .utility) {
+            guard let data = try? Data(contentsOf: url, options: .mappedIfSafe) else { return nil }
+            let digest = SHA256.hash(data: data)
+            return digest.map { String(format: "%02x", $0) }.joined()
+        }.value
+        
+        await MainActor.run {
+            self.sha256Checksum = hashStr
+            self.isCalculatingHash = false
         }
     }
 }
+
 
 public struct InteractiveEPUBReaderView: View {
     public let bookModel: EPUBBookModel

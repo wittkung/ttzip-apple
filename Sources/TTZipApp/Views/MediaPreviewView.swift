@@ -8,7 +8,6 @@
 import SwiftUI
 import AVKit
 import PDFKit
-import QuickLookUI
 import WebKit
 import TTZipCore
 
@@ -25,11 +24,16 @@ public struct MediaPreviewView: View {
     public init(fileURL: URL?, fileName: String) {
         self.fileURL = fileURL
         self.fileName = fileName
+        if let url = fileURL {
+            _previewType = State(initialValue: MediaPreviewFactory.detectType(url: url))
+        } else {
+            _previewType = State(initialValue: .unsupported("Select a file from the explorer to preview"))
+        }
     }
     
     private var isSupportedMedia: Bool {
         switch previewType {
-        case .unsupported: return false
+        case .unsupported, .video, .audio: return false
         default: return true
         }
     }
@@ -83,7 +87,6 @@ public struct MediaPreviewView: View {
             }
         }
         .task(id: fileURL) {
-            previewType = .unsupported("Loading preview canvas...")
             loadPreview()
         }
         .onChange(of: fileURL) { _, _ in
@@ -162,11 +165,13 @@ public struct MediaPreviewView: View {
             previewType = .unsupported("Select a file from the explorer to preview")
             return
         }
+        let syncType = MediaPreviewFactory.detectType(url: url)
+        self.previewType = syncType
         
         let targetURL = url
         Task { @MainActor in
-            let type = await MediaPreviewFactory.detectTypeAsync(url: targetURL)
-            self.previewType = type
+            let deepType = await MediaPreviewFactory.detectTypeAsync(url: targetURL)
+            self.previewType = deepType
         }
     }
 

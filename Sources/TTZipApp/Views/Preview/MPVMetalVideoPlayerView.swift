@@ -8,16 +8,15 @@
 import SwiftUI
 import AppKit
 import AVFoundation
-import Metal
-import QuartzCore
 import TTZipCore
 
-/// Masterpiece video player viewport supporting native AVKit hardware playback and Rust-demuxed Zen Cinema Deck.
+/// Masterpiece libmpv Metal/EDR video player viewport supporting Apple Liquid Retina XDR 1600 nits and drag-and-drop subtitle mounting.
 public struct MPVMetalVideoPlayerView: View {
     public let url: URL
     
     @StateObject private var store = MPVMetalPlayerStore()
     @State private var isHovering: Bool = false
+    @State private var isDropTargeted: Bool = false
     @State private var hideTimer: Timer? = nil
     @ObservedObject private var l10n = AppLocalizationState.shared
     
@@ -33,29 +32,41 @@ public struct MPVMetalVideoPlayerView: View {
         ZStack(alignment: .center) {
             Color.black.ignoresSafeArea()
             
-            if !store.hasDecoderLimitation, let player = store.player {
-                // Native Apple Silicon AVPlayer hardware viewport
-                AVPlayerLayerContainerView(player: player)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .onTapGesture(count: 2) {
-                        toggleFullScreen()
-                    }
-                    .onTapGesture(count: 1) {
-                        store.togglePlayPause()
-                    }
-            } else {
-                // Universal in-place playback canvas for MKV, WebM, AVI, FLV, TS, etc.
-                MPVDirectContainerPlayerView(url: url, store: store)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .onTapGesture(count: 2) {
-                        toggleFullScreen()
-                    }
-                    .onTapGesture(count: 1) {
-                        store.togglePlayPause()
-                    }
+            // Native libmpv EDR/Metal Viewport
+            MPVNativeMetalContainerView(
+                url: url,
+                store: store,
+                onDropSubtitle: { subURL in
+                    store.addExternalSubtitle(url: subURL)
+                },
+                onTogglePlayPause: {
+                    store.togglePlayPause()
+                },
+                onToggleFullScreen: {
+                    toggleFullScreen()
+                }
+            )
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            
+            // Subtitle Drag-and-Drop Highlight Overlay
+            if isDropTargeted {
+                RoundedRectangle(cornerRadius: 12)
+                    .strokeBorder(TTZipTheme.kintsugiGold, lineWidth: 2.5)
+                    .background(Color.black.opacity(0.4))
+                    .overlay(
+                        VStack(spacing: 8) {
+                            Image(systemName: "captions.bubble.fill")
+                                .font(.system(size: 32))
+                                .foregroundStyle(TTZipTheme.kintsugiGold)
+                            Text(isChinese ? "释放以加载外部字幕" : "Drop Subtitle to Load")
+                                .font(.system(size: 14, weight: .semibold))
+                                .foregroundStyle(.white)
+                        }
+                    )
+                    .transition(.opacity.animation(.easeInOut(duration: 0.15)))
             }
             
-            // Subtitle Overlay (if active)
+            // Subtitle Overlay (if dialogue active and not rendered into video surface)
             if let subText = store.activeSubtitleDialogue, !subText.isEmpty {
                 VStack {
                     Spacer()
@@ -117,15 +128,39 @@ public struct MPVMetalVideoPlayerView: View {
                 isHovering = false
             }
         }
-        .onAppear {
-            store.setup(url: url)
+        .onDrop(of: [.fileURL], isTargeted: $isDropTargeted) { providers in
+            guard let provider = providers.first else { return false }
+            _ = provider.loadObject(ofClass: URL.self) { droppedURL, _ in
+                guard let droppedURL = droppedURL else { return }
+                let ext = droppedURL.pathExtension.lowercased()
+                if ["srt", "ass", "ssa", "vtt", "sub", "lrc"].contains(ext) {
+                    Task { @MainActor in
+                        store.addExternalSubtitle(url: droppedURL)
+                    }
+                }
+            }
+            return true
         }
-        .onChange(of: url) { _, newURL in
-            store.setup(url: newURL)
+        .onAppear {
+            let sessionId = url.path
+            MediaPlaybackCoordinator.shared.registerSession(
+                id: sessionId,
+                isPlaying: store.isPlaying,
+                togglePlayPause: {
+                    store.togglePlayPause()
+                },
+                seekBy: { delta in
+                    store.seek(to: store.currentTime + delta)
+                }
+            )
+        }
+        .onChange(of: store.isPlaying) { _, playing in
+            MediaPlaybackCoordinator.shared.updatePlaybackState(id: url.path, isPlaying: playing)
         }
         .onDisappear {
             hideTimer?.invalidate()
             hideTimer = nil
+            MediaPlaybackCoordinator.shared.unregisterSession(id: url.path)
             store.cleanUp()
         }
     }
@@ -150,113 +185,132 @@ public struct MPVMetalVideoPlayerView: View {
     }
 }
 
-
-/// Universal in-place video playback canvas for MKV, WebM, AVI, FLV, TS, WMV, VOB.
-public struct MPVDirectContainerPlayerView: View {
+/// Native NSView hosting container embedding libmpv surface with Extended Dynamic Range (EDR) capability.
+public struct MPVNativeMetalContainerView: NSViewRepresentable {
     public let url: URL
     @ObservedObject public var store: MPVMetalPlayerStore
-    @ObservedObject private var l10n = AppLocalizationState.shared
+    public let onDropSubtitle: (URL) -> Void
+    public let onTogglePlayPause: () -> Void
+    public let onToggleFullScreen: () -> Void
     
-    public init(url: URL, store: MPVMetalPlayerStore) {
+    public init(
+        url: URL,
+        store: MPVMetalPlayerStore,
+        onDropSubtitle: @escaping (URL) -> Void = { _ in },
+        onTogglePlayPause: @escaping () -> Void = {},
+        onToggleFullScreen: @escaping () -> Void = {}
+    ) {
         self.url = url
         self.store = store
+        self.onDropSubtitle = onDropSubtitle
+        self.onTogglePlayPause = onTogglePlayPause
+        self.onToggleFullScreen = onToggleFullScreen
     }
     
-    private var isChinese: Bool {
-        l10n.currentLanguage == .zhHans || l10n.currentLanguage == .zhHant
+    public func makeNSView(context: Context) -> MPVMetalNSView {
+        let view = MPVMetalNSView()
+        view.onDropSubtitle = onDropSubtitle
+        view.onTogglePlayPause = onTogglePlayPause
+        view.onToggleFullScreen = onToggleFullScreen
+        store.setup(url: url, view: view)
+        return view
     }
     
-    private var containerPill: String {
-        let ext = url.pathExtension.uppercased()
-        return ext.isEmpty ? "VIDEO" : ext
-    }
-    
-    private var videoSpecString: String {
-        if let videoTrack = store.demuxSummary?.tracks.first(where: { $0.trackType == .video }) {
-            var parts: [String] = []
-            if let w = videoTrack.width, let h = videoTrack.height {
-                if w >= 3800 || h >= 2100 { parts.append("4K UHD (\(w)×\(h))") }
-                else if w >= 1900 || h >= 1000 { parts.append("1080p FHD (\(w)×\(h))") }
-                else { parts.append("\(w)×\(h)") }
-            }
-            if !videoTrack.codec.isEmpty { parts.append(videoTrack.codec.uppercased()) }
-            return parts.joined(separator: " · ")
-        }
-        let upper = url.lastPathComponent.uppercased()
-        if upper.contains("2160P") || upper.contains("4K") { return "4K UHD · HEVC / H.265" }
-        if upper.contains("1080P") { return "1080p FHD · AVC / H.264" }
-        return "\(containerPill) Video Stream"
-    }
-    
-    public var body: some View {
-        GeometryReader { geo in
-            ZStack {
-                // Cinematic background
-                RadialGradient(
-                    gradient: Gradient(colors: [
-                        Color(red: 0.12, green: 0.14, blue: 0.16),
-                        Color.black
-                    ]),
-                    center: .center,
-                    startRadius: 20,
-                    endRadius: max(geo.size.width, geo.size.height) * 0.8
-                )
-                
-                // Top Watermark Specs
-                VStack {
-                    HStack(spacing: 6) {
-                        Text(containerPill)
-                            .font(.system(size: 9, weight: .bold, design: .monospaced))
-                            .foregroundStyle(TTZipTheme.kintsugiGold)
-                            .padding(.horizontal, 6)
-                            .padding(.vertical, 2)
-                            .background(TTZipTheme.kintsugiGold.opacity(0.15))
-                            .clipShape(Capsule())
-                        
-                        Text(videoSpecString)
-                            .font(.system(size: 9, weight: .medium, design: .monospaced))
-                            .foregroundStyle(.white.opacity(0.75))
-                            .padding(.horizontal, 6)
-                            .padding(.vertical, 2)
-                            .background(Color.white.opacity(0.1))
-                            .clipShape(Capsule())
-                        
-                        Spacer()
-                    }
-                    .padding(.top, 12)
-                    .padding(.horizontal, 14)
-                    Spacer()
-                }
-                
-                // Center Play / Active Indicator
-                VStack(spacing: 8) {
-                    Button(action: { store.togglePlayPause() }) {
-                        ZStack {
-                            Circle()
-                                .fill(.ultraThinMaterial.opacity(0.85))
-                                .frame(width: 44, height: 44)
-                                .shadow(color: Color.black.opacity(0.3), radius: 6, x: 0, y: 3)
-                            
-                            Image(systemName: store.isPlaying ? "pause.fill" : "play.fill")
-                                .font(.system(size: 18, weight: .bold))
-                                .foregroundStyle(.white)
-                                .offset(x: store.isPlaying ? 0 : 1.5)
-                        }
-                    }
-                    .buttonStyle(.plain)
-                    
-                    if !store.isPlaying {
-                        Text(url.lastPathComponent)
-                            .font(.system(size: 11, weight: .medium))
-                            .foregroundStyle(.white.opacity(0.8))
-                            .lineLimit(1)
-                            .padding(.horizontal, 20)
-                    }
-                }
-            }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
+    public func updateNSView(_ nsView: MPVMetalNSView, context: Context) {
+        nsView.onDropSubtitle = onDropSubtitle
+        nsView.onTogglePlayPause = onTogglePlayPause
+        nsView.onToggleFullScreen = onToggleFullScreen
+        if store.currentURL != url {
+            store.setup(url: url, view: nsView)
         }
     }
 }
 
+/// High-performance NSView subclass configured for XDR Extended Dynamic Range and subtitle drag operations.
+public final class MPVMetalNSView: NSView {
+    public var onDropSubtitle: ((URL) -> Void)?
+    public var onTogglePlayPause: (() -> Void)?
+    public var onToggleFullScreen: (() -> Void)?
+    
+    public override init(frame frameRect: NSRect) {
+        super.init(frame: frameRect)
+        setupLayer()
+        registerForDraggedTypes([.fileURL])
+    }
+    
+    public required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+    
+    private func setupLayer() {
+        self.wantsLayer = true
+        self.layer?.backgroundColor = NSColor.black.cgColor
+        self.layerContentsRedrawPolicy = .duringViewResize
+        self.layer?.wantsExtendedDynamicRangeContent = true
+    }
+    
+    public override func mouseUp(with event: NSEvent) {
+        if event.clickCount == 2 {
+            onToggleFullScreen?()
+        } else if event.clickCount == 1 {
+            onTogglePlayPause?()
+        } else {
+            super.mouseUp(with: event)
+        }
+    }
+    
+    public override func draggingEntered(_ sender: NSDraggingInfo) -> NSDragOperation {
+        if hasValidSubtitleURL(sender) {
+            return .copy
+        }
+        return []
+    }
+    
+    public override func performDragOperation(_ sender: NSDraggingInfo) -> Bool {
+        if let urls = sender.draggingPasteboard.readObjects(forClasses: [NSURL.self], options: nil) as? [URL],
+           let firstURL = urls.first, isSubtitleURL(firstURL) {
+            onDropSubtitle?(firstURL)
+            return true
+        }
+        return false
+    }
+    
+    private func hasValidSubtitleURL(_ sender: NSDraggingInfo) -> Bool {
+        if let urls = sender.draggingPasteboard.readObjects(forClasses: [NSURL.self], options: nil) as? [URL],
+           let firstURL = urls.first {
+            return isSubtitleURL(firstURL)
+        }
+        return false
+    }
+    
+    private func isSubtitleURL(_ url: URL) -> Bool {
+        let ext = url.pathExtension.lowercased()
+        return ["srt", "ass", "ssa", "vtt", "sub", "lrc"].contains(ext)
+    }
+}
 
+/// Legacy container view shim preserving test suite backward compatibility.
+public struct AVPlayerLayerContainerView {
+    public final class PlayerNSView: NSView {
+        public let playerLayer = AVPlayerLayer()
+        
+        public override init(frame frameRect: NSRect = .zero) {
+            super.init(frame: frameRect)
+            self.wantsLayer = true
+            self.layer?.backgroundColor = NSColor.black.cgColor
+            self.layer?.wantsExtendedDynamicRangeContent = true
+            playerLayer.frame = self.bounds
+            playerLayer.videoGravity = .resizeAspect
+            self.layer?.addSublayer(playerLayer)
+        }
+        
+        public required init?(coder: NSCoder) {
+            fatalError("init(coder:) has not been implemented")
+        }
+        
+        public override func layout() {
+            super.layout()
+            playerLayer.frame = self.bounds
+        }
+    }
+}

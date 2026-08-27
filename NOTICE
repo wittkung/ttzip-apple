@@ -16,10 +16,67 @@ Licensing Structure:
 
 2. Client Applications (ttzip-apple, TTZipApp, QuickLook, FinderSync):
    Licensed under:
-   - The GNU General Public License, Version 3.0 or later (see LICENSE-GPL)
+   - The GNU General Public License, Version 3.0 or later (see LICENSE-GPL),
+     with the TTZip Plugin Linking Exception (see LICENSE).
 
 3. Trademark & Brand Protection:
    "TTZip", the official icons, and the Kintsugi Gold signature layout are
    exclusive intellectual properties of Witt Kung. No license grants rights to
    use project trademarks or redistribute unofficial builds on application stores.
+==============================================================================
+
+==============================================================================
+Third-Party Open Source Software Notices:
+------------------------------------------------------------------------------
+TTZip for macOS incorporates or dynamically links against the following
+third-party open source components:
+
+1. libmpv
+   - Description: Video player and media rendering core library.
+   - License: GNU Lesser General Public License (LGPL), version 2.1 or later.
+   - Project: https://mpv.io
+   - Source Code: https://github.com/mpv-player/mpv
+
+2. FFmpeg
+   - Description: Multimedia framework for audio/video decoding and demuxing.
+   - License: GNU Lesser General Public License (LGPL), version 2.1 or later /
+     LGPL version 3.0 or later.
+   - Project: https://ffmpeg.org
+   - Source Code: https://ffmpeg.org/download.html
+
+3. libass
+   - Description: Portable subtitle renderer for ASS/SSA subtitle formats.
+   - License: ISC License.
+   - Project: https://github.com/libass/libass
+   - Source Code: https://github.com/libass/libass
+
+4. libplacebo
+   - Description: High-performance GPU-accelerated video/image rendering
+     primitives, shader generation, and color management.
+   - License: GNU Lesser General Public License (LGPL), version 2.1 or later.
+   - Project: https://code.videolan.org/videolan/libplacebo
+   - Source Code: https://code.videolan.org/videolan/libplacebo
+
+5. uchardet
+   - Description: Universal charset detection library.
+   - License: Mozilla Public License (MPL), version 1.1 / GNU Lesser General
+     Public License (LGPL), version 2.1 or later.
+   - Project: https://www.freedesktop.org/wiki/Software/uchardet/
+   - Source Code: https://gitlab.freedesktop.org/uchardet/uchardet
+
+------------------------------------------------------------------------------
+Dynamic Linking & Source Code Availability (LGPL Compliance):
+------------------------------------------------------------------------------
+The LGPL-licensed libraries utilized by TTZip (including libmpv, FFmpeg, libplacebo,
+and uchardet) are dynamically linked shared libraries (.dylib). TTZip does not
+modify the binary structure of these libraries in a manner that restricts users
+from inspecting, modifying, or replacing these dynamic libraries.
+
+In compliance with the LGPL:
+- You may recompile or replace the dynamically linked libraries with your own
+  custom builds.
+- The source code for each open-source library can be obtained from their respective
+  upstream repositories listed above or requested via the TTZip issue tracker.
+- Build instructions, configurations, and scripts for assembling the embedded
+  binaries are documented within the TTZip repository.
 ==============================================================================

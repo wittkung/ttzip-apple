@@ -17,7 +17,7 @@ extension InspectorColumnView {
         }
         if item.isArchive { return "archivebox.fill" }
         if ["jpg", "jpeg", "png", "gif", "webp", "heic", "svg", "bmp", "tiff"].contains(ext) { return "photo.fill" }
-        if ["mp4", "mov", "m4v", "mkv", "avi", "webm"].contains(ext) { return "film.fill" }
+        if MediaPreviewFactory.videoExtensions.contains(ext) { return "film.fill" }
         if ["mp3", "wav", "flac", "m4a", "aac", "ogg"].contains(ext) { return "music.note" }
         if ext == "pdf" { return "doc.richtext.fill" }
         if ["swift", "js", "ts", "py", "json", "html", "css", "cpp", "c", "h", "rs", "go", "sh", "xml"].contains(ext) { return "doc.text.fill" }
@@ -44,7 +44,7 @@ extension InspectorColumnView {
         if ["jpg", "jpeg", "png", "gif", "webp", "heic", "svg", "bmp", "tiff"].contains(ext) {
             return LinearGradient(colors: [Color.purple, Color.indigo], startPoint: .topLeading, endPoint: .bottomTrailing)
         }
-        if ["mp4", "mov", "m4v", "mkv", "avi", "webm"].contains(ext) {
+        if MediaPreviewFactory.videoExtensions.contains(ext) {
             return LinearGradient(colors: [Color.pink, Color.orange], startPoint: .topLeading, endPoint: .bottomTrailing)
         }
         if ["mp3", "wav", "flac", "m4a", "aac", "ogg"].contains(ext) {

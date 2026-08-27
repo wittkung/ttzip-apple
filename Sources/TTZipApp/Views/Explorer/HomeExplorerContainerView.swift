@@ -11,7 +11,6 @@ import TTZipCore
 /// Home explorer container holding toolbar header and directory browser.
 public struct HomeExplorerContainerView: View {
     public var viewModel: AppViewState
-    @ObservedObject private var quickLookCoordinator = QuickLookPreviewCoordinator.shared
     @ObservedObject private var l10n = AppLocalizationState.shared
     public let isRightSidebarVisible: Bool
     public let isActive: Bool
@@ -90,7 +89,7 @@ public struct HomeExplorerContainerView: View {
                     viewModel.openCompressWorkspace(paths: [folderPath])
                 },
                 onPreviewFile: { path in
-                    quickLookCoordinator.previewDiskFile(url: URL(fileURLWithPath: path))
+                    viewModel.previewMediaFile(path: path)
                 },
                 onSelectItem: { item in
                     viewModel.selectedDiskItem = item
@@ -98,6 +97,5 @@ public struct HomeExplorerContainerView: View {
             )
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         }
-        .quickLookPreview($quickLookCoordinator.activePreviewURL)
     }
 }

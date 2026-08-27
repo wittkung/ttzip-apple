@@ -621,3 +621,15 @@ Program, unless a warranty or assumption of liability accompanies a
 copy of the Program in return for a fee.
 
                      END OF TERMS AND CONDITIONS
+
+----------------------------------------------------------------------
+TTZip Plugin Linking Exception
+----------------------------------------------------------------------
+Additional Permission under GNU General Public License version 3.0, section 7:
+
+As a special exception to the GNU General Public License version 3.0,
+the copyright holders of TTZip grant permission to link, dynamically load,
+and execute independent third-party plugins that interact solely through
+the public interfaces provided by TTZipPluginKit, regardless of the license
+terms of those plugins (including proprietary and closed-source licenses),
+and to copy and convey the resulting work.

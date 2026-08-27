@@ -28,25 +28,6 @@ final class QuickLookAndFinderIntegrationTests: XCTestCase {
         XCTAssertFalse(FileManager.default.fileExists(atPath: stagedURL.path))
     }
     
-    @MainActor
-    func test_quicklook_preview_coordinator_disk_toggle() throws {
-        let coordinator = QuickLookPreviewCoordinator.shared
-        let tempURL = FileManager.default.temporaryDirectory.appendingPathComponent("test_toggle_file.txt")
-        try Data("dummy".utf8).write(to: tempURL)
-        
-        defer {
-            try? FileManager.default.removeItem(at: tempURL)
-            coordinator.dismissPreview()
-        }
-        
-        coordinator.previewDiskFile(url: tempURL)
-        XCTAssertEqual(coordinator.activePreviewURL, tempURL)
-        
-        // Toggling same file dismisses preview
-        coordinator.previewDiskFile(url: tempURL)
-        XCTAssertNil(coordinator.activePreviewURL)
-    }
-    
     func test_archive_drag_item_provider_factory() {
         let itemProvider = ArchiveDragItemProviderFactory.createItemProvider(
             archivePath: "/tmp/fake_archive.zip",

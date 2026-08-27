@@ -146,10 +146,24 @@ public struct FinderMillerColumnsView: View {
             eventMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
                 guard self.isActive else { return event }
                 if let firstResponder = NSApp.keyWindow?.firstResponder {
-                    if firstResponder.isKind(of: NSTextView.self) && (firstResponder as? NSTextView)?.isFieldEditor == true {
+                    if (firstResponder.isKind(of: NSTextView.self) && (firstResponder as? NSTextView)?.isFieldEditor == true) || firstResponder is NSTextField {
                         return event
                     }
                 }
+                
+                // KeyCode 49 is Space Bar
+                if event.keyCode == 49 {
+                    if let item = selectedItem, !item.isDirectory {
+                        let ext = (item.name as NSString).pathExtension.lowercased()
+                        if MediaPreviewFactory.videoExtensions.contains(ext) || ["mp3", "wav", "flac", "m4a", "aac", "ogg"].contains(ext) {
+                            MediaPlaybackCoordinator.shared.triggerPlayPause()
+                            return nil
+                        }
+                        onPreviewFile(item.path)
+                        return nil
+                    }
+                }
+                
                 if event.keyCode == 51 || event.keyCode == 117 {
                     if let selected = selectedPaths[activeColumnIndex], selected.contains("?subpath=") {
                         let (archivePath, subpath) = MillerColumnItemRowView.parseVirtualURL(selected)

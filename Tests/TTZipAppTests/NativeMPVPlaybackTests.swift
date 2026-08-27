@@ -205,7 +205,7 @@ final class NativeMPVPlaybackTests: XCTestCase {
     // MARK: - Test 5: External Companion Subtitle Sniffing
     
     @MainActor
-    func testCompanionSubtitleDiscovery() throws {
+    func testCompanionSubtitleDiscovery() async throws {
         let videoURL = tempDirURL.appendingPathComponent("episode_01.mkv")
         try Data("video stream".utf8).write(to: videoURL)
         
@@ -217,6 +217,11 @@ final class NativeMPVPlaybackTests: XCTestCase {
         
         let store = MPVMetalPlayerStore()
         store.setup(url: videoURL)
+        
+        for _ in 0..<25 {
+            if store.subtitleTracks.count >= 2 { break }
+            try await Task.sleep(nanoseconds: 20_000_000)
+        }
         
         XCTAssertGreaterThanOrEqual(store.subtitleTracks.count, 2, "Should discover at least 2 external subtitle files")
         let formats = store.subtitleTracks.map { $0.format }

@@ -49,6 +49,30 @@ let package = Package(
     ],
     targets: [
         .target(
+            name: "CMPVBridge",
+            path: "Sources/CMPVBridge",
+            publicHeadersPath: "include",
+            cSettings: [
+                .headerSearchPath("include")
+            ],
+            linkerSettings: [
+                .linkedLibrary("mpv"),
+                .unsafeFlags([
+                    "-LVendor",
+                    "-Xlinker", "-rpath",
+                    "-Xlinker", "@loader_path/../../../../../../Vendor",
+                    "-Xlinker", "-rpath",
+                    "-Xlinker", "@loader_path/../../../../../Vendor",
+                    "-Xlinker", "-rpath",
+                    "-Xlinker", "@loader_path/../../../../Vendor",
+                    "-Xlinker", "-rpath",
+                    "-Xlinker", "@loader_path/../../../Vendor",
+                    "-Xlinker", "-rpath",
+                    "-Xlinker", "@executable_path/../Frameworks"
+                ])
+            ]
+        ),
+        .target(
             name: "TTZipPluginKit",
             dependencies: [
                 .product(name: "TTZipCore", package: corePackageName)
@@ -65,7 +89,8 @@ let package = Package(
             dependencies: [
                 .product(name: "TTZipCore", package: corePackageName),
                 .product(name: "Sparkle", package: "Sparkle"),
-                "TTZipPluginKit"
+                "TTZipPluginKit",
+                "CMPVBridge"
             ],
             path: "Sources/TTZipApp",
             exclude: [
@@ -103,6 +128,7 @@ let package = Package(
                 "TTZipPluginKit",
                 "TTZipFinderSync",
                 "TTZipQuickLook",
+                "CMPVBridge",
                 .product(name: "TTZipCore", package: corePackageName)
             ],
             path: "Tests/TTZipAppTests",

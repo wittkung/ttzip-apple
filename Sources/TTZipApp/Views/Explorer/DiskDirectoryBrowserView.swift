@@ -24,6 +24,7 @@ public struct DiskDirectoryBrowserView: View {
     @State private var targetSelectedPath: String? = nil
     @State private var dynamicFinderFavorites: [FinderFavoriteItem] = []
     @State private var draggingFavorite: FinderFavoriteItem? = nil
+    @State private var selectedItem: DiskItemInfo? = nil
     public let isActive: Bool
     
     public init(
@@ -150,8 +151,14 @@ public struct DiskDirectoryBrowserView: View {
                 onNavigateUp: canNavigateUp ? { navigateUp() } : nil,
                 onSelectArchive: onSelectArchive,
                 onCompressPath: onCompressPath,
-                onPreviewFile: onPreviewFile,
-                onSelectItem: onSelectItem
+                onPreviewFile: { path in
+                    previewFile(path: path)
+                },
+                onSelectItem: { item in
+                    self.selectedItem = item
+                    self.targetSelectedPath = item.path
+                    onSelectItem(item)
+                }
             )
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         }
@@ -260,5 +267,9 @@ public struct DiskDirectoryBrowserView: View {
     private func reloadCurrentDirectory() {
         let dir = currentDirectory
         currentDirectory = dir
+    }
+    
+    private func previewFile(path: String) {
+        onPreviewFile(path)
     }
 }

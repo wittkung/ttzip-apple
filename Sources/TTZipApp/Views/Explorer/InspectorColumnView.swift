@@ -212,12 +212,27 @@ public struct InspectorColumnView: View {
         .task(id: item.path) {
             if let url = effectivePreviewURL, FileManager.default.fileExists(atPath: url.path) {
                 let targetURL = url
-                let meta = await Task.detached(priority: .utility) {
-                    await DeepFileMetadataReader.readMetadata(for: targetURL)
-                }.value
-                await MainActor.run {
-                    self.deepMetadataDict = meta
+                let meta = await withTaskGroup(of: [String: String]?.self) { group in
+                    group.addTask(priority: .utility) {
+                        await DeepFileMetadataReader.readMetadata(for: targetURL)
+                    }
+                    group.addTask {
+                        try? await Task.sleep(nanoseconds: 1_000_000_000)
+                        return nil
+                    }
+                    
+                    for await result in group {
+                        if let result = result {
+                            group.cancelAll()
+                            return result
+                        } else {
+                            group.cancelAll()
+                            return [:]
+                        }
+                    }
+                    return [:]
                 }
+                self.deepMetadataDict = meta
             } else {
                 self.deepMetadataDict = [:]
             }
@@ -278,7 +293,7 @@ public struct InspectorColumnView: View {
                         }
                         
                         let extLower = (filename as NSString).pathExtension.lowercased()
-                        let isVideo = ["mp4", "mov", "m4v", "mkv", "avi", "webm"].contains(extLower)
+                        let isVideo = MediaPreviewFactory.videoExtensions.contains(extLower)
                         
                         if isVideo {
                             var loaded = false

@@ -55,7 +55,6 @@ public enum MediaPreviewType {
     case pluginView(AnyView)
     case image(NSImage)
     case video(URL)
-    case unsupportedVideo(URL, String)
     case audio(URL)
     case unsupportedAudio(URL, String)
     case pdf(URL)
@@ -66,7 +65,6 @@ public enum MediaPreviewType {
     case hexViewer(Data, URL?)
     case markdown(String, URL?)
     case spreadsheetTable(String, URL?)
-    case quickLook(URL)
     case unsupported(String)
     
     /// Convenience helper for .hexViewer

@@ -8,13 +8,11 @@
 import SwiftUI
 import AVKit
 import PDFKit
-import QuickLookUI
 import WebKit
 import TTZipCore
 import TTZipPluginKit
 
 /// Media preview view factory for dynamic media previews with zero-kickout video routing.
-@MainActor
 public enum MediaPreviewFactory {
 
     /// Archive extensions.
@@ -32,20 +30,19 @@ public enum MediaPreviewFactory {
         "png", "jpg", "jpeg", "gif", "webp", "heic", "bmp", "tiff", "ico"
     ]
     
-    /// Native video extensions directly decodable and playable via AVPlayer with GPU hardware acceleration.
-    public static let nativeVideoExtensions: Set<String> = [
-        "mp4", "mov", "m4v", "qt"
+    /// All video extensions supported for unified in-app zero-kickout playback via MPV Metal viewport.
+    public static let videoExtensions: Set<String> = [
+        "mp4", "mov", "m4v", "qt", "mkv", "avi", "webm", "ogv", "flv", "3gp",
+        "ts", "wmv", "vob", "rmvb", "divx", "m2ts", "asf", "f4v", "y4m", "rm", "mpg", "mpeg"
     ]
     
-    /// Extended video container extensions handled in-app via Rust demuxing and AVFoundation.
-    public static let extendedVideoExtensions: Set<String> = [
-        "mkv", "avi", "webm", "ogv", "flv", "3gp", "ts", "wmv", "vob", "rmvb", "divx", "m2ts", "asf", "f4v"
-    ]
+    /// Backward-compatible alias for video extensions.
+    public static let nativeVideoExtensions: Set<String> = videoExtensions
     
-    /// All recognizable video extensions routed to in-app zero-kickout playback.
-    public static let videoExtensions: Set<String> = nativeVideoExtensions.union(extendedVideoExtensions)
+    /// Backward-compatible alias for extended video formats (now unified into videoExtensions).
+    public static let extendedVideoExtensions: Set<String> = videoExtensions
     
-    /// All audio extensions supported for unified in-app embedded playback and waveform inspection.
+    /// Audio extensions.
     public static let audioExtensions: Set<String> = [
         "mp3", "wav", "m4a", "aac", "flac", "aifc", "aiff", "m4b", "alac", "caf",
         "ogg", "opus", "wma", "ape", "dts", "mid", "midi", "mka", "dsf", "dff", "wv"
@@ -55,29 +52,29 @@ public enum MediaPreviewFactory {
     public static let nativeAudioExtensions: Set<String> = audioExtensions
     
     /// Backward-compatible alias for extended audio formats (now unified into audioExtensions).
-    public static let extendedAudioExtensions: Set<String> = []
+    public static let extendedAudioExtensions: Set<String> = audioExtensions
     
     /// Document extensions.
     public static let docxExtensions: Set<String> = [
         "docx", "doc", "rtf", "odt"
     ]
     
-    /// Markdown documentation extensions.
+    /// Markdown extensions.
     public static let markdownExtensions: Set<String> = [
         "md", "markdown", "mdown", "mkd", "mkdn"
     ]
     
-    /// Structured spreadsheet and tabular data extensions.
+    /// Spreadsheet extensions.
     public static let spreadsheetExtensions: Set<String> = [
         "csv", "tsv", "tab", "psv", "ssv"
     ]
     
-    /// Binary and compiled code extensions routed to HexDataPreviewView.
+    /// Binary extensions.
     public static let binaryExtensions: Set<String> = [
         "bin", "dat", "so", "dylib", "wasm", "class", "o", "exe", "dll", "obj", "a", "lib", "hex", "rom", "elf", "dex", "pyc"
     ]
     
-    /// Text and code extensions.
+    /// Text extensions for native text code viewer.
     public static let textExtensions: Set<String> = [
         "txt", "log", "ini", "conf", "cfg", "properties", "env", "plist",
         "swift", "kt", "kts", "java", "rs", "go", "c", "cpp", "h", "hpp", "cs", "m", "mm",
@@ -86,7 +83,7 @@ public enum MediaPreviewFactory {
     ]
     
     /// Detects MediaPreviewType synchronously for URL.
-    public static func detectType(url: URL) -> MediaPreviewType {
+    nonisolated public static func detectType(url: URL) -> MediaPreviewType {
         let ext = url.pathExtension.lowercased()
         if archiveExtensions.contains(ext) {
             return .unsupported("Archive loaded. Double-click to browse contents.")
@@ -120,23 +117,29 @@ public enum MediaPreviewFactory {
             if let content = MediaPreviewView.readTextContent(from: url) {
                 return .markdown(content, url)
             }
-            return .quickLook(url)
+            let sampleData = readInitialSampleData(from: url)
+            return .hexViewer(sampleData, url)
         }
         if spreadsheetExtensions.contains(ext) {
             if let content = MediaPreviewView.readTextContent(from: url) {
                 return .spreadsheetTable(content, url)
             }
-            return .quickLook(url)
+            let sampleData = readInitialSampleData(from: url)
+            return .hexViewer(sampleData, url)
         }
         if binaryExtensions.contains(ext) {
             let sampleData = readInitialSampleData(from: url)
             return .hexViewer(sampleData, url)
         }
-        return .quickLook(url)
+        let sampleData = readInitialSampleData(from: url)
+        if !sampleData.isEmpty {
+            return .hexViewer(sampleData, url)
+        }
+        return .unsupported("Format: \(ext.uppercased())")
     }
 
     /// Detects MediaPreviewType asynchronously with deep unpacking.
-    public static func detectTypeAsync(url: URL) async -> MediaPreviewType {
+    nonisolated public static func detectTypeAsync(url: URL) async -> MediaPreviewType {
         let ext = url.pathExtension.lowercased()
         
         if archiveExtensions.contains(ext) {
@@ -195,21 +198,24 @@ public enum MediaPreviewFactory {
             if let attrStr = try? NSAttributedString(url: url, options: [:], documentAttributes: nil) {
                 return .docxDocument(attrStr, url)
             }
-            return .quickLook(url)
+            let sampleData = readInitialSampleData(from: url)
+            return .hexViewer(sampleData, url)
         }
         
         if markdownExtensions.contains(ext) {
             if let content = MediaPreviewView.readTextContent(from: url) {
                 return .markdown(content, url)
             }
-            return .quickLook(url)
+            let sampleData = readInitialSampleData(from: url)
+            return .hexViewer(sampleData, url)
         }
         
         if spreadsheetExtensions.contains(ext) {
             if let content = MediaPreviewView.readTextContent(from: url) {
                 return .spreadsheetTable(content, url)
             }
-            return .quickLook(url)
+            let sampleData = readInitialSampleData(from: url)
+            return .hexViewer(sampleData, url)
         }
         
         if binaryExtensions.contains(ext) {
@@ -235,11 +241,15 @@ public enum MediaPreviewFactory {
             }
         }
         
-        return .quickLook(url)
+        let sampleData = readInitialSampleData(from: url)
+        if !sampleData.isEmpty {
+            return .hexViewer(sampleData, url)
+        }
+        return .unsupported("Format: \(ext.uppercased())")
     }
     
     /// Resolves SF Symbol icon name for file name.
-    public static func iconName(for fileName: String) -> String {
+    nonisolated public static func iconName(for fileName: String) -> String {
         let ext = (fileName as NSString).pathExtension.lowercased()
         if imageExtensions.contains(ext) { return "photo.fill" }
         if videoExtensions.contains(ext) { return "film.fill" }
@@ -260,7 +270,7 @@ public enum MediaPreviewFactory {
     }
 
     /// Detects MediaPreviewType directly from in-memory Data (Zero Disk I/O).
-    public static func detectTypeFromMemory(data: Data, suggestedName: String) -> MediaPreviewType {
+    nonisolated public static func detectTypeFromMemory(data: Data, suggestedName: String) -> MediaPreviewType {
         let sniff = NativeMicrokernelBridge.sniffMagic(data: data)
         if sniff.kind == TTZIP_KIND_IMAGE, let image = DownsampledImageLoader.loadDownsampledImage(from: data) {
             return .image(image)
@@ -299,5 +309,12 @@ public enum MediaPreviewFactory {
         }
         
         return .unsupported("Format: \(sniff.format) (\(sniff.mime))")
+    }
+
+    /// Reads initial sample data for sniffing up to specified byte budget.
+    nonisolated public static func readInitialSampleData(from url: URL, maxBytes: Int = 64 * 1024) -> Data {
+        guard let handle = try? FileHandle(forReadingFrom: url) else { return Data() }
+        defer { try? handle.close() }
+        return (try? handle.read(upToCount: maxBytes)) ?? Data()
     }
 }

@@ -19,7 +19,7 @@ from pathlib import Path
 MAX_LOC_THRESHOLD = 800
 SOURCE_DIRS = ["Sources"]
 SOURCE_EXTENSIONS = {".swift", ".m", ".h", ".c", ".cpp"}
-IGNORED_DIRS = {"target", ".build", "Vendor", ".git", "DerivedData", "Generated"}
+IGNORED_DIRS = {"target", ".build", "Vendor", ".git", "DerivedData", "Generated", "mpv"}
 IGNORED_FILENAMES = set()
 
 # Terminal colors

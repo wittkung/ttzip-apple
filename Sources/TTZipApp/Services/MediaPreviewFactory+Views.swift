@@ -8,7 +8,6 @@
 import SwiftUI
 import AVKit
 import PDFKit
-import QuickLookUI
 import WebKit
 import TTZipCore
 import TTZipPluginKit
@@ -44,28 +43,11 @@ extension MediaPreviewFactory {
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             )
             
-        case .video(let url), .unsupportedVideo(let url, _):
-            if isFullScreenActive {
-                return AnyView(
-                    ZStack {
-                        Color.black
-                        VStack(spacing: 8) {
-                            Image(systemName: "arrow.up.left.and.arrow.down.right")
-                                .font(.system(size: 24))
-                                .foregroundStyle(TTZipTheme.bambooGreen)
-                            Text("Full-screen playback active...")
-                                .font(.system(size: 12, weight: .bold))
-                                .foregroundStyle(.secondary)
-                        }
-                    }
+        case .video(let url):
+            return AnyView(
+                MPVMetalVideoPlayerView(url: url)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
-                )
-            } else {
-                return AnyView(
-                    MPVMetalVideoPlayerView(url: url)
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                )
-            }
+            )
             
         case .audio(let url), .unsupportedAudio(let url, _):
             return AnyView(
@@ -121,12 +103,6 @@ extension MediaPreviewFactory {
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             )
             
-        case .quickLook(let url):
-            return AnyView(
-                QuickLookNSView(url: url)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-            )
-            
         case .unsupported(let msg):
             return AnyView(
                 VStack(spacing: 12) {
@@ -138,11 +114,5 @@ extension MediaPreviewFactory {
                 }
             )
         }
-    }
-    
-    public static func readInitialSampleData(from url: URL, maxBytes: Int = 64 * 1024) -> Data {
-        guard let handle = try? FileHandle(forReadingFrom: url) else { return Data() }
-        defer { try? handle.close() }
-        return (try? handle.read(upToCount: maxBytes)) ?? Data()
     }
 }

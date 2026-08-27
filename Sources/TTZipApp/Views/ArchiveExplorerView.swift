@@ -8,7 +8,6 @@
 import SwiftUI
 import TTZipCore
 import AppKit
-import QuickLook
 import UniformTypeIdentifiers
 
 public struct ArchiveExplorerView: View {

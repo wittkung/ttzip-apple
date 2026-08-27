@@ -24,10 +24,25 @@ echo "  ⚡ 启动 TTZip macOS 原生客户端全量构建与运行流水线..."
 echo "  架构: 独立微内核 SDK (TTZipCore) + Swift 6 原生 App"
 echo "============================================================"
 
-# 若本地存在 ../core 但尚未生成 Vendor 二进制，进行友好提示或触发预构建
-if [ -d "../core" ] && [ ! -f "../core/Vendor/TTZipVendor.xcframework/macos-arm64_x86_64/libTTZipVendor.a" ] && [ ! -f "../core/Vendor/TTZipVendor.xcframework/macos-arm64/libTTZipVendor.a" ]; then
-    echo "--> [INFO] 检测到本地微内核代码库，正在自动预编译 Universal TTZipCore SDK..."
-    (cd ../core && ./scripts/build_sdk_framework.sh --release) || true
+# 智能检测本地微内核 (TTZipCore) 是否需要重新编译
+if [ -d "../core" ]; then
+    VENDOR_LIB="../core/Vendor/TTZipVendor.xcframework/macos-arm64_x86_64/libTTZipVendor.a"
+    [ ! -f "$VENDOR_LIB" ] && VENDOR_LIB="../core/Vendor/TTZipVendor.xcframework/macos-arm64/libTTZipVendor.a"
+
+    NEED_CORE_BUILD=false
+    if [ ! -f "$VENDOR_LIB" ]; then
+        echo "--> [INFO] 未检测到预编译 TTZipCore SDK，准备全量编译..."
+        NEED_CORE_BUILD=true
+    elif [ -n "$(find ../core/rust/src ../core/rust/ttzip-engine/src ../core/rust/Cargo.toml -newer "$VENDOR_LIB" 2>/dev/null | head -n 1)" ]; then
+        echo "--> [INFO] 检测到 Rust 微内核源码更新，准备增量编译 TTZipCore..."
+        NEED_CORE_BUILD=true
+    fi
+
+    if [ "$NEED_CORE_BUILD" = true ]; then
+        (cd ../core && ./scripts/build_sdk_framework.sh --release --native --no-zip)
+    else
+        echo "--> [INFO] TTZipCore 微内核二进制已是最新，跳过编译。"
+    fi
 fi
 
 if [ -f "./scripts/bundle_app.sh" ]; then
@@ -44,3 +59,4 @@ if [ -t 0 ]; then
     echo "💡 构建完成。按任意键关闭此终端窗口..."
     read -n 1 -s -r 2>/dev/null || true
 fi
+

@@ -207,7 +207,7 @@ public struct MillerColumnItemContextMenu: View {
                 onSelectItem(item, columnIndex, false, false, dirURL)
                 AppIntentDispatcher.shared.dispatch(.previewItem(url: URL(fileURLWithPath: item.path)), from: .contextMenu)
             } label: {
-                Label(l10n.t(L10n.Explorer.quickLook), systemImage: "eye")
+                Label("Preview File", systemImage: "eye")
             }
             
             Button {

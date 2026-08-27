@@ -9,7 +9,7 @@ import SwiftUI
 import AppKit
 import TTZipCore
 
-/// Zen minimalist floating control bar with glassmorphic styling, precision scrubbing, track selectors, and volume control.
+/// Zen minimalist floating control bar with glassmorphic styling, precision scrubbing, track selectors, subtitle delay stepper, and HDR status.
 public struct MPVVideoControlBarView: View {
     @ObservedObject public var store: MPVMetalPlayerStore
     public let onToggleFullScreen: () -> Void
@@ -18,6 +18,7 @@ public struct MPVVideoControlBarView: View {
     @State private var isVolumeHovered: Bool = false
     @State private var isScrubbing: Bool = false
     @State private var scrubTime: Double = 0
+    @ObservedObject private var l10n = AppLocalizationState.shared
     
     public init(
         store: MPVMetalPlayerStore,
@@ -27,6 +28,10 @@ public struct MPVVideoControlBarView: View {
         self.store = store
         self.onToggleFullScreen = onToggleFullScreen
         self.onOpenExternal = onOpenExternal
+    }
+    
+    private var isChinese: Bool {
+        l10n.currentLanguage == .zhHans || l10n.currentLanguage == .zhHant
     }
     
     private var displayTime: Double {
@@ -44,7 +49,7 @@ public struct MPVVideoControlBarView: View {
                     .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
-            .help(store.isPlaying ? "Pause (Space)" : "Play (Space)")
+            .help(store.isPlaying ? (isChinese ? "暂停 (空格)" : "Pause (Space)") : (isChinese ? "播放 (空格)" : "Play (Space)"))
             
             // MARK: - Precise Time Indicator
             Text("\(formatTime(displayTime)) / \(formatTime(store.duration))")
@@ -90,9 +95,14 @@ public struct MPVVideoControlBarView: View {
             }
             .frame(height: 12)
             
+            // MARK: - HDR / EDR Status Indicator Pill
+            hdrStatusBadge
+            
             // MARK: - Audio Track Selector Menu
             if !store.audioTracks.isEmpty {
                 Menu {
+                    Text(isChinese ? "音轨选择" : "Audio Tracks")
+                    Divider()
                     ForEach(store.audioTracks) { track in
                         Button(action: { store.selectAudioTrack(track) }) {
                             HStack {
@@ -110,40 +120,21 @@ public struct MPVVideoControlBarView: View {
                 }
                 .menuStyle(.borderlessButton)
                 .fixedSize()
-                .help("Audio Track Selector")
+                .help(isChinese ? "选择音频轨道" : "Select Audio Track")
             }
             
-            // MARK: - ASS / SRT Subtitle Track Selector Menu
-            if !store.subtitleTracks.isEmpty {
-                Menu {
-                    Button(action: { store.selectSubtitleTrack(nil) }) {
-                        HStack {
-                            if store.selectedSubtitleTrackId == nil {
-                                Image(systemName: "checkmark")
-                            }
-                            Text("Subtitles Off")
-                        }
-                    }
-                    Divider()
-                    ForEach(store.subtitleTracks) { sub in
-                        Button(action: { store.selectSubtitleTrack(sub) }) {
-                            HStack {
-                                if store.selectedSubtitleTrackId == sub.id {
-                                    Image(systemName: "checkmark")
-                                }
-                                Text("[\(sub.format)] \(sub.title) (\(sub.language))")
-                            }
-                        }
-                    }
-                } label: {
-                    Image(systemName: store.selectedSubtitleTrackId != nil ? "captions.bubble.fill" : "captions.bubble")
-                        .font(.system(size: 10, weight: .semibold))
-                        .foregroundStyle(store.selectedSubtitleTrackId != nil ? TTZipTheme.bambooGreen : Color.white.opacity(0.8))
-                }
-                .menuStyle(.borderlessButton)
-                .fixedSize()
-                .help("Subtitle Selector")
+            // MARK: - Universal Dual Subtitle & Delay Selector Menu
+            subtitleMenu
+            
+            // MARK: - Volume / Mute Toggle
+            Button(action: { store.toggleMute() }) {
+                Image(systemName: volumeIconName)
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundStyle(store.isMuted ? .white.opacity(0.5) : .white.opacity(0.85))
+                    .frame(width: 16, height: 16)
             }
+            .buttonStyle(.plain)
+            .help(store.isMuted ? (isChinese ? "取消静音" : "Unmute") : (isChinese ? "静音" : "Mute"))
             
             // MARK: - Fullscreen Toggle
             Button(action: { onToggleFullScreen() }) {
@@ -153,7 +144,7 @@ public struct MPVVideoControlBarView: View {
                     .frame(width: 16, height: 16)
             }
             .buttonStyle(.plain)
-            .help("Toggle Full Screen")
+            .help(isChinese ? "进入/退出全屏 (F)" : "Toggle Full Screen (F)")
             
             // MARK: - Open in External Player
             Button(action: { onOpenExternal() }) {
@@ -163,15 +154,123 @@ public struct MPVVideoControlBarView: View {
                     .frame(width: 16, height: 16)
             }
             .buttonStyle(.plain)
-            .help("Open in Default Player (IINA/VLC/QuickTime)")
+            .help(isChinese ? "在系统播放器中打开 (IINA/QuickTime)" : "Open in Default Player (IINA/QuickTime)")
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 5)
-        .background(.ultraThinMaterial.opacity(0.8))
+        .background(.ultraThinMaterial.opacity(0.85))
         .clipShape(Capsule())
         .overlay(Capsule().strokeBorder(Color.white.opacity(0.18), lineWidth: 0.5))
         .shadow(color: Color.black.opacity(0.35), radius: 6, x: 0, y: 2)
-
+    }
+    
+    // MARK: - Subviews & Controls
+    
+    @ViewBuilder
+    private var hdrStatusBadge: some View {
+        let metrics = store.edrMetrics
+        if metrics.isHDRActive || metrics.hdrFormat.isHDR {
+            HStack(spacing: 3) {
+                Circle()
+                    .fill(TTZipTheme.kintsugiGold)
+                    .frame(width: 5, height: 5)
+                Text(metrics.hdrFormat.rawValue)
+                    .font(.system(size: 8.5, weight: .bold, design: .monospaced))
+                    .foregroundStyle(TTZipTheme.kintsugiGold)
+            }
+            .padding(.horizontal, 5)
+            .padding(.vertical, 1.5)
+            .background(TTZipTheme.kintsugiGold.opacity(0.15))
+            .clipShape(Capsule())
+            .help(isChinese ? "4K/8K XDR 渲染模式 (峰值 \(Int(metrics.peakNits)) nits)" : "XDR HDR Video (Peak \(Int(metrics.peakNits)) nits)")
+        } else {
+            Text("SDR")
+                .font(.system(size: 8.5, weight: .semibold, design: .monospaced))
+                .foregroundStyle(.white.opacity(0.5))
+                .padding(.horizontal, 4)
+                .padding(.vertical, 1.5)
+                .background(Color.white.opacity(0.08))
+                .clipShape(Capsule())
+        }
+    }
+    
+    @ViewBuilder
+    private var subtitleMenu: some View {
+        Menu {
+            // Section 1: Primary Subtitle
+            Section(isChinese ? "主字幕轨道" : "Primary Subtitles") {
+                Button(action: { store.selectSubtitleTrack(nil) }) {
+                    HStack {
+                        if store.selectedSubtitleTrackId == nil {
+                            Image(systemName: "checkmark")
+                        }
+                        Text(isChinese ? "关闭主字幕" : "Subtitles Off")
+                    }
+                }
+                
+                ForEach(store.subtitleTracks) { sub in
+                    Button(action: { store.selectSubtitleTrack(sub) }) {
+                        HStack {
+                            if store.selectedSubtitleTrackId == sub.id {
+                                Image(systemName: "checkmark")
+                            }
+                            Text("[\(sub.format)] \(sub.title) (\(sub.language))")
+                        }
+                    }
+                }
+            }
+            
+            // Section 2: Secondary / Bilingual Subtitle
+            if !store.subtitleTracks.isEmpty {
+                Section(isChinese ? "次级双语字幕" : "Secondary Subtitles") {
+                    Button(action: { store.selectSecondarySubtitleTrack(nil) }) {
+                        HStack {
+                            if store.selectedSecondarySubtitleTrackId == nil {
+                                Image(systemName: "checkmark")
+                            }
+                            Text(isChinese ? "关闭次级字幕" : "Secondary Off")
+                        }
+                    }
+                    
+                    ForEach(store.subtitleTracks) { sub in
+                        Button(action: { store.selectSecondarySubtitleTrack(sub) }) {
+                            HStack {
+                                if store.selectedSecondarySubtitleTrackId == sub.id {
+                                    Image(systemName: "checkmark")
+                                }
+                                Text("[\(sub.format)] \(sub.title) (\(sub.language))")
+                            }
+                        }
+                    }
+                }
+            }
+            
+            // Section 3: Subtitle Delay Adjustment
+            Section(isChinese ? "字幕同步微调" : "Subtitle Sync") {
+                Text(String(format: isChinese ? "当前延迟: %.1fs" : "Delay: %.1fs", store.subtitleDelay))
+                
+                Button(action: { store.setSubtitleDelay(seconds: store.subtitleDelay - 0.1) }) {
+                    Label(isChinese ? "提前 0.1 秒 (-0.1s)" : "Advance 0.1s (-0.1s)", systemImage: "gobackward.minus")
+                }
+                
+                Button(action: { store.setSubtitleDelay(seconds: store.subtitleDelay + 0.1) }) {
+                    Label(isChinese ? "延迟 0.1 秒 (+0.1s)" : "Delay 0.1s (+0.1s)", systemImage: "goforward.plus")
+                }
+                
+                if abs(store.subtitleDelay) > 0.001 {
+                    Button(action: { store.setSubtitleDelay(seconds: 0.0) }) {
+                        Label(isChinese ? "重置延迟 (0.0s)" : "Reset Delay (0.0s)", systemImage: "arrow.counterclockwise")
+                    }
+                }
+            }
+        } label: {
+            Image(systemName: store.selectedSubtitleTrackId != nil ? "captions.bubble.fill" : "captions.bubble")
+                .font(.system(size: 10, weight: .semibold))
+                .foregroundStyle(store.selectedSubtitleTrackId != nil ? TTZipTheme.bambooGreen : Color.white.opacity(0.8))
+        }
+        .menuStyle(.borderlessButton)
+        .fixedSize()
+        .help(isChinese ? "字幕选择与同步调节" : "Subtitle & Sync Controls")
     }
     
     private var volumeIconName: String {
@@ -206,3 +305,4 @@ public struct MPVVideoControlBarView: View {
         }
     }
 }
+

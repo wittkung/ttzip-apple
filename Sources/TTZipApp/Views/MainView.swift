@@ -61,7 +61,7 @@ public struct MainView: View {
             let rightPanelPadding: CGFloat = 14.0 // leading: 4 + trailing: 10
             let minSafeWorkspaceWidth: CGFloat = 420.0
             let minRightSidebarWidth: CGFloat = 200.0
-            let maxRightSidebarWidth: CGFloat = 480.0
+            let maxRightSidebarWidth: CGFloat = max(850.0, totalWidth * 0.55)
             
             let isRightPanelAvailable: Bool = (tier != .compact && viewModel.activeTab == .home && viewModel.selectedDiskItem != nil && viewModel.selectedDiskItem?.isDirectory == false)
             let shouldShowRightPanel = isRightSidebarVisible && isRightPanelAvailable
