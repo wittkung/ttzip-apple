@@ -350,6 +350,16 @@ public struct QuickLookNSView: NSViewRepresentable {
     }
     
     public func updateNSView(_ nsView: QLPreviewView, context: Context) {
-        nsView.previewItem = url as QLPreviewItem
+        guard let currentItem = nsView.previewItem as? URL, currentItem != url else {
+            if nsView.previewItem == nil {
+                nsView.previewItem = url as QLPreviewItem
+            }
+            return
+        }
+        DispatchQueue.main.async {
+            guard nsView.window != nil else { return }
+            nsView.previewItem = url as QLPreviewItem
+        }
     }
 }
+

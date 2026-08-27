@@ -8,32 +8,9 @@
 import SwiftUI
 import AppKit
 import AVFoundation
-import QuickLookUI
-
-/// Direct hardware accelerated QuickLook video player hosting view for non-native containers (MKV, WebM, TS, AVI).
-public struct QuickLookDirectVideoHostingView: NSViewRepresentable {
-    public let url: URL
-    
-    public init(url: URL) {
-        self.url = url
-    }
-    
-    public func makeNSView(context: Context) -> QLPreviewView {
-        let preview = QLPreviewView(frame: .zero, style: .normal) ?? QLPreviewView()
-        preview.previewItem = url as QLPreviewItem
-        preview.autostarts = true
-        return preview
-    }
-    
-    public func updateNSView(_ nsView: QLPreviewView, context: Context) {
-        if (nsView.previewItem as? URL) != url {
-            nsView.previewItem = url as QLPreviewItem
-            nsView.autostarts = true
-        }
-    }
-}
 
 /// AVPlayerLayer hosting NSViewRepresentable wrapper with aspect resize.
+
 public struct AVPlayerLayerContainerView: NSViewRepresentable {
     public let player: AVPlayer
     
