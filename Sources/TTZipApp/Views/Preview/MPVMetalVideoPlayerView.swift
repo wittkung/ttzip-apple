@@ -12,14 +12,13 @@ import Metal
 import QuartzCore
 import TTZipCore
 
-/// Native Metal EDR video player viewport supporting 16-bit Float HDR and Zen floating controls.
+/// Masterpiece video player viewport supporting native AVKit hardware playback and Rust-demuxed Zen Cinema Deck.
 public struct MPVMetalVideoPlayerView: View {
     public let url: URL
     
     @StateObject private var store = MPVMetalPlayerStore()
     @State private var isHovering: Bool = false
     @State private var hideTimer: Timer? = nil
-    @State private var sessionId: String = UUID().uuidString
     @ObservedObject private var l10n = AppLocalizationState.shared
     
     public init(url: URL) {
@@ -30,194 +29,86 @@ public struct MPVMetalVideoPlayerView: View {
         l10n.currentLanguage == .zhHans || l10n.currentLanguage == .zhHant
     }
     
-    private var containerBadge: String {
-        let ext = url.pathExtension.uppercased()
-        return ext.isEmpty ? "VIDEO" : ext
-    }
-    
-    private var qualityBadges: [String] {
-        var badges: [String] = []
-        let upper = url.lastPathComponent.uppercased()
-        
-        if let videoTrack = store.demuxSummary?.tracks.first(where: { $0.trackType == .video }) {
-            if let w = videoTrack.width, let h = videoTrack.height {
-                if w >= 3800 || h >= 2100 { badges.append("4K UHD") }
-                else if w >= 1900 || h >= 1000 { badges.append("1080p FHD") }
-                else if w >= 1200 || h >= 700 { badges.append("720p HD") }
-            }
-            if !videoTrack.codec.isEmpty { badges.append(videoTrack.codec.uppercased()) }
-        } else {
-            if upper.contains("2160P") || upper.contains("4K") || upper.contains("UHD") { badges.append("4K UHD") }
-            else if upper.contains("1080P") || upper.contains("FHD") { badges.append("1080p") }
-            if upper.contains("H.265") || upper.contains("HEVC") || upper.contains("X265") { badges.append("HEVC") }
-            else if upper.contains("H.264") || upper.contains("AVC") || upper.contains("X264") { badges.append("AVC") }
-        }
-        
-        if store.edrMetrics.isHDRActive || upper.contains("HDR") || upper.contains("DV") {
-            badges.append("EDR 1600nits")
-        }
-        return badges
-    }
-    
     public var body: some View {
         ZStack(alignment: .center) {
             Color.black.ignoresSafeArea()
             
             if store.hasDecoderLimitation {
-                QuickLookDirectVideoHostingView(url: url)
+                // Non-native Matroska/WebM/AVI container: Elegant Zen Cinema Deck
+                ZenCinemaDeckView(url: url, store: store)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else if let player = store.player {
-                MetalEDRVideoContainerView(player: player)
+                // Native Apple Silicon AVPlayer hardware viewport
+                AVPlayerLayerContainerView(player: player)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .onTapGesture(count: 2) {
                         toggleFullScreen()
                     }
                     .onTapGesture(count: 1) {
                         store.togglePlayPause()
                     }
-            } else {
-                ProgressView()
-                    .controlSize(.large)
-            }
-            
-            // MARK: - Center HUD Play/Pause Pulse
-            if !store.hasDecoderLimitation && (isHovering || !store.isPlaying) {
-                Button(action: { store.togglePlayPause() }) {
-                    ZStack {
-                        Circle()
-                            .fill(.ultraThinMaterial.opacity(0.85))
-                            .frame(width: 64, height: 64)
-                            .shadow(color: Color.black.opacity(0.35), radius: 10, x: 0, y: 4)
-                            .overlay(Circle().strokeBorder(Color.white.opacity(0.25), lineWidth: 1))
-                        
-                        Image(systemName: store.isPlaying ? "pause.fill" : "play.fill")
-                            .font(.system(size: 26, weight: .bold))
-                            .foregroundStyle(.white)
-                            .offset(x: store.isPlaying ? 0 : 2)
+                
+                // Top-right Sleek Actions
+                if isHovering {
+                    VStack {
+                        HStack {
+                            Spacer()
+                            Button(action: { toggleFullScreen() }) {
+                                Image(systemName: "arrow.up.left.and.arrow.down.right")
+                                    .font(.system(size: 11, weight: .semibold))
+                                    .foregroundStyle(.white.opacity(0.9))
+                                    .padding(7)
+                                    .background(.ultraThinMaterial.opacity(0.8))
+                                    .clipShape(Circle())
+                            }
+                            .buttonStyle(.plain)
+                            .help(isChinese ? "进入全屏预览 (F)" : "Enter Full Screen")
+                        }
+                        .padding(10)
+                        Spacer()
                     }
-                }
-                .buttonStyle(.plain)
-                .transition(.scale(scale: 0.85).combined(with: .opacity).animation(.spring(response: 0.2, dampingFraction: 0.8)))
-            }
-            
-            // MARK: - Top Header Info Bar
-            if isHovering || !store.isPlaying {
-                VStack {
-                    topInfoBar
-                    Spacer()
-                }
-            }
-            
-            // MARK: - Bottom Zen Floating Controls
-            if isHovering || !store.isPlaying {
-                VStack {
-                    Spacer()
-                    MPVVideoControlBarView(
-                        store: store,
-                        onToggleFullScreen: { toggleFullScreen() },
-                        onOpenExternal: { NSWorkspace.shared.open(url) }
-                    )
-                    .padding(.horizontal, 20)
-                    .padding(.bottom, 20)
                     .transition(.opacity.animation(.easeInOut(duration: 0.15)))
                 }
-            }
-        }
-        .contextMenu {
-            Button(action: { NSWorkspace.shared.open(url) }) {
-                Label(isChinese ? "在默认播放器中打开 (IINA/VLC/QuickTime)" : "Open in Default Player", systemImage: "arrow.up.forward.app")
-            }
-            Button(action: { NSWorkspace.shared.selectFile(url.path, inFileViewerRootedAtPath: "") }) {
-                Label(isChinese ? "在访达中显示" : "Reveal in Finder", systemImage: "folder")
-            }
-            Button(action: { QuickLookPreviewCoordinator.shared.previewDiskFile(url: url) }) {
-                Label(isChinese ? "快速查看" : "Quick Look", systemImage: "eye")
+                
+                // Bottom Ultra-Sleek Zen Floating Controls
+                if isHovering || !store.isPlaying {
+                    VStack {
+                        Spacer()
+                        MPVVideoControlBarView(
+                            store: store,
+                            onToggleFullScreen: { toggleFullScreen() },
+                            onOpenExternal: { NSWorkspace.shared.open(url) }
+                        )
+                        .padding(.horizontal, 14)
+                        .padding(.bottom, 10)
+                        .transition(.opacity.animation(.easeInOut(duration: 0.15)))
+                    }
+                }
+            } else {
+                ProgressView()
+                    .controlSize(.small)
             }
         }
         .onContinuousHover { phase in
             switch phase {
             case .active:
                 isHovering = true
-                MediaPlaybackCoordinator.shared.setHovered(id: sessionId, isHovered: true)
                 resetHideTimer()
             case .ended:
                 isHovering = false
-                MediaPlaybackCoordinator.shared.setHovered(id: sessionId, isHovered: false)
             }
         }
         .onAppear {
             store.setup(url: url)
-            MediaPlaybackCoordinator.shared.registerSession(
-                id: sessionId,
-                isPlaying: store.isPlaying,
-                togglePlayPause: { [weak store] in store?.togglePlayPause() },
-                seekBy: { [weak store] delta in store?.seekBy(delta) }
-            )
         }
         .onChange(of: url) { _, newURL in
             store.setup(url: newURL)
         }
-        .onChange(of: store.isPlaying) { _, playing in
-            MediaPlaybackCoordinator.shared.updatePlaybackState(id: sessionId, isPlaying: playing)
-        }
         .onDisappear {
             hideTimer?.invalidate()
             hideTimer = nil
-            MediaPlaybackCoordinator.shared.unregisterSession(id: sessionId)
             store.cleanUp()
         }
-    }
-    
-    private var topInfoBar: some View {
-        HStack(spacing: 8) {
-            Text(containerBadge)
-                .font(.system(size: 9.5, weight: .bold, design: .monospaced))
-                .foregroundStyle(TTZipTheme.kintsugiGold)
-                .padding(.horizontal, 6)
-                .padding(.vertical, 2)
-                .background(TTZipTheme.kintsugiGold.opacity(0.2))
-                .clipShape(Capsule())
-            
-            Text(url.lastPathComponent)
-                .font(.system(size: 11.5, weight: .semibold))
-                .foregroundStyle(.white)
-                .lineLimit(1)
-            
-            ForEach(qualityBadges, id: \.self) { badge in
-                Text(badge)
-                    .font(.system(size: 9, weight: .medium, design: .monospaced))
-                    .foregroundStyle(.white.opacity(0.85))
-                    .padding(.horizontal, 5)
-                    .padding(.vertical, 1.5)
-                    .background(Color.white.opacity(0.12))
-                    .clipShape(Capsule())
-            }
-            
-            Spacer()
-            
-            Button(action: { NSWorkspace.shared.open(url) }) {
-                HStack(spacing: 4) {
-                    Image(systemName: "arrow.up.forward.app")
-                        .font(.system(size: 10, weight: .bold))
-                    Text(isChinese ? "外部打开" : "Open In App")
-                        .font(.system(size: 10.5, weight: .semibold))
-                }
-                .foregroundStyle(.white)
-                .padding(.horizontal, 8)
-                .padding(.vertical, 4)
-                .background(Capsule().fill(Color.white.opacity(0.15)))
-                .overlay(Capsule().strokeBorder(Color.white.opacity(0.25), lineWidth: 0.5))
-            }
-            .buttonStyle(.plain)
-            .help("Open in External Player")
-        }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 8)
-        .background(.ultraThinMaterial.opacity(0.85))
-        .clipShape(Capsule())
-        .shadow(color: Color.black.opacity(0.35), radius: 6, x: 0, y: 2)
-        .padding(.top, 14)
-        .padding(.horizontal, 16)
-        .transition(.opacity.animation(.easeInOut(duration: 0.15)))
     }
     
     private func toggleFullScreen() {
@@ -232,7 +123,7 @@ public struct MPVMetalVideoPlayerView: View {
         hideTimer?.invalidate()
         hideTimer = Timer.scheduledTimer(withTimeInterval: 2.5, repeats: false) { _ in
             Task { @MainActor in
-                withAnimation {
+                withAnimation(.easeInOut(duration: 0.2)) {
                     if store.isPlaying { isHovering = false }
                 }
             }
@@ -240,93 +131,193 @@ public struct MPVMetalVideoPlayerView: View {
     }
 }
 
-/// AppKit NSView wrapper hosting CAMetalLayer (16-bit Float HDR / 1600 nits EDR) and AVPlayerLayer.
-public struct MetalEDRVideoContainerView: NSViewRepresentable {
-    public let player: AVPlayer
+/// High-aesthetic WSJ Editorial grade Zen media preview deck for extended containers (MKV, WebM, AVI, FLV, TS).
+public struct ZenCinemaDeckView: View {
+    public let url: URL
+    @ObservedObject public var store: MPVMetalPlayerStore
+    @ObservedObject private var l10n = AppLocalizationState.shared
     
-    public init(player: AVPlayer) {
-        self.player = player
+    public init(url: URL, store: MPVMetalPlayerStore) {
+        self.url = url
+        self.store = store
     }
     
-    public func makeNSView(context: Context) -> MetalEDRNSView {
-        let view = MetalEDRNSView()
-        view.attach(player: player)
-        return view
+    private var isChinese: Bool {
+        l10n.currentLanguage == .zhHans || l10n.currentLanguage == .zhHant
     }
     
-    public func updateNSView(_ nsView: MetalEDRNSView, context: Context) {
-        nsView.attach(player: player)
+    private var fileSizeString: String {
+        guard let attr = try? FileManager.default.attributesOfItem(atPath: url.path),
+              let size = attr[.size] as? Int64 else {
+            return "--"
+        }
+        return l10n.formatBytes(size)
     }
     
-    public final class MetalEDRNSView: NSView {
-        public let metalLayer = CAMetalLayer()
-        public let playerLayer = AVPlayerLayer()
-        private var metalDevice: MTLDevice?
-        private var commandQueue: MTLCommandQueue?
-        
-        public override init(frame frameRect: NSRect) {
-            super.init(frame: frameRect)
-            setupMetalLayers()
-        }
-        
-        public required init?(coder: NSCoder) {
-            super.init(coder: coder)
-            setupMetalLayers()
-        }
-        
-        private func setupMetalLayers() {
-            self.wantsLayer = true
-            let device = MTLCreateSystemDefaultDevice()
-            self.metalDevice = device
-            self.commandQueue = device?.makeCommandQueue()
-            
-            metalLayer.device = device
-            metalLayer.pixelFormat = .rgba16Float
-            metalLayer.wantsExtendedDynamicRangeContent = true
-            metalLayer.colorspace = CGColorSpace(name: CGColorSpace.extendedLinearSRGB) ?? CGColorSpace(name: CGColorSpace.sRGB)
-            metalLayer.framebufferOnly = false
-            metalLayer.allowsNextDrawableTimeout = false
-            metalLayer.contentsScale = NSScreen.main?.backingScaleFactor ?? 2.0
-            
-            playerLayer.videoGravity = .resizeAspect
-            playerLayer.contentsScale = NSScreen.main?.backingScaleFactor ?? 2.0
-            
-            self.layer?.backgroundColor = NSColor.black.cgColor
-            self.layer?.addSublayer(metalLayer)
-            self.layer?.addSublayer(playerLayer)
-        }
-        
-        public func attach(player: AVPlayer) {
-            if playerLayer.player !== player {
-                playerLayer.player = player
+    private var containerPill: String {
+        let ext = url.pathExtension.uppercased()
+        return ext.isEmpty ? "VIDEO" : ext
+    }
+    
+    private var videoSpecString: String {
+        if let videoTrack = store.demuxSummary?.tracks.first(where: { $0.trackType == .video }) {
+            var parts: [String] = []
+            if let w = videoTrack.width, let h = videoTrack.height {
+                if w >= 3800 || h >= 2100 { parts.append("4K UHD (\(w)×\(h))") }
+                else if w >= 1900 || h >= 1000 { parts.append("1080p FHD (\(w)×\(h))") }
+                else { parts.append("\(w)×\(h)") }
             }
-            renderEDRFrame()
+            if !videoTrack.codec.isEmpty { parts.append(videoTrack.codec.uppercased()) }
+            return parts.joined(separator: " · ")
         }
-        
-        public func renderEDRFrame() {
-            guard let queue = commandQueue,
-                  let drawable = metalLayer.nextDrawable() else { return }
-            let passDesc = MTLRenderPassDescriptor()
-            passDesc.colorAttachments[0].texture = drawable.texture
-            passDesc.colorAttachments[0].loadAction = .clear
-            passDesc.colorAttachments[0].clearColor = MTLClearColor(red: 0, green: 0, blue: 0, alpha: 1)
-            passDesc.colorAttachments[0].storeAction = .store
-            
-            if let cmdBuffer = queue.makeCommandBuffer(),
-               let encoder = cmdBuffer.makeRenderCommandEncoder(descriptor: passDesc) {
-                encoder.endEncoding()
-                cmdBuffer.present(drawable)
-                cmdBuffer.commit()
+        let upper = url.lastPathComponent.uppercased()
+        if upper.contains("2160P") || upper.contains("4K") { return "4K UHD · HEVC / H.265" }
+        if upper.contains("1080P") { return "1080p FHD · AVC / H.264" }
+        return "\(containerPill) Video Stream"
+    }
+    
+    private var audioSpecString: String {
+        if let audioTrack = store.demuxSummary?.tracks.first(where: { $0.trackType == .audio }) {
+            var parts: [String] = []
+            if let title = audioTrack.title, !title.isEmpty { parts.append(title) }
+            if !audioTrack.codec.isEmpty { parts.append(audioTrack.codec.uppercased()) }
+            if let ch = audioTrack.channels {
+                parts.append(ch >= 6 ? "5.1 Surround" : "\(ch) Channels")
             }
+            return parts.joined(separator: " · ")
         }
-        
-        public override func layout() {
-            super.layout()
-            CATransaction.begin()
-            CATransaction.setDisableActions(true)
-            metalLayer.frame = bounds
-            playerLayer.frame = bounds
-            CATransaction.commit()
+        let upper = url.lastPathComponent.uppercased()
+        if upper.contains("DDP5.1") || upper.contains("5.1") { return "Dolby Digital Plus 5.1" }
+        return isChinese ? "标准音频流" : "Standard Audio Stream"
+    }
+    
+    public var body: some View {
+        ScrollView(.vertical, showsIndicators: false) {
+            VStack(spacing: 14) {
+                // Top Hero Badge & Filename
+                VStack(spacing: 6) {
+                    HStack(spacing: 6) {
+                        Text(containerPill)
+                            .font(.system(size: 9.5, weight: .bold, design: .monospaced))
+                            .foregroundStyle(TTZipTheme.kintsugiGold)
+                            .padding(.horizontal, 7)
+                            .padding(.vertical, 2)
+                            .background(TTZipTheme.kintsugiGold.opacity(0.15))
+                            .clipShape(Capsule())
+                        
+                        Text(fileSizeString)
+                            .font(.system(size: 9.5, weight: .semibold, design: .monospaced))
+                            .foregroundStyle(TTZipTheme.bambooGreen)
+                            .padding(.horizontal, 7)
+                            .padding(.vertical, 2)
+                            .background(TTZipTheme.bambooGreen.opacity(0.15))
+                            .clipShape(Capsule())
+                    }
+                    
+                    Text(url.lastPathComponent)
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(.white.opacity(0.95))
+                        .multilineTextAlignment(.center)
+                        .lineLimit(2)
+                        .padding(.horizontal, 14)
+                }
+                .padding(.top, 16)
+                
+                // Primary Action Button (Instant One-Click Playback)
+                Button(action: { NSWorkspace.shared.open(url) }) {
+                    HStack(spacing: 7) {
+                        Image(systemName: "play.fill")
+                            .font(.system(size: 11, weight: .bold))
+                        Text(isChinese ? "在默认播放器中播放 (IINA/VLC/QuickTime)" : "Play in Default Player")
+                            .font(.system(size: 11, weight: .bold))
+                    }
+                    .foregroundStyle(.white)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 8)
+                    .background(TTZipTheme.bambooGreen)
+                    .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+                }
+                .buttonStyle(.plain)
+                .padding(.horizontal, 16)
+                
+                // Secondary Quick Actions
+                HStack(spacing: 8) {
+                    Button(action: { QuickLookPreviewCoordinator.shared.previewDiskFile(url: url) }) {
+                        HStack(spacing: 4) {
+                            Image(systemName: "eye.fill")
+                                .font(.system(size: 10))
+                            Text(isChinese ? "快速查看 (Space)" : "Quick Look")
+                                .font(.system(size: 10, weight: .medium))
+                        }
+                        .foregroundStyle(.white.opacity(0.9))
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 5)
+                        .background(Color.white.opacity(0.08))
+                        .clipShape(RoundedRectangle(cornerRadius: 5, style: .continuous))
+                    }
+                    .buttonStyle(.plain)
+                    
+                    Button(action: { NSWorkspace.shared.selectFile(url.path, inFileViewerRootedAtPath: "") }) {
+                        HStack(spacing: 4) {
+                            Image(systemName: "folder.fill")
+                                .font(.system(size: 10))
+                            Text(isChinese ? "在访达中显示" : "Reveal")
+                                .font(.system(size: 10, weight: .medium))
+                        }
+                        .foregroundStyle(.white.opacity(0.9))
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 5)
+                        .background(Color.white.opacity(0.08))
+                        .clipShape(RoundedRectangle(cornerRadius: 5, style: .continuous))
+                    }
+                    .buttonStyle(.plain)
+                }
+                .padding(.horizontal, 16)
+                
+                // Rust Demuxed Media Specifications Card
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(isChinese ? "媒体规格与流信息" : "Stream Specifications")
+                        .font(.system(size: 9.5, weight: .bold))
+                        .foregroundStyle(.white.opacity(0.6))
+                        .textCase(.uppercase)
+                    
+                    VStack(spacing: 3) {
+                        specRow(icon: "video.fill", title: isChinese ? "视频流" : "Video", value: videoSpecString)
+                        specRow(icon: "waveform", title: isChinese ? "音频流" : "Audio", value: audioSpecString)
+                        if !store.subtitleTracks.isEmpty {
+                            specRow(icon: "captions.bubble.fill", title: isChinese ? "字幕" : "Subtitles", value: "\(store.subtitleTracks.count) \(isChinese ? "条内嵌/伴随字幕" : "Tracks")")
+                        }
+                    }
+                }
+                .padding(10)
+                .background(Color.white.opacity(0.04))
+                .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                .padding(.horizontal, 16)
+                .padding(.bottom, 10)
+            }
+            .frame(maxWidth: .infinity)
         }
+    }
+    
+    private func specRow(icon: String, title: String, value: String) -> some View {
+        HStack(spacing: 6) {
+            Image(systemName: icon)
+                .font(.system(size: 9.5))
+                .foregroundStyle(TTZipTheme.kintsugiGold)
+                .frame(width: 14)
+            Text(title)
+                .font(.system(size: 9.5, weight: .medium))
+                .foregroundStyle(.white.opacity(0.7))
+            Spacer()
+            Text(value)
+                .font(.system(size: 9.5, weight: .semibold, design: .monospaced))
+                .foregroundStyle(.white.opacity(0.95))
+                .lineLimit(1)
+        }
+        .padding(.horizontal, 6)
+        .padding(.vertical, 3.5)
+        .background(Color.white.opacity(0.03))
+        .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
     }
 }
+

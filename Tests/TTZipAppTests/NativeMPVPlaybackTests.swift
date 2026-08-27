@@ -149,33 +149,20 @@ final class NativeMPVPlaybackTests: XCTestCase {
     // MARK: - Test 3: CAMetalLayer EDR Configuration Verification
     
     @MainActor
-    func testMetalEDRVideoContainerViewLayerConfiguration() {
+    func testAVPlayerLayerContainerViewConfiguration() {
         let player = AVPlayer()
-        let nsView = MetalEDRVideoContainerView.MetalEDRNSView()
-        nsView.attach(player: player)
+        let nsView = AVPlayerLayerContainerView.PlayerNSView()
+        nsView.playerLayer.player = player
         
         XCTAssertTrue(nsView.wantsLayer)
-        let metalLayer = nsView.metalLayer
-        
-        // Assert 16-bit Float HDR / EDR pixel format and extended dynamic range
-        XCTAssertEqual(metalLayer.pixelFormat, MTLPixelFormat.rgba16Float, "CAMetalLayer must configure rgba16Float for 16-bit HDR")
-        XCTAssertTrue(metalLayer.wantsExtendedDynamicRangeContent, "CAMetalLayer must enable wantsExtendedDynamicRangeContent")
-        XCTAssertFalse(metalLayer.framebufferOnly, "CAMetalLayer framebufferOnly must be false for compute passes")
-        XCTAssertFalse(metalLayer.allowsNextDrawableTimeout, "CAMetalLayer allowsNextDrawableTimeout must be false for zero stutter")
-        XCTAssertNotNil(metalLayer.colorspace, "CAMetalLayer colorspace must be set for EDR tone mapping")
-        
-        // Assert player layer integration
         XCTAssertNotNil(nsView.playerLayer)
         XCTAssertEqual(nsView.playerLayer.videoGravity, AVLayerVideoGravity.resizeAspect)
         
-        // Assert layout and frame execution
         nsView.frame = NSRect(x: 0, y: 0, width: 640, height: 480)
         nsView.layout()
-        XCTAssertEqual(metalLayer.frame.size, CGSize(width: 640, height: 480))
         XCTAssertEqual(nsView.playerLayer.frame.size, CGSize(width: 640, height: 480))
-        
-        nsView.renderEDRFrame()
     }
+
     
     // MARK: - Test 4: MPVVideoControlBarView & MPVMetalVideoPlayerView Viewport Mount
     

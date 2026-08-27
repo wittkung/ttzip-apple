@@ -34,13 +34,13 @@ public struct MPVVideoControlBarView: View {
     }
     
     public var body: some View {
-        HStack(spacing: 12) {
+        HStack(spacing: 8) {
             // MARK: - Play / Pause Toggle
             Button(action: { store.togglePlayPause() }) {
                 Image(systemName: store.isPlaying ? "pause.fill" : "play.fill")
-                    .font(.system(size: 13, weight: .bold))
+                    .font(.system(size: 11, weight: .bold))
                     .foregroundStyle(.white)
-                    .frame(width: 24, height: 24)
+                    .frame(width: 18, height: 18)
                     .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
@@ -48,8 +48,8 @@ public struct MPVVideoControlBarView: View {
             
             // MARK: - Precise Time Indicator
             Text("\(formatTime(displayTime)) / \(formatTime(store.duration))")
-                .font(.system(size: 10.5, weight: .bold, design: .monospaced))
-                .foregroundStyle(.white.opacity(0.9))
+                .font(.system(size: 9.5, weight: .semibold, design: .monospaced))
+                .foregroundStyle(.white.opacity(0.85))
             
             // MARK: - Microsecond/Fractional Precision Timeline Slider
             GeometryReader { geo in
@@ -57,19 +57,19 @@ public struct MPVVideoControlBarView: View {
                     // Track Background
                     Capsule()
                         .fill(Color.white.opacity(0.2))
-                        .frame(height: 4)
+                        .frame(height: 3)
                     
                     // Progress Fill
                     Capsule()
                         .fill(TTZipTheme.bambooGreen)
-                        .frame(width: progressWidth(totalWidth: geo.size.width), height: 4)
+                        .frame(width: progressWidth(totalWidth: geo.size.width), height: 3)
                     
                     // Scrubbing Thumb Knob
                     Circle()
                         .fill(Color.white)
-                        .frame(width: isScrubbing ? 12 : 8, height: isScrubbing ? 12 : 8)
-                        .shadow(color: Color.black.opacity(0.4), radius: 3, x: 0, y: 1)
-                        .offset(x: max(0, min(progressWidth(totalWidth: geo.size.width) - (isScrubbing ? 6 : 4), geo.size.width - 8)))
+                        .frame(width: isScrubbing ? 8 : 6, height: isScrubbing ? 8 : 6)
+                        .shadow(color: Color.black.opacity(0.4), radius: 2, x: 0, y: 1)
+                        .offset(x: max(0, min(progressWidth(totalWidth: geo.size.width) - (isScrubbing ? 4 : 3), geo.size.width - 6)))
                 }
                 .frame(maxHeight: .infinity, alignment: .center)
                 .contentShape(Rectangle())
@@ -88,13 +88,11 @@ public struct MPVVideoControlBarView: View {
                         }
                 )
             }
-            .frame(height: 16)
+            .frame(height: 12)
             
             // MARK: - Audio Track Selector Menu
-            Menu {
-                if store.audioTracks.isEmpty {
-                    Text("Default Track (Direct Output)")
-                } else {
+            if !store.audioTracks.isEmpty {
+                Menu {
                     ForEach(store.audioTracks) { track in
                         Button(action: { store.selectAudioTrack(track) }) {
                             HStack {
@@ -105,95 +103,75 @@ public struct MPVVideoControlBarView: View {
                             }
                         }
                     }
+                } label: {
+                    Image(systemName: "waveform")
+                        .font(.system(size: 10, weight: .semibold))
+                        .foregroundStyle(TTZipTheme.kintsugiGold)
                 }
-            } label: {
-                Image(systemName: "waveform.badge.magnifyingglass")
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(store.audioTracks.isEmpty ? Color.white.opacity(0.6) : TTZipTheme.kintsugiGold)
+                .menuStyle(.borderlessButton)
+                .fixedSize()
+                .help("Audio Track Selector")
             }
-            .menuStyle(.borderlessButton)
-            .fixedSize()
-            .help("Audio Track Selector")
             
             // MARK: - ASS / SRT Subtitle Track Selector Menu
-            Menu {
-                Button(action: { store.selectSubtitleTrack(nil) }) {
-                    HStack {
-                        if store.selectedSubtitleTrackId == nil {
-                            Image(systemName: "checkmark")
-                        }
-                        Text("Subtitles Off")
-                    }
-                }
-                Divider()
-                ForEach(store.subtitleTracks) { sub in
-                    Button(action: { store.selectSubtitleTrack(sub) }) {
+            if !store.subtitleTracks.isEmpty {
+                Menu {
+                    Button(action: { store.selectSubtitleTrack(nil) }) {
                         HStack {
-                            if store.selectedSubtitleTrackId == sub.id {
+                            if store.selectedSubtitleTrackId == nil {
                                 Image(systemName: "checkmark")
                             }
-                            Text("[\(sub.format)] \(sub.title) (\(sub.language))")
+                            Text("Subtitles Off")
                         }
                     }
+                    Divider()
+                    ForEach(store.subtitleTracks) { sub in
+                        Button(action: { store.selectSubtitleTrack(sub) }) {
+                            HStack {
+                                if store.selectedSubtitleTrackId == sub.id {
+                                    Image(systemName: "checkmark")
+                                }
+                                Text("[\(sub.format)] \(sub.title) (\(sub.language))")
+                            }
+                        }
+                    }
+                } label: {
+                    Image(systemName: store.selectedSubtitleTrackId != nil ? "captions.bubble.fill" : "captions.bubble")
+                        .font(.system(size: 10, weight: .semibold))
+                        .foregroundStyle(store.selectedSubtitleTrackId != nil ? TTZipTheme.bambooGreen : Color.white.opacity(0.8))
                 }
-            } label: {
-                Image(systemName: store.selectedSubtitleTrackId != nil ? "captions.bubble.fill" : "captions.bubble")
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(store.selectedSubtitleTrackId != nil ? TTZipTheme.bambooGreen : Color.white.opacity(0.8))
-            }
-            .menuStyle(.borderlessButton)
-            .fixedSize()
-            .help("ASS/SRT Subtitle Selector")
-            
-            // MARK: - Volume & Mute Controls
-            HStack(spacing: 4) {
-                Button(action: { store.toggleMute() }) {
-                    Image(systemName: volumeIconName)
-                        .font(.system(size: 12, weight: .bold))
-                        .foregroundStyle(store.isMuted ? Color.red.opacity(0.9) : .white)
-                        .frame(width: 20, height: 20)
-                }
-                .buttonStyle(.plain)
-                .help(store.isMuted ? "Unmute" : "Mute")
-                
-                Slider(
-                    value: Binding(
-                        get: { store.isMuted ? 0.0 : store.volume },
-                        set: { newVal in store.setVolume(newVal) }
-                    ),
-                    in: 0.0...1.0
-                )
-                .frame(width: 54)
-                .tint(TTZipTheme.bambooGreen)
-                .controlSize(.mini)
+                .menuStyle(.borderlessButton)
+                .fixedSize()
+                .help("Subtitle Selector")
             }
             
             // MARK: - Fullscreen Toggle
             Button(action: { onToggleFullScreen() }) {
                 Image(systemName: "arrow.up.left.and.arrow.down.right")
-                    .font(.system(size: 11, weight: .bold))
+                    .font(.system(size: 10, weight: .semibold))
                     .foregroundStyle(.white)
-                    .frame(width: 20, height: 20)
+                    .frame(width: 16, height: 16)
             }
             .buttonStyle(.plain)
-            .help("Toggle Full Screen (F / Double Click)")
+            .help("Toggle Full Screen")
             
             // MARK: - Open in External Player
             Button(action: { onOpenExternal() }) {
-                Image(systemName: "play.rectangle.on.rectangle.fill")
-                    .font(.system(size: 12, weight: .bold))
+                Image(systemName: "arrow.up.forward.app")
+                    .font(.system(size: 10, weight: .bold))
                     .foregroundStyle(TTZipTheme.kintsugiGold)
-                    .frame(width: 20, height: 20)
+                    .frame(width: 16, height: 16)
             }
             .buttonStyle(.plain)
-            .help("Open in External Player (IINA/VLC/QuickTime)")
+            .help("Open in Default Player (IINA/VLC/QuickTime)")
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 8)
-        .background(.ultraThinMaterial.opacity(0.85))
+        .padding(.horizontal, 10)
+        .padding(.vertical, 5)
+        .background(.ultraThinMaterial.opacity(0.8))
         .clipShape(Capsule())
-        .overlay(Capsule().strokeBorder(Color.white.opacity(0.2), lineWidth: 0.5))
-        .shadow(color: Color.black.opacity(0.4), radius: 10, x: 0, y: 4)
+        .overlay(Capsule().strokeBorder(Color.white.opacity(0.18), lineWidth: 0.5))
+        .shadow(color: Color.black.opacity(0.35), radius: 6, x: 0, y: 2)
+
     }
     
     private var volumeIconName: String {
