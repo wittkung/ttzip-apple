@@ -104,8 +104,8 @@ public struct CompressTargetConfigSectionView: View {
                 
                 HStack(spacing: 6) {
                     levelOptionTile(level: .store, name: "Store (0x)")
-                    levelOptionTile(level: .fast, name: "Fast (1x)")
-                    levelOptionTile(level: .normal, name: "Standard (5x)")
+                    levelOptionTile(level: .fastest, name: "Fast (1x)")
+                    levelOptionTile(level: .normal, name: "Standard (6x)")
                     levelOptionTile(level: .ultra, name: "Ultra (9x)")
                 }
             }

@@ -107,9 +107,11 @@ extension SettingsView {
                         .font(TTZipTheme.Typography.subheadline)
                         .foregroundStyle(.secondary)
                     Picker("", selection: $defaultLevel) {
-                        Text(l10n.t(L10n.Compress.levelFastest)).tag(ArchiveCompressionLevel.fast)
+                        Text(l10n.t(L10n.Compress.levelStore)).tag(ArchiveCompressionLevel.store)
+                        Text(l10n.t(L10n.Compress.levelFastest)).tag(ArchiveCompressionLevel.fastest)
                         Text(l10n.t(L10n.Compress.levelNormal)).tag(ArchiveCompressionLevel.normal)
                         Text(l10n.t(L10n.Compress.levelMaximum)).tag(ArchiveCompressionLevel.maximum)
+                        Text(l10n.t(L10n.Compress.levelUltra)).tag(ArchiveCompressionLevel.ultra)
                     }
                     .frame(width: 180)
                 }
