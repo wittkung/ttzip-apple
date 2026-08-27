@@ -79,32 +79,10 @@ public struct PresetEditorCardView: View {
                     .font(.system(size: 13, weight: .bold, design: .serif))
                     .foregroundStyle(TTZipTheme.bambooGreen)
                 
-                LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 8) {
-                    PresetLevelOptionTile(
-                        level: .store,
-                        name: "Store (0x)",
-                        desc: "Store without compression",
-                        activeLevel: $editorLevel
-                    )
-                    PresetLevelOptionTile(
-                        level: .fastest,
-                        name: "Fast (1x)",
-                        desc: "Maximum multi-core throughput",
-                        activeLevel: $editorLevel
-                    )
-                    PresetLevelOptionTile(
-                        level: .normal,
-                        name: "Standard (6x)",
-                        desc: "Balanced speed and ratio",
-                        activeLevel: $editorLevel
-                    )
-                    PresetLevelOptionTile(
-                        level: .ultra,
-                        name: "Ultra (9x)",
-                        desc: "Maximum compression ratio",
-                        activeLevel: $editorLevel
-                    )
-                }
+                CompressionLevelDualModeSelector(
+                    compressionLevel: $editorLevel,
+                    format: editorFormat
+                )
             }
             .padding(18)
             .background(Color.primary.opacity(0.025))

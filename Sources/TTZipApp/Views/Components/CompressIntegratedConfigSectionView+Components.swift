@@ -136,44 +136,17 @@ extension CompressIntegratedConfigSectionView {
     }
     
     func compressionLevelSection(fmt: ArchiveCompressionFormat) -> some View {
-        let levelsList = fmt.supportedLevels
-        return HStack(alignment: .top, spacing: 12) {
+        HStack(alignment: .top, spacing: 12) {
             L10nText(L10n.Compress.level)
-                .font(.system(size: 11.5, weight: .medium)).foregroundStyle(.secondary).frame(width: 85, alignment: .trailing).padding(.top, 4)
-            TTFlowLayout(horizontalSpacing: 6, verticalSpacing: 6) {
-                ForEach(levelsList, id: \.rawValue) { lvl in
-                    self.levelTileView(fmt: fmt, lvl: lvl)
-                }
-            }
+                .font(.system(size: 11.5, weight: .medium))
+                .foregroundStyle(.secondary)
+                .frame(width: 85, alignment: .trailing)
+                .padding(.top, 4)
+            
+            CompressionLevelDualModeSelector(
+                compressionLevel: $session.compressionLevel,
+                format: fmt
+            )
         }
-    }
-    
-    func levelTileView(fmt: ArchiveCompressionFormat, lvl: ArchiveCompressionLevel) -> some View {
-        let ratioPct = Int(round(lvl.compressionRatioPercent(for: fmt)))
-        let titleName: String
-        switch lvl {
-        case .store: titleName = "\(l10n.t(L10n.Compress.levelStore))"
-        case .level1: titleName = "\(l10n.t(L10n.Compress.levelFastest)) (\(ratioPct)%)"
-        case .level6: titleName = "\(l10n.t(L10n.Compress.levelNormal)) (\(ratioPct)%)"
-        case .level9: titleName = "\(l10n.t(L10n.Compress.levelUltra)) (\(ratioPct)%)"
-        default: titleName = "Level \(lvl.rawValue) (\(ratioPct)%)"
-        }
-        
-        let isSel = session.compressionLevel == lvl
-        return Button(action: {
-            withAnimation(.easeInOut(duration: 0.2)) {
-                session.compressionLevel = lvl
-            }
-        }) {
-            Text(titleName).font(.system(size: 10.5, weight: isSel ? .bold : .regular))
-                .lineLimit(1)
-                .minimumScaleFactor(0.85)
-                .frame(minWidth: 110)
-                .padding(.horizontal, 8).padding(.vertical, 5)
-                .background(isSel ? TTZipTheme.bambooGreen.opacity(0.14) : Color.primary.opacity(0.03))
-                .foregroundStyle(isSel ? TTZipTheme.bambooGreen : Color.primary)
-                .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
-                .overlay(RoundedRectangle(cornerRadius: 6, style: .continuous).strokeBorder(isSel ? TTZipTheme.bambooGreen.opacity(0.4) : Color.clear, lineWidth: 1))
-        }.buttonStyle(.plain)
     }
 }

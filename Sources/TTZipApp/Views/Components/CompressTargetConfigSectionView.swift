@@ -96,18 +96,17 @@ public struct CompressTargetConfigSectionView: View {
                 }
             }
             
-            HStack(spacing: 12) {
+            HStack(alignment: .top, spacing: 12) {
                 Text("Level")
                     .font(.system(size: 11.5, weight: .medium))
                     .foregroundStyle(.secondary)
                     .frame(width: 85, alignment: .trailing)
+                    .padding(.top, 4)
                 
-                HStack(spacing: 6) {
-                    levelOptionTile(level: .store, name: "Store (0x)")
-                    levelOptionTile(level: .fastest, name: "Fast (1x)")
-                    levelOptionTile(level: .normal, name: "Standard (6x)")
-                    levelOptionTile(level: .ultra, name: "Ultra (9x)")
-                }
+                CompressionLevelDualModeSelector(
+                    compressionLevel: $compressionLevel,
+                    format: selectedFormat
+                )
             }
         }
         .padding(14)
