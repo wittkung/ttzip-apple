@@ -42,6 +42,10 @@ if [ -d "../core" ]; then
         (cd ../core && ./scripts/build_sdk_framework.sh --release --native --no-zip)
     else
         echo "--> [INFO] TTZipCore 微内核二进制已是最新，跳过编译。"
+        # 确保 UniFFI 绑定与 Swift 6 后处理一致
+        if [ -f "../core/scripts/postprocess_uniffi_swift.py" ] && [ -f "../core/Sources/TTZipCore/Generated/ttzip_engine.swift" ]; then
+            python3 "../core/scripts/postprocess_uniffi_swift.py" "../core/Sources/TTZipCore/Generated/ttzip_engine.swift" >/dev/null 2>&1 || true
+        fi
     fi
 fi
 
