@@ -151,14 +151,9 @@ public struct FinderMillerColumnsView: View {
                     }
                 }
                 
-                // KeyCode 49 is Space Bar
+                // KeyCode 49 is Space Bar -> Trigger native QuickLook preview without intercepting media playback
                 if event.keyCode == 49 {
                     if let item = selectedItem, !item.isDirectory {
-                        let ext = (item.name as NSString).pathExtension.lowercased()
-                        if MediaPreviewFactory.videoExtensions.contains(ext) || ["mp3", "wav", "flac", "m4a", "aac", "ogg"].contains(ext) {
-                            MediaPlaybackCoordinator.shared.triggerPlayPause()
-                            return nil
-                        }
                         onPreviewFile(item.path)
                         return nil
                     }

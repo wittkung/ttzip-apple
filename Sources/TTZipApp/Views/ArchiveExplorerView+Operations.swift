@@ -257,51 +257,7 @@ extension ArchiveExplorerView {
         
         previewTask = Task {
             do {
-                let ext = (filename as NSString).pathExtension.lowercased()
-                let isLargeMedia = entry.uncompressedSize > 8 * 1024 * 1024 && (
-                    MediaPreviewFactory.videoExtensions.contains(ext) ||
-                    MediaPreviewFactory.audioExtensions.contains(ext) ||
-                    ext == "pdf" || ext == "dat" || ext == "bin"
-                )
                 let expectedFileURL = tempDir.appendingPathComponent(filename)
-                
-                if isLargeMedia {
-                    if let vfs = try? openVirtualFileStream(
-                        archivePath: archivePath,
-                        drillPath: [],
-                        targetEntry: entry.path,
-                        password: password
-                    ) {
-                        let totalSize = vfs.size()
-                        let initialChunkSize = min(UInt32(totalSize), 4 * 1024 * 1024)
-                        let initialData = try vfs.readExactAt(offset: 0, length: initialChunkSize)
-                        FileManager.default.createFile(atPath: expectedFileURL.path, contents: initialData)
-                        
-                        guard !Task.isCancelled else { return }
-                        await MainActor.run {
-                            self.previewFileURL = expectedFileURL
-                            self.isExtractingTemp = false
-                        }
-                        
-                        if totalSize > UInt64(initialChunkSize) {
-                            if let handle = try? FileHandle(forWritingTo: expectedFileURL) {
-                                _ = try? handle.seekToEnd()
-                                var currentOffset = UInt64(initialChunkSize)
-
-                                let stepChunk: UInt32 = 2 * 1024 * 1024
-                                while currentOffset < totalSize && !Task.isCancelled {
-                                    let toRead = min(UInt32(totalSize - currentOffset), stepChunk)
-                                    let chunk = try vfs.readExactAt(offset: currentOffset, length: toRead)
-                                    if chunk.isEmpty { break }
-                                    try handle.write(contentsOf: chunk)
-                                    currentOffset += UInt64(chunk.count)
-                                }
-                                try? handle.close()
-                            }
-                        }
-                        return
-                    }
-                }
                 
                 try await TTZipEngineFacade.shared.extractSingleEntry(
                     archivePath: archivePath,

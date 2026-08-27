@@ -17,6 +17,9 @@ public typealias SharedVideoPlayerStore = MPVMetalPlayerStore
 /// High-performance Observable playback store driving the native libmpv Metal/EDR video engine.
 @MainActor
 public final class MPVMetalPlayerStore: ObservableObject {
+    /// Shared persistent playback store instance ensuring libmpv engine continuity.
+    public static let shared = MPVMetalPlayerStore()
+    
     private let logger = Logger(subsystem: "com.metastudyline.ttzip", category: "MPV")
     private nonisolated(unsafe) var securityScopedURL: URL? = nil
     private var isAccessingSecurityScopedResource: Bool = false
@@ -50,14 +53,10 @@ public final class MPVMetalPlayerStore: ObservableObject {
     @Published public var audioBitrateFormatted: String = ""
     
     /// Native libmpv client handle pointer.
-    public var mpv: OpaquePointer? {
-        handleHolder?.rawHandle
-    }
+    public var mpv: OpaquePointer? { handleHolder?.rawHandle }
     
     /// Backward-compatible handle accessor.
-    public var player: OpaquePointer? {
-        mpv
-    }
+    public var player: OpaquePointer? { mpv }
     
     private struct UncheckedHandle: @unchecked Sendable {
         let pointer: OpaquePointer
@@ -65,18 +64,13 @@ public final class MPVMetalPlayerStore: ObservableObject {
     
     private final class MPVHandleHolder: @unchecked Sendable {
         var rawHandle: OpaquePointer?
-        
-        init(rawHandle: OpaquePointer?) {
-            self.rawHandle = rawHandle
-        }
-        
+        init(rawHandle: OpaquePointer?) { self.rawHandle = rawHandle }
         func terminateAndClear() {
-            if let handle = rawHandle {
-                rawHandle = nil
-                let wrapper = UncheckedHandle(pointer: handle)
-                DispatchQueue.global(qos: .utility).async {
-                    mpv_terminate_destroy(wrapper.pointer)
-                }
+            guard let handle = rawHandle else { return }
+            rawHandle = nil
+            let wrapper = UncheckedHandle(pointer: handle)
+            DispatchQueue.global(qos: .utility).async {
+                mpv_terminate_destroy(wrapper.pointer)
             }
         }
     }
@@ -101,9 +95,7 @@ public final class MPVMetalPlayerStore: ObservableObject {
         var cStrings: [UnsafePointer<CChar>?] = args.map { strdup($0).map { UnsafePointer($0) } }
         defer {
             for ptr in cStrings {
-                if let ptr = ptr {
-                    free(UnsafeMutablePointer(mutating: ptr))
-                }
+                if let ptr = ptr { free(UnsafeMutablePointer(mutating: ptr)) }
             }
         }
         cStrings.append(nil)
@@ -113,98 +105,51 @@ public final class MPVMetalPlayerStore: ObservableObject {
         }
     }
     
-    // MARK: - Lifecycle & Configuration
+    // MARK: - Lifecycle & Engine Initialization
     
-    /// Initializes and configures the libmpv instance with Apple Silicon hardware acceleration and EDR color pipeline.
-    public func setup(url: URL, view: NSView? = nil, isAudioOnly: Bool = false) {
-        if let view = view {
-            self.attachedView = view
-        }
-        
-        if currentURL == url, mpv != nil {
-            if isPlaying {
-                play()
-            }
-            return
-        }
-        
-        cleanUp()
-        
-        self.currentURL = url
-        self.isPlaying = false
-        self.hasPlaybackError = false
-        self.hasDecoderLimitation = false
-        self.errorMessage = nil
-        self.updateEDRMetrics()
-        
-        logger.info("Setting up player for media: \(url.path, privacy: .public) (isAudioOnly: \(isAudioOnly, privacy: .public))")
-        
-        if url.startAccessingSecurityScopedResource() {
-            self.securityScopedURL = url
-            self.isAccessingSecurityScopedResource = true
-            logger.info("Acquired security-scoped access for: \(url.path, privacy: .public)")
-        }
-        
-        // 1. Discover local companion subtitle files (.srt, .ass, .vtt, etc.)
-        if !isAudioOnly {
-            discoverCompanionSubtitles(for: url)
-        }
-        
-        // 2. Instantiate native libmpv handle
+    /// Ensures the resident libmpv engine is created, configured, and initialized once.
+    private func ensureMpvInitialized() {
+        guard handleHolder == nil else { return }
         guard let handle = mpv_create() else {
             self.hasPlaybackError = true
             self.errorMessage = "Failed to allocate libmpv client context"
             logger.error("Failed to allocate libmpv client context")
             return
         }
-        let holder = MPVHandleHolder(rawHandle: handle)
-        self.handleHolder = holder
+        self.handleHolder = MPVHandleHolder(rawHandle: handle)
         
-        // Request verbose log messages from libmpv
+        let isTesting = NSClassFromString("XCTestCase") != nil ||
+            ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil ||
+            Bundle.main.bundlePath.hasSuffix(".xctest")
+        
         mpv_request_log_messages(handle, "v")
-        
-        // Disable built-in mpv input bindings to prevent hijacking AppKit event loop
+        mpv_set_option_string(handle, "load-scripts", "no")
+        mpv_set_option_string(handle, "ytdl", "no")
+        mpv_set_option_string(handle, "osc", "no")
+        mpv_set_option_string(handle, "osd-bar", "no")
         mpv_set_option_string(handle, "input-default-bindings", "no")
         mpv_set_option_string(handle, "input-vo-keyboard", "no")
         mpv_set_option_string(handle, "input-cursor", "no")
+        mpv_set_option_string(handle, "hwdec", isTesting ? "no" : "videotoolbox")
+        mpv_set_option_string(handle, "vo", isTesting ? "null" : "gpu")
+        mpv_set_option_string(handle, "ao", isTesting ? "null" : "auto")
+        mpv_set_option_string(handle, "target-colorspace-hint", "yes")
+        mpv_set_option_string(handle, "target-trc", "auto")
+        mpv_set_option_string(handle, "tone-mapping", "auto")
+        mpv_set_option_string(handle, "gamut-mapping-mode", "perceptual")
+        mpv_set_option_string(handle, "hdr-compute-peak", "yes")
+        mpv_set_option_string(handle, "sub-auto", "fuzzy")
+        mpv_set_option_string(handle, "sub-codepage", "auto")
+        mpv_set_option_string(handle, "sub-font-size", "52")
+        mpv_set_option_string(handle, "sub-border-size", "3")
+        mpv_set_option_string(handle, "keep-open", "yes")
         
-        if isAudioOnly {
-            // Configure lightweight pure audio mode without video/EDR rendering pipeline
-            mpv_set_option_string(handle, "vo", "null")
-            mpv_set_option_string(handle, "video", "no")
-            mpv_set_option_string(handle, "audio-display", "no")
-            mpv_set_option_string(handle, "keep-open", "yes")
-        } else {
-            // 3. Configure Apple Silicon VideoToolbox Hardware Acceleration
-            mpv_set_option_string(handle, "hwdec", "videotoolbox")
-            mpv_set_option_string(handle, "vo", "gpu")
-            
-            // 4. Configure HDR10/Dolby Vision/HLG and Extended Dynamic Range Color Pipeline
-            mpv_set_option_string(handle, "target-colorspace-hint", "yes")
-            mpv_set_option_string(handle, "target-trc", "auto")
-            mpv_set_option_string(handle, "tone-mapping", "auto")
-            mpv_set_option_string(handle, "gamut-mapping-mode", "perceptual")
-            mpv_set_option_string(handle, "hdr-compute-peak", "yes")
-            
-            // 5. Configure Universal Subtitle System (ASS, SRT, VTT with fuzzy auto-matching)
-            mpv_set_option_string(handle, "sub-auto", "fuzzy")
-            mpv_set_option_string(handle, "sub-codepage", "auto")
-            mpv_set_option_string(handle, "sub-font-size", "52")
-            mpv_set_option_string(handle, "sub-border-size", "3")
-            mpv_set_option_string(handle, "keep-open", "yes")
-            
-            // 6. Bind native NSView handle if attached before mpv_initialize
-            if let targetView = attachedView {
-                var wid = Int64(Int(bitPattern: Unmanaged.passUnretained(targetView).toOpaque()))
-                mpv_set_option(handle, "wid", MPV_FORMAT_INT64, &wid)
-                logger.info("Bound wid to NSView before mpv_initialize: \(wid, privacy: .public)")
-            } else {
-                // Defensive fallback: if no view is attached (headless tests), prevent spawning rogue standalone NSWindows
-                mpv_set_option_string(handle, "vo", "null")
-            }
+        if let targetView = attachedView, !isTesting {
+            var wid = Int64(Int(bitPattern: Unmanaged.passUnretained(targetView).toOpaque()))
+            mpv_set_option(handle, "wid", MPV_FORMAT_INT64, &wid)
+            logger.info("Bound wid to NSView during initialization: \(wid, privacy: .public)")
         }
         
-        // 7. Initialize mpv core
         let initCode = mpv_initialize(handle)
         guard initCode >= 0 else {
             self.hasPlaybackError = true
@@ -213,59 +158,118 @@ public final class MPVMetalPlayerStore: ObservableObject {
             return
         }
         
-        // 8. Register observed properties for real-time reactive updates
-        mpv_observe_property(handle, 1, "time-pos", MPV_FORMAT_DOUBLE)
-        mpv_observe_property(handle, 2, "duration", MPV_FORMAT_DOUBLE)
-        mpv_observe_property(handle, 3, "pause", MPV_FORMAT_FLAG)
-        mpv_observe_property(handle, 4, "mute", MPV_FORMAT_FLAG)
-        mpv_observe_property(handle, 5, "volume", MPV_FORMAT_DOUBLE)
-        mpv_observe_property(handle, 6, "track-list", MPV_FORMAT_NONE)
-        mpv_observe_property(handle, 7, "sub-text", MPV_FORMAT_STRING)
-        mpv_observe_property(handle, 8, "video-params", MPV_FORMAT_NONE)
-        mpv_observe_property(handle, 9, "sub-delay", MPV_FORMAT_DOUBLE)
-        mpv_observe_property(handle, 10, "secondary-sid", MPV_FORMAT_STRING)
-        mpv_observe_property(handle, 11, "audio-params", MPV_FORMAT_NONE)
-        mpv_observe_property(handle, 12, "audio-codec-name", MPV_FORMAT_STRING)
-        mpv_observe_property(handle, 13, "audio-bitrate", MPV_FORMAT_DOUBLE)
-        mpv_observe_property(handle, 14, "core-idle", MPV_FORMAT_FLAG)
-        mpv_observe_property(handle, 15, "eof-reached", MPV_FORMAT_FLAG)
+        let properties: [(Int32, String, mpv_format)] = [
+            (1, "time-pos", MPV_FORMAT_DOUBLE), (2, "duration", MPV_FORMAT_DOUBLE),
+            (3, "pause", MPV_FORMAT_FLAG), (4, "mute", MPV_FORMAT_FLAG),
+            (5, "volume", MPV_FORMAT_DOUBLE), (6, "track-list", MPV_FORMAT_NONE),
+            (7, "sub-text", MPV_FORMAT_STRING), (8, "video-params", MPV_FORMAT_NONE),
+            (9, "sub-delay", MPV_FORMAT_DOUBLE), (10, "secondary-sid", MPV_FORMAT_STRING),
+            (11, "audio-params", MPV_FORMAT_NONE), (12, "audio-codec-name", MPV_FORMAT_STRING),
+            (13, "audio-bitrate", MPV_FORMAT_DOUBLE), (14, "core-idle", MPV_FORMAT_FLAG),
+            (15, "eof-reached", MPV_FORMAT_FLAG)
+        ]
+        for (replyUserdata, name, format) in properties {
+            mpv_observe_property(handle, UInt64(replyUserdata), name, format)
+        }
         
-        // 9. Start reactive event loop
-        startEventLoop(url: url)
+        startEventLoop()
+    }
+    
+    // MARK: - Viewport Binding & Media Loading
+    
+    public func setup(view: NSView) { bindView(view) }
+    
+    public func bindView(_ view: NSView) {
+        if self.attachedView === view { return }
+        self.attachedView = view
+        if let handle = self.mpv {
+            var wid = Int64(Int(bitPattern: Unmanaged.passUnretained(view).toOpaque()))
+            mpv_set_property_async(handle, 0, "wid", MPV_FORMAT_INT64, &wid)
+            logger.info("Dynamically bound wid to NSView asynchronously: \(wid, privacy: .public)")
+        } else {
+            ensureMpvInitialized()
+        }
+    }
+    
+    public func unbindView(_ view: NSView? = nil) {
+        if view == nil || self.attachedView === view {
+            self.attachedView = nil
+            if let handle = self.mpv {
+                var wid: Int64 = 0
+                mpv_set_property_async(handle, 0, "wid", MPV_FORMAT_INT64, &wid)
+                logger.info("Unbound wid from NSView asynchronously")
+            }
+        }
+    }
+    
+    public func attachViewport(_ view: NSView) { bindView(view) }
+    
+    public func load(url: URL) { loadMedia(url: url) }
+    
+    public func loadMedia(url: URL) {
+        if currentURL == url, mpv != nil {
+            if !isPlaying { play() }
+            return
+        }
         
-        // 10. Load target media file using native C string array command
+        if isAccessingSecurityScopedResource, let prevURL = securityScopedURL {
+            prevURL.stopAccessingSecurityScopedResource()
+            securityScopedURL = nil
+            isAccessingSecurityScopedResource = false
+        }
+        
+        if url.startAccessingSecurityScopedResource() {
+            self.securityScopedURL = url
+            self.isAccessingSecurityScopedResource = true
+            logger.info("Acquired security-scoped access for: \(url.path, privacy: .public)")
+        }
+        
+        self.currentURL = url
+        self.isPlaying = false
+        self.currentTime = 0
+        self.duration = 0
+        self.hasPlaybackError = false
+        self.hasDecoderLimitation = false
+        self.errorMessage = nil
+        self.audioTracks.removeAll()
+        self.subtitleTracks.removeAll()
+        self.discoveredCompanionSubtitles.removeAll()
+        self.selectedAudioTrackId = nil
+        self.selectedSubtitleTrackId = nil
+        self.selectedSecondarySubtitleTrackId = nil
+        self.activeSubtitleDialogue = nil
+        self.subtitleDelay = 0.0
+        self.audioSampleRate = "--"
+        self.audioChannels = "--"
+        self.audioCodecFormatted = ""
+        self.audioBitrateFormatted = ""
+        
+        self.updateEDRMetrics()
+        self.discoverCompanionSubtitles(for: url)
+        self.ensureMpvInitialized()
+        
         logger.info("Executing loadfile for: \(url.path, privacy: .public)")
         executeCommand(["loadfile", url.path, "replace"])
     }
     
-    /// Attaches the playback view viewport window handle to the active mpv instance.
-    public func attachViewport(_ view: NSView) {
-        if self.attachedView === view && mpv != nil {
-            return
-        }
-        self.attachedView = view
-        if let url = currentURL, mpv == nil {
-            setup(url: url, view: view)
-        }
+    public func setup(url: URL, view: NSView? = nil, isAudioOnly: Bool = false) {
+        if let view = view { bindView(view) }
+        loadMedia(url: url)
     }
     
     // MARK: - Reactive Event Loop
     
-    private func startEventLoop(url: URL) {
+    private func startEventLoop() {
         eventPollingTask?.cancel()
         eventPollingTask = Task { @MainActor [weak self] in
             while !Task.isCancelled {
-                guard let self = self, self.currentURL == url, let handle = self.mpv else { break }
+                guard let self = self, let handle = self.mpv else { break }
                 var processedAny = false
                 while let eventPtr = mpv_wait_event(handle, 0) {
                     let event = eventPtr.pointee
-                    if event.event_id == MPV_EVENT_NONE {
-                        break
-                    }
+                    if event.event_id == MPV_EVENT_NONE { break }
                     processedAny = true
-                    if event.event_id == MPV_EVENT_SHUTDOWN {
-                        return
-                    }
+                    if event.event_id == MPV_EVENT_SHUTDOWN { return }
                     self.processMpvEvent(event, handle: handle)
                 }
                 try? await Task.sleep(nanoseconds: processedAny ? 16_000_000 : 50_000_000)
@@ -281,31 +285,21 @@ public final class MPVMetalPlayerStore: ObservableObject {
                 let text = String(cString: logPtr.pointee.text).trimmingCharacters(in: .whitespacesAndNewlines)
                 logger.debug("[\(prefix, privacy: .public)] \(text, privacy: .public)")
             }
-            
         case MPV_EVENT_PROPERTY_CHANGE:
-            guard let propPtr = event.data?.assumingMemoryBound(to: mpv_event_property.self) else { return }
-            let prop = propPtr.pointee
-            guard let nameCStr = prop.name else { return }
-            let name = String(cString: nameCStr)
-            handlePropertyChange(name: name, prop: prop)
-            
+            guard let propPtr = event.data?.assumingMemoryBound(to: mpv_event_property.self),
+                  let nameCStr = propPtr.pointee.name else { return }
+            handlePropertyChange(name: String(cString: nameCStr), prop: propPtr.pointee)
         case MPV_EVENT_FILE_LOADED:
             logger.info("File loaded successfully into libmpv pipeline")
             self.hasPlaybackError = false
             self.errorMessage = nil
             self.scheduleAsyncParamsRefresh()
-            
         case MPV_EVENT_END_FILE:
             self.isPlaying = false
             if let endFilePtr = event.data?.assumingMemoryBound(to: mpv_event_end_file.self) {
                 let endFile = endFilePtr.pointee
                 if endFile.error != 0 {
-                    let errStr: String
-                    if let cStr = mpv_error_string(endFile.error) {
-                        errStr = String(cString: cStr)
-                    } else {
-                        errStr = "Unknown error (\(endFile.error))"
-                    }
+                    let errStr = mpv_error_string(endFile.error).map { String(cString: $0) } ?? "Unknown error (\(endFile.error))"
                     self.hasPlaybackError = true
                     self.errorMessage = "Playback failed: \(errStr)"
                     logger.error("Playback failed with error: \(errStr, privacy: .public) (code \(endFile.error, privacy: .public))")
@@ -313,7 +307,6 @@ public final class MPVMetalPlayerStore: ObservableObject {
                     logger.info("File playback ended normally")
                 }
             }
-            
         default:
             break
         }
@@ -400,21 +393,11 @@ public final class MPVMetalPlayerStore: ObservableObject {
     private func applyMediaParamsSnapshot(_ snapshot: MPVMediaParamsSnapshot) {
         self.videoWidth = snapshot.width
         self.videoHeight = snapshot.height
-        if !snapshot.sampleRate.isEmpty && snapshot.sampleRate != "--" {
-            self.audioSampleRate = snapshot.sampleRate
-        }
-        if !snapshot.channels.isEmpty && snapshot.channels != "--" {
-            self.audioChannels = snapshot.channels
-        }
-        if !snapshot.audioCodec.isEmpty {
-            self.audioCodecFormatted = snapshot.audioCodec
-        }
-        if !snapshot.bitrate.isEmpty {
-            self.audioBitrateFormatted = snapshot.bitrate
-        }
-        if !snapshot.audioTracks.isEmpty {
-            self.audioTracks = snapshot.audioTracks
-        }
+        if !snapshot.sampleRate.isEmpty && snapshot.sampleRate != "--" { self.audioSampleRate = snapshot.sampleRate }
+        if !snapshot.channels.isEmpty && snapshot.channels != "--" { self.audioChannels = snapshot.channels }
+        if !snapshot.audioCodec.isEmpty { self.audioCodecFormatted = snapshot.audioCodec }
+        if !snapshot.bitrate.isEmpty { self.audioBitrateFormatted = snapshot.bitrate }
+        if !snapshot.audioTracks.isEmpty { self.audioTracks = snapshot.audioTracks }
         
         var mergedSubs = snapshot.subtitleTracks
         for companion in self.discoveredCompanionSubtitles {
@@ -429,22 +412,17 @@ public final class MPVMetalPlayerStore: ObservableObject {
         } else if self.selectedAudioTrackId == nil, let defAudio = snapshot.audioTracks.first(where: { $0.isDefault })?.id ?? snapshot.audioTracks.first?.id {
             self.selectedAudioTrackId = defAudio
         }
-        if let selSub = snapshot.selectedSubtitleTrackId {
-            self.selectedSubtitleTrackId = selSub
-        }
+        if let selSub = snapshot.selectedSubtitleTrackId { self.selectedSubtitleTrackId = selSub }
         self.updateEDRMetrics(detectedHDR: snapshot.hdrFormat)
     }
     
     nonisolated private static func extractMediaParamsSnapshot(handle: OpaquePointer) -> MPVMediaParamsSnapshot {
-        // 1. Video dimensions & HDR format
-        var w: Int64 = 0
+        var w: Int64 = 0, h: Int64 = 0
         mpv_get_property(handle, "video-params/w", MPV_FORMAT_INT64, &w)
-        var h: Int64 = 0
         mpv_get_property(handle, "video-params/h", MPV_FORMAT_INT64, &h)
         
         let gamma = getMpvString(handle, "video-params/gamma")?.lowercased() ?? ""
         let primaries = getMpvString(handle, "video-params/primaries")?.lowercased() ?? ""
-        
         var detectedHDR: MPVHDRFormat = .sdr
         if gamma.contains("pq") || primaries.contains("bt.2020") {
             detectedHDR = .hdr10
@@ -454,7 +432,6 @@ public final class MPVMetalPlayerStore: ObservableObject {
             detectedHDR = .hlg
         }
         
-        // 2. Audio sample rate, channels, codec, bitrate
         var sampleRateStr = "--"
         var sr: Int64 = 0
         if mpv_get_property(handle, "audio-params/samplerate", MPV_FORMAT_INT64, &sr) >= 0, sr > 0 {
@@ -488,7 +465,6 @@ public final class MPVMetalPlayerStore: ObservableObject {
             bitrateStr = String(format: "%.0f kbps", br / 1000.0)
         }
         
-        // 3. Audio & Subtitle tracks
         var count: Int64 = 0
         var audios: [MPVTrackItem] = []
         var subs: [MPVSubtitleItem] = []
@@ -499,18 +475,14 @@ public final class MPVMetalPlayerStore: ObservableObject {
             for i in 0..<count {
                 let prefix = "track-list/\(i)/"
                 guard let type = getMpvString(handle, prefix + "type") else { continue }
-                
                 var trackId: Int64 = 0
                 mpv_get_property(handle, prefix + "id", MPV_FORMAT_INT64, &trackId)
                 let title = getMpvString(handle, prefix + "title") ?? ""
                 let lang = getMpvString(handle, prefix + "lang") ?? ""
                 let codec = getMpvString(handle, prefix + "codec") ?? ""
-                
-                var isSelectedFlag: Int32 = 0
+                var isSelectedFlag: Int32 = 0, isDefaultFlag: Int32 = 0, isExternalFlag: Int32 = 0
                 mpv_get_property(handle, prefix + "selected", MPV_FORMAT_FLAG, &isSelectedFlag)
-                var isDefaultFlag: Int32 = 0
                 mpv_get_property(handle, prefix + "default", MPV_FORMAT_FLAG, &isDefaultFlag)
-                var isExternalFlag: Int32 = 0
                 mpv_get_property(handle, prefix + "external", MPV_FORMAT_FLAG, &isExternalFlag)
                 let extFile = getMpvString(handle, prefix + "external-filename")
                 
@@ -546,17 +518,10 @@ public final class MPVMetalPlayerStore: ObservableObject {
         }
         
         return MPVMediaParamsSnapshot(
-            width: Int(w),
-            height: Int(h),
-            hdrFormat: detectedHDR,
-            sampleRate: sampleRateStr,
-            channels: channelsStr,
-            audioCodec: codecStr,
-            bitrate: bitrateStr,
-            audioTracks: audios,
-            subtitleTracks: subs,
-            selectedAudioTrackId: selAudioId,
-            selectedSubtitleTrackId: selSubId
+            width: Int(w), height: Int(h), hdrFormat: detectedHDR,
+            sampleRate: sampleRateStr, channels: channelsStr, audioCodec: codecStr, bitrate: bitrateStr,
+            audioTracks: audios, subtitleTracks: subs,
+            selectedAudioTrackId: selAudioId, selectedSubtitleTrackId: selSubId
         )
     }
     
@@ -579,9 +544,7 @@ public final class MPVMetalPlayerStore: ObservableObject {
     
     // MARK: - Playback Control API
     
-    public func togglePlayPause() {
-        isPlaying ? pause() : play()
-    }
+    public func togglePlayPause() { isPlaying ? pause() : play() }
     
     public func play() {
         isPlaying = true
@@ -634,9 +597,7 @@ public final class MPVMetalPlayerStore: ObservableObject {
     
     // MARK: - Audio & Subtitle Track Scheduling
     
-    public func selectAudioTrack(_ track: MPVTrackItem) {
-        selectAudioTrack(id: track.id)
-    }
+    public func selectAudioTrack(_ track: MPVTrackItem) { selectAudioTrack(id: track.id) }
     
     public func selectAudioTrack(id: String) {
         self.selectedAudioTrackId = id
@@ -644,9 +605,7 @@ public final class MPVMetalPlayerStore: ObservableObject {
         mpv_set_property_string(handle, "aid", "\(track.trackId)")
     }
     
-    public func selectSubtitleTrack(_ sub: MPVSubtitleItem?) {
-        selectSubtitleTrack(id: sub?.id)
-    }
+    public func selectSubtitleTrack(_ sub: MPVSubtitleItem?) { selectSubtitleTrack(id: sub?.id) }
     
     public func selectSubtitleTrack(id: String?) {
         guard let id = id, let sub = subtitleTracks.first(where: { $0.id == id }) else {
@@ -664,9 +623,7 @@ public final class MPVMetalPlayerStore: ObservableObject {
         }
     }
     
-    public func selectSecondarySubtitleTrack(_ sub: MPVSubtitleItem?) {
-        selectSecondarySubtitleTrack(id: sub?.id)
-    }
+    public func selectSecondarySubtitleTrack(_ sub: MPVSubtitleItem?) { selectSecondarySubtitleTrack(id: sub?.id) }
     
     public func selectSecondarySubtitleTrack(id: String?) {
         guard let id = id, let sub = subtitleTracks.first(where: { $0.id == id }) else {
@@ -760,9 +717,13 @@ public final class MPVMetalPlayerStore: ObservableObject {
         }
     }
     
-    // MARK: - Teardown
+    // MARK: - Teardown & Reset
     
+    /// Stops playback and resets state without destroying the resident libmpv engine.
     public func cleanUp() {
+        pause()
+        executeCommand(["stop"])
+        
         if isAccessingSecurityScopedResource, let url = securityScopedURL ?? currentURL {
             url.stopAccessingSecurityScopedResource()
             securityScopedURL = nil
@@ -770,10 +731,6 @@ public final class MPVMetalPlayerStore: ObservableObject {
             logger.info("Released security-scoped access for: \(url.path, privacy: .public)")
         }
         
-        eventPollingTask?.cancel()
-        eventPollingTask = nil
-        handleHolder?.terminateAndClear()
-        handleHolder = nil
         currentURL = nil
         isPlaying = false
         currentTime = 0
@@ -795,4 +752,15 @@ public final class MPVMetalPlayerStore: ObservableObject {
         audioCodecFormatted = ""
         audioBitrateFormatted = ""
     }
+    
+    /// Explicit termination of the native libmpv engine during application teardown.
+    public func terminate() {
+        cleanUp()
+        eventPollingTask?.cancel()
+        eventPollingTask = nil
+        handleHolder?.terminateAndClear()
+        handleHolder = nil
+        attachedView = nil
+    }
 }
+

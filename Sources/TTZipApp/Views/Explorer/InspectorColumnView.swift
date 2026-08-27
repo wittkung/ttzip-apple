@@ -292,50 +292,22 @@ public struct InspectorColumnView: View {
                             )
                         }
                         
-                        let extLower = (filename as NSString).pathExtension.lowercased()
-                        let isVideo = MediaPreviewFactory.videoExtensions.contains(extLower)
-                        
-                        if isVideo {
-                            var loaded = false
-                            var checks = 0
-                            while !extractTask.isCancelled && !loaded && checks < 300 {
-                                checks += 1
-                                if fm.fileExists(atPath: extractedPath),
-                                   let attr = try? fm.attributesOfItem(atPath: extractedPath),
-                                   let bytes = attr[.size] as? Int64, bytes >= 2 * 1024 * 1024 {
-                                    await MainActor.run {
-                                        PreviewLRUCacheManager.shared.register(key: hash, fileURL: targetFileURL)
-                                        self.localPreviewURL = targetFileURL
-                                    }
-                                    loaded = true
-                                    break
-                                }
-                                try? await Task.sleep(nanoseconds: 10_000_000)
+                        _ = try? await extractTask.value
+                        if fm.fileExists(atPath: extractedPath),
+                           let attr = try? fm.attributesOfItem(atPath: extractedPath),
+                           (attr[.size] as? Int64 ?? 0) > 0 {
+                            await MainActor.run {
+                                PreviewLRUCacheManager.shared.register(key: hash, fileURL: targetFileURL)
+                                self.localPreviewURL = targetFileURL
                             }
-                            _ = try? await extractTask.value
-                            if fm.fileExists(atPath: extractedPath) {
-                                await MainActor.run {
-                                    PreviewLRUCacheManager.shared.register(key: hash, fileURL: targetFileURL)
-                                }
-                            }
-                        } else {
-                            _ = try? await extractTask.value
-                            if fm.fileExists(atPath: extractedPath),
-                               let attr = try? fm.attributesOfItem(atPath: extractedPath),
-                               (attr[.size] as? Int64 ?? 0) > 0 {
-                                await MainActor.run {
-                                    PreviewLRUCacheManager.shared.register(key: hash, fileURL: targetFileURL)
-                                    self.localPreviewURL = targetFileURL
-                                }
-                            } else if let contents = try? fm.contentsOfDirectory(atPath: tempDir),
-                                      let firstFile = contents.first(where: { !$0.hasPrefix(".") }),
-                                      let attr = try? fm.attributesOfItem(atPath: (tempDir as NSString).appendingPathComponent(firstFile)),
-                                      (attr[.size] as? Int64 ?? 0) > 0 {
-                                 let matchURL = URL(fileURLWithPath: (tempDir as NSString).appendingPathComponent(firstFile))
-                                 await MainActor.run {
-                                     PreviewLRUCacheManager.shared.register(key: hash, fileURL: matchURL)
-                                     self.localPreviewURL = matchURL
-                                 }
+                        } else if let contents = try? fm.contentsOfDirectory(atPath: tempDir),
+                                  let firstFile = contents.first(where: { !$0.hasPrefix(".") }),
+                                  let attr = try? fm.attributesOfItem(atPath: (tempDir as NSString).appendingPathComponent(firstFile)),
+                                  (attr[.size] as? Int64 ?? 0) > 0 {
+                            let matchURL = URL(fileURLWithPath: (tempDir as NSString).appendingPathComponent(firstFile))
+                            await MainActor.run {
+                                PreviewLRUCacheManager.shared.register(key: hash, fileURL: matchURL)
+                                self.localPreviewURL = matchURL
                             }
                         }
                     }

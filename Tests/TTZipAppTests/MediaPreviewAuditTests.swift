@@ -176,11 +176,10 @@ final class MediaPreviewAuditTests: XCTestCase {
         store.togglePlayPause()
         XCTAssertTrue(store.isPlaying)
         
-        // 3. 5
+        // 3. Clean up store (resets state while preserving resident engine)
         store.cleanUp()
         
-        // 4.
-        XCTAssertNil(store.player, "Player 实例未置为 nil")
+        // 4. Verify state reset
         XCTAssertNil(store.currentURL, "currentURL 未清空")
         XCTAssertFalse(store.isPlaying, "isPlaying 状态未重置")
         XCTAssertEqual(store.currentTime, 0, "currentTime 未清零")
@@ -293,8 +292,8 @@ final class MediaPreviewAuditTests: XCTestCase {
         
         // 5. Clean up store
         store.cleanUp()
-        XCTAssertNil(store.player)
         XCTAssertNil(store.currentURL)
+        XCTAssertFalse(store.isPlaying)
     }
     
     // MARK: - Test 6: Audio Format Matrix & Unified In-App Embedded Audio Classification

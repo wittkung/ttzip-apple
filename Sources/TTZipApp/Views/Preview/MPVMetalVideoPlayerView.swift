@@ -14,14 +14,15 @@ import TTZipCore
 public struct MPVMetalVideoPlayerView: View {
     public let url: URL
     
-    @StateObject private var store = MPVMetalPlayerStore()
+    @ObservedObject public var store: MPVMetalPlayerStore
     @State private var isHovering: Bool = false
     @State private var isDropTargeted: Bool = false
     @State private var hideTimer: Timer? = nil
     @ObservedObject private var l10n = AppLocalizationState.shared
     
-    public init(url: URL) {
+    public init(url: URL, store: MPVMetalPlayerStore = .shared) {
         self.url = url
+        self.store = store
     }
     
     private var isChinese: Bool {
@@ -143,6 +144,7 @@ public struct MPVMetalVideoPlayerView: View {
         }
         .onAppear {
             let sessionId = url.path
+            store.load(url: url)
             MediaPlaybackCoordinator.shared.registerSession(
                 id: sessionId,
                 isPlaying: store.isPlaying,
@@ -154,6 +156,9 @@ public struct MPVMetalVideoPlayerView: View {
                 }
             )
         }
+        .onChange(of: url) { _, newURL in
+            store.load(url: newURL)
+        }
         .onChange(of: store.isPlaying) { _, playing in
             MediaPlaybackCoordinator.shared.updatePlaybackState(id: url.path, isPlaying: playing)
         }
@@ -161,7 +166,7 @@ public struct MPVMetalVideoPlayerView: View {
             hideTimer?.invalidate()
             hideTimer = nil
             MediaPlaybackCoordinator.shared.unregisterSession(id: url.path)
-            store.cleanUp()
+            store.pause()
         }
     }
     
@@ -195,7 +200,7 @@ public struct MPVNativeMetalContainerView: NSViewRepresentable {
     
     public init(
         url: URL,
-        store: MPVMetalPlayerStore,
+        store: MPVMetalPlayerStore = .shared,
         onDropSubtitle: @escaping (URL) -> Void = { _ in },
         onTogglePlayPause: @escaping () -> Void = {},
         onToggleFullScreen: @escaping () -> Void = {}
@@ -209,25 +214,27 @@ public struct MPVNativeMetalContainerView: NSViewRepresentable {
     
     public func makeNSView(context: Context) -> MPVMetalNSView {
         let view = MPVMetalNSView()
+        view.store = store
         view.onDropSubtitle = onDropSubtitle
         view.onTogglePlayPause = onTogglePlayPause
         view.onToggleFullScreen = onToggleFullScreen
-        store.setup(url: url, view: view)
         return view
     }
     
     public func updateNSView(_ nsView: MPVMetalNSView, context: Context) {
+        nsView.store = store
         nsView.onDropSubtitle = onDropSubtitle
         nsView.onTogglePlayPause = onTogglePlayPause
         nsView.onToggleFullScreen = onToggleFullScreen
         if store.currentURL != url {
-            store.setup(url: url, view: nsView)
+            store.load(url: url)
         }
     }
 }
 
 /// High-performance NSView subclass configured for XDR Extended Dynamic Range and subtitle drag operations.
 public final class MPVMetalNSView: NSView {
+    public weak var store: MPVMetalPlayerStore?
     public var onDropSubtitle: ((URL) -> Void)?
     public var onTogglePlayPause: (() -> Void)?
     public var onToggleFullScreen: (() -> Void)?
@@ -247,6 +254,17 @@ public final class MPVMetalNSView: NSView {
         self.layer?.backgroundColor = NSColor.black.cgColor
         self.layerContentsRedrawPolicy = .duringViewResize
         self.layer?.wantsExtendedDynamicRangeContent = true
+    }
+    
+    public override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        let targetStore = self.store ?? MPVMetalPlayerStore.shared
+        if self.window != nil {
+            targetStore.setup(view: self)
+        } else {
+            targetStore.pause()
+            targetStore.unbindView(self)
+        }
     }
     
     public override func mouseUp(with event: NSEvent) {
@@ -314,3 +332,4 @@ public struct AVPlayerLayerContainerView {
         }
     }
 }
+

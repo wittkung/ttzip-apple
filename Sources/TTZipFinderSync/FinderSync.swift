@@ -13,6 +13,12 @@ import TTZipCore
 @objc(FinderSync)
 public final class FinderSync: FIFinderSync {
     
+    private static var isRunningInTestEnvironment: Bool {
+        NSClassFromString("XCTestCase") != nil ||
+        ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil ||
+        Bundle.main.bundlePath.hasSuffix(".xctest")
+    }
+    
     public override init() {
         super.init()
         
@@ -37,13 +43,15 @@ public final class FinderSync: FIFinderSync {
             .deliverImmediately
         )
         
-        // Monitor user home directory and volumes for archive items
-        let homeURL = URL(fileURLWithPath: NSHomeDirectory())
-        FIFinderSyncController.default().directoryURLs = [homeURL]
-        
-        // Set custom badge images for TTZip recognition
-        if let badgeImage = NSImage(systemSymbolName: "archivebox.fill", accessibilityDescription: "TTZip Archive") {
-            FIFinderSyncController.default().setBadgeImage(badgeImage, label: "TTZip", forBadgeIdentifier: "TTZipArchiveBadge")
+        // Monitor user home directory and volumes for archive items (bypassed in headless unit test runner)
+        if !Self.isRunningInTestEnvironment {
+            let homeURL = URL(fileURLWithPath: NSHomeDirectory())
+            FIFinderSyncController.default().directoryURLs = [homeURL]
+            
+            // Set custom badge images for TTZip recognition
+            if let badgeImage = NSImage(systemSymbolName: "archivebox.fill", accessibilityDescription: "TTZip Archive") {
+                FIFinderSyncController.default().setBadgeImage(badgeImage, label: "TTZip", forBadgeIdentifier: "TTZipArchiveBadge")
+            }
         }
     }
     
@@ -120,7 +128,9 @@ public final class FinderSync: FIFinderSync {
     public override func requestBadgeIdentifier(for url: URL) {
         let ext = url.pathExtension.lowercased()
         if FinderSyncHelper.supportedArchiveExtensions.contains(ext) {
-            FIFinderSyncController.default().setBadgeIdentifier("TTZipArchiveBadge", for: url)
+            if !Self.isRunningInTestEnvironment {
+                FIFinderSyncController.default().setBadgeIdentifier("TTZipArchiveBadge", for: url)
+            }
         }
     }
 }

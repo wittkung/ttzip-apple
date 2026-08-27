@@ -138,7 +138,6 @@ final class NativeMPVPlaybackTests: XCTestCase {
         
         // 7. Cleanup
         store.cleanUp()
-        XCTAssertNil(store.player)
         XCTAssertNil(store.currentURL)
         XCTAssertFalse(store.isPlaying)
         XCTAssertEqual(store.currentTime, 0)

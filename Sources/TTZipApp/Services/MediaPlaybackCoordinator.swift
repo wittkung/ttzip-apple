@@ -9,7 +9,7 @@ import Foundation
 import AppKit
 import SwiftUI
 
-/// Coordinates media playback shortcuts (Space to toggle play/pause, Left/Right arrow keys to seek)
+/// Coordinates media playback shortcuts (Space to toggle play/pause when focused or in full-screen modal, Left/Right arrow keys to seek)
 /// across video, audio, and full-screen presentation contexts.
 @MainActor
 public final class MediaPlaybackCoordinator: ObservableObject {
@@ -53,10 +53,13 @@ public final class MediaPlaybackCoordinator: ObservableObject {
             
             let isFullScreen = FullScreenMediaWindowController.shared.isPresenting
             
-            // KeyCode 49 is Space Bar
+            // KeyCode 49 is Space Bar (only handled when in full-screen presentation or explicitly focused/hovered)
             if event.keyCode == 49 {
-                self.playPauseHandler?()
-                return nil // Consumed
+                if isFullScreen || self.isFocusedOrHovered {
+                    self.playPauseHandler?()
+                    return nil // Consumed
+                }
+                return event
             }
             
             // Left Arrow (KeyCode 123) / Right Arrow (KeyCode 124)

@@ -119,7 +119,6 @@ final class VideoPlaybackZeroKickoutTests: XCTestCase {
         XCTAssertEqual(store.currentTime, 20.0)
         
         store.cleanUp()
-        XCTAssertNil(store.player)
         XCTAssertNil(store.currentURL)
         XCTAssertFalse(store.isPlaying)
     }
