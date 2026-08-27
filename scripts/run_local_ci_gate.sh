@@ -28,13 +28,18 @@ echo ">>> [Stage 2/4] Architecture & Decoupling Defense Gate..."
 python3 "${REPO_ROOT}/scripts/lint_architecture_gate.py"
 
 # Stage 3: Swift UI & Extensions Test Suite
-echo ">>> [Stage 3/4] Running macOS Swift App Tests..."
+echo ">>> [Stage 3/5] Running macOS Swift App Tests..."
 swift test --quiet
 
-# Stage 4: Multi-Channel Packaging & Sandbox Gate
-echo ">>> [Stage 4/4] Running Multi-Channel Packaging & Sandbox Gate..."
+# Stage 4: Release Mode Zero-Warning Compilation Gate
+echo ">>> [Stage 4/5] Running Release Mode Zero-Warning Compilation Gate..."
+swift build -c release -Xswiftc -warnings-as-errors
+
+# Stage 5: Multi-Channel Packaging & Sandbox Gate
+echo ">>> [Stage 5/5] Running Multi-Channel Packaging & Sandbox Gate..."
 "${REPO_ROOT}/scripts/verify_channel_distribution_gate.sh"
 
 echo "======================================================================"
 echo "✅ Local CI/CD Gate Passed! TTZip Apple Client 100% compliant."
 echo "======================================================================"
+

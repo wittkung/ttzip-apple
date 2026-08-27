@@ -190,7 +190,8 @@ public final class MPVMetalPlayerStore: ObservableObject {
     public func selectAudioTrack(_ track: MPVTrackItem) {
         self.selectedAudioTrackId = track.id
         guard let item = player?.currentItem else { return }
-        if let group = item.asset.mediaSelectionGroup(forMediaCharacteristic: .audible) {
+        Task { @MainActor in
+            guard let group = try? await item.asset.loadMediaSelectionGroup(for: .audible) else { return }
             let options = group.options
             if let matched = options.first(where: {
                 $0.displayName.localizedCaseInsensitiveContains(track.language) ||
@@ -204,23 +205,29 @@ public final class MPVMetalPlayerStore: ObservableObject {
     public func selectSubtitleTrack(_ sub: MPVSubtitleItem?) {
         guard let sub = sub else {
             self.selectedSubtitleTrackId = nil
-            if let item = player?.currentItem,
-               let group = item.asset.mediaSelectionGroup(forMediaCharacteristic: .legible) {
-                item.select(nil, in: group)
+            if let item = player?.currentItem {
+                Task { @MainActor in
+                    if let group = try? await item.asset.loadMediaSelectionGroup(for: .legible) {
+                        item.select(nil, in: group)
+                    }
+                }
             }
             return
         }
         self.selectedSubtitleTrackId = sub.id
         guard let item = player?.currentItem else { return }
-        if let group = item.asset.mediaSelectionGroup(forMediaCharacteristic: .legible) {
-            if let matched = group.options.first(where: {
-                $0.displayName.localizedCaseInsensitiveContains(sub.language) ||
-                $0.displayName.localizedCaseInsensitiveContains(sub.title)
-            }) {
-                item.select(matched, in: group)
+        Task { @MainActor in
+            if let group = try? await item.asset.loadMediaSelectionGroup(for: .legible) {
+                if let matched = group.options.first(where: {
+                    $0.displayName.localizedCaseInsensitiveContains(sub.language) ||
+                    $0.displayName.localizedCaseInsensitiveContains(sub.title)
+                }) {
+                    item.select(matched, in: group)
+                }
             }
         }
     }
+
     
     public func updateEDRMetrics() {
         let maxHeadroom = NSScreen.main?.maximumExtendedDynamicRangeColorComponentValue ?? 1.0

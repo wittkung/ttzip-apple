@@ -285,8 +285,9 @@ extension ArchiveExplorerView {
                         
                         if totalSize > UInt64(initialChunkSize) {
                             if let handle = try? FileHandle(forWritingTo: expectedFileURL) {
-                                try? handle.seekToEnd()
+                                _ = try? handle.seekToEnd()
                                 var currentOffset = UInt64(initialChunkSize)
+
                                 let stepChunk: UInt32 = 2 * 1024 * 1024
                                 while currentOffset < totalSize && !Task.isCancelled {
                                     let toRead = min(UInt32(totalSize - currentOffset), stepChunk)
