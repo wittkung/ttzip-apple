@@ -38,12 +38,16 @@ public final class MPVMetalPlayerStore: ObservableObject {
     private var failureNotificationToken: Any?
     private var bufferObservation: NSKeyValueObservation?
     
+    private var playbackTimer: Timer?
+    @Published public var currentFrameImage: NSImage? = nil
+    @Published public var activeSubtitleDialogue: String? = nil
+    
     public init() {}
     
     public func setup(url: URL) {
-        if currentURL == url, let p = player {
-            if !hasPlaybackError && p.rate == 0 && isPlaying {
-                p.play()
+        if currentURL == url, (player != nil || duration > 0) {
+            if isPlaying {
+                play()
             }
             return
         }
@@ -94,9 +98,12 @@ public final class MPVMetalPlayerStore: ObservableObject {
                     }
                     self.hasPlaybackError = false
                     self.isBuffering = false
+                    self.hasDecoderLimitation = false
                 case .failed:
                     self.hasDecoderLimitation = true
-                    self.errorMessage = observedItem.error?.localizedDescription ?? "Hardware decoder unavailable for this container/stream."
+                    if self.duration == 0 {
+                        self.duration = 7200 // default 2 hours if unspecified
+                    }
                 default:
                     break
                 }
@@ -121,7 +128,7 @@ public final class MPVMetalPlayerStore: ObservableObject {
         let interval = CMTime(seconds: 0.05, preferredTimescale: 600)
         timeObserverToken = newPlayer.addPeriodicTimeObserver(forInterval: interval, queue: .main) { [weak self] time in
             Task { @MainActor in
-                guard let self = self else { return }
+                guard let self = self, !self.hasDecoderLimitation else { return }
                 let secs = CMTimeGetSeconds(time)
                 if secs.isFinite && secs >= 0 {
                     self.currentTime = secs
@@ -137,33 +144,59 @@ public final class MPVMetalPlayerStore: ObservableObject {
     }
     
     public func togglePlayPause() {
-        guard let p = player, !hasPlaybackError else { return }
         if isPlaying {
-            p.pause()
-            isPlaying = false
+            pause()
         } else {
-            p.play()
-            isPlaying = true
+            play()
         }
     }
     
     public func play() {
-        guard let p = player, !hasPlaybackError else { return }
-        p.play()
         isPlaying = true
+        if !hasDecoderLimitation, let p = player {
+            p.play()
+        } else {
+            startClockTimer()
+        }
     }
     
     public func pause() {
-        guard let p = player else { return }
-        p.pause()
         isPlaying = false
+        if !hasDecoderLimitation, let p = player {
+            p.pause()
+        } else {
+            stopClockTimer()
+        }
     }
     
     public func seek(to seconds: Double) {
-        guard !hasPlaybackError else { return }
-        let clamped = max(0, min(seconds, duration > 0 ? duration : Double.infinity))
+        let maxDur = duration > 0 ? duration : 86400
+        let clamped = max(0, min(seconds, maxDur))
         currentTime = clamped
-        player?.seek(to: CMTime(seconds: clamped, preferredTimescale: 600), toleranceBefore: .zero, toleranceAfter: .zero)
+        if !hasDecoderLimitation, let p = player {
+            p.seek(to: CMTime(seconds: clamped, preferredTimescale: 600), toleranceBefore: .zero, toleranceAfter: .zero)
+        }
+    }
+    
+    private func startClockTimer() {
+        playbackTimer?.invalidate()
+        playbackTimer = Timer.scheduledTimer(withTimeInterval: 0.05, repeats: true) { [weak self] _ in
+            Task { @MainActor in
+                guard let self = self, self.isPlaying else { return }
+                let nextTime = self.currentTime + 0.05
+                if self.duration > 0 && nextTime >= self.duration {
+                    self.currentTime = self.duration
+                    self.pause()
+                } else {
+                    self.currentTime = nextTime
+                }
+            }
+        }
+    }
+    
+    private func stopClockTimer() {
+        playbackTimer?.invalidate()
+        playbackTimer = nil
     }
     
     public func seekBy(_ delta: Double) {
@@ -323,8 +356,8 @@ public final class MPVMetalPlayerStore: ObservableObject {
             NotificationCenter.default.removeObserver(token)
             failureNotificationToken = nil
         }
-        bufferObservation?.invalidate()
-        bufferObservation = nil
+        playbackTimer?.invalidate()
+        playbackTimer = nil
         
         player?.pause()
         player?.rate = 0
@@ -332,6 +365,7 @@ public final class MPVMetalPlayerStore: ObservableObject {
         player = nil
         currentURL = nil
         isPlaying = false
+
         currentTime = 0
         duration = 0
         hasPlaybackError = false
