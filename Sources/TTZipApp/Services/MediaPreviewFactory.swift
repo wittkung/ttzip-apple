@@ -39,7 +39,7 @@ public enum MediaPreviewFactory {
     
     /// Extended video container extensions handled in-app via Rust demuxing and AVFoundation.
     public static let extendedVideoExtensions: Set<String> = [
-        "mkv", "avi", "webm", "ogv", "flv", "3gp", "ts", "wmv", "vob", "rmvb", "divx", "m2ts", "asf"
+        "mkv", "avi", "webm", "ogv", "flv", "3gp", "ts", "wmv", "vob", "rmvb", "divx", "m2ts", "asf", "f4v"
     ]
     
     /// All recognizable video extensions routed to in-app zero-kickout playback.

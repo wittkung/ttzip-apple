@@ -62,7 +62,7 @@ extension MediaPreviewFactory {
                 )
             } else {
                 return AnyView(
-                    UnifiedVideoPlayerView(url: url)
+                    MPVMetalVideoPlayerView(url: url)
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                 )
             }
