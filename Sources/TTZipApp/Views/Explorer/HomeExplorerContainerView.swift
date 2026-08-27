@@ -23,7 +23,7 @@ public struct HomeExplorerContainerView: View {
     }
     
     private var hasRightInspector: Bool {
-        isRightSidebarVisible && viewModel.selectedDiskItem != nil
+        isRightSidebarVisible && viewModel.selectedDiskItem != nil && viewModel.selectedDiskItem?.isDirectory == false
     }
     
     public var body: some View {
@@ -31,7 +31,7 @@ public struct HomeExplorerContainerView: View {
             title: l10n.t(L10n.Explorer.fileExplorer),
             isCardEnclosed: true
         ) {
-            HStack(spacing: 8) {
+            HStack(alignment: .center, spacing: 8) {
                 Button(action: {
                     RootFolderAccessManager.shared.requestRootAccess(for: RootFolderAccessManager.shared.highestRootURL(for: viewModel.currentDirectory))
                 }) {
@@ -40,6 +40,8 @@ public struct HomeExplorerContainerView: View {
                             .font(.system(size: 9, weight: .bold))
                         L10nText(L10n.Explorer.rootAccess)
                             .font(.system(size: 10, weight: .semibold))
+                            .lineLimit(1)
+                            .fixedSize(horizontal: true, vertical: false)
                     }
                     .foregroundStyle(TTZipTheme.kintsugiGold)
                     .padding(.horizontal, 8)
@@ -48,6 +50,7 @@ public struct HomeExplorerContainerView: View {
                     .clipShape(Capsule())
                 }
                 .buttonStyle(.plain)
+                .fixedSize(horizontal: true, vertical: false)
                 .help("Grant root access to parent directory to browse without sandbox prompts")
                 
                 Button(action: {
@@ -56,9 +59,11 @@ public struct HomeExplorerContainerView: View {
                     HStack(spacing: 4) {
                         Image(systemName: "folder.fill")
                             .font(.system(size: 10))
-                            .foregroundStyle(TTZipTheme.bambooGreen)
                         Text(viewModel.currentDirectory.lastPathComponent.isEmpty ? "/" : viewModel.currentDirectory.lastPathComponent)
                             .font(.system(size: 11, weight: .bold, design: .monospaced))
+                            .lineLimit(1)
+                            .truncationMode(.middle)
+                            .frame(maxWidth: 160)
                             .foregroundStyle(TTZipTheme.bambooGreen)
                     }
                     .padding(.horizontal, 9)
@@ -67,8 +72,12 @@ public struct HomeExplorerContainerView: View {
                     .clipShape(Capsule())
                 }
                 .buttonStyle(.plain)
+                .fixedSize(horizontal: true, vertical: false)
+                .layoutPriority(1)
                 .help("Current directory (Click or press ⌘L / ⇧⌘G to navigate by path)")
             }
+            .fixedSize(horizontal: true, vertical: false)
+            .layoutPriority(1)
         } content: {
             DiskDirectoryBrowserView(
                 rootDirectory: viewModel.currentDirectory,
@@ -90,7 +99,5 @@ public struct HomeExplorerContainerView: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         }
         .quickLookPreview($quickLookCoordinator.activePreviewURL)
-        .padding(.leading, TTZipTheme.Spacing.xs)
-        .padding(.trailing, hasRightInspector ? 4 : TTZipTheme.Spacing.md)
     }
 }

@@ -48,14 +48,18 @@ public struct TTZipWorkspaceScaffold<HeaderTrailing: View, Content: View>: View 
     public var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             // 1. 52pt Header Bar (Top=38pt + Height=52pt -> Golden line strictly at Y = 90.0pt)
-            HStack(spacing: 12) {
+            HStack(alignment: .center, spacing: 12) {
                 Text(title)
                     .font(.system(size: 16, weight: .bold, design: .serif))
                     .foregroundStyle(.primary)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
                 
                 Spacer()
                 
                 headerTrailing
+                    .fixedSize(horizontal: true, vertical: false)
+                    .layoutPriority(1)
             }
             .padding(.horizontal, 20)
             .frame(height: TTZipTheme.Layout.headerBarHeight)

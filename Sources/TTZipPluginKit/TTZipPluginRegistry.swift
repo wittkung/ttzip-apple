@@ -32,7 +32,7 @@ public final class TTZipPluginRegistry: ObservableObject {
             try await plugin.onInitialize(context: context)
             installedPlugins.append(plugin)
             
-            // 收集 8 大扩展点
+            // 收集扩展点贡献
             if let sidebar = plugin.sidebarItem {
                 sidebarItems.removeAll(where: { $0.id == sidebar.id })
                 sidebarItems.append(sidebar)
@@ -53,8 +53,7 @@ public final class TTZipPluginRegistry: ObservableObject {
     /// 卸载并终止插件
     public func unregister(pluginId: String) async {
         guard let index = installedPlugins.firstIndex(where: { $0.manifest.id == pluginId }) else {
-            // 即使未在 installedPlugins，也强制清理孤立的 sidebarItems
-            sidebarItems.removeAll(where: { $0.id.hasPrefix(pluginId) || $0.id.contains("larksync") })
+            sidebarItems.removeAll(where: { $0.id.hasPrefix(pluginId) })
             self.objectWillChange.send()
             return
         }
@@ -64,12 +63,10 @@ public final class TTZipPluginRegistry: ObservableObject {
         
         let targetSidebarId = plugin.sidebarItem?.id
         sidebarItems.removeAll(where: { item in
-            item.id.hasPrefix(pluginId) ||
-            item.id == targetSidebarId ||
-            (pluginId.contains("larksync") && item.id.contains("larksync"))
+            item.id.hasPrefix(pluginId) || item.id == targetSidebarId
         })
         
-        omnibarCommands.removeAll(where: { $0.id.hasPrefix(pluginId) || (pluginId.contains("larksync") && $0.id.contains("larksync")) })
+        omnibarCommands.removeAll(where: { $0.id.hasPrefix(pluginId) })
         previewProviders.removeAll(where: { _ in true })
         archiveSourceProviders.removeAll(where: { _ in true })
         contextMenuActions.removeAll(where: { _ in true })

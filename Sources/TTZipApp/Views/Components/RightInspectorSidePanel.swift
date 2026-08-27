@@ -20,10 +20,19 @@ public struct RightInspectorSidePanel: View {
     
     public var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            HStack(spacing: 12) {
-                Text(viewModel.selectedDiskItem?.isDirectory == true ? "Directory Canvas" : "File Properties & Preview")
-                    .font(.system(size: 16, weight: .bold, design: .serif))
-                    .foregroundStyle(.primary)
+            // Subordinate 44pt Inspector Header (Distinct from 52pt Primary Workspace)
+            HStack(spacing: 8) {
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(viewModel.selectedDiskItem?.isDirectory == true ? "DIRECTORY CANVAS" : "INSPECTOR")
+                        .font(.system(size: 8.5, weight: .bold, design: .serif))
+                        .tracking(1.8)
+                        .foregroundStyle(TTZipTheme.kintsugiGold)
+                    
+                    Text(viewModel.selectedDiskItem?.name ?? (viewModel.selectedDiskItem?.isDirectory == true ? "Folder Properties" : "File Properties"))
+                        .font(.system(size: 13, weight: .semibold, design: .default))
+                        .foregroundStyle(.primary)
+                        .lineLimit(1)
+                }
                 
                 Spacer()
                 
@@ -33,7 +42,7 @@ public struct RightInspectorSidePanel: View {
                         viewModel.overlayState.showArchiveInspectorModal = true
                     }) {
                         Image(systemName: "doc.badge.gearshape")
-                            .font(.system(size: 15))
+                            .font(.system(size: 13))
                             .foregroundStyle(TTZipTheme.archiveAmber)
                     }
                     .buttonStyle(.plain)
@@ -47,18 +56,19 @@ public struct RightInspectorSidePanel: View {
                         }
                     }) {
                         Image(systemName: "xmark.circle.fill")
-                            .font(.system(size: 15))
-                            .foregroundStyle(.secondary)
+                            .font(.system(size: 13))
+                            .foregroundStyle(.secondary.opacity(0.8))
                     }
                     .buttonStyle(.plain)
                 }
             }
-            .padding(.horizontal, 20)
-            .frame(height: 52)
+            .padding(.horizontal, 16)
+            .frame(height: 44)
             
+            // Subtle Hairline Divider (Replaces full-bleed 1.5pt gold line to avoid Y=90pt visual merge)
             Rectangle()
-                .fill(TTZipTheme.kintsugiGold)
-                .frame(height: 1.5)
+                .fill(Color.primary.opacity(0.08))
+                .frame(height: 0.8)
             
             VStack(alignment: .leading, spacing: 0) {
                 if let item = viewModel.selectedDiskItem {
@@ -78,10 +88,10 @@ public struct RightInspectorSidePanel: View {
                     VStack(spacing: 12) {
                         Spacer()
                         Image(systemName: "photo.on.rectangle.angled")
-                            .font(.system(size: 36))
+                            .font(.system(size: 32))
                             .foregroundStyle(.tertiary)
                         Text("Select a file or folder in the explorer")
-                            .font(.system(size: 12, weight: .medium))
+                            .font(.system(size: 11.5, weight: .medium))
                             .foregroundStyle(.secondary)
                         Text("Selected items can be previewed directly")
                             .font(.system(size: 10))
@@ -92,11 +102,11 @@ public struct RightInspectorSidePanel: View {
                 }
             }
         }
-        .background(Color.primary.opacity(0.025))
-        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .background(Color.primary.opacity(0.018))
+        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
         .overlay(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .strokeBorder(Color.primary.opacity(0.07), lineWidth: 1)
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .strokeBorder(Color.primary.opacity(0.05), lineWidth: 0.8)
         )
     }
 }

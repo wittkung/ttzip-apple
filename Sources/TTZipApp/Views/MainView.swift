@@ -54,17 +54,25 @@ public struct MainView: View {
             let tier = WindowLayoutTier.evaluate(width: totalWidth)
             let effectiveLeftSidebarWidth: CGFloat = (tier == .compact) ? 64 : leftSidebarWidth
             let isLeftCompact: Bool = (tier == .compact) || (leftSidebarWidth < 140)
-            let remainingWidth = max(totalWidth - effectiveLeftSidebarWidth - 2, 200)
             
-            let isRightPanelAvailable: Bool = (tier != .compact && viewModel.activeTab == .home && viewModel.selectedDiskItem != nil)
+            // Fixed Chrome Geometry & Safety Clamping Constants
+            let leftDividerWidth: CGFloat = (tier == .compact) ? 0 : ResizableDividerHandle.gutterWidth
+            let rightDividerWidth: CGFloat = ResizableDividerHandle.gutterWidth
+            let rightPanelPadding: CGFloat = 14.0 // leading: 4 + trailing: 10
+            let minSafeWorkspaceWidth: CGFloat = 420.0
+            let minRightSidebarWidth: CGFloat = 200.0
+            let maxRightSidebarWidth: CGFloat = 480.0
+            
+            let isRightPanelAvailable: Bool = (tier != .compact && viewModel.activeTab == .home && viewModel.selectedDiskItem != nil && viewModel.selectedDiskItem?.isDirectory == false)
             let shouldShowRightPanel = isRightSidebarVisible && isRightPanelAvailable
+            
+            let totalChrome = effectiveLeftSidebarWidth + leftDividerWidth + (shouldShowRightPanel ? (rightDividerWidth + rightPanelPadding) : 0)
+            let maxRightAllowedByWorkspace = max(minRightSidebarWidth, totalWidth - totalChrome - minSafeWorkspaceWidth)
+            let effectiveMaxRightWidth = min(maxRightSidebarWidth, maxRightAllowedByWorkspace)
             
             let effectiveRightWidth: CGFloat = {
                 if !shouldShowRightPanel { return 0 }
-                let minRightWidth: CGFloat = 140
-                let minWorkspaceWidth: CGFloat = 200
-                let maxAllowed = max(minRightWidth, remainingWidth - minWorkspaceWidth)
-                return min(max(rightSidebarWidth, minRightWidth), maxAllowed)
+                return min(max(rightSidebarWidth, minRightSidebarWidth), effectiveMaxRightWidth)
             }()
             
             ZStack(alignment: .topLeading) {
@@ -92,17 +100,14 @@ public struct MainView: View {
                     }
                     
                     detailArea
-                        .frame(minWidth: 200, maxWidth: .infinity, maxHeight: totalHeight, alignment: .topLeading)
+                        .frame(minWidth: minSafeWorkspaceWidth, maxWidth: .infinity, maxHeight: totalHeight, alignment: .topLeading)
                     
                     if shouldShowRightPanel {
                         ResizableDividerHandle(
                             onDragStart: { initialRightWidth = rightSidebarWidth },
                             onDragChanged: { translation in
                                 let newWidth = initialRightWidth - translation
-                                let minRightWidth: CGFloat = 140
-                                let minWorkspaceWidth: CGFloat = 200
-                                let maxAllowed = max(minRightWidth, remainingWidth - minWorkspaceWidth)
-                                rightSidebarWidth = min(max(newWidth, minRightWidth), maxAllowed)
+                                rightSidebarWidth = min(max(newWidth, minRightSidebarWidth), effectiveMaxRightWidth)
                             },
                             onDragEnd: { userRightSidebarWidth = Double(rightSidebarWidth) }
                         )
@@ -280,20 +285,21 @@ public struct MainView: View {
                     PasswordVaultView()
                 case .plugins:
                     PluginsView()
-                case .larkSync:
-                    if let pluginView = registry.installedPlugins.first(where: { $0.manifest.id == "com.ttzip.plugin.larksync" })?.makeWorkspaceView(tabIdentifier: "larksync.workspace") {
+                case .dynamicExtension(let pluginId, let tabId):
+                    if let plugin = registry.installedPlugins.first(where: { $0.manifest.id == pluginId || $0.sidebarItem?.targetTabIdentifier == tabId }),
+                       let pluginView = plugin.makeWorkspaceView(tabIdentifier: tabId) {
                         pluginView
                     } else {
                         TTZipWorkspaceScaffold(
-                            title: "LarkSync",
+                            title: "Extension",
                             isCardEnclosed: true
                         ) {
                             EmptyView()
                         } content: {
                             ContentUnavailableView(
-                                "未加载飞书知识库插件",
+                                "未加载该扩展",
                                 systemImage: "puzzlepiece.extension",
-                                description: Text("请前往「插件中心」启用或安装 LarkSync 扩展。")
+                                description: Text("请前往「插件中心」启用或安装对应扩展。")
                             )
                             .frame(maxWidth: .infinity, maxHeight: .infinity)
                         }

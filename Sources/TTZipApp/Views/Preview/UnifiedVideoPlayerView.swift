@@ -8,6 +8,7 @@
 import SwiftUI
 import AVFoundation
 import AVKit
+import QuickLookUI
 import TTZipCore
 
 /// Unified zero-kickout in-app video player view with hardware acceleration and Rust demuxing.
@@ -77,7 +78,10 @@ public struct UnifiedVideoPlayerView: View {
         ZStack(alignment: .center) {
             Color.black.ignoresSafeArea()
             
-            if let player = store.player {
+            if store.hasDecoderLimitation {
+                QuickLookDirectVideoHostingView(url: url)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else if let player = store.player {
                 AVPlayerLayerContainerView(player: player)
                     .onTapGesture {
                         store.togglePlayPause()
@@ -87,10 +91,8 @@ public struct UnifiedVideoPlayerView: View {
                     .controlSize(.large)
             }
             
-            // MARK: - Center HUD / Play Pulse
-            if store.hasDecoderLimitation {
-                decoderNoticeOverlay
-            } else if isHovering || !store.isPlaying {
+            // MARK: - Center HUD / Play Pulse (AVPlayer 模式下居中播放提示)
+            if !store.hasDecoderLimitation && (isHovering || !store.isPlaying) {
                 Button(action: { store.togglePlayPause() }) {
                     ZStack {
                         Circle()
@@ -108,6 +110,7 @@ public struct UnifiedVideoPlayerView: View {
                 .buttonStyle(.plain)
                 .transition(.scale(scale: 0.85).combined(with: .opacity).animation(.spring(response: 0.2, dampingFraction: 0.8)))
             }
+
             
             // MARK: - Top Header Info Bar
             if isHovering || !store.isPlaying {
@@ -273,46 +276,6 @@ public struct UnifiedVideoPlayerView: View {
         .transition(.opacity.animation(.easeInOut(duration: 0.15)))
     }
     
-    private var decoderNoticeOverlay: some View {
-        VStack(spacing: 8) {
-            Image(systemName: "film.stack")
-                .font(.system(size: 28))
-                .foregroundStyle(TTZipTheme.kintsugiGold)
-            
-            Text(isChinese ? "\(containerBadge) 媒体预览就绪" : "\(containerBadge) In-App Media Ready")
-                .font(.system(size: 13, weight: .bold))
-                .foregroundStyle(.white)
-            
-            Text(isChinese ? "已提取音视频轨与章节。可直接在内嵌视图浏览或调起外部播放器硬解：" : "Metadata extracted via Rust microkernel. Open externally for complete hardware decoding:")
-                .font(.system(size: 10.5))
-                .foregroundStyle(.white.opacity(0.8))
-                .multilineTextAlignment(.center)
-                .frame(maxWidth: 320)
-            
-            Button(action: { NSWorkspace.shared.open(url) }) {
-                HStack(spacing: 6) {
-                    Image(systemName: "play.rectangle.fill")
-                        .font(.system(size: 12, weight: .bold))
-                    Text(isChinese ? "在默认播放器中打开 (IINA/VLC)" : "Open in Default Player")
-                        .font(.system(size: 11.5, weight: .bold))
-                }
-                .foregroundStyle(.white)
-                .padding(.horizontal, 14)
-                .padding(.vertical, 6)
-                .background(TTZipTheme.bambooGreen)
-                .clipShape(Capsule())
-                .shadow(color: TTZipTheme.bambooGreen.opacity(0.4), radius: 6, x: 0, y: 2)
-            }
-            .buttonStyle(.plain)
-            .padding(.top, 4)
-        }
-        .padding(16)
-        .background(.ultraThinMaterial.opacity(0.92))
-        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).strokeBorder(Color.white.opacity(0.2), lineWidth: 0.8))
-        .shadow(color: Color.black.opacity(0.5), radius: 12, x: 0, y: 6)
-    }
-    
     private func resetHideTimer() {
         hideTimer?.invalidate()
         hideTimer = Timer.scheduledTimer(withTimeInterval: 2.5, repeats: false) { _ in
@@ -335,47 +298,3 @@ public struct UnifiedVideoPlayerView: View {
     }
 }
 
-public struct AVPlayerLayerContainerView: NSViewRepresentable {
-    public let player: AVPlayer
-    
-    public init(player: AVPlayer) {
-        self.player = player
-    }
-    
-    public func makeNSView(context: Context) -> PlayerNSView {
-        let view = PlayerNSView()
-        view.playerLayer.player = player
-        view.playerLayer.videoGravity = .resizeAspect
-        return view
-    }
-    
-    public func updateNSView(_ nsView: PlayerNSView, context: Context) {
-        nsView.playerLayer.player = player
-        nsView.playerLayer.videoGravity = .resizeAspect
-    }
-    
-    public final class PlayerNSView: NSView {
-        public let playerLayer = AVPlayerLayer()
-        
-        public override init(frame frameRect: NSRect) {
-            super.init(frame: frameRect)
-            self.wantsLayer = true
-            self.layer?.backgroundColor = NSColor.black.cgColor
-            playerLayer.frame = self.bounds
-            playerLayer.videoGravity = .resizeAspect
-            self.layer?.addSublayer(playerLayer)
-        }
-        
-        public required init?(coder: NSCoder) {
-            fatalError("init(coder:) has not been implemented")
-        }
-        
-        public override func layout() {
-            super.layout()
-            CATransaction.begin()
-            CATransaction.setDisableActions(true)
-            playerLayer.frame = self.bounds
-            CATransaction.commit()
-        }
-    }
-}

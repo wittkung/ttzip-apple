@@ -7,6 +7,9 @@
 
 import Foundation
 import SwiftUI
+#if os(macOS)
+import AppKit
+#endif
 
 /// 动态插件扫描与安全加载引擎 (Dynamic Bundle Plugin Loader)
 public enum TTZipPluginLoader {
@@ -58,10 +61,10 @@ public enum TTZipPluginLoader {
             
             var resolvedPlugin: TTZipPlugin?
             
-            // 机制 1: 尝试通过 C 入口函数直接获取 (最纯粹安全的动态加载机制)
-            let executableURL = bundle.executableURL ?? bundleURL.appendingPathComponent("Contents/MacOS/LarkSyncPlugin")
+            // 机制 1: 尝试通过 C 入口函数直接获取 (标准 createTTZipPlugin / createTTZipPlugin_v1)
+            let executableURL = bundle.executableURL ?? bundleURL.appendingPathComponent("Contents/MacOS/\(bundleURL.deletingPathExtension().lastPathComponent)")
             if let handle = dlopen(executableURL.path, RTLD_NOW) {
-                if let sym = dlsym(handle, "createTTZipPlugin") {
+                if let sym = dlsym(handle, "createTTZipPlugin") ?? dlsym(handle, "createTTZipPlugin_v1") {
                     typealias CreatePluginFn = @convention(c) () -> UnsafeMutableRawPointer
                     let createFn = unsafeBitCast(sym, to: CreatePluginFn.self)
                     let rawPtr = createFn()
@@ -87,11 +90,7 @@ public enum TTZipPluginLoader {
             
             // 机制 2: Fallback 到 principalClass 反射
             if resolvedPlugin == nil {
-                let resolvedClass: NSObject.Type? = (bundle.principalClass as? NSObject.Type)
-                    ?? (NSClassFromString("LarkSyncPlugin") as? NSObject.Type)
-                    ?? (NSClassFromString("LarkSyncPlugin.LarkSyncPlugin") as? NSObject.Type)
-                
-                if let principalClass = resolvedClass {
+                if let principalClass = bundle.principalClass as? NSObject.Type {
                     let instance = principalClass.init()
                     if let pluginInstance = instance as? TTZipPlugin {
                         resolvedPlugin = pluginInstance
@@ -132,17 +131,7 @@ public final class DynamicDuckTypePluginAdapter: TTZipPlugin {
         if let manifestVal = mirror.children.first(where: { $0.label == "manifest" })?.value as? TTZipPluginManifest {
             self.manifest = manifestVal
         } else {
-            let fb = TTZipMarketplaceService.fallbackPlugin
-            self.manifest = TTZipPluginManifest(
-                id: fb.id,
-                name: fb.name,
-                version: fb.version,
-                author: fb.author,
-                description: fb.description,
-                iconSystemName: "cloud.fill",
-                homepage: URL(string: fb.homepage),
-                permissions: [.networkAccess, .keychainAccess, .fileSystemWrite, .archiveEngine]
-            )
+            return nil
         }
     }
     
@@ -162,19 +151,11 @@ public final class DynamicDuckTypePluginAdapter: TTZipPlugin {
         if let plugin = rawInstance as? TTZipPlugin {
             return plugin.sidebarItem
         }
-        // 自动反射获取
         let mirror = Mirror(reflecting: rawInstance)
         if let item = mirror.children.first(where: { $0.label == "sidebarItem" })?.value as? TTZipSidebarContribution {
             return item
         }
-        return TTZipSidebarContribution(
-            id: "larksync.sidebar",
-            title: "飞书知识库",
-            icon: "doc.text.below.ecg.fill",
-            badgeText: "Sync",
-            targetTabIdentifier: "larksync.workspace",
-            priority: 20
-        )
+        return nil
     }
     
     public func makeWorkspaceView(tabIdentifier: String) -> AnyView? {
@@ -183,9 +164,9 @@ public final class DynamicDuckTypePluginAdapter: TTZipPlugin {
             return view
         }
         
-        // 尝试通过导出的 C 函数获取
+        // 尝试通过导出的标准 C 视图工厂函数获取 (标准动态入口)
         if let handle = dlopen(nil, RTLD_NOW),
-           let sym = dlsym(handle, "getLarkSyncWorkspaceView_c") {
+           let sym = dlsym(handle, "createTTZipWorkspaceView") ?? dlsym(handle, "createTTZipWorkspaceView_v1") {
             typealias GetViewFn = @convention(c) (UnsafeMutableRawPointer, UnsafePointer<CChar>) -> UnsafeMutableRawPointer?
             let fn = unsafeBitCast(sym, to: GetViewFn.self)
             let rawPtr = Unmanaged.passUnretained(rawInstance).toOpaque()
@@ -199,8 +180,6 @@ public final class DynamicDuckTypePluginAdapter: TTZipPlugin {
 }
 
 #if os(macOS)
-import AppKit
-
 public struct HostNativePluginViewWrapper: NSViewRepresentable {
     public let makeView: () -> NSView?
     

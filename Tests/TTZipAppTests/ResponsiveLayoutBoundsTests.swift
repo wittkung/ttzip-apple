@@ -77,4 +77,52 @@ final class ResponsiveLayoutBoundsTests: XCTestCase {
         XCTAssertEqual(hostingView.frame.size.width, 400.0)
         XCTAssertEqual(hostingView.frame.size.height, 400.0)
     }
+    
+    @MainActor
+    func test_right_inspector_drag_clamping_mathematical_invariants() {
+        let leftSidebarWidth: CGFloat = 215.0
+        let leftDividerWidth: CGFloat = ResizableDividerHandle.gutterWidth // 8.0
+        let rightDividerWidth: CGFloat = ResizableDividerHandle.gutterWidth // 8.0
+        let rightPanelPadding: CGFloat = 14.0 // leading 4 + trailing 10
+        let minSafeWorkspaceWidth: CGFloat = 420.0
+        let minRightSidebarWidth: CGFloat = 200.0
+        let maxRightSidebarWidth: CGFloat = 480.0
+        
+        let testWindowWidths: [CGFloat] = [600.0, 800.0, 900.0, 1200.0, 1600.0, 2560.0]
+        
+        for totalWidth in testWindowWidths {
+            let tier = WindowLayoutTier.evaluate(width: totalWidth)
+            let effectiveLeftWidth = (tier == .compact) ? 64.0 : leftSidebarWidth
+            let effectiveLeftDivider = (tier == .compact) ? 0.0 : leftDividerWidth
+            
+            let totalChrome = effectiveLeftWidth + effectiveLeftDivider + rightDividerWidth + rightPanelPadding
+            let maxRightAllowedByWorkspace = max(minRightSidebarWidth, totalWidth - totalChrome - minSafeWorkspaceWidth)
+            let effectiveMaxRight = min(maxRightSidebarWidth, maxRightAllowedByWorkspace)
+            
+            // Invariant 1: effectiveMaxRight must NEVER exceed absolute ceiling 480pt
+            XCTAssertLessThanOrEqual(
+                effectiveMaxRight,
+                maxRightSidebarWidth,
+                "Right sidebar must never exceed \(maxRightSidebarWidth)pt at window width \(totalWidth)"
+            )
+            
+            // Invariant 2: Leftward extreme drag (e.g. targetWidth = 1200pt) must be clamped safely
+            let simulatedTargetWidth: CGFloat = 1200.0
+            let clampedWidth = min(max(simulatedTargetWidth, minRightSidebarWidth), effectiveMaxRight)
+            
+            XCTAssertLessThanOrEqual(clampedWidth, effectiveMaxRight)
+            XCTAssertGreaterThanOrEqual(clampedWidth, minRightSidebarWidth)
+            
+            // Invariant 3: Remaining workspace width must satisfy safe minimum in medium/expanded tiers
+            if tier != .compact && totalWidth >= (totalChrome + minSafeWorkspaceWidth) {
+                let actualWorkspaceWidth = totalWidth - totalChrome - clampedWidth
+                XCTAssertGreaterThanOrEqual(
+                    actualWorkspaceWidth,
+                    minSafeWorkspaceWidth - 0.01,
+                    "Middle workspace width (\(actualWorkspaceWidth)) must be at least \(minSafeWorkspaceWidth)pt at window width \(totalWidth)"
+                )
+            }
+        }
+    }
 }
+

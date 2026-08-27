@@ -58,11 +58,11 @@ public struct MacEditorialSidebar: View {
                         
                         // 2. Dynamic Plugin Contributions
                         ForEach(registry.sidebarItems, id: \.id) { (contribution: TTZipSidebarContribution) in
-                            let isLark = contribution.id.contains("larksync")
+                            let targetPluginId = registry.installedPlugins.first(where: { $0.sidebarItem?.id == contribution.id })?.manifest.id ?? contribution.id
                             SidebarItemView(
                                 title: contribution.title,
                                 icon: contribution.icon,
-                                tab: isLark ? .larkSync : .plugins,
+                                tab: .dynamicExtension(pluginId: targetPluginId, tabId: contribution.targetTabIdentifier),
                                 activeTab: $activeTab,
                                 isCompact: isCompact
                             )

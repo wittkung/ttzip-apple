@@ -49,7 +49,7 @@ public struct DiskDirectoryBrowserView: View {
     
     public var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            HStack(spacing: 12) {
+            HStack(alignment: .center, spacing: 8) {
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 6) {
                         ForEach(dynamicFinderFavorites) { fav in
@@ -83,6 +83,8 @@ public struct DiskDirectoryBrowserView: View {
                                     .font(.system(size: 9.5, weight: .bold))
                                 Text("Add Shortcut")
                                     .font(.system(size: 10.5, weight: .bold))
+                                    .lineLimit(1)
+                                    .fixedSize(horizontal: true, vertical: false)
                             }
                             .padding(.horizontal, 9)
                             .padding(.vertical, 4.5)
@@ -94,11 +96,13 @@ public struct DiskDirectoryBrowserView: View {
                             )
                         }
                         .buttonStyle(.plain)
+                        .fixedSize(horizontal: true, vertical: false)
                         .help("Add any custom folder on Mac to shortcuts")
                     }
                     .padding(.horizontal, 4)
                     .padding(.vertical, 2)
                 }
+                .frame(height: 28)
                 .mask(
                     LinearGradient(
                         stops: [
@@ -117,6 +121,8 @@ public struct DiskDirectoryBrowserView: View {
                             .font(.system(size: 10, weight: .bold))
                         Text("Refresh")
                             .font(.system(size: 10.5, weight: .medium))
+                            .lineLimit(1)
+                            .fixedSize(horizontal: true, vertical: false)
                     }
                     .foregroundStyle(TTZipTheme.bambooGreen)
                     .padding(.horizontal, 9)
@@ -128,8 +134,11 @@ public struct DiskDirectoryBrowserView: View {
                     )
                 }
                 .buttonStyle(.plain)
+                .fixedSize(horizontal: true, vertical: false)
+                .layoutPriority(1)
                 .help("Refresh browser contents")
             }
+            .frame(height: 28)
             .padding(.horizontal, 12)
             .padding(.top, 8)
             
@@ -170,6 +179,8 @@ public struct DiskDirectoryBrowserView: View {
                     .font(.system(size: 9.5, weight: .semibold))
                 Text(label)
                     .font(.system(size: 11, weight: isSelected ? .bold : .medium))
+                    .lineLimit(1)
+                    .fixedSize(horizontal: true, vertical: false)
             }
             .padding(.horizontal, 9)
             .padding(.vertical, 4.5)
@@ -182,6 +193,7 @@ public struct DiskDirectoryBrowserView: View {
             )
         }
         .buttonStyle(.plain)
+        .fixedSize(horizontal: true, vertical: false)
         .contextMenu {
             if isCustom {
                 Button("Unpin shortcut path") {

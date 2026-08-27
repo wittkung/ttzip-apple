@@ -75,55 +75,15 @@ public struct TTZipMarketplacePlugin: Codable, Sendable, Identifiable {
 public actor TTZipMarketplaceService {
     public static let shared = TTZipMarketplaceService()
     
-    public static let defaultMarketplaceURL = URL(string: "https://raw.githubusercontent.com/wittkung/LarkSync/main/marketplace.json")!
+    public static let defaultMarketplaceURL = URL(string: "https://raw.githubusercontent.com/wittkung/ttzip-marketplace/main/marketplace.json")!
     
-    /// 内置官方 Fallback 索引，确保即使离线/弱网环境下也能瞬时呈现官方生态
-    public static let fallbackPlugin = TTZipMarketplacePlugin(
-        id: "com.ttzip.plugin.larksync",
-        name: "LarkSync",
-        displayName: "飞书知识库双向同步",
-        version: "1.0.1",
-        author: "Witt Kung & TTZip Team",
-        description: "专为 TTZip 打造的飞书知识库双向增量同步与原生 Markdown 沉浸式管理插件。基于纯 Rust 核心与 3-Tree 差异状态机。",
-        minHostVersion: "1.0.0",
-        homepage: "https://github.com/wittkung/LarkSync",
-        downloadUrl: "https://github.com/wittkung/LarkSync/releases/download/v1.0.1/LarkSync-v1.0.1.ttplugin.zip",
-        size: 3002099,
-        sha256: "cde1dc50d84eebdb2b2946f993e99fba7ffb7ed0ab0904026299b2c50b21ad05",
-        signature: "a5j34HPSDRkr6eh0diSEaezN0XLCvPTIT8L9fPRoiP6YmfXk2+AjQzDhAl76fNw4b4Rl0TWKSdj0TCRmVkYGDg==",
-        publicKey: "f1WZtTR4xp4EanpE1hGrjfSwt7Fffsy3MvmJNraK6c8=",
-        permissions: ["Network", "Keychain", "FS-Write", "ArchiveEngine"],
-        publishedAt: "2026-08-26T07:10:24Z"
-    )
-    
-    /// 官方内嵌旗舰全能视频播放插件
-    public static let iinaplayerPlugin = TTZipMarketplacePlugin(
-        id: "com.ttzip.plugin.iina",
-        name: "IINAPlayer",
-        displayName: "IINAPlayer 官方全能播放器",
-        version: "1.0.0",
-        author: "Witt Kung <witt.w.kung@gmail.com>",
-        description: "官方开源 16-bit Float Metal EDR 1600nits 全能视频播放器，支持纯 Safe Rust ASS 矢量字幕与 ttzip:// 零磁盘内存流播。",
-        minHostVersion: "1.0.0",
-        homepage: "https://github.com/wittkung/ttzip-plugin-iina",
-        downloadUrl: "https://github.com/wittkung/ttzip-plugin-iina/releases/download/v1.0.0/IINA-v1.0.0.ttplugin.zip",
-        size: 28416000,
-        sha256: "4cd678ee9050184114250da631bdc751fb17014893f9fd7fa2c86f7dc3a988a8",
-        signature: "",
-        publicKey: "",
-        permissions: ["FS-Read", "ArchiveEngine"],
-        publishedAt: "2026-08-27T00:00:00Z"
-    )
-
-    
-    public static let defaultCatalog: [TTZipMarketplacePlugin] = [
-        iinaplayerPlugin,
-        fallbackPlugin
-    ]
+    /// 官方插件列表（通用空列表初始化，由云端或本地配置动态填充）
+    public static let officialCatalog: [TTZipMarketplacePlugin] = []
+    public static var defaultCatalog: [TTZipMarketplacePlugin] { officialCatalog }
     
     private init() {}
     
-    /// 拉取云端最新索引（带超时与 Fallback 保护）
+    /// 拉取云端最新索引
     public func fetchMarketplaceIndex(from url: URL = defaultMarketplaceURL) async -> [TTZipMarketplacePlugin] {
         var request = URLRequest(url: url)
         request.timeoutInterval = 5.0
@@ -135,15 +95,11 @@ public actor TTZipMarketplaceService {
             let (data, response) = try await URLSession.shared.data(for: request)
             if let httpResponse = response as? HTTPURLResponse, (200...299).contains(httpResponse.statusCode) {
                 let index = try JSONDecoder().decode(TTZipMarketplaceIndex.self, from: data)
-                var merged = index.plugins
-                if !merged.contains(where: { $0.id == Self.iinaplayerPlugin.id }) {
-                    merged.insert(Self.iinaplayerPlugin, at: 0)
-                }
-                return merged
+                return index.plugins
             }
         } catch {
-            print("[TTZipMarketplaceService] Failed to fetch remote index, using fallback: \(error)")
+            print("[TTZipMarketplaceService] Failed to fetch remote index: \(error)")
         }
-        return Self.defaultCatalog
+        return Self.officialCatalog
     }
 }

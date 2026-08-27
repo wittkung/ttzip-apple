@@ -52,11 +52,12 @@ public struct PluginL10n {
     
     public static func emptyInstalledDesc(locale: PluginLocale = .current()) -> String {
         text(
-            zh: "可在「插件商店」中一键获取并安装官方飞书知识库双向同步插件。安装后左侧边栏将自动挂载对应工作区。",
-            en: "Browse the Marketplace to install official extensions like LarkSync. Workspace tabs will dynamically mount upon installation.",
+            zh: "可在「插件商店」中一键获取并安装官方生态扩展插件。安装后左侧边栏与主工作区将自动动态挂载对应功能。",
+            en: "Browse the Marketplace to install official ecosystem extensions. Workspace tabs and tools will dynamically mount upon installation.",
             locale: locale
         )
     }
+
     
     public static func goToMarketplace(locale: PluginLocale = .current()) -> String {
         text(zh: "前往插件商店", en: "Explore Marketplace", locale: locale)

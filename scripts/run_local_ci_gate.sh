@@ -20,15 +20,19 @@ echo "======================================================================"
 cd "${REPO_ROOT}"
 
 # Stage 1: LOC Gate
-echo ">>> [Stage 1/3] LOC Defense Gate..."
+echo ">>> [Stage 1/4] LOC Defense Gate..."
 "${REPO_ROOT}/scripts/lint_loc_gate.sh"
 
-# Stage 2: Swift UI & Extensions Test Suite
-echo ">>> [Stage 2/3] Running macOS Swift App Tests..."
+# Stage 2: Architecture & Decoupling Gate
+echo ">>> [Stage 2/4] Architecture & Decoupling Defense Gate..."
+python3 "${REPO_ROOT}/scripts/lint_architecture_gate.py"
+
+# Stage 3: Swift UI & Extensions Test Suite
+echo ">>> [Stage 3/4] Running macOS Swift App Tests..."
 swift test --quiet
 
-# Stage 3: Multi-Channel Packaging & Sandbox Gate
-echo ">>> [Stage 3/3] Running Multi-Channel Packaging & Sandbox Gate..."
+# Stage 4: Multi-Channel Packaging & Sandbox Gate
+echo ">>> [Stage 4/4] Running Multi-Channel Packaging & Sandbox Gate..."
 "${REPO_ROOT}/scripts/verify_channel_distribution_gate.sh"
 
 echo "======================================================================"

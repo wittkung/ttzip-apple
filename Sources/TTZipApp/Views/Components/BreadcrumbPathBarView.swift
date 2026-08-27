@@ -108,11 +108,12 @@ public struct BreadcrumbPathBarView: View {
     }
     
     public var body: some View {
-        HStack(spacing: 3) {
+        HStack(alignment: .center, spacing: 3) {
             Image(systemName: "folder.fill")
                 .font(.system(size: 10.5))
                 .foregroundStyle(TTZipTheme.kintsugiGold)
                 .padding(.trailing, 2)
+                .fixedSize(horizontal: true, vertical: false)
             
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 2) {
@@ -127,6 +128,8 @@ public struct BreadcrumbPathBarView: View {
                             }) {
                                 Text(segment.title)
                                     .font(.system(size: 11, weight: segment.isLast ? .bold : .medium, design: .monospaced))
+                                    .lineLimit(1)
+                                    .fixedSize(horizontal: true, vertical: false)
                                     .foregroundStyle(segment.isLast ? TTZipTheme.kintsugiGold : (hoveredSegmentID == segment.id ? Color.primary : Color.secondary))
                                     .padding(.horizontal, 4)
                                     .padding(.vertical, 2)
@@ -144,11 +147,13 @@ public struct BreadcrumbPathBarView: View {
                                 Image(systemName: "chevron.right")
                                     .font(.system(size: 8, weight: .bold))
                                     .foregroundStyle(.tertiary)
+                                    .fixedSize(horizontal: true, vertical: false)
                             }
                         }
                     }
                 }
             }
+            .frame(height: 20)
             
             Spacer(minLength: 4)
             
@@ -160,6 +165,8 @@ public struct BreadcrumbPathBarView: View {
                     .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
+            .fixedSize(horizontal: true, vertical: false)
+            .layoutPriority(1)
             .help("Click to edit path or search (⌘L / ⇧⌘G)")
         }
         .contentShape(Rectangle())

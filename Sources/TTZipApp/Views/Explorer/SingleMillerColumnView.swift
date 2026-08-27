@@ -80,7 +80,7 @@ public struct SingleMillerColumnView: View {
     public var body: some View {
         HStack(spacing: 0) {
             VStack(alignment: .leading, spacing: 0) {
-                HStack(spacing: 6) {
+                HStack(alignment: .center, spacing: 6) {
                     ZStack {
                         if index == 0 && canGoParent {
                             Button(action: onPrependParent) {
@@ -100,11 +100,13 @@ public struct SingleMillerColumnView: View {
                         }
                     }
                     .frame(width: 16, height: 16)
+                    .fixedSize(horizontal: true, vertical: false)
                     
                     Text(dirURL.lastPathComponent.isEmpty ? "/" : dirURL.lastPathComponent)
                         .font(.system(size: 11, weight: .bold, design: .serif))
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
+                        .truncationMode(.middle)
                     
                     Spacer(minLength: 4)
                     
@@ -130,6 +132,8 @@ public struct SingleMillerColumnView: View {
                         .padding(2)
                     }
                     .menuStyle(.borderlessButton)
+                    .fixedSize(horizontal: true, vertical: false)
+                    .layoutPriority(1)
                     .help("Change sort order")
                 }
                 .padding(.horizontal, 8)

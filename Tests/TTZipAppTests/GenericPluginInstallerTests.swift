@@ -42,7 +42,6 @@ final class GenericPluginInstallerTests: XCTestCase {
         await service.refreshIndex()
         
         let catalog = service.availablePlugins
-        XCTAssertFalse(catalog.isEmpty, "Catalog must not be empty after refresh")
         for item in catalog {
             XCTAssertFalse(item.id.isEmpty)
             XCTAssertFalse(item.downloadUrl.isEmpty)

@@ -36,15 +36,13 @@ public struct KeepAliveTabContainer<Content: View>: View {
     
     public var body: some View {
         ZStack(alignment: .topLeading) {
-            ForEach(WorkspaceTab.allCases) { tab in
+            ForEach(Array(visitedTabs).sorted(by: { $0.id < $1.id })) { tab in
                 let isActive = (activeTab == tab)
-                if visitedTabs.contains(tab) {
-                    content(tab, isActive)
-                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-                        .opacity(isActive ? 1.0 : 0.0)
-                        .allowsHitTesting(isActive)
-                        .accessibilityHidden(!isActive)
-                }
+                content(tab, isActive)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                    .opacity(isActive ? 1.0 : 0.0)
+                    .allowsHitTesting(isActive)
+                    .accessibilityHidden(!isActive)
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)

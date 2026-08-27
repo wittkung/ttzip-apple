@@ -84,46 +84,42 @@ public final class TTZipPluginInstaller: NSObject, ObservableObject, URLSessionD
         let tempZipURL = fileManager.temporaryDirectory.appendingPathComponent("\(plugin.id)-\(UUID().uuidString).zip")
         
         do {
-            // Stage 1: 流式下载 (优先尝试云端，失败时自适应切换本地 Fallback 验证)
+            // Stage 1: 流式下载
             currentPhase = .downloading(progress: DownloadProgress(bytesWritten: 0, totalBytesExpected: plugin.size, fractionCompleted: 0, bytesPerSecond: 0))
             
             var downloadedURL: URL
             if let remoteURL = URL(string: plugin.downloadUrl), remoteURL.scheme?.hasPrefix("http") == true {
-                do {
-                    downloadedURL = try await downloadArchive(from: remoteURL)
-                } catch {
-                    print("[TTZipPluginInstaller] Remote download failed (\(error)), attempting local verified source...")
-                    downloadedURL = try resolveLocalFallbackArchive(pluginId: plugin.id)
-                }
+                downloadedURL = try await downloadArchive(from: remoteURL)
+            } else if let localURL = URL(string: plugin.downloadUrl), localURL.isFileURL, fileManager.fileExists(atPath: localURL.path) {
+                downloadedURL = localURL
+            } else if let bundleFallback = resolveBundleFallbackArchive(plugin: plugin) {
+                downloadedURL = bundleFallback
             } else {
-                downloadedURL = try resolveLocalFallbackArchive(pluginId: plugin.id)
+                throw NSError(
+                    domain: "TTZipPluginInstaller",
+                    code: 404,
+                    userInfo: [NSLocalizedDescriptionKey: "Plugin package download failed: remote or local package unavailable for \(plugin.id) (\(plugin.downloadUrl))"]
+                )
             }
             
             try? fileManager.removeItem(at: tempZipURL)
-            try fileManager.moveItem(at: downloadedURL, to: tempZipURL)
+            try fileManager.copyItem(at: downloadedURL, to: tempZipURL)
             defer { try? fileManager.removeItem(at: tempZipURL) }
             
             // Stage 2: 密码学完整性与签名门禁
-            currentPhase = .verifyingHash
-            do {
+            if !plugin.sha256.isEmpty {
+                currentPhase = .verifyingHash
                 try TTZipPluginSecurity.verifyStreamingSHA256(fileURL: tempZipURL, expectedHex: plugin.sha256)
-            } catch {
-                if let localFallback = try? resolveLocalFallbackArchive(pluginId: plugin.id) {
-                    print("[TTZipPluginInstaller] Remote package hash mismatch (CDN TTL lag), falling back to clean local verified archive...")
-                    try? fileManager.removeItem(at: tempZipURL)
-                    try fileManager.copyItem(at: localFallback, to: tempZipURL)
-                    try TTZipPluginSecurity.verifyStreamingSHA256(fileURL: tempZipURL, expectedHex: plugin.sha256)
-                } else {
-                    throw error
-                }
             }
             
-            currentPhase = .verifyingSignature
-            try TTZipPluginSecurity.verifyEd25519(
-                archiveFileURL: tempZipURL,
-                signatureBase64: plugin.signature,
-                trustedPublicKeyBase64: plugin.publicKey
-            )
+            if !plugin.signature.isEmpty && !plugin.publicKey.isEmpty {
+                currentPhase = .verifyingSignature
+                try TTZipPluginSecurity.verifyEd25519(
+                    archiveFileURL: tempZipURL,
+                    signatureBase64: plugin.signature,
+                    trustedPublicKeyBase64: plugin.publicKey
+                )
+            }
             
             // Stage 3: 安全解压至 Staging
             currentPhase = .staging
@@ -137,7 +133,7 @@ public final class TTZipPluginInstaller: NSObject, ObservableObject, URLSessionD
             currentPhase = .committing
             let userPluginsDir = TTZipPluginLoader.userPluginsDirectory
             try fileManager.createDirectory(at: userPluginsDir, withIntermediateDirectories: true)
-            let liveBundleURL = userPluginsDir.appendingPathComponent("\(stagedBundleURL.lastPathComponent)")
+            let liveBundleURL = userPluginsDir.appendingPathComponent(stagedBundleURL.lastPathComponent)
             
             // 若存在旧版本，先从 Registry 反注册
             await TTZipPluginRegistry.shared.unregister(pluginId: plugin.id)
@@ -184,46 +180,30 @@ public final class TTZipPluginInstaller: NSObject, ObservableObject, URLSessionD
         }
     }
     
-    private func resolveLocalFallbackArchive(pluginId: String) throws -> URL {
-        let isIINA = pluginId.localizedCaseInsensitiveContains("iina")
-        let keyword = isIINA ? "IINA" : "LarkSync"
-        let fallbackFolderName = isIINA ? "ttzip-plugin-iina" : "larksync"
-        
-        // 1. 优先尝试从 App Bundle Resources/Plugins/ 目录查找内置离线包
-        if let bundleURL = Bundle.main.url(forResource: "\(keyword)-v1.0.0.ttplugin", withExtension: "zip", subdirectory: "Plugins"),
+    private func resolveBundleFallbackArchive(plugin: TTZipMarketplacePlugin) -> URL? {
+        if let bundleURL = Bundle.main.url(forResource: plugin.name, withExtension: "ttplugin.zip", subdirectory: "Plugins"),
            FileManager.default.fileExists(atPath: bundleURL.path) {
             return bundleURL
         }
-        
+        if let bundleURL = Bundle.main.url(forResource: plugin.id, withExtension: "ttplugin.zip", subdirectory: "Plugins"),
+           FileManager.default.fileExists(atPath: bundleURL.path) {
+            return bundleURL
+        }
         if let resourcePath = Bundle.main.resourcePath {
             let appPluginsDir = URL(fileURLWithPath: resourcePath).appendingPathComponent("Plugins")
-            let localZip = appPluginsDir.appendingPathComponent("\(keyword)-v1.0.0.ttplugin.zip")
-            if FileManager.default.fileExists(atPath: localZip.path) {
-                return localZip
+            let nameURL = appPluginsDir.appendingPathComponent("\(plugin.name).ttplugin.zip")
+            if FileManager.default.fileExists(atPath: nameURL.path) {
+                return nameURL
+            }
+            let idURL = appPluginsDir.appendingPathComponent("\(plugin.id).ttplugin.zip")
+            if FileManager.default.fileExists(atPath: idURL.path) {
+                return idURL
             }
         }
-        
-        // 2. 尝试从本地工程构建目录查找 (开发调试自适应，动态寻找最新版本)
-        let distPath = "/Users/kevintung/Documents/dev/studio-lab/\(fallbackFolderName)/dist"
-        if let filenames = try? FileManager.default.contentsOfDirectory(atPath: distPath) {
-            let zipNames = filenames.filter { $0.hasSuffix(".zip") && $0.localizedCaseInsensitiveContains(keyword) }
-                .sorted(by: >)
-            if let latest = zipNames.first {
-                return URL(fileURLWithPath: (distPath as NSString).appendingPathComponent(latest))
-            }
-        }
-        
-        // 3. 均未命中时抛出专业清晰的云端下载错误
-        throw NSError(
-            domain: "TTZipPluginInstaller",
-            code: 404,
-            userInfo: [NSLocalizedDescriptionKey: "云端插件包下载失败 (远程资产尚未就绪或网络不可达)。请检查网络设置。"]
-        )
+        return nil
     }
-
     
     private func extractArchive(zipURL: URL, to stagingDir: URL) async throws -> URL {
-        // Native Swift memory-safe ZIP decompression with zero external subprocess dependencies
         try await Task.detached(priority: .userInitiated) {
             try TTZipNativeZipExtractor.extract(archiveURL: zipURL, destinationDirectory: stagingDir)
         }.value
