@@ -41,13 +41,16 @@ public final class FileClipboardStore: ObservableObject {
         NSPasteboard.general.writeObjects(urls as [NSURL])
     }
     
-    public func paste(to targetDir: URL) {
+    @discardableResult
+    public func paste(to targetDir: URL) -> Task<Void, Never> {
         let urlsToPaste: [URL] = {
             if !copiedURLs.isEmpty { return copiedURLs }
             return (NSPasteboard.general.readObjects(forClasses: [NSURL.self], options: nil) as? [URL]) ?? []
         }()
         
-        guard !urlsToPaste.isEmpty else { return }
+        guard !urlsToPaste.isEmpty else {
+            return Task {}
+        }
         let isCut = self.isCutOperation
         
         if isCut {
@@ -55,18 +58,26 @@ public final class FileClipboardStore: ObservableObject {
             isCutOperation = false
         }
         
-        for srcURL in urlsToPaste {
-            if srcURL.path == targetDir.path || targetDir.path.hasPrefix(srcURL.path + "/") {
-                continue
+        return Task.detached(priority: .userInitiated) {
+            for srcURL in urlsToPaste {
+                if srcURL.path == targetDir.path || targetDir.path.hasPrefix(srcURL.path + "/") {
+                    continue
+                }
+                let destURL = Self.uniqueDestinationURLStatic(for: srcURL, in: targetDir)
+                if isCut {
+                    try? FileManager.default.moveItem(at: srcURL, to: destURL)
+                } else {
+                    try? FileManager.default.copyItem(at: srcURL, to: destURL)
+                }
             }
-            let destURL = Self.uniqueDestinationURLStatic(for: srcURL, in: targetDir)
-            if isCut {
-                try? FileManager.default.moveItem(at: srcURL, to: destURL)
-            } else {
-                try? FileManager.default.copyItem(at: srcURL, to: destURL)
+            await MainActor.run {
+                NotificationCenter.default.post(name: NSNotification.Name("TTZipArchiveUnlockedRefresh"), object: nil)
             }
         }
-        NotificationCenter.default.post(name: NSNotification.Name("TTZipArchiveUnlockedRefresh"), object: nil)
+    }
+    
+    public func pasteAsync(to targetDir: URL) async {
+        await paste(to: targetDir).value
     }
     
     nonisolated private static func uniqueDestinationURLStatic(for srcURL: URL, in targetDir: URL) -> URL {

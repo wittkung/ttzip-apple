@@ -10,19 +10,27 @@ import AppKit
 import AVFoundation
 import TTZipCore
 
-/// Masterpiece libmpv Metal/EDR video player viewport supporting Apple Liquid Retina XDR 1600 nits and drag-and-drop subtitle mounting.
+/// Masterpiece libmpv Metal/EDR video player viewport supporting Apple Liquid Retina XDR 1600 nits,
+/// drag-and-drop subtitle mounting, seamless controlled full-screen toggles, and sliding playlist drawer.
 public struct MPVMetalVideoPlayerView: View {
     public let url: URL
     
     @ObservedObject public var store: MPVMetalPlayerStore
+    public var playlistStore: MediaPlaylistStore
     @State private var isHovering: Bool = false
     @State private var isDropTargeted: Bool = false
+    @State private var isPlaylistOpen: Bool = false
     @State private var hideTimer: Timer? = nil
     @ObservedObject private var l10n = AppLocalizationState.shared
     
-    public init(url: URL, store: MPVMetalPlayerStore = .shared) {
+    public init(
+        url: URL,
+        store: MPVMetalPlayerStore = .shared,
+        playlistStore: MediaPlaylistStore = .shared
+    ) {
         self.url = url
         self.store = store
+        self.playlistStore = playlistStore
     }
     
     private var isChinese: Bool {
@@ -38,7 +46,7 @@ public struct MPVMetalVideoPlayerView: View {
                 url: url,
                 store: store,
                 onDropSubtitle: { subURL in
-                    store.addExternalSubtitle(url: subURL)
+                    store.loadSubtitle(url: subURL, select: true)
                 },
                 onTogglePlayPause: {
                     store.togglePlayPause()
@@ -86,8 +94,26 @@ public struct MPVMetalVideoPlayerView: View {
             // Top-right Sleek Actions
             if isHovering {
                 VStack {
-                    HStack {
+                    HStack(spacing: 8) {
                         Spacer()
+                        
+                        // Playlist Drawer Shortcut
+                        Button(action: {
+                            withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                                isPlaylistOpen.toggle()
+                            }
+                        }) {
+                            Image(systemName: isPlaylistOpen ? "list.bullet.rectangle.fill" : "list.bullet.rectangle")
+                                .font(.system(size: 11, weight: .semibold))
+                                .foregroundStyle(isPlaylistOpen ? TTZipTheme.kintsugiGold : .white.opacity(0.9))
+                                .padding(7)
+                                .background(.ultraThinMaterial.opacity(0.8))
+                                .clipShape(Circle())
+                        }
+                        .buttonStyle(.plain)
+                        .help(isChinese ? "播放列表" : "Playlist")
+                        
+                        // Fullscreen Toggle
                         Button(action: { toggleFullScreen() }) {
                             Image(systemName: "arrow.up.left.and.arrow.down.right")
                                 .font(.system(size: 11, weight: .semibold))
@@ -97,7 +123,7 @@ public struct MPVMetalVideoPlayerView: View {
                                 .clipShape(Circle())
                         }
                         .buttonStyle(.plain)
-                        .help(isChinese ? "进入全屏预览 (F)" : "Enter Full Screen")
+                        .help(isChinese ? "进入全屏预览 (F)" : "Enter Full Screen (F)")
                     }
                     .padding(10)
                     Spacer()
@@ -111,13 +137,47 @@ public struct MPVMetalVideoPlayerView: View {
                     Spacer()
                     MPVVideoControlBarView(
                         store: store,
+                        playlistStore: playlistStore,
+                        isPlaylistOpen: isPlaylistOpen,
+                        onTogglePlaylist: {
+                            withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                                isPlaylistOpen.toggle()
+                            }
+                        },
                         onToggleFullScreen: { toggleFullScreen() },
-                        onOpenExternal: { NSWorkspace.shared.open(url) }
+                        onOpenExternal: {
+                            if let current = store.currentURL ?? playlistStore.currentURL {
+                                NSWorkspace.shared.open(current)
+                            } else {
+                                NSWorkspace.shared.open(url)
+                            }
+                        }
                     )
                     .padding(.horizontal, 14)
                     .padding(.bottom, 10)
                     .transition(.opacity.animation(.easeInOut(duration: 0.15)))
                 }
+            }
+            
+            // Playlist Side Drawer Panel
+            if isPlaylistOpen {
+                HStack(spacing: 0) {
+                    Spacer()
+                    MPVPlaylistDrawerView(
+                        playlistStore: playlistStore,
+                        onSelectItem: { item in
+                            store.load(url: item.url)
+                            playlistStore.select(item: item)
+                        },
+                        onClose: {
+                            withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                                isPlaylistOpen = false
+                            }
+                        }
+                    )
+                    .padding(12)
+                }
+                .transition(.move(edge: .trailing).combined(with: .opacity))
             }
         }
         .onContinuousHover { phase in
@@ -136,7 +196,7 @@ public struct MPVMetalVideoPlayerView: View {
                 let ext = droppedURL.pathExtension.lowercased()
                 if ["srt", "ass", "ssa", "vtt", "sub", "lrc"].contains(ext) {
                     Task { @MainActor in
-                        store.addExternalSubtitle(url: droppedURL)
+                        store.loadSubtitle(url: droppedURL, select: true)
                     }
                 }
             }
@@ -145,6 +205,8 @@ public struct MPVMetalVideoPlayerView: View {
         .onAppear {
             let sessionId = url.path
             store.load(url: url)
+            playlistStore.populateFromDirectory(for: url)
+            
             MediaPlaybackCoordinator.shared.registerSession(
                 id: sessionId,
                 isPlaying: store.isPlaying,
@@ -158,6 +220,7 @@ public struct MPVMetalVideoPlayerView: View {
         }
         .onChange(of: url) { _, newURL in
             store.load(url: newURL)
+            playlistStore.populateFromDirectory(for: newURL)
         }
         .onChange(of: store.isPlaying) { _, playing in
             MediaPlaybackCoordinator.shared.updatePlaybackState(id: url.path, isPlaying: playing)
@@ -174,7 +237,15 @@ public struct MPVMetalVideoPlayerView: View {
         if FullScreenMediaWindowController.shared.isPresenting {
             FullScreenMediaWindowController.shared.dismiss()
         } else {
-            FullScreenMediaWindowController.shared.present(view: AnyView(self))
+            FullScreenMediaWindowController.shared.present(
+                view: AnyView(
+                    MPVMetalVideoPlayerView(
+                        url: store.currentURL ?? url,
+                        store: store,
+                        playlistStore: playlistStore
+                    )
+                )
+            )
         }
     }
     
@@ -183,7 +254,7 @@ public struct MPVMetalVideoPlayerView: View {
         hideTimer = Timer.scheduledTimer(withTimeInterval: 2.5, repeats: false) { _ in
             Task { @MainActor in
                 withAnimation(.easeInOut(duration: 0.2)) {
-                    if store.isPlaying { isHovering = false }
+                    if store.isPlaying && !isPlaylistOpen { isHovering = false }
                 }
             }
         }
@@ -218,6 +289,7 @@ public struct MPVNativeMetalContainerView: NSViewRepresentable {
         view.onDropSubtitle = onDropSubtitle
         view.onTogglePlayPause = onTogglePlayPause
         view.onToggleFullScreen = onToggleFullScreen
+        store.setup(view: view)
         return view
     }
     
@@ -232,7 +304,7 @@ public struct MPVNativeMetalContainerView: NSViewRepresentable {
     }
 }
 
-/// High-performance NSView subclass configured for XDR Extended Dynamic Range and subtitle drag operations.
+/// High-performance NSView subclass configured for XDR Extended Dynamic Range, keyboard shortcuts, and subtitle drag operations.
 public final class MPVMetalNSView: NSView {
     public weak var store: MPVMetalPlayerStore?
     public var onDropSubtitle: ((URL) -> Void)?
@@ -256,14 +328,15 @@ public final class MPVMetalNSView: NSView {
         self.layer?.wantsExtendedDynamicRangeContent = true
     }
     
+    public override var acceptsFirstResponder: Bool { true }
+    
     public override func viewDidMoveToWindow() {
         super.viewDidMoveToWindow()
         let targetStore = self.store ?? MPVMetalPlayerStore.shared
         if self.window != nil {
             targetStore.setup(view: self)
         } else {
-            targetStore.pause()
-            targetStore.unbindView(self)
+            targetStore.detachView()
         }
     }
     
@@ -275,6 +348,27 @@ public final class MPVMetalNSView: NSView {
         } else {
             super.mouseUp(with: event)
         }
+    }
+    
+    public override func keyDown(with event: NSEvent) {
+        // KeyCode 3 is 'F' (Fullscreen toggle)
+        if event.keyCode == 3 || event.charactersIgnoringModifiers?.lowercased() == "f" {
+            onToggleFullScreen?()
+            return
+        }
+        // KeyCode 49 is Space Bar
+        if event.keyCode == 49 {
+            onTogglePlayPause?()
+            return
+        }
+        // KeyCode 53 is ESC
+        if event.keyCode == 53 {
+            if FullScreenMediaWindowController.shared.isPresenting {
+                FullScreenMediaWindowController.shared.dismiss()
+                return
+            }
+        }
+        super.keyDown(with: event)
     }
     
     public override func draggingEntered(_ sender: NSDraggingInfo) -> NSDragOperation {
@@ -332,4 +426,3 @@ public struct AVPlayerLayerContainerView {
         }
     }
 }
-

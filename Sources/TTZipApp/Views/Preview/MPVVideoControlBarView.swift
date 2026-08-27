@@ -7,11 +7,16 @@
 
 import SwiftUI
 import AppKit
+import UniformTypeIdentifiers
 import TTZipCore
 
-/// Zen minimalist floating control bar with glassmorphic styling, precision scrubbing, track selectors, subtitle delay stepper, and HDR status.
+/// Zen minimalist floating control bar with glassmorphic styling, precision scrubbing, track selectors,
+/// subtitle delay stepper, playlist drawer toggles, and HDR status metrics.
 public struct MPVVideoControlBarView: View {
     @ObservedObject public var store: MPVMetalPlayerStore
+    public var playlistStore: MediaPlaylistStore
+    public let isPlaylistOpen: Bool
+    public let onTogglePlaylist: () -> Void
     public let onToggleFullScreen: () -> Void
     public let onOpenExternal: () -> Void
     
@@ -22,10 +27,16 @@ public struct MPVVideoControlBarView: View {
     
     public init(
         store: MPVMetalPlayerStore,
+        playlistStore: MediaPlaylistStore = .shared,
+        isPlaylistOpen: Bool = false,
+        onTogglePlaylist: @escaping () -> Void = {},
         onToggleFullScreen: @escaping () -> Void = {},
         onOpenExternal: @escaping () -> Void = {}
     ) {
         self.store = store
+        self.playlistStore = playlistStore
+        self.isPlaylistOpen = isPlaylistOpen
+        self.onTogglePlaylist = onTogglePlaylist
         self.onToggleFullScreen = onToggleFullScreen
         self.onOpenExternal = onOpenExternal
     }
@@ -40,6 +51,22 @@ public struct MPVVideoControlBarView: View {
     
     public var body: some View {
         HStack(spacing: 8) {
+            // MARK: - Previous Episode
+            Button(action: {
+                if let prevItem = playlistStore.playPrevious() {
+                    store.load(url: prevItem.url)
+                }
+            }) {
+                Image(systemName: "backward.end.fill")
+                    .font(.system(size: 9.5, weight: .bold))
+                    .foregroundStyle(playlistStore.hasPrevious ? Color.white.opacity(0.9) : Color.white.opacity(0.3))
+                    .frame(width: 16, height: 16)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .disabled(!playlistStore.hasPrevious)
+            .help(isChinese ? "上一集" : "Previous Episode")
+            
             // MARK: - Play / Pause Toggle
             Button(action: { store.togglePlayPause() }) {
                 Image(systemName: store.isPlaying ? "pause.fill" : "play.fill")
@@ -50,6 +77,22 @@ public struct MPVVideoControlBarView: View {
             }
             .buttonStyle(.plain)
             .help(store.isPlaying ? (isChinese ? "暂停 (空格)" : "Pause (Space)") : (isChinese ? "播放 (空格)" : "Play (Space)"))
+            
+            // MARK: - Next Episode
+            Button(action: {
+                if let nextItem = playlistStore.playNext() {
+                    store.load(url: nextItem.url)
+                }
+            }) {
+                Image(systemName: "forward.end.fill")
+                    .font(.system(size: 9.5, weight: .bold))
+                    .foregroundStyle(playlistStore.hasNext ? Color.white.opacity(0.9) : Color.white.opacity(0.3))
+                    .frame(width: 16, height: 16)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .disabled(!playlistStore.hasNext)
+            .help(isChinese ? "下一集" : "Next Episode")
             
             // MARK: - Precise Time Indicator
             Text("\(formatTime(displayTime)) / \(formatTime(store.duration))")
@@ -135,6 +178,16 @@ public struct MPVVideoControlBarView: View {
             }
             .buttonStyle(.plain)
             .help(store.isMuted ? (isChinese ? "取消静音" : "Unmute") : (isChinese ? "静音" : "Mute"))
+            
+            // MARK: - Playlist Drawer Toggle
+            Button(action: { onTogglePlaylist() }) {
+                Image(systemName: isPlaylistOpen ? "list.bullet.rectangle.fill" : "list.bullet.rectangle")
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundStyle(isPlaylistOpen ? TTZipTheme.kintsugiGold : Color.white.opacity(0.85))
+                    .frame(width: 16, height: 16)
+            }
+            .buttonStyle(.plain)
+            .help(isChinese ? "播放列表" : "Toggle Playlist")
             
             // MARK: - Fullscreen Toggle
             Button(action: { onToggleFullScreen() }) {
@@ -263,6 +316,13 @@ public struct MPVVideoControlBarView: View {
                     }
                 }
             }
+            
+            // Section 4: Add Local Subtitle File via OpenPanel
+            Section {
+                Button(action: { selectLocalSubtitleFile() }) {
+                    Label(isChinese ? "添加本地字幕文件..." : "Add Local Subtitle File...", systemImage: "plus.circle")
+                }
+            }
         } label: {
             Image(systemName: store.selectedSubtitleTrackId != nil ? "captions.bubble.fill" : "captions.bubble")
                 .font(.system(size: 10, weight: .semibold))
@@ -271,6 +331,21 @@ public struct MPVVideoControlBarView: View {
         .menuStyle(.borderlessButton)
         .fixedSize()
         .help(isChinese ? "字幕选择与同步调节" : "Subtitle & Sync Controls")
+    }
+    
+    private func selectLocalSubtitleFile() {
+        let panel = NSOpenPanel()
+        panel.canChooseFiles = true
+        panel.canChooseDirectories = false
+        panel.allowsMultipleSelection = false
+        let extensions = ["srt", "ass", "ssa", "vtt", "sub", "lrc"]
+        panel.allowedContentTypes = extensions.compactMap { UTType(filenameExtension: $0) }
+        panel.title = isChinese ? "选择本地字幕文件" : "Select Subtitle File"
+        panel.prompt = isChinese ? "加载字幕" : "Load Subtitle"
+        
+        if panel.runModal() == .OK, let url = panel.url {
+            store.loadSubtitle(url: url, select: true)
+        }
     }
     
     private var volumeIconName: String {
@@ -305,4 +380,3 @@ public struct MPVVideoControlBarView: View {
         }
     }
 }
-

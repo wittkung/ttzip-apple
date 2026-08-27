@@ -61,6 +61,9 @@ public final class MPVMetalPlayerStore: ObservableObject {
     @Published public var audioCodecFormatted: String = ""
     @Published public var audioBitrateFormatted: String = ""
     
+    /// Callback invoked on the MainActor when file playback reaches the end (MPV_EVENT_END_FILE), enabling playlist auto-advance.
+    public var onFilePlaybackEnded: (@MainActor (URL?) -> Void)?
+    
     /// Native libmpv client handle pointer.
     public var mpv: OpaquePointer? { handleHolder?.rawHandle }
     
@@ -159,23 +162,42 @@ public final class MPVMetalPlayerStore: ObservableObject {
             Bundle.main.bundlePath.hasSuffix(".xctest")
         
         mpv_request_log_messages(handle, "v")
+        
+        // Defensive window & behavior options to prevent standalone popup windows
+        mpv_set_option_string(handle, "force-window", "no")
+        mpv_set_option_string(handle, "fullscreen", "no")
+        mpv_set_option_string(handle, "ontop", "no")
+        mpv_set_option_string(handle, "border", "no")
+        mpv_set_option_string(handle, "window-dragging", "no")
+        mpv_set_option_string(handle, "focus-on-open", "no")
+        mpv_set_option_string(handle, "keepaspect-window", "no")
+        mpv_set_option_string(handle, "input-cursor", "no")
+        mpv_set_option_string(handle, "osc", "no")
+        mpv_set_option_string(handle, "osd-level", "0")
+        mpv_set_option_string(handle, "osd-bar", "no")
         mpv_set_option_string(handle, "load-scripts", "no")
         mpv_set_option_string(handle, "ytdl", "no")
-        mpv_set_option_string(handle, "osc", "no")
-        mpv_set_option_string(handle, "osd-bar", "no")
         mpv_set_option_string(handle, "input-default-bindings", "no")
         mpv_set_option_string(handle, "input-vo-keyboard", "no")
-        mpv_set_option_string(handle, "input-cursor", "no")
         mpv_set_option_string(handle, "input-app-events", "no")
-        mpv_set_option_string(handle, "input-media-keys", "no")
+        
+        // Video output, Metal pipeline, and Hardware acceleration
+        mpv_set_option_string(handle, "vo", isTesting ? "null" : "gpu-next")
+        if !isTesting {
+            mpv_set_option_string(handle, "gpu-api", "metal")
+            mpv_set_option_string(handle, "gpu-context", "macos")
+        }
         mpv_set_option_string(handle, "hwdec", isTesting ? "no" : "videotoolbox")
-        mpv_set_option_string(handle, "vo", isTesting ? "null" : "gpu")
         mpv_set_option_string(handle, "ao", isTesting ? "null" : "auto")
+        
+        // HDR / EDR & Color Management
         mpv_set_option_string(handle, "target-colorspace-hint", "yes")
         mpv_set_option_string(handle, "target-trc", "auto")
         mpv_set_option_string(handle, "tone-mapping", "auto")
         mpv_set_option_string(handle, "gamut-mapping-mode", "perceptual")
         mpv_set_option_string(handle, "hdr-compute-peak", "yes")
+        
+        // Subtitle defaults & engine lifecycle
         mpv_set_option_string(handle, "sub-auto", "fuzzy")
         mpv_set_option_string(handle, "sub-codepage", "auto")
         mpv_set_option_string(handle, "sub-font-size", "52")
@@ -224,17 +246,28 @@ public final class MPVMetalPlayerStore: ObservableObject {
         if self.attachedView === view { return }
         self.attachedView = view
         ensureMpvInitialized()
-        let wid = Int64(Int(bitPattern: Unmanaged.passUnretained(view).toOpaque()))
-        setPropertyInt64Async("wid", wid)
-        logger.info("Dynamically bound wid to NSView asynchronously: \(wid, privacy: .public)")
+        if let handle = self.mpv {
+            var wid = Int64(Int(bitPattern: Unmanaged.passUnretained(view).toOpaque()))
+            let status = mpv_set_property(handle, "wid", MPV_FORMAT_INT64, &wid)
+            logger.info("Synchronously bound wid to NSView (status: \(status)): \(wid, privacy: .public)")
+        }
     }
     
     public func unbindView(_ view: NSView? = nil) {
         if view == nil || self.attachedView === view {
             self.attachedView = nil
-            setPropertyInt64Async("wid", 0)
-            logger.info("Unbound wid from NSView asynchronously")
+            if let handle = self.mpv {
+                var wid: Int64 = 0
+                _ = mpv_set_property(handle, "wid", MPV_FORMAT_INT64, &wid)
+            }
+            logger.info("Synchronously unbound wid from NSView")
         }
+    }
+    
+    /// Safely detaches the viewport, pauses playback, and resets wid to prevent memory leaks and dangling pointers.
+    public func detachView() {
+        pause()
+        unbindView()
     }
     
     public func attachViewport(_ view: NSView) { bindView(view) }
@@ -282,6 +315,10 @@ public final class MPVMetalPlayerStore: ObservableObject {
         self.updateEDRMetrics()
         self.discoverCompanionSubtitles(for: url)
         self.ensureMpvInitialized()
+        if let view = self.attachedView, let handle = self.mpv {
+            var wid = Int64(Int(bitPattern: Unmanaged.passUnretained(view).toOpaque()))
+            _ = mpv_set_property(handle, "wid", MPV_FORMAT_INT64, &wid)
+        }
         
         logger.info("Executing loadfile asynchronously for: \(url.path, privacy: .public)")
         executeCommandAsync(["loadfile", url.path, "replace"])
@@ -334,6 +371,8 @@ public final class MPVMetalPlayerStore: ObservableObject {
                     logger.info("File playback ended normally")
                 }
             }
+            let finishedURL = self.currentURL
+            self.onFilePlaybackEnded?(finishedURL)
         default:
             break
         }
@@ -533,7 +572,8 @@ public final class MPVMetalPlayerStore: ObservableObject {
         setPropertyDoubleAsync("sub-delay", seconds)
     }
     
-    public func addExternalSubtitle(url: URL) {
+    /// Loads an external subtitle file using libmpv `sub-add` command and registers it in the track list.
+    public func loadSubtitle(url: URL, select: Bool = true) {
         let ext = url.pathExtension.lowercased()
         let sub = MPVSubtitleItem(
             id: "ext_sub_\(url.lastPathComponent)_\(UUID().uuidString.prefix(6))",
@@ -543,11 +583,45 @@ public final class MPVMetalPlayerStore: ObservableObject {
             format: ext.uppercased(),
             isExternal: true,
             fileURL: url,
-            isSelected: true
+            isSelected: select
         )
-        self.subtitleTracks.append(sub)
-        self.selectedSubtitleTrackId = sub.id
-        executeCommandAsync(["sub-add", url.path, "select"])
+        if !subtitleTracks.contains(where: { $0.fileURL?.path == url.path }) {
+            self.subtitleTracks.append(sub)
+        }
+        if select {
+            self.selectedSubtitleTrackId = sub.id
+        }
+        executeCommandAsync(["sub-add", url.path, select ? "select" : "auto"])
+        logger.info("Loaded subtitle via sub-add: \(url.path, privacy: .public) (select: \(select))")
+    }
+    
+    /// Backward-compatible alias for loading external subtitle.
+    public func addExternalSubtitle(url: URL) {
+        loadSubtitle(url: url, select: true)
+    }
+    
+    /// Removes a subtitle track from libmpv and clears its selection.
+    public func removeSubtitleTrack(id: String) {
+        guard let index = subtitleTracks.firstIndex(where: { $0.id == id }) else { return }
+        let sub = subtitleTracks[index]
+        subtitleTracks.remove(at: index)
+        discoveredCompanionSubtitles.removeAll(where: { $0.id == id || $0.fileURL?.path == sub.fileURL?.path })
+        
+        if selectedSubtitleTrackId == id {
+            selectedSubtitleTrackId = nil
+            setPropertyStringAsync("sid", "no")
+        }
+        if selectedSecondarySubtitleTrackId == id {
+            selectedSecondarySubtitleTrackId = nil
+            setPropertyStringAsync("secondary-sid", "no")
+        }
+        
+        executeCommandAsync(["sub-remove", "\(sub.subtitleId)"])
+        logger.info("Removed subtitle track: \(sub.title, privacy: .public)")
+    }
+    
+    public func removeSubtitleTrack(_ sub: MPVSubtitleItem) {
+        removeSubtitleTrack(id: sub.id)
     }
     
 

@@ -266,7 +266,7 @@ public struct MarkdownNativeWKWebView: NSViewRepresentable {
         let config = WKWebViewConfiguration()
         let webView = WKWebView(frame: .zero, configuration: config)
         webView.navigationDelegate = context.coordinator
-        webView.setValue(false, forKey: "drawsBackground")
+        webView.underPageBackgroundColor = .clear
         loadRenderedHTML(in: webView)
         return webView
     }
@@ -639,38 +639,44 @@ public enum TTZipMarkdownParser {
         return result
     }
     
-    // MARK: - Inline Parser
+    // MARK: - Inline Parser & Precompiled Regexes
+    
+    private static let inlineCodeRegex = try! NSRegularExpression(pattern: "`([^`]+)`", options: [])
+    private static let imageRegex = try! NSRegularExpression(pattern: "!\\[([^\\]]*)\\]\\(([^\\)]+)\\)", options: [])
+    private static let linkRegex = try! NSRegularExpression(pattern: "\\[([^\\]]+)\\]\\(([^\\)]+)\\)", options: [])
+    private static let boldAsteriskRegex = try! NSRegularExpression(pattern: "\\*\\*([^*]+)\\*\\*", options: [])
+    private static let boldUnderscoreRegex = try! NSRegularExpression(pattern: "__([^_]+)__", options: [])
+    private static let italicAsteriskRegex = try! NSRegularExpression(pattern: "\\*([^*]+)\\*", options: [])
+    private static let italicUnderscoreRegex = try! NSRegularExpression(pattern: "_([^_]+)_", options: [])
+    private static let strikethroughRegex = try! NSRegularExpression(pattern: "~~([^~]+)~~", options: [])
     
     private static func parseInline(_ text: String) -> String {
         var str = text
         
         // 1. Inline Code `code`
-        str = replacePattern(in: str, pattern: "`([^`]+)`", template: "<code>$1</code>")
+        str = replacePattern(in: str, regex: inlineCodeRegex, template: "<code>$1</code>")
         
         // 2. Images ![alt](url)
-        str = replacePattern(in: str, pattern: "!\\[([^\\]]*)\\]\\(([^\\)]+)\\)", template: "<img src=\"$2\" alt=\"$1\">")
+        str = replacePattern(in: str, regex: imageRegex, template: "<img src=\"$2\" alt=\"$1\">")
         
         // 3. Links [title](url)
-        str = replacePattern(in: str, pattern: "\\[([^\\]]+)\\]\\(([^\\)]+)\\)", template: "<a href=\"$2\">$1</a>")
+        str = replacePattern(in: str, regex: linkRegex, template: "<a href=\"$2\">$1</a>")
         
         // 4. Bold **text** or __text__
-        str = replacePattern(in: str, pattern: "\\*\\*([^*]+)\\*\\*", template: "<strong>$1</strong>")
-        str = replacePattern(in: str, pattern: "__([^_]+)__", template: "<strong>$1</strong>")
+        str = replacePattern(in: str, regex: boldAsteriskRegex, template: "<strong>$1</strong>")
+        str = replacePattern(in: str, regex: boldUnderscoreRegex, template: "<strong>$1</strong>")
         
         // 5. Italic *text* or _text_
-        str = replacePattern(in: str, pattern: "\\*([^*]+)\\*", template: "<em>$1</em>")
-        str = replacePattern(in: str, pattern: "_([^_]+)_", template: "<em>$1</em>")
+        str = replacePattern(in: str, regex: italicAsteriskRegex, template: "<em>$1</em>")
+        str = replacePattern(in: str, regex: italicUnderscoreRegex, template: "<em>$1</em>")
         
         // 6. Strikethrough ~~text~~
-        str = replacePattern(in: str, pattern: "~~([^~]+)~~", template: "<del>$1</del>")
+        str = replacePattern(in: str, regex: strikethroughRegex, template: "<del>$1</del>")
         
         return str
     }
     
-    private static func replacePattern(in string: String, pattern: String, template: String) -> String {
-        guard let regex = try? NSRegularExpression(pattern: pattern, options: []) else {
-            return string
-        }
+    private static func replacePattern(in string: String, regex: NSRegularExpression, template: String) -> String {
         let range = NSRange(location: 0, length: string.utf16.count)
         return regex.stringByReplacingMatches(in: string, options: [], range: range, withTemplate: template)
     }

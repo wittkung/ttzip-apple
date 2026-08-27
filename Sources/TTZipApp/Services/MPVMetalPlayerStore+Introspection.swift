@@ -167,22 +167,32 @@ extension MPVMetalPlayerStore {
             guard let files = try? FileManager.default.contentsOfDirectory(at: parentDir, includingPropertiesForKeys: nil) else { return }
             
             var extSubs: [MPVSubtitleItem] = []
+            let supportedExts = ["srt", "ass", "ssa", "vtt", "sub", "lrc"]
+            let lowerBase = baseName.lowercased()
+            
             for file in files {
                 let ext = file.pathExtension.lowercased()
-                if ["srt", "ass", "ssa", "vtt", "sub", "lrc"].contains(ext) {
-                    let fname = file.deletingPathExtension().lastPathComponent
-                    if fname.hasPrefix(baseName) || fname.localizedCaseInsensitiveContains(baseName) {
-                        let sub = MPVSubtitleItem(
-                            id: "ext_sub_\(file.lastPathComponent)",
-                            subtitleId: Int32(extSubs.count + 1),
-                            title: file.lastPathComponent,
-                            language: "Ext",
-                            format: ext.uppercased(),
-                            isExternal: true,
-                            fileURL: file
-                        )
-                        extSubs.append(sub)
-                    }
+                guard supportedExts.contains(ext) else { continue }
+                
+                let fname = file.deletingPathExtension().lastPathComponent
+                let lowerFName = fname.lowercased()
+                
+                let isMatch = lowerFName == lowerBase ||
+                    lowerFName.hasPrefix(lowerBase) ||
+                    lowerFName.localizedCaseInsensitiveContains(lowerBase) ||
+                    (lowerFName.contains("chs") || lowerFName.contains("cht") || lowerFName.contains("eng") || lowerFName.contains("sub") || lowerFName.contains("zh-cn") || lowerFName.contains("zh-tw"))
+                
+                if isMatch {
+                    let sub = MPVSubtitleItem(
+                        id: "ext_sub_\(file.lastPathComponent)",
+                        subtitleId: Int32(extSubs.count + 1),
+                        title: file.lastPathComponent,
+                        language: Self.extractLanguageHint(from: fname),
+                        format: ext.uppercased(),
+                        isExternal: true,
+                        fileURL: file
+                    )
+                    extSubs.append(sub)
                 }
             }
             
@@ -193,8 +203,28 @@ extension MPVMetalPlayerStore {
                     if !self.subtitleTracks.contains(where: { $0.fileURL?.path == companion.fileURL?.path || $0.title == companion.title }) {
                         self.subtitleTracks.append(companion)
                     }
+                    if let fileURL = companion.fileURL {
+                        self.loadSubtitle(url: fileURL, select: false)
+                    }
                 }
             }
         }
+    }
+    
+    nonisolated private static func extractLanguageHint(from filename: String) -> String {
+        let lower = filename.lowercased()
+        if lower.contains("chs") || lower.contains("zh-cn") || lower.contains("sc") || lower.contains("simplified") {
+            return "CHS"
+        }
+        if lower.contains("cht") || lower.contains("zh-tw") || lower.contains("tc") || lower.contains("traditional") {
+            return "CHT"
+        }
+        if lower.contains("eng") || lower.contains("en") {
+            return "ENG"
+        }
+        if lower.contains("jpn") || lower.contains("ja") {
+            return "JPN"
+        }
+        return "Ext"
     }
 }

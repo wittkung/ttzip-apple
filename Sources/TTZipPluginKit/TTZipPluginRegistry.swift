@@ -43,8 +43,6 @@ public final class TTZipPluginRegistry: ObservableObject {
             previewProviders.append(contentsOf: plugin.previewProviders)
             archiveSourceProviders.append(contentsOf: plugin.archiveSourceProviders)
             contextMenuActions.append(contentsOf: plugin.contextMenuActions)
-            
-            self.objectWillChange.send()
         } catch {
             print("[TTZipPluginRegistry] Failed to initialize plugin \(plugin.manifest.id): \(error)")
         }
@@ -54,7 +52,8 @@ public final class TTZipPluginRegistry: ObservableObject {
     public func unregister(pluginId: String) async {
         guard let index = installedPlugins.firstIndex(where: { $0.manifest.id == pluginId }) else {
             sidebarItems.removeAll(where: { $0.id.hasPrefix(pluginId) })
-            self.objectWillChange.send()
+            omnibarCommands.removeAll(where: { $0.id.hasPrefix(pluginId) })
+            contextMenuActions.removeAll(where: { $0.id.hasPrefix(pluginId) })
             return
         }
         
@@ -66,11 +65,20 @@ public final class TTZipPluginRegistry: ObservableObject {
             item.id.hasPrefix(pluginId) || item.id == targetSidebarId
         })
         
-        omnibarCommands.removeAll(where: { $0.id.hasPrefix(pluginId) })
-        previewProviders.removeAll(where: { _ in true })
-        archiveSourceProviders.removeAll(where: { _ in true })
-        contextMenuActions.removeAll(where: { _ in true })
+        let removedOmnibarIds = Set(plugin.omnibarCommands.map(\.id))
+        omnibarCommands.removeAll(where: { $0.id.hasPrefix(pluginId) || removedOmnibarIds.contains($0.id) })
         
-        self.objectWillChange.send()
+        let removedPreviewProviders = plugin.previewProviders
+        previewProviders.removeAll(where: { provider in
+            removedPreviewProviders.contains(where: { $0 === provider })
+        })
+        
+        let removedArchiveProviders = plugin.archiveSourceProviders
+        archiveSourceProviders.removeAll(where: { provider in
+            removedArchiveProviders.contains(where: { $0 === provider })
+        })
+        
+        let removedContextMenuIds = Set(plugin.contextMenuActions.map(\.id))
+        contextMenuActions.removeAll(where: { $0.id.hasPrefix(pluginId) || removedContextMenuIds.contains($0.id) })
     }
 }

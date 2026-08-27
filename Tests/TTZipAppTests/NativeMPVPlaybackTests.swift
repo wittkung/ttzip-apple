@@ -229,4 +229,108 @@ final class NativeMPVPlaybackTests: XCTestCase {
         
         store.cleanUp()
     }
+    
+    // MARK: - Test 6: MediaPlaylistStore Directory Discovery & Navigation
+    
+    @MainActor
+    func testMediaPlaylistStoreDiscoveryAndNavigation() throws {
+        let ep1 = tempDirURL.appendingPathComponent("Show.S01E01.1080p.mkv")
+        let ep2 = tempDirURL.appendingPathComponent("Show.S01E02.1080p.mkv")
+        let ep10 = tempDirURL.appendingPathComponent("Show.S01E10.1080p.mkv")
+        let txtDoc = tempDirURL.appendingPathComponent("notes.txt")
+        
+        try Data("ep1 data".utf8).write(to: ep1)
+        try Data("ep2 data".utf8).write(to: ep2)
+        try Data("ep10 data".utf8).write(to: ep10)
+        try Data("notes".utf8).write(to: txtDoc)
+        
+        let playlistStore = MediaPlaylistStore()
+        playlistStore.populateFromDirectory(for: ep1)
+        
+        XCTAssertEqual(playlistStore.items.count, 3, "Only 3 video files should be in the playlist (ignoring txt)")
+        XCTAssertEqual(playlistStore.items[0].url.lastPathComponent, "Show.S01E01.1080p.mkv")
+        XCTAssertEqual(playlistStore.items[1].url.lastPathComponent, "Show.S01E02.1080p.mkv")
+        XCTAssertEqual(playlistStore.items[2].url.lastPathComponent, "Show.S01E10.1080p.mkv")
+        
+        XCTAssertEqual(playlistStore.currentIndex, 0)
+        XCTAssertFalse(playlistStore.hasPrevious)
+        XCTAssertTrue(playlistStore.hasNext)
+        
+        let nextItem = playlistStore.playNext()
+        XCTAssertEqual(nextItem?.url.standardizedFileURL.path, ep2.standardizedFileURL.path)
+        XCTAssertEqual(playlistStore.currentIndex, 1)
+        XCTAssertTrue(playlistStore.hasPrevious)
+        XCTAssertTrue(playlistStore.hasNext)
+        
+        let ep10Item = playlistStore.playNext()
+        XCTAssertEqual(ep10Item?.url.standardizedFileURL.path, ep10.standardizedFileURL.path)
+        XCTAssertEqual(playlistStore.currentIndex, 2)
+        XCTAssertFalse(playlistStore.hasNext)
+        XCTAssertTrue(playlistStore.hasPrevious)
+        
+        let prevItem = playlistStore.playPrevious()
+        XCTAssertEqual(prevItem?.url.standardizedFileURL.path, ep2.standardizedFileURL.path)
+        XCTAssertEqual(playlistStore.currentIndex, 1)
+    }
+    
+    // MARK: - Test 7: MPVPlaylistDrawerView Mount & Selection Interaction
+    
+    @MainActor
+    func testMPVPlaylistDrawerViewMountAndSelection() throws {
+        let ep1 = tempDirURL.appendingPathComponent("ep01.mp4")
+        let ep2 = tempDirURL.appendingPathComponent("ep02.mp4")
+        try Data("ep1".utf8).write(to: ep1)
+        try Data("ep2".utf8).write(to: ep2)
+        
+        let playlistStore = MediaPlaylistStore()
+        playlistStore.setItems([
+            MediaPlaylistItem(url: ep1, title: "Episode 1", fileSize: 1024 * 1024 * 50, isCurrent: true),
+            MediaPlaylistItem(url: ep2, title: "Episode 2", fileSize: 1024 * 1024 * 60)
+        ], activeIndex: 0)
+        
+        var selectedItem: MediaPlaylistItem? = nil
+        var closed = false
+        
+        let drawerView = MPVPlaylistDrawerView(
+            playlistStore: playlistStore,
+            onSelectItem: { item in selectedItem = item },
+            onClose: { closed = true }
+        )
+        
+        let inspector = UIHierarchyInspector(rootView: drawerView, size: CGSize(width: 280, height: 400))
+        XCTAssertFalse(inspector.allSubviews().isEmpty, "Playlist drawer must mount subviews")
+        
+        drawerView.onSelectItem(playlistStore.items[1])
+        XCTAssertEqual(selectedItem?.url, ep2)
+        
+        drawerView.onClose()
+        XCTAssertTrue(closed)
+    }
+    
+    // MARK: - Test 8: MPVMetalNSView Layer Setup and Lifecycle Verification
+    
+    @MainActor
+    func testMPVMetalNSViewLayerAndLifecycle() {
+        let store = MPVMetalPlayerStore()
+        let nsView = MPVMetalNSView(frame: NSRect(x: 0, y: 0, width: 400, height: 300))
+        nsView.store = store
+        
+        XCTAssertTrue(nsView.wantsLayer, "MPVMetalNSView must set wantsLayer = true")
+        XCTAssertNotNil(nsView.layer)
+        XCTAssertTrue(nsView.layer?.wantsExtendedDynamicRangeContent == true, "Layer must request EDR content")
+        XCTAssertTrue(nsView.acceptsFirstResponder)
+        
+        var playPauseToggled = false
+        var fullScreenToggled = false
+        nsView.onTogglePlayPause = { playPauseToggled = true }
+        nsView.onToggleFullScreen = { fullScreenToggled = true }
+        
+        nsView.onTogglePlayPause?()
+        XCTAssertTrue(playPauseToggled)
+        
+        nsView.onToggleFullScreen?()
+        XCTAssertTrue(fullScreenToggled)
+        
+        store.cleanUp()
+    }
 }

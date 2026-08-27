@@ -29,7 +29,7 @@ final class FileClipboardStoreTests: XCTestCase {
     }
     
     @MainActor
-    func testFileClipboardStore() throws {
+    func testFileClipboardStore() async throws {
         let store = FileClipboardStore.shared
         let file1 = tempDirURL.appendingPathComponent("clip_1.txt")
         try "Clip 1".write(to: file1, atomically: true, encoding: .utf8)
@@ -41,7 +41,7 @@ final class FileClipboardStoreTests: XCTestCase {
         let pasteTargetDir = tempDirURL.appendingPathComponent("pasted_target")
         try FileManager.default.createDirectory(at: pasteTargetDir, withIntermediateDirectories: true)
         
-        store.paste(to: pasteTargetDir)
+        await store.paste(to: pasteTargetDir).value
         let pastedFile = pasteTargetDir.appendingPathComponent("clip_1.txt")
         XCTAssertTrue(FileManager.default.fileExists(atPath: pastedFile.path))
     }

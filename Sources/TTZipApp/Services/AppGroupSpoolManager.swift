@@ -93,4 +93,29 @@ public final class AppGroupSpoolManager: Sendable {
         }
         return resolved
     }
+    
+    /// Stops accessing security-scoped resources previously resolved.
+    public func stopAccessing(urls: [URL]) {
+        for url in urls {
+            url.stopAccessingSecurityScopedResource()
+        }
+    }
+    
+    /// Safely executes a closure with resolved security-scoped URLs and guarantees resource cleanup.
+    public func withSecurityScopedURLs<R>(_ bookmarks: [Data], perform: ([URL]) throws -> R) rethrows -> R {
+        let urls = resolveBookmarks(bookmarks)
+        defer {
+            stopAccessing(urls: urls)
+        }
+        return try perform(urls)
+    }
+    
+    /// Safely executes an async closure with resolved security-scoped URLs and guarantees resource cleanup.
+    public func withSecurityScopedURLs<R>(_ bookmarks: [Data], perform: ([URL]) async throws -> R) async rethrows -> R {
+        let urls = resolveBookmarks(bookmarks)
+        defer {
+            stopAccessing(urls: urls)
+        }
+        return try await perform(urls)
+    }
 }

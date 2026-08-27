@@ -25,22 +25,8 @@ public struct TTSecureTextField: View {
                 TextField(title, text: $text)
                     .textFieldStyle(.plain)
             } else {
-                TextField(title, text: Binding(
-                    get: {
-                        String(repeating: "•", count: text.count)
-                    },
-                    set: { newValue in
-                        if newValue.count < text.count {
-                            text = String(text.prefix(newValue.count))
-                        }
-                    }
-                ))
-                .textFieldStyle(.plain)
-                .overlay(
-                    TextField(title, text: $text)
-                        .textFieldStyle(.plain)
-                        .opacity(0.011)
-                )
+                SecureField(title, text: $text)
+                    .textFieldStyle(.plain)
             }
             
             Button {

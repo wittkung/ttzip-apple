@@ -14,9 +14,11 @@ final class FullScreenMediaWindow: NSWindow {
     override var canBecomeMain: Bool { true }
     
     override func keyDown(with event: NSEvent) {
-        // KeyCode 53 is ESC, KeyCode 49 is Space Bar, KeyCode 12 is 'Q' / 'W'
-        if event.keyCode == 53 || event.keyCode == 49 {
+        // KeyCode 53 is ESC, KeyCode 49 is Space Bar (toggles media play/pause)
+        if event.keyCode == 53 {
             FullScreenMediaWindowController.shared.dismiss()
+        } else if event.keyCode == 49 {
+            MediaPlaybackCoordinator.shared.triggerPlayPause()
         } else {
             super.keyDown(with: event)
         }

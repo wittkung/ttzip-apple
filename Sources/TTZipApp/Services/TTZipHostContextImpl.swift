@@ -8,26 +8,6 @@ import SwiftUI
 import TTZipPluginKit
 import TTZipCore
 
-/// 默认系统 Keychain 凭证存储实现
-public final class SystemKeychainStore: TTZipKeychainStore, @unchecked Sendable {
-    private var memoryVault: [String: String] = [:]
-    private let lock = NSLock()
-    
-    public init() {}
-    
-    public func get(key: String) async throws -> String? {
-        lock.withLock { memoryVault[key] }
-    }
-    
-    public func set(key: String, value: String) async throws {
-        lock.withLock { memoryVault[key] = value }
-    }
-    
-    public func delete(key: String) async throws {
-        lock.withLock { _ = memoryVault.removeValue(forKey: key) }
-    }
-}
-
 /// TTZip 宿主向插件注入的能力中心实现
 @MainActor
 public final class TTZipHostContextImpl: TTZipHostContext, ObservableObject {
@@ -35,7 +15,7 @@ public final class TTZipHostContextImpl: TTZipHostContext, ObservableObject {
     
     public var pluginIdentifier: String { "com.ttzip.host" }
     
-    public let keychain: TTZipKeychainStore = SystemKeychainStore()
+    public let keychain: TTZipKeychainStore = TTZipPluginKit.SystemKeychainStore.shared
     
     private var eventListeners: [String: [SubscriptionToken: @Sendable (Data) -> Void]] = [:]
     

@@ -24,8 +24,8 @@ public struct MediaPreviewView: View {
     public init(fileURL: URL?, fileName: String) {
         self.fileURL = fileURL
         self.fileName = fileName
-        if let url = fileURL {
-            _previewType = State(initialValue: MediaPreviewFactory.detectType(url: url))
+        if fileURL != nil {
+            _previewType = State(initialValue: .unsupported("Loading preview..."))
         } else {
             _previewType = State(initialValue: .unsupported("Select a file from the explorer to preview"))
         }
@@ -165,13 +165,14 @@ public struct MediaPreviewView: View {
             previewType = .unsupported("Select a file from the explorer to preview")
             return
         }
-        let syncType = MediaPreviewFactory.detectType(url: url)
-        self.previewType = syncType
-        
         let targetURL = url
-        Task { @MainActor in
+        Task {
             let deepType = await MediaPreviewFactory.detectTypeAsync(url: targetURL)
-            self.previewType = deepType
+            await MainActor.run {
+                if self.fileURL == targetURL {
+                    self.previewType = deepType
+                }
+            }
         }
     }
 

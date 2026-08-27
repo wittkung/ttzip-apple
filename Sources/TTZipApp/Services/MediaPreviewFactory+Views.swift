@@ -45,7 +45,7 @@ extension MediaPreviewFactory {
             
         case .video(let url):
             return AnyView(
-                MPVMetalVideoPlayerView(url: url)
+                UnifiedVideoPlayerView(url: url)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             )
             

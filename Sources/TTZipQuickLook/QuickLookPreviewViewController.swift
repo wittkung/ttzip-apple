@@ -23,12 +23,11 @@ public final class QuickLookPreviewViewController: NSViewController, @preconcurr
         container.wantsLayer = true
         
         let config = WKWebViewConfiguration()
-        config.preferences.setValue(true, forKey: "allowFileAccessFromFileURLs")
         
         webView = WKWebView(frame: container.bounds, configuration: config)
         webView.autoresizingMask = [.width, .height]
         webView.navigationDelegate = self
-        webView.setValue(false, forKey: "drawsBackground")
+        webView.underPageBackgroundColor = .clear
         container.addSubview(webView)
         
         activityIndicator = NSProgressIndicator()

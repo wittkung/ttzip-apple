@@ -44,7 +44,6 @@ public final class AppLocalizationState: ObservableObject {
     public func setLanguage(_ language: AppLanguage) {
         guard language != currentLanguage else { return }
         self.currentLanguage = language
-        self.objectWillChange.send()
     }
     
     /// Resolves a localized string for the specified key in the current language.

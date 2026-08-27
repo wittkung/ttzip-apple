@@ -64,34 +64,12 @@ public final class ImageIOThumbnailCache: @unchecked Sendable {
     
     /// Downsamples image directly from URL via CoreGraphics without intermediate bitmap allocation.
     public func downsample(url: URL, maxPixelSize: CGFloat = 2048) -> NSImage? {
-        let sourceOptions = [kCGImageSourceShouldCache: false] as CFDictionary
-        guard let imageSource = CGImageSourceCreateWithURL(url as CFURL, sourceOptions) else {
-            return nil
-        }
-        return createThumbnail(from: imageSource, maxPixelSize: maxPixelSize)
+        return DownsampledImageLoader.loadDownsampledImage(from: url, maxPixelSize: maxPixelSize)
     }
     
     /// Downsamples image directly from Data via CoreGraphics without intermediate bitmap allocation.
     public func downsample(data: Data, maxPixelSize: CGFloat = 2048) -> NSImage? {
-        let sourceOptions = [kCGImageSourceShouldCache: false] as CFDictionary
-        guard let imageSource = CGImageSourceCreateWithData(data as CFData, sourceOptions) else {
-            return nil
-        }
-        return createThumbnail(from: imageSource, maxPixelSize: maxPixelSize)
-    }
-    
-    private func createThumbnail(from imageSource: CGImageSource, maxPixelSize: CGFloat) -> NSImage? {
-        let downsampleOptions: [CFString: Any] = [
-            kCGImageSourceCreateThumbnailFromImageAlways: true,
-            kCGImageSourceShouldCacheImmediately: true,
-            kCGImageSourceCreateThumbnailWithTransform: true,
-            kCGImageSourceThumbnailMaxPixelSize: maxPixelSize
-        ]
-        guard let thumbnailCGImage = CGImageSourceCreateThumbnailAtIndex(imageSource, 0, downsampleOptions as CFDictionary) else {
-            return nil
-        }
-        let size = NSSize(width: thumbnailCGImage.width, height: thumbnailCGImage.height)
-        return NSImage(cgImage: thumbnailCGImage, size: size)
+        return DownsampledImageLoader.loadDownsampledImage(from: data, maxPixelSize: maxPixelSize)
     }
     
     public func resetStatistics() {

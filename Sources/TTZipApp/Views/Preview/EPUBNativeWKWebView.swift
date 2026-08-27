@@ -26,7 +26,7 @@ public struct EPUBNativeWKWebView: NSViewRepresentable {
     public func makeNSView(context: Context) -> WKWebView {
         let config = WKWebViewConfiguration()
         let webView = WKWebView(frame: .zero, configuration: config)
-        webView.setValue(false, forKey: "drawsBackground")
+        webView.underPageBackgroundColor = .clear
         return webView
     }
     

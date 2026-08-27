@@ -7,6 +7,7 @@
 
 import Foundation
 import CoreGraphics
+import Combine
 
 /// Supported High Dynamic Range formats for Metal tone mapping pipeline.
 public enum MPVHDRFormat: String, CaseIterable, Identifiable, Sendable {
@@ -155,3 +156,4 @@ public struct MPVMediaParamsSnapshot: Sendable {
         self.selectedSubtitleTrackId = selectedSubtitleTrackId
     }
 }
+
