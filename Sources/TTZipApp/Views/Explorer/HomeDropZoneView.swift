@@ -7,6 +7,9 @@
 
 import SwiftUI
 import TTZipCore
+import TTZipUI
+import TTZipPreviewKit
+import TTZipBenchmarkKit
 
 /// Home drop zone view for drag-and-drop file processing.
 public struct HomeDropZoneView: View {

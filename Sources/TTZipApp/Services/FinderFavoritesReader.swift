@@ -8,6 +8,9 @@
 import Foundation
 import AppKit
 import CoreServices
+import TTZipUI
+import TTZipPreviewKit
+import TTZipBenchmarkKit
 
 public final class FinderFavoritesReader {
     

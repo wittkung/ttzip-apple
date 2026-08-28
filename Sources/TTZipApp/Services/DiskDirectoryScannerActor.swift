@@ -7,6 +7,9 @@
 
 import Foundation
 import TTZipCore
+import TTZipUI
+import TTZipPreviewKit
+import TTZipBenchmarkKit
 
 /// Dedicated actor executing high-throughput non-blocking disk directory scans.
 /// Delegated directly to the Rust engine for concurrent POSIX scanning and pre-sorted summaries.

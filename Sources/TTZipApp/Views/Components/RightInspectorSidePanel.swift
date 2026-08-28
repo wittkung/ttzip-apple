@@ -7,6 +7,9 @@
 
 import SwiftUI
 import TTZipCore
+import TTZipUI
+import TTZipPreviewKit
+import TTZipBenchmarkKit
 
 /// Right contextual Inspector side panel supporting Home and Compress modes.
 public struct RightInspectorSidePanel: View {

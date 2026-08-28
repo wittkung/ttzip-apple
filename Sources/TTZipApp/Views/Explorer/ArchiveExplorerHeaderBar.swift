@@ -7,6 +7,9 @@
 
 import SwiftUI
 import TTZipCore
+import TTZipUI
+import TTZipPreviewKit
+import TTZipBenchmarkKit
 
 public struct ArchiveExplorerHeaderBar: View {
     public let archivePath: String

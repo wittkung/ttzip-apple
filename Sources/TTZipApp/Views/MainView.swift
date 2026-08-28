@@ -9,6 +9,9 @@ import SwiftUI
 import TTZipCore
 import AppKit
 import TTZipPluginKit
+import TTZipUI
+import TTZipPreviewKit
+import TTZipBenchmarkKit
 
 @MainActor
 public enum AppLogoCache {

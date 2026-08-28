@@ -9,6 +9,9 @@ import XCTest
 import SwiftUI
 import AppKit
 import TTZipCore
+import TTZipUI
+import TTZipPreviewKit
+import TTZipBenchmarkKit
 @testable import TTZipApp
 
 final class CodeSyntaxPreviewTests: XCTestCase {

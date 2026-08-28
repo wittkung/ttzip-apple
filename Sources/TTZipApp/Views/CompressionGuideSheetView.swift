@@ -7,6 +7,9 @@
 
 import SwiftUI
 import TTZipCore
+import TTZipUI
+import TTZipPreviewKit
+import TTZipBenchmarkKit
 
 /// Compression algorithms, container formats, and advanced parameters guide sheet.
 public struct CompressionGuideSheetView: View {

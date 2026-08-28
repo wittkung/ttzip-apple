@@ -8,6 +8,9 @@
 import SwiftUI
 import AppKit
 import TTZipCore
+import TTZipUI
+import TTZipPreviewKit
+import TTZipBenchmarkKit
 
 /// Archive standards inspection and compliance diagnostics sheet.
 public struct ArchiveInspectorSheet: View {

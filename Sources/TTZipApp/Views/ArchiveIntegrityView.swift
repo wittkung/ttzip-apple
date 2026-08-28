@@ -7,6 +7,9 @@
 
 import SwiftUI
 import TTZipCore
+import TTZipUI
+import TTZipPreviewKit
+import TTZipBenchmarkKit
 
 public struct ArchiveIntegrityView: View {
     public let archivePath: String

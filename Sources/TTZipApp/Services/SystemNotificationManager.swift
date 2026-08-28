@@ -8,6 +8,9 @@
 import Foundation
 import UserNotifications
 import TTZipCore
+import TTZipUI
+import TTZipPreviewKit
+import TTZipBenchmarkKit
 
 /// Background task completion and disaster notification dispatcher.
 public final class SystemNotificationManager: @unchecked Sendable {
@@ -88,5 +91,28 @@ public final class SystemNotificationManager: @unchecked Sendable {
         )
         
         UNUserNotificationCenter.current().add(request)
+    }
+    
+    /// Posts a general user-facing notification with optional error styling.
+    public func postNotification(title: String, subtitle: String? = nil, body: String, isError: Bool = false) {
+        let content = UNMutableNotificationContent()
+        content.title = title
+        if let subtitle = subtitle, !subtitle.isEmpty {
+            content.subtitle = subtitle
+        }
+        content.body = body
+        content.sound = UNNotificationSound.default
+        
+        let request = UNNotificationRequest(
+            identifier: UUID().uuidString,
+            content: content,
+            trigger: nil
+        )
+        
+        UNUserNotificationCenter.current().add(request) { error in
+            if let err = error {
+                TTLogger.error("Error dispatching general notification: \(err.localizedDescription)")
+            }
+        }
     }
 }

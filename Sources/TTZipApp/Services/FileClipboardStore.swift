@@ -8,6 +8,9 @@
 import Foundation
 import SwiftUI
 import AppKit
+import TTZipUI
+import TTZipPreviewKit
+import TTZipBenchmarkKit
 
 /// Global file clipboard dispatcher supporting copy, cut, paste, and automatic filename collision avoidance.
 @MainActor

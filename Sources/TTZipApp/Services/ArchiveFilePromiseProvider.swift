@@ -9,6 +9,9 @@ import Foundation
 import AppKit
 import UniformTypeIdentifiers
 import TTZipCore
+import TTZipUI
+import TTZipPreviewKit
+import TTZipBenchmarkKit
 
 /// Helper factory to generate NSItemProviders for in-archive entries and disk items.
 public enum ArchiveDragItemProviderFactory {

@@ -7,6 +7,9 @@
 
 import XCTest
 import AVFoundation
+import TTZipUI
+import TTZipPreviewKit
+import TTZipBenchmarkKit
 @testable import TTZipCore
 @testable import TTZipApp
 

@@ -8,6 +8,9 @@
 import AppKit
 import SwiftUI
 import TTZipCore
+import TTZipUI
+import TTZipPreviewKit
+import TTZipBenchmarkKit
 
 /// Dynamic macOS Dock Tile progress ring and badge orchestrator.
 ///

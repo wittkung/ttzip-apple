@@ -8,13 +8,16 @@
 import Foundation
 import TTZipCore
 import AppKit
+import TTZipUI
+import TTZipPreviewKit
+import TTZipBenchmarkKit
 
 /// Observable service providing asynchronous directory item autocompletion with LRU micro-caching.
 @MainActor
 public final class AsyncPathAutocompletionEngine: ObservableObject {
     
     /// Published list of autocompleted path suggestions.
-    @Published public var suggestions: [PathSuggestionItem] = []
+    @Published public var suggestions: [AddressBarSuggestionItem] = []
     
     /// Indicates whether a directory scan or autocompletion query is actively in progress.
     @Published public var isLoading: Bool = false
@@ -111,7 +114,7 @@ public final class AsyncPathAutocompletionEngine: ObservableObject {
             
             let limited = Array(sorted.prefix(maxCount))
             
-            let mapped = limited.map { item -> PathSuggestionItem in
+            let mapped = limited.map { item -> AddressBarSuggestionItem in
                 let iconName: String
                 if item.isDirectory {
                     iconName = "folder.fill"
@@ -128,7 +131,7 @@ public final class AsyncPathAutocompletionEngine: ObservableObject {
                     highlightRange = [0, 0]
                 }
                 
-                return PathSuggestionItem(
+                return AddressBarSuggestionItem(
                     id: item.path,
                     path: item.path,
                     displayName: item.name,
@@ -146,7 +149,7 @@ public final class AsyncPathAutocompletionEngine: ObservableObject {
     
     /// Asynchronously awaits completion of an autocompletion query and returns the resulting suggestions.
     @discardableResult
-    public func queryAsync(rawInput: String, baseDirectory: URL) async -> [PathSuggestionItem] {
+    public func queryAsync(rawInput: String, baseDirectory: URL) async -> [AddressBarSuggestionItem] {
         query(rawInput: rawInput, baseDirectory: baseDirectory)
         if let task = activeTask {
             _ = await task.value
@@ -164,7 +167,7 @@ public final class AsyncPathAutocompletionEngine: ObservableObject {
     
     // MARK: - Private Helpers
     
-    private func finishQuery(suggestions: [PathSuggestionItem], isLoading: Bool) {
+    private func finishQuery(suggestions: [AddressBarSuggestionItem], isLoading: Bool) {
         self.suggestions = suggestions
         self.isLoading = isLoading
     }

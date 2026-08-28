@@ -7,6 +7,9 @@
 
 import Foundation
 import TTZipCore
+import TTZipUI
+import TTZipPreviewKit
+import TTZipBenchmarkKit
 
 extension AppViewState {
     // MARK: - Command Undo / Redo
@@ -18,8 +21,8 @@ extension AppViewState {
     }
     
     public func updateUndoRedoState() {
-        Task { @MainActor in
-            await refreshUndoRedoState()
+        Task { @MainActor [weak self] in
+            await self?.refreshUndoRedoState()
         }
     }
     
@@ -45,8 +48,8 @@ extension AppViewState {
     }
     
     public func performUndo() {
-        Task { @MainActor in
-            await performUndoAsync()
+        Task { @MainActor [weak self] in
+            await self?.performUndoAsync()
         }
     }
     
@@ -68,8 +71,8 @@ extension AppViewState {
     }
     
     public func performRedo() {
-        Task { @MainActor in
-            await performRedoAsync()
+        Task { @MainActor [weak self] in
+            await self?.performRedoAsync()
         }
     }
     
@@ -89,4 +92,5 @@ extension AppViewState {
         }
         await self.refreshUndoRedoState()
     }
+
 }

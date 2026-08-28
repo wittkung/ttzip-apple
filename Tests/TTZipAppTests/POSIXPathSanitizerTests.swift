@@ -7,6 +7,9 @@
 
 import XCTest
 import Foundation
+import TTZipUI
+import TTZipPreviewKit
+import TTZipBenchmarkKit
 @testable import TTZipApp
 
 final class POSIXPathSanitizerTests: XCTestCase {

@@ -6,6 +6,9 @@
 // TTZip: High-performance native archiving and compression engine.
 
 import Foundation
+import TTZipUI
+import TTZipPreviewKit
+import TTZipBenchmarkKit
 
 /// Model representing a recently accessed archive file record.
 public struct RecentArchiveRecord: Identifiable, Codable, Equatable, Hashable, Sendable {

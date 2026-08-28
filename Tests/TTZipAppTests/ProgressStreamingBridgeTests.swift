@@ -6,6 +6,9 @@
 // TTZip: High-performance native archiving and compression engine.
 
 import XCTest
+import TTZipUI
+import TTZipPreviewKit
+import TTZipBenchmarkKit
 @testable import TTZipCore
 
 final class ProgressStreamingBridgeTests: XCTestCase {

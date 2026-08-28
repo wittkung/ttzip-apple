@@ -8,6 +8,9 @@
 import XCTest
 import Foundation
 import zlib
+import TTZipUI
+import TTZipPreviewKit
+import TTZipBenchmarkKit
 @testable import TTZipPluginKit
 
 final class TTZipNativeZipExtractorTests: XCTestCase {

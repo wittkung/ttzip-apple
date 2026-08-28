@@ -8,6 +8,9 @@
 import SwiftUI
 import AppKit
 import TTZipCore
+import TTZipUI
+import TTZipPreviewKit
+import TTZipBenchmarkKit
 
 extension Notification.Name {
     public static let archiveExplorerMoveUp = Notification.Name("archiveExplorerMoveUp")

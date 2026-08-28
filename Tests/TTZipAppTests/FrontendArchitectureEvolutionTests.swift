@@ -9,6 +9,9 @@ import XCTest
 import SwiftUI
 @testable import TTZipApp
 import TTZipCore
+import TTZipUI
+import TTZipPreviewKit
+import TTZipBenchmarkKit
 
 final class FrontendArchitectureEvolutionTests: XCTestCase {
     

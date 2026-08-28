@@ -7,6 +7,9 @@
 
 import SwiftUI
 import TTZipCore
+import TTZipUI
+import TTZipPreviewKit
+import TTZipBenchmarkKit
 
 /// Real-time multi-task operations management window with live throughput telemetry and controls.
 public struct OperationsQueueView: View {

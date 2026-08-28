@@ -8,6 +8,9 @@
 import SwiftUI
 import Observation
 import TTZipCore
+import TTZipUI
+import TTZipPreviewKit
+import TTZipBenchmarkKit
 
 extension CompressIntegratedConfigSectionView {
     var shouldShowFormatSpecificSection: Bool {

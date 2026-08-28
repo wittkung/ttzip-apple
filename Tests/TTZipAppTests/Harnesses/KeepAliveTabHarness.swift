@@ -7,6 +7,9 @@
 
 import Foundation
 import TTZipCore
+import TTZipUI
+import TTZipPreviewKit
+import TTZipBenchmarkKit
 @testable import TTZipApp
 
 @MainActor

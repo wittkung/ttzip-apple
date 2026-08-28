@@ -6,6 +6,9 @@
 // TTZip: High-performance native archiving and compression engine.
 
 import Foundation
+import TTZipUI
+import TTZipPreviewKit
+import TTZipBenchmarkKit
 
 public final class MockFileURLHarness {
     public let sandboxDir: URL

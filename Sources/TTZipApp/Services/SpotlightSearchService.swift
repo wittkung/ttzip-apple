@@ -6,6 +6,9 @@
 // TTZip: High-performance native archiving and compression engine.
 
 import Foundation
+import TTZipUI
+import TTZipPreviewKit
+import TTZipBenchmarkKit
 
 /// Fast Spotlight file searching service leveraging Apple's native NSMetadataQuery.
 @MainActor

@@ -8,6 +8,9 @@
 import SwiftUI
 import TTZipCore
 import AppKit
+import TTZipUI
+import TTZipPreviewKit
+import TTZipBenchmarkKit
 
 public struct FinderMillerColumnsView: View {
     public let rootDirectory: URL

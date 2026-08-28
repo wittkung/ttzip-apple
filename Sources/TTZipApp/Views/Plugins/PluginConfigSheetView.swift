@@ -8,6 +8,9 @@
 import SwiftUI
 import TTZipPluginKit
 import TTZipCore
+import TTZipUI
+import TTZipPreviewKit
+import TTZipBenchmarkKit
 
 /// 通用插件安全凭证配置模态窗口
 public struct PluginConfigSheetView: View {

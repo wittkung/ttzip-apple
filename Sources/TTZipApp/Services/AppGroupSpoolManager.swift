@@ -6,6 +6,9 @@
 // TTZip: macOS Native Archiving & Compression Application.
 
 import Foundation
+import TTZipUI
+import TTZipPreviewKit
+import TTZipBenchmarkKit
 
 /// Structured job payload exchanged between Finder extension and TTZipApp via App Group spooling.
 public struct TTZipSpoolJob: Codable, Sendable {

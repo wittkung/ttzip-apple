@@ -10,6 +10,9 @@ import SwiftUI
 import Observation
 import AppKit
 import TTZipCore
+import TTZipUI
+import TTZipPreviewKit
+import TTZipBenchmarkKit
 
 public struct CompressionCompletedSummary: Sendable {
     public let archivePath: String

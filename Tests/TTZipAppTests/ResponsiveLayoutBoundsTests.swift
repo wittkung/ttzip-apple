@@ -8,6 +8,9 @@
 import XCTest
 import SwiftUI
 import AppKit
+import TTZipUI
+import TTZipPreviewKit
+import TTZipBenchmarkKit
 @testable import TTZipApp
 @testable import TTZipCore
 

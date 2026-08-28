@@ -7,6 +7,9 @@
 
 import SwiftUI
 import TTZipCore
+import TTZipUI
+import TTZipPreviewKit
+import TTZipBenchmarkKit
 
 public struct PasswordVaultPopoverView: View {
     @Binding public var passwordInput: String

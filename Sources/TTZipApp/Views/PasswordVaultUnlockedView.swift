@@ -8,6 +8,9 @@
 import SwiftUI
 import AppKit
 import TTZipCore
+import TTZipUI
+import TTZipPreviewKit
+import TTZipBenchmarkKit
 
 /// Subview displaying saved passwords grid, auto-unlock settings, and action toolbars when vault is unlocked.
 public struct PasswordVaultUnlockedView: View {

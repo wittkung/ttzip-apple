@@ -8,6 +8,9 @@
 import Foundation
 import AppKit
 import TTZipCore
+import TTZipUI
+import TTZipPreviewKit
+import TTZipBenchmarkKit
 
 /// Cached in-memory representation of an archive directory tree for O(1) subpath traversal.
 public struct ArchiveHierarchySession: Sendable {

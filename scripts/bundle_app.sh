@@ -84,6 +84,8 @@ cd "${REPO_ROOT}"
 # Deterministic binary and build path resolution (0 SPM subprocess overhead)
 BIN_DIR="${BUILD_DIR}/${BUILD_CONFIG}"
 BIN_PATH="${BIN_DIR}/TTZipApp"
+FINDER_SYNC_SRC="${BIN_DIR}/libTTZipFinderSync.dylib"
+QUICKLOOK_SRC="${BIN_DIR}/libTTZipQuickLook.dylib"
 
 NEED_SWIFT_BUILD=true
 if [ "${FORCE_CLEAN}" = false ] && [ -f "${BIN_PATH}" ]; then
@@ -95,18 +97,17 @@ if [ "${FORCE_CLEAN}" = false ] && [ -f "${BIN_PATH}" ]; then
 fi
 
 if [ "${NEED_SWIFT_BUILD}" = true ]; then
-    echo "--> [1/4] Compiling TTZipApp via Swift Package Manager in ${BUILD_CONFIG} mode (${NCPU} threads)..."
+    echo "--> [1/4] Compiling TTZipApp and App Extensions via Swift Package Manager in ${BUILD_CONFIG} mode (${NCPU} threads)..."
     swift build \
         --build-path "${BUILD_DIR}" \
         --jobs "${NCPU}" \
         -c "${BUILD_CONFIG}" \
-        --product TTZipApp \
         -Xlinker -L"${REPO_ROOT}/Vendor" \
         -Xlinker -rpath -Xlinker @executable_path/../Frameworks \
         -Xswiftc -warnings-as-errors \
         "${SWIFT_FLAGS[@]}"
 else
-    echo "--> [1/4] TTZipApp sources are up-to-date (Skipped SPM compilation in 0.01s)."
+    echo "--> [1/4] TTZipApp and Extension sources are up-to-date (Skipped SPM compilation in 0.01s)."
 fi
 
 APP_DIR="${DIST_DIR}/TTZip.app"
@@ -127,7 +128,7 @@ if [ "${FORCE_CLEAN}" = true ]; then
 fi
 
 STATE_DIR="${BUILD_DIR}/.bundle_state"
-mkdir -p "${MACOS_DIR}" "${FRAMEWORKS_DIR}" "${RESOURCES_DIR}" "${STATE_DIR}"
+mkdir -p "${MACOS_DIR}" "${FRAMEWORKS_DIR}" "${RESOURCES_DIR}" "${PLUGINS_DIR}" "${STATE_DIR}"
 
 APP_UPDATED=false
 
@@ -170,7 +171,9 @@ fi
 # 2. Sync Info.plist, PrivacyInfo, AppIcon, PkgInfo
 sync_file_if_changed "${REPO_ROOT}/Sources/TTZipApp/Info.plist" "${CONTENTS_DIR}/Info.plist" "" || true
 
-if [ -f "${REPO_ROOT}/Resources/AppIcon.icns" ]; then
+if [ -f "${REPO_ROOT}/Sources/TTZipApp/Resources/AppIcon.icns" ]; then
+    sync_file_if_changed "${REPO_ROOT}/Sources/TTZipApp/Resources/AppIcon.icns" "${RESOURCES_DIR}/AppIcon.icns" "" || true
+elif [ -f "${REPO_ROOT}/Resources/AppIcon.icns" ]; then
     sync_file_if_changed "${REPO_ROOT}/Resources/AppIcon.icns" "${RESOURCES_DIR}/AppIcon.icns" "" || true
 fi
 
@@ -197,7 +200,50 @@ for lproj_dir in "${REPO_ROOT}"/Sources/TTZipApp/Resources/*.lproj; do
     fi
 done
 
-# 4. Handle Sparkle Framework (Direct Channel only)
+# 4. Packaging App Extensions (.appex) for FinderSync & QuickLook
+package_extension() {
+    local ext_name="$1"
+    local src_info="$2"
+    local src_dylib="$3"
+
+    local ext_dir="${PLUGINS_DIR}/${ext_name}.appex"
+    local ext_contents="${ext_dir}/Contents"
+    local ext_macos="${ext_contents}/MacOS"
+    local ext_bin="${ext_macos}/${ext_name}"
+
+    mkdir -p "${ext_macos}"
+    sync_file_if_changed "${src_info}" "${ext_contents}/Info.plist" "" || true
+
+    local resolved_src=""
+    if [ -f "${BIN_DIR}/${src_dylib}" ]; then
+        resolved_src="${BIN_DIR}/${src_dylib}"
+    elif [ -f "${BIN_DIR}/${ext_name}" ]; then
+        resolved_src="${BIN_DIR}/${ext_name}"
+    fi
+
+    if [ -n "${resolved_src}" ] && [ -f "${resolved_src}" ]; then
+        local src_stat
+        src_stat="$(get_file_stat "${resolved_src}")"
+        local last_stat
+        last_stat="$(cat "${STATE_DIR}/${ext_name}.stamp" 2>/dev/null || true)"
+
+        if [ ! -f "${ext_bin}" ] || [ "${src_stat}" != "${last_stat}" ]; then
+            echo "--> Packaging extension: ${ext_name}.appex..."
+            cp -f "${resolved_src}" "${ext_bin}"
+            if [ "${BUILD_CONFIG}" = "release" ]; then
+                strip -x "${ext_bin}" 2>/dev/null || true
+            fi
+            chmod +x "${ext_bin}"
+            echo -n "${src_stat}" > "${STATE_DIR}/${ext_name}.stamp"
+            APP_UPDATED=true
+        fi
+    fi
+}
+
+package_extension "TTZipFinderSync" "${REPO_ROOT}/Sources/TTZipFinderSync/Info.plist" "libTTZipFinderSync.dylib"
+package_extension "TTZipQuickLook" "${REPO_ROOT}/Sources/TTZipQuickLook/Info.plist" "libTTZipQuickLook.dylib"
+
+# 5. Handle Sparkle Framework (Direct Channel only)
 if [ "${CHANNEL}" = "direct" ]; then
     # Fast deterministic Sparkle path lookup
     SPARKLE_SRC=""
@@ -222,11 +268,6 @@ if [ "${CHANNEL}" = "direct" ]; then
         if [ ! -d "${TARGET_SPARKLE}" ]; then
             echo "--> Embedding Sparkle.framework..."
             cp -R "${SPARKLE_SRC}" "${FRAMEWORKS_DIR}/"
-            if [ "${SIGN_IDENTITY}" != "-" ]; then
-                codesign --force --options runtime --timestamp --sign "${SIGN_IDENTITY}" "${TARGET_SPARKLE}" 2>/dev/null || true
-            else
-                codesign --force --sign "-" "${TARGET_SPARKLE}" 2>/dev/null || true
-            fi
             APP_UPDATED=true
         fi
     fi
@@ -238,7 +279,7 @@ else
     fi
 fi
 
-# 5. Handle libmpv.dylib (Stamp-based change detection to avoid codesign diff loop)
+# 6. Handle libmpv.dylib (Stamp-based change detection to avoid codesign diff loop)
 MPV_SRC="${REPO_ROOT}/Frameworks/libmpv.dylib"
 
 if [ -n "${MPV_SRC}" ] && [ -f "${MPV_SRC}" ]; then
@@ -247,35 +288,32 @@ if [ -n "${MPV_SRC}" ] && [ -f "${MPV_SRC}" ]; then
     LAST_MPV_STAT="$(cat "${STATE_DIR}/libmpv.stamp" 2>/dev/null || true)"
 
     if [ ! -f "${TARGET_MPV}" ] || [ "${MPV_SRC_STAT}" != "${LAST_MPV_STAT}" ]; then
-        echo "--> Bundling and signing libmpv.dylib..."
+        echo "--> Bundling libmpv.dylib..."
         mkdir -p "${FRAMEWORKS_DIR}"
         cp -f "${MPV_SRC}" "${TARGET_MPV}"
         chmod 755 "${TARGET_MPV}"
         install_name_tool -id @rpath/libmpv.dylib "${TARGET_MPV}" 2>/dev/null || true
-        if [ "${SIGN_IDENTITY}" != "-" ]; then
-            codesign --force --options runtime --timestamp --sign "${SIGN_IDENTITY}" "${TARGET_MPV}" 2>/dev/null || true
-        else
-            codesign --force --sign "-" "${TARGET_MPV}" 2>/dev/null || true
-        fi
         echo -n "${MPV_SRC_STAT}" > "${STATE_DIR}/libmpv.stamp"
         APP_UPDATED=true
     fi
 fi
 
-# 6. Copy Auxiliary Dynamic Libraries from BIN_DIR (FinderSync / QuickLook)
+# 7. Clean up loose extension dylibs from Frameworks and Copy genuine Auxiliary Dynamic Libraries
+rm -f "${FRAMEWORKS_DIR}/libTTZipFinderSync.dylib" "${FRAMEWORKS_DIR}/libTTZipQuickLook.dylib"
+
 if [ -d "${BIN_DIR}" ]; then
     for dylib_file in "${BIN_DIR}"/*.dylib; do
         if [ -f "${dylib_file}" ]; then
             dylib_name="$(basename "${dylib_file}")"
-            target_dylib="${FRAMEWORKS_DIR}/${dylib_name}"
-            if sync_file_if_changed "${dylib_file}" "${target_dylib}" 755; then
-                codesign --force --sign "-" "${target_dylib}" 2>/dev/null || true
+            if [ "${dylib_name}" != "libTTZipFinderSync.dylib" ] && [ "${dylib_name}" != "libTTZipQuickLook.dylib" ]; then
+                target_dylib="${FRAMEWORKS_DIR}/${dylib_name}"
+                sync_file_if_changed "${dylib_file}" "${target_dylib}" 755 || true
             fi
         fi
     done
 fi
 
-# 7. Copy Built-in Plugins
+# 8. Copy Built-in Plugins
 if [ -d "${REPO_ROOT}/Resources/Plugins" ]; then
     mkdir -p "${RESOURCES_DIR}/Plugins"
     cp -Rf "${REPO_ROOT}/Resources/Plugins/"* "${RESOURCES_DIR}/Plugins/" 2>/dev/null || true
@@ -288,16 +326,57 @@ fi
 # Clean up Frameworks if empty
 rmdir "${FRAMEWORKS_DIR}" 2>/dev/null || true
 
-# 8. Intelligent Code Signing & Verification (Inside-Out Standard)
+# 9. Intelligent Code Signing & Verification (Inside-Out Standard)
 NEEDS_BUNDLE_SIGN=false
 if [ "${APP_UPDATED}" = true ] || [ ! -d "${APP_DIR}/_CodeSignature" ]; then
     NEEDS_BUNDLE_SIGN=true
-elif ! codesign --verify --strict "${APP_DIR}" 2>/dev/null; then
+elif ! codesign --verify --deep --strict "${APP_DIR}" 2>/dev/null; then
     NEEDS_BUNDLE_SIGN=true
 fi
 
 if [ "${NEEDS_BUNDLE_SIGN}" = true ]; then
-    echo "--> [3/4] Performing code signing with Hardened Runtime..."
+    echo "--> [3/4] Performing Inside-Out code signing with Hardened Runtime..."
+
+    # Step 1: Sign App Extensions (.appex)
+    if [ -d "${PLUGINS_DIR}" ]; then
+        for appex_dir in "${PLUGINS_DIR}"/*.appex; do
+            if [ -d "${appex_dir}" ]; then
+                echo "    • Signing extension: $(basename "${appex_dir}")..."
+                EXT_SIGN_ARGS=(--force --sign "${SIGN_IDENTITY}")
+                if [ "${SIGN_IDENTITY}" != "-" ]; then
+                    EXT_SIGN_ARGS+=(--options runtime --timestamp)
+                fi
+                codesign "${EXT_SIGN_ARGS[@]}" "${appex_dir}"
+            fi
+        done
+    fi
+
+    # Step 2: Sign Embedded Frameworks (Sparkle.framework)
+    if [ -d "${FRAMEWORKS_DIR}/Sparkle.framework" ]; then
+        echo "    • Signing embedded Sparkle.framework..."
+        SPARKLE_SIGN_ARGS=(--force --sign "${SIGN_IDENTITY}")
+        if [ "${SIGN_IDENTITY}" != "-" ]; then
+            SPARKLE_SIGN_ARGS+=(--options runtime --timestamp)
+        fi
+        codesign "${SPARKLE_SIGN_ARGS[@]}" "${FRAMEWORKS_DIR}/Sparkle.framework"
+    fi
+
+    # Step 3: Sign Embedded Dynamic Libraries (libmpv.dylib, etc.)
+    if [ -d "${FRAMEWORKS_DIR}" ]; then
+        for item in "${FRAMEWORKS_DIR}"/*; do
+            if [ -e "${item}" ] && [ "$(basename "${item}")" != "Sparkle.framework" ]; then
+                echo "    • Signing embedded library: $(basename "${item}")..."
+                LIB_SIGN_ARGS=(--force --sign "${SIGN_IDENTITY}")
+                if [ "${SIGN_IDENTITY}" != "-" ]; then
+                    LIB_SIGN_ARGS+=(--options runtime --timestamp)
+                fi
+                codesign "${LIB_SIGN_ARGS[@]}" "${item}"
+            fi
+        done
+    fi
+
+    # Step 4: Sign Root Main App Bundle with Hardened Runtime and Entitlements
+    echo "    • Signing main application bundle..."
     SIGN_ARGS=(--force --sign "${SIGN_IDENTITY}")
     if [ -f "${ENTITLEMENTS}" ]; then
         SIGN_ARGS+=(--entitlements "${ENTITLEMENTS}")
@@ -308,10 +387,8 @@ if [ "${NEEDS_BUNDLE_SIGN}" = true ]; then
 
     codesign "${SIGN_ARGS[@]}" "${APP_DIR}"
 
-    if [ "${BUILD_CONFIG}" = "release" ]; then
-        echo "--> [4/4] Verifying .app bundle integrity..."
-        codesign --verify --deep --strict "${APP_DIR}"
-    fi
+    echo "--> [4/4] Verifying .app bundle integrity with deep strict checks..."
+    codesign --verify --deep --strict "${APP_DIR}"
 else
     echo "--> [3/4] Bundle structure and code signature are pristine (Up-to-date, skipped)."
 fi

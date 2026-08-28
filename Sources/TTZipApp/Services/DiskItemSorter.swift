@@ -7,6 +7,9 @@
 
 import Foundation
 import TTZipCore
+import TTZipUI
+import TTZipPreviewKit
+import TTZipBenchmarkKit
 
 /// Multi-dimensional sorting strategy engine for disk and archive entries.
 public enum DiskItemSorter {

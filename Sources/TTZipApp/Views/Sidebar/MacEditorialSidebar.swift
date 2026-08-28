@@ -8,6 +8,9 @@
 import SwiftUI
 import TTZipCore
 import TTZipPluginKit
+import TTZipUI
+import TTZipPreviewKit
+import TTZipBenchmarkKit
 
 /// Editorial style sidebar (WSJ Editorial Sidebar).
 public struct MacEditorialSidebar: View {

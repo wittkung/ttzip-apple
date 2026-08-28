@@ -8,6 +8,9 @@
 import SwiftUI
 import AppKit
 import TTZipCore
+import TTZipUI
+import TTZipPreviewKit
+import TTZipBenchmarkKit
 
 public struct FolderMediaArtboardView: View {
     public let item: DiskItemInfo

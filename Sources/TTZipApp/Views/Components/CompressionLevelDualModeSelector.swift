@@ -7,6 +7,9 @@
 
 import SwiftUI
 import TTZipCore
+import TTZipUI
+import TTZipPreviewKit
+import TTZipBenchmarkKit
 
 /// Dual-mode compression level selector combining quick preset capsules with custom numeric input & steppers.
 public struct CompressionLevelDualModeSelector: View {

@@ -6,6 +6,9 @@
 // TTZip: High-performance native archiving and compression engine.
 
 import SwiftUI
+import TTZipUI
+import TTZipPreviewKit
+import TTZipBenchmarkKit
 
 public enum DiskSortOption: String, CaseIterable, Identifiable, Codable {
     case nameAsc = "Name (A-Z)"

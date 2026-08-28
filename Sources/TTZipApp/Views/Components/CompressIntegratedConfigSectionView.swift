@@ -8,6 +8,9 @@
 import SwiftUI
 import Observation
 import TTZipCore
+import TTZipUI
+import TTZipPreviewKit
+import TTZipBenchmarkKit
 
 public struct CompressIntegratedConfigSectionView: View {
     @ObservedObject var l10n = AppLocalizationState.shared

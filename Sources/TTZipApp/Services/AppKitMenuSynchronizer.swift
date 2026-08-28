@@ -8,6 +8,9 @@
 import Foundation
 import AppKit
 import TTZipCore
+import TTZipUI
+import TTZipPreviewKit
+import TTZipBenchmarkKit
 
 /// Dynamically updates AppKit system menu bar items using a three-tier topological engine
 /// (Permanent Tags -> Standard Action Selectors -> Menu Tree Structural Slot Indices).

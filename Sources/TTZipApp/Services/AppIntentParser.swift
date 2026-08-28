@@ -8,6 +8,9 @@
 import Foundation
 import AppKit
 import TTZipCore
+import TTZipUI
+import TTZipPreviewKit
+import TTZipBenchmarkKit
 
 public enum AppIntentParser {
     

@@ -8,6 +8,9 @@
 import SwiftUI
 import TTZipCore
 import AppKit
+import TTZipUI
+import TTZipPreviewKit
+import TTZipBenchmarkKit
 
 /// Native macOS disk directory browser with Miller Columns navigation.
 public struct DiskDirectoryBrowserView: View {

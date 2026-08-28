@@ -7,6 +7,9 @@
 
 import SwiftUI
 import TTZipCore
+import TTZipUI
+import TTZipPreviewKit
+import TTZipBenchmarkKit
 
 /// Algorithm characteristics and performance comparison matrix sheet.
 public struct AlgorithmMatrixSheetView: View {

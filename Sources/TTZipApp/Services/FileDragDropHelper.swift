@@ -7,6 +7,9 @@
 
 import Foundation
 import AppKit
+import TTZipUI
+import TTZipPreviewKit
+import TTZipBenchmarkKit
 
 public enum FileDragDropHelper {
     public static func performMove(sources: [URL], to destinationDir: URL) {

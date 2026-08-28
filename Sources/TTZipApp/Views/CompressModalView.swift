@@ -9,6 +9,9 @@ import SwiftUI
 import Observation
 import TTZipCore
 import AppKit
+import TTZipUI
+import TTZipPreviewKit
+import TTZipBenchmarkKit
 
 public struct CompressModalView: View {
     @ObservedObject var l10n = AppLocalizationState.shared

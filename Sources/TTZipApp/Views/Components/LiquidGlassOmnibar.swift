@@ -8,6 +8,9 @@
 import SwiftUI
 import TTZipCore
 import AppKit
+import TTZipUI
+import TTZipPreviewKit
+import TTZipBenchmarkKit
 
 /// Liquid Glass styled unified Address and Search Omnibar.
 public struct LiquidGlassOmnibar: View {
@@ -260,7 +263,7 @@ public struct LiquidGlassOmnibar: View {
         return true
     }
     
-    private func applySuggestion(_ suggestion: PathSuggestionItem) {
+    private func applySuggestion(_ suggestion: AddressBarSuggestionItem) {
         if suggestion.isDirectory {
             _ = DestinationDispatcher.directDispatch(path: suggestion.path, appViewState: viewModel)
             cancelEditing()

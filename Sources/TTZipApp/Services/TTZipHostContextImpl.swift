@@ -2,13 +2,18 @@
 //
 // Copyright (c) 2026 Witt Kung <witt.w.kung@gmail.com>
 // All rights reserved.
+//
+// TTZip: High-performance native archiving and compression engine.
 
 import Foundation
 import SwiftUI
 import TTZipPluginKit
 import TTZipCore
+import TTZipUI
+import TTZipPreviewKit
+import TTZipBenchmarkKit
 
-/// TTZip 宿主向插件注入的能力中心实现
+/// Production host capability implementation injected into TTZip plugins.
 @MainActor
 public final class TTZipHostContextImpl: TTZipHostContext, ObservableObject {
     public static let shared = TTZipHostContextImpl()
@@ -22,7 +27,17 @@ public final class TTZipHostContextImpl: TTZipHostContext, ObservableObject {
     private init() {}
     
     public func createArchive(sources: [URL], destination: URL, format: String, level: Int) async throws -> URL {
-        // 调用 TTZip 原生压缩引擎
+        let compressionFormat = ArchiveCompressionFormat(rawValue: format.lowercased()) ?? .zip
+        let compressionLevel = ArchiveCompressionLevel(rawValue: level) ?? .normal
+        let inputPaths = sources.map { $0.path }
+        
+        let writer = ArchiveWriter()
+        try await writer.createArchive(
+            outputPath: destination.path,
+            format: compressionFormat,
+            level: compressionLevel,
+            inputPaths: inputPaths
+        )
         return destination
     }
     
@@ -59,10 +74,19 @@ public final class TTZipHostContextImpl: TTZipHostContext, ObservableObject {
     }
     
     public func showNotification(title: String, message: String, level: TTZipNotificationLevel) {
-        print("[TTZipHost] Notification [\(level)]: \(title) - \(message)")
+        let isError = (level == .error || level == .warning)
+        SystemNotificationManager.shared.postNotification(
+            title: title,
+            body: message,
+            isError: isError
+        )
     }
     
     public func setGlobalProgress(progress: Double?, statusText: String?) {
-        // 联动全局 Dock 与进度中心
+        if let progress = progress {
+            DockProgressManager.shared.updateProgress(fraction: progress, activeCount: 1)
+        } else {
+            DockProgressManager.shared.clearProgress()
+        }
     }
 }

@@ -8,6 +8,9 @@
 import Foundation
 import SwiftUI
 import TTZipCore
+import TTZipUI
+import TTZipPreviewKit
+import TTZipBenchmarkKit
 
 @MainActor
 public final class ArchiveIntegrityViewModel: ObservableObject {

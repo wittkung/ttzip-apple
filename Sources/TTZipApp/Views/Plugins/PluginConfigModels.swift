@@ -7,6 +7,9 @@
 
 import Foundation
 import TTZipPluginKit
+import TTZipUI
+import TTZipPreviewKit
+import TTZipBenchmarkKit
 
 /// 通用插件凭证键值对配置项 (Generic Plugin Configuration Item)
 public struct PluginConfigEntry: Identifiable, Sendable, Hashable {

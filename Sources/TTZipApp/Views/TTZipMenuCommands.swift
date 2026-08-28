@@ -7,6 +7,9 @@
 
 import SwiftUI
 import TTZipCore
+import TTZipUI
+import TTZipPreviewKit
+import TTZipBenchmarkKit
 
 /// Reactive SwiftUI Commands struct for macOS native menu bar integration.
 public struct TTZipMenuCommands: Commands {

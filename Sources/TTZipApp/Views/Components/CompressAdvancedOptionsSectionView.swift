@@ -7,6 +7,9 @@
 
 import SwiftUI
 import TTZipCore
+import TTZipUI
+import TTZipPreviewKit
+import TTZipBenchmarkKit
 
 /// Advanced compression settings and hardware dispatch options view.
 public struct CompressAdvancedOptionsSectionView: View {

@@ -9,6 +9,9 @@ import SwiftUI
 import TTZipCore
 import AppKit
 import TTZipPluginKit
+import TTZipUI
+import TTZipPreviewKit
+import TTZipBenchmarkKit
 
 final class AppDelegate: NSObject, NSApplicationDelegate, @unchecked Sendable {
     private var pendingURLs: [URL] = []

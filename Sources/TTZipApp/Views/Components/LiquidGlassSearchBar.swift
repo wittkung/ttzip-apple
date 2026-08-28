@@ -7,6 +7,9 @@
 
 import SwiftUI
 import TTZipCore
+import TTZipUI
+import TTZipPreviewKit
+import TTZipBenchmarkKit
 
 /// Liquid Glass styled spotlight search bar component (retained for backward compatibility).
 public struct LiquidGlassSearchBar: View {

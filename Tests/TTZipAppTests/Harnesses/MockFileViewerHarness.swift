@@ -6,6 +6,9 @@
 // TTZip: High-performance native archiving and compression engine.
 
 import Foundation
+import TTZipUI
+import TTZipPreviewKit
+import TTZipBenchmarkKit
 @testable import TTZipApp
 
 /// Mock file viewer test double that records `revealInFinder` calls without triggering macOS Finder windows.

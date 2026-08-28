@@ -6,6 +6,9 @@
 // TTZip: High-performance native archiving and compression engine.
 
 import Foundation
+import TTZipUI
+import TTZipPreviewKit
+import TTZipBenchmarkKit
 
 /// Throttled event publisher aligning high-frequency engine events to display refresh rates.
 public final class ThrottledProgressPublisher: @unchecked Sendable {

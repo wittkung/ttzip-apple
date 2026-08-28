@@ -8,6 +8,9 @@
 import Foundation
 import AppKit
 import TTZipCore
+import TTZipUI
+import TTZipPreviewKit
+import TTZipBenchmarkKit
 
 /// Centralized coordinator for in-place archive mutation and cross-view cache invalidation.
 @MainActor

@@ -7,6 +7,9 @@
 
 import Foundation
 import AppKit
+import TTZipUI
+import TTZipPreviewKit
+import TTZipBenchmarkKit
 
 /// Security-scoped bookmark and root directory access manager.
 @MainActor

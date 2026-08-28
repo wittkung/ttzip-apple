@@ -9,6 +9,9 @@ import Foundation
 import SwiftUI
 import Observation
 import TTZipCore
+import TTZipUI
+import TTZipPreviewKit
+import TTZipBenchmarkKit
 
 /// 1. Navigation and routing state.
 @Observable
@@ -86,4 +89,33 @@ public final class OverlayState {
     public var inspectingArchivePath: String? = nil
     
     public init() {}
+}
+
+/// 5. Isolated observable state tracking high-frequency background task progress and status messages,
+/// decoupling rapid rendering updates from the top-level AppViewState and MainView hierarchy.
+@Observable
+@MainActor
+public final class TaskProgressObservable {
+    public var progressValue: Double = 0.0
+    public var statusMessage: String = "Ready"
+    public var isIndeterminate: Bool = false
+    
+    public init(progressValue: Double = 0.0, statusMessage: String = "Ready", isIndeterminate: Bool = false) {
+        self.progressValue = progressValue
+        self.statusMessage = statusMessage
+        self.isIndeterminate = isIndeterminate
+    }
+    
+    public func reset() {
+        self.progressValue = 0.0
+        self.statusMessage = "Ready"
+        self.isIndeterminate = false
+    }
+    
+    public func update(progress: Double, message: String? = nil) {
+        self.progressValue = progress
+        if let msg = message {
+            self.statusMessage = msg
+        }
+    }
 }

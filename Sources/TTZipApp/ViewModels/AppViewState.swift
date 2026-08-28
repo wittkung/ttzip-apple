@@ -9,6 +9,9 @@ import Foundation
 import SwiftUI
 import Observation
 import TTZipCore
+import TTZipUI
+import TTZipPreviewKit
+import TTZipBenchmarkKit
 
 /// TTZip GUI main view ViewModel coordinating UI interactions with decoupled domain state trees.
 /// Powered by Swift 5.9+ Observation framework for fine-grained property-level view invalidation.
@@ -20,6 +23,7 @@ public final class AppViewState {
     public let explorerState: ArchiveExplorerState
     public let taskState: TaskExecutionState
     public let overlayState: OverlayState
+    public let progressObservable: TaskProgressObservable
     
     // MARK: - Forwarding Accessors for Backward Compatibility
     
@@ -144,12 +148,17 @@ public final class AppViewState {
     let passwordVault: PasswordVaultManaging
     let progressThrottler = ThrottledProgressPublisher(maxFrequencyHz: 60.0)
     let recentArchivesKey = "TTZipRecentArchivesKey"
+    private final class NotificationTokenStore: @unchecked Sendable {
+        var tokens: [NSObjectProtocol] = []
+    }
+    private let tokenStore = NotificationTokenStore()
     
     public init(
         navigationState: NavigationState = NavigationState(),
         explorerState: ArchiveExplorerState = ArchiveExplorerState(),
         taskState: TaskExecutionState = TaskExecutionState(),
         overlayState: OverlayState = OverlayState(),
+        progressObservable: TaskProgressObservable = TaskProgressObservable(),
         fileViewer: FileViewerServiceProtocol = MacNSWorkspaceFileViewer(),
         passwordVault: PasswordVaultManaging = PasswordVaultManager.shared,
         historyManager: CommandHistoryManager = CommandHistoryManager.shared,
@@ -159,6 +168,7 @@ public final class AppViewState {
         self.explorerState = explorerState
         self.taskState = taskState
         self.overlayState = overlayState
+        self.progressObservable = progressObservable
         self.fileViewer = fileViewer
         self.passwordVault = passwordVault
         self.historyManager = historyManager
@@ -172,7 +182,7 @@ public final class AppViewState {
             RootFolderAccessManager.shared.ensureAccess(for: self.currentDirectory, promptIfMissing: true)
         }
         
-        NotificationCenter.default.addObserver(
+        let undoToken = NotificationCenter.default.addObserver(
             forName: NSNotification.Name("TTZipPerformUndoNotification"),
             object: nil,
             queue: .main
@@ -181,8 +191,9 @@ public final class AppViewState {
                 self?.performUndo()
             }
         }
+        self.tokenStore.tokens.append(undoToken)
         
-        NotificationCenter.default.addObserver(
+        let redoToken = NotificationCenter.default.addObserver(
             forName: NSNotification.Name("TTZipPerformRedoNotification"),
             object: nil,
             queue: .main
@@ -191,7 +202,14 @@ public final class AppViewState {
                 self?.performRedo()
             }
         }
+        self.tokenStore.tokens.append(redoToken)
         
         updateUndoRedoState()
+    }
+    
+    deinit {
+        for token in tokenStore.tokens {
+            NotificationCenter.default.removeObserver(token)
+        }
     }
 }

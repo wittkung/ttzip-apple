@@ -8,6 +8,9 @@
 import SwiftUI
 import TTZipCore
 import LocalAuthentication
+import TTZipUI
+import TTZipPreviewKit
+import TTZipBenchmarkKit
 
 /// Keychain and password safe vault view.
 public struct PasswordVaultView: View {

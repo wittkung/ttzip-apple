@@ -11,6 +11,9 @@ import AppKit
 import AVFoundation
 import CoreVideo
 import CoreMedia
+import TTZipUI
+import TTZipPreviewKit
+import TTZipBenchmarkKit
 @testable import TTZipCore
 @testable import TTZipApp
 

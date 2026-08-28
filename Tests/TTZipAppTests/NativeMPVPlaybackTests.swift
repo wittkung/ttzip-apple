@@ -11,6 +11,9 @@ import AppKit
 import AVFoundation
 import Metal
 import QuartzCore
+import TTZipUI
+import TTZipPreviewKit
+import TTZipBenchmarkKit
 @testable import TTZipCore
 @testable import TTZipApp
 

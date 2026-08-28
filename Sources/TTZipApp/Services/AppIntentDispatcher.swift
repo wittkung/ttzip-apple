@@ -9,6 +9,9 @@ import Foundation
 import SwiftUI
 import AppKit
 import TTZipCore
+import TTZipUI
+import TTZipPreviewKit
+import TTZipBenchmarkKit
 
 public enum IntentDispatchResult: Sendable, Equatable {
     case success

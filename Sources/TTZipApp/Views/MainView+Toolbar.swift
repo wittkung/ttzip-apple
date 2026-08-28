@@ -8,6 +8,9 @@
 import SwiftUI
 import TTZipCore
 import AppKit
+import TTZipUI
+import TTZipPreviewKit
+import TTZipBenchmarkKit
 
 extension MainView {
     @ToolbarContentBuilder

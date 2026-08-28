@@ -8,6 +8,9 @@
 import SwiftUI
 import AppKit
 import TTZipCore
+import TTZipUI
+import TTZipPreviewKit
+import TTZipBenchmarkKit
 
 extension InspectorColumnView {
     func itemIconName(for item: DiskItemInfo) -> String {

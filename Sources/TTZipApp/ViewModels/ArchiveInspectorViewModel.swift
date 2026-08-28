@@ -8,6 +8,9 @@
 import Foundation
 import SwiftUI
 import TTZipCore
+import TTZipUI
+import TTZipPreviewKit
+import TTZipBenchmarkKit
 
 /// Thread-safe in-memory cache for archive diagnostics snapshots.
 public final class ArchiveDiagnosticsCache: @unchecked Sendable {

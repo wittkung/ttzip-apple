@@ -11,6 +11,9 @@ import AVFoundation
 import ImageIO
 import CoreGraphics
 import CryptoKit
+import TTZipUI
+import TTZipPreviewKit
+import TTZipBenchmarkKit
 @testable import TTZipCore
 @testable import TTZipApp
 

@@ -7,6 +7,9 @@
 
 import AppKit
 import TTZipCore
+import TTZipUI
+import TTZipPreviewKit
+import TTZipBenchmarkKit
 
 /// Unified helper service for native system open/save dialogs.
 @MainActor

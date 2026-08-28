@@ -25,6 +25,9 @@ public final class UpdateManager: ObservableObject {
 #else
 /// Direct independent distribution channel: integrates Sparkle 2.0 automatic updater.
 import Sparkle
+import TTZipUI
+import TTZipPreviewKit
+import TTZipBenchmarkKit
 
 @MainActor
 public final class UpdateManager: NSObject, ObservableObject, SPUUpdaterDelegate {

@@ -9,6 +9,9 @@ import SwiftUI
 import TTZipCore
 import AppKit
 import UniformTypeIdentifiers
+import TTZipUI
+import TTZipPreviewKit
+import TTZipBenchmarkKit
 
 public struct ArchiveExplorerView: View {
     public let archivePath: String

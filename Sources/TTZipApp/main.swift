@@ -7,6 +7,9 @@
 
 import Foundation
 import SwiftUI
+import TTZipUI
+import TTZipPreviewKit
+import TTZipBenchmarkKit
 
 if NSClassFromString("XCTestCase") == nil {
     TTZipApp.main()

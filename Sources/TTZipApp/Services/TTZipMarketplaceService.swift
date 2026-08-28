@@ -7,6 +7,9 @@
 
 import Foundation
 import TTZipPluginKit
+import TTZipUI
+import TTZipPreviewKit
+import TTZipBenchmarkKit
 
 /// Service bridge in TTZipApp facilitating marketplace catalog and plugin enablement.
 @MainActor

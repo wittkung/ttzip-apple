@@ -7,6 +7,9 @@
 
 import Foundation
 import AppKit
+import TTZipUI
+import TTZipPreviewKit
+import TTZipBenchmarkKit
 
 /// Abstraction interface for GUI desktop file reveal service.
 public protocol FileViewerServiceProtocol: Sendable {

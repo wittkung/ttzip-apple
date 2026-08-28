@@ -7,6 +7,9 @@
 
 import Foundation
 import TTZipCore
+import TTZipUI
+import TTZipPreviewKit
+import TTZipBenchmarkKit
 
 /// Static utility for POSIX path normalization, shell unescaping, tilde expansion, and prefix parsing.
 /// Delegated directly to the high-performance Rust core engine via Mozilla UniFFI.

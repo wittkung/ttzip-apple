@@ -8,6 +8,9 @@
 import SwiftUI
 import TTZipPluginKit
 import TTZipCore
+import TTZipUI
+import TTZipPreviewKit
+import TTZipBenchmarkKit
 
 public struct InstalledPluginRowView: View {
     public let plugin: TTZipPlugin

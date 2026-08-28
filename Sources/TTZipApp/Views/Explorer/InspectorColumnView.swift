@@ -9,6 +9,9 @@ import SwiftUI
 import AppKit
 import CryptoKit
 import TTZipCore
+import TTZipUI
+import TTZipPreviewKit
+import TTZipBenchmarkKit
 
 public struct InspectorColumnView: View {
     public let item: DiskItemInfo

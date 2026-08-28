@@ -41,6 +41,9 @@ let package = Package(
     ],
     products: [
         .executable(name: "TTZipApp", targets: ["TTZipApp"]),
+        .library(name: "TTZipUI", targets: ["TTZipUI"]),
+        .library(name: "TTZipPreviewKit", targets: ["TTZipPreviewKit"]),
+        .library(name: "TTZipBenchmarkKit", targets: ["TTZipBenchmarkKit"]),
         .library(name: "TTZipPluginKit", targets: ["TTZipPluginKit"]),
         .library(name: "TTZipQuickLook", type: .dynamic, targets: ["TTZipQuickLook"]),
         .library(name: "TTZipFinderSync", type: .dynamic, targets: ["TTZipFinderSync"])
@@ -76,6 +79,14 @@ let package = Package(
             ]
         ),
         .target(
+            name: "TTZipUI",
+            dependencies: [
+                .product(name: "TTZipCore", package: corePackageName)
+            ],
+            path: "Sources/TTZipUI",
+            swiftSettings: swiftSettings
+        ),
+        .target(
             name: "TTZipPluginKit",
             dependencies: [
                 .product(name: "TTZipCore", package: corePackageName)
@@ -87,11 +98,34 @@ let package = Package(
             ],
             swiftSettings: swiftSettings
         ),
+        .target(
+            name: "TTZipPreviewKit",
+            dependencies: [
+                .product(name: "TTZipCore", package: corePackageName),
+                "TTZipUI",
+                "TTZipPluginKit",
+                "CMPVBridge"
+            ],
+            path: "Sources/TTZipPreviewKit",
+            swiftSettings: swiftSettings
+        ),
+        .target(
+            name: "TTZipBenchmarkKit",
+            dependencies: [
+                .product(name: "TTZipCore", package: corePackageName),
+                "TTZipUI"
+            ],
+            path: "Sources/TTZipBenchmarkKit",
+            swiftSettings: swiftSettings
+        ),
         .executableTarget(
             name: "TTZipApp",
             dependencies: [
                 .product(name: "TTZipCore", package: corePackageName),
                 .product(name: "Sparkle", package: "Sparkle"),
+                "TTZipUI",
+                "TTZipPreviewKit",
+                "TTZipBenchmarkKit",
                 "TTZipPluginKit",
                 "CMPVBridge"
             ],
@@ -128,6 +162,9 @@ let package = Package(
             name: "TTZipAppTests",
             dependencies: [
                 "TTZipApp",
+                "TTZipUI",
+                "TTZipPreviewKit",
+                "TTZipBenchmarkKit",
                 "TTZipPluginKit",
                 "TTZipFinderSync",
                 "TTZipQuickLook",
