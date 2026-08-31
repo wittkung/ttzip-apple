@@ -50,6 +50,17 @@ public struct InstalledPluginRowView: View {
                         .padding(.vertical, 2)
                         .background(TTZipTheme.bambooGreen.opacity(0.15))
                         .clipShape(Capsule())
+                    HStack(spacing: 3) {
+                        Image(systemName: "checkmark.seal.fill")
+                            .font(.system(size: 9))
+                        Text("Ed25519")
+                            .font(.system(size: 9, weight: .semibold, design: .monospaced))
+                    }
+                    .foregroundStyle(TTZipTheme.kintsugiGold)
+                    .padding(.horizontal, 5)
+                    .padding(.vertical, 2)
+                    .background(TTZipTheme.kintsugiGold.opacity(0.12))
+                    .clipShape(Capsule())
                 }
                 
                 Text(plugin.manifest.description)
@@ -153,6 +164,17 @@ public struct MarketplacePluginRowView: View {
                             .padding(.vertical, 2)
                             .background(TTZipTheme.bambooGreen.opacity(0.15))
                             .clipShape(Capsule())
+                        HStack(spacing: 3) {
+                            Image(systemName: "checkmark.seal.fill")
+                                .font(.system(size: 9))
+                            Text("Ed25519")
+                                .font(.system(size: 9, weight: .semibold, design: .monospaced))
+                        }
+                        .foregroundStyle(TTZipTheme.kintsugiGold)
+                        .padding(.horizontal, 5)
+                        .padding(.vertical, 2)
+                        .background(TTZipTheme.kintsugiGold.opacity(0.12))
+                        .clipShape(Capsule())
                     }
                     
                     Text(PluginL10n.author(name: plugin.author, locale: locale))
