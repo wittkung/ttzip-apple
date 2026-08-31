@@ -8,7 +8,7 @@
 import SwiftUI
 import Combine
 
-/// 统一插件注册与分发管理器 (Swift 6 Strict Concurrency & ObservableObject)
+/// Unified plugin registry and dispatch manager (Swift 6 Strict Concurrency & ObservableObject)
 @MainActor
 public final class TTZipPluginRegistry: ObservableObject {
     public static let shared = TTZipPluginRegistry()
@@ -20,19 +20,23 @@ public final class TTZipPluginRegistry: ObservableObject {
     @Published public private(set) var archiveSourceProviders: [TTZipArchiveSourceProvider] = []
     @Published public private(set) var contextMenuActions: [TTZipContextMenuAction] = []
     
+    private var pluginContexts: [String: TTZipHostContext] = [:]
+    
     private init() {}
     
-    /// 注册并初始化插件
+    /// Registers and initializes a plugin with its injected host context
     public func register(plugin: TTZipPlugin, context: TTZipHostContext) async {
         guard !installedPlugins.contains(where: { $0.manifest.id == plugin.manifest.id }) else {
             return
         }
         
+        pluginContexts[plugin.manifest.id] = context
+        
         do {
             try await plugin.onInitialize(context: context)
             installedPlugins.append(plugin)
             
-            // 收集扩展点贡献
+            // Collect extension point contributions
             if let sidebar = plugin.sidebarItem {
                 sidebarItems.removeAll(where: { $0.id == sidebar.id })
                 sidebarItems.append(sidebar)
@@ -48,8 +52,14 @@ public final class TTZipPluginRegistry: ObservableObject {
         }
     }
     
-    /// 卸载并终止插件
+    /// Unregisters and terminates a plugin, releasing its resources and subscription tokens
     public func unregister(pluginId: String) async {
+        if let scopedContext = pluginContexts.removeValue(forKey: pluginId) as? PluginScopedHostContext {
+            scopedContext.cleanupTokens()
+        } else {
+            pluginContexts.removeValue(forKey: pluginId)
+        }
+        
         guard let index = installedPlugins.firstIndex(where: { $0.manifest.id == pluginId }) else {
             sidebarItems.removeAll(where: { $0.id.hasPrefix(pluginId) })
             omnibarCommands.removeAll(where: { $0.id.hasPrefix(pluginId) })

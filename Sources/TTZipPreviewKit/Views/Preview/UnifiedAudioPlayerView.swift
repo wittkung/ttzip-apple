@@ -17,8 +17,9 @@ public struct UnifiedAudioPlayerView: View {
     public let url: URL
     public let fileName: String
     
-    @StateObject private var store = MPVMetalPlayerStore()
+    @State private var audioEngine = MPVAudioEngine.shared
     @State private var rotationAngle: Double = 0
+    @State private var rotationSpeed: Double = 0
     @State private var isHovering = false
     @State private var sessionId = UUID().uuidString
     @State private var fileSizeFormatted: String = ""
@@ -39,29 +40,29 @@ public struct UnifiedAudioPlayerView: View {
     }
     
     private var displayCodecName: String {
-        if !store.audioCodecFormatted.isEmpty {
-            return store.audioCodecFormatted
+        if !audioEngine.codecFormatted.isEmpty && audioEngine.codecFormatted != "--" {
+            return audioEngine.codecFormatted
         }
         return defaultCodecName
     }
     
     private var displayBitrate: String {
-        if !store.audioBitrateFormatted.isEmpty {
-            return store.audioBitrateFormatted
+        if !audioEngine.bitrateFormatted.isEmpty && audioEngine.bitrateFormatted != "--" {
+            return audioEngine.bitrateFormatted
         }
         return defaultBitrate
     }
     
     private var displaySampleRate: String {
-        if store.audioSampleRate != "--" && !store.audioSampleRate.isEmpty {
-            return store.audioSampleRate
+        if !audioEngine.sampleRateFormatted.isEmpty && audioEngine.sampleRateFormatted != "--" {
+            return audioEngine.sampleRateFormatted
         }
         return defaultSampleRate
     }
     
     private var displayChannels: String {
-        if store.audioChannels != "--" && !store.audioChannels.isEmpty {
-            return store.audioChannels
+        if !audioEngine.channelsFormatted.isEmpty && audioEngine.channelsFormatted != "--" {
+            return audioEngine.channelsFormatted
         }
         return defaultChannels
     }
@@ -78,12 +79,12 @@ public struct UnifiedAudioPlayerView: View {
                 // 3. Dynamic 1600-point Sound Wave Visualizer with Microsecond Scrubber
                 AudioWaveformVisualizerView(
                     url: url,
-                    isPlaying: store.isPlaying,
-                    currentTime: store.currentTime,
-                    duration: store.duration,
+                    isPlaying: audioEngine.isPlaying,
+                    currentTime: audioEngine.currentTime,
+                    duration: audioEngine.duration,
                     sampleCount: 1600,
                     onSeek: { targetSeconds in
-                        store.seek(to: targetSeconds)
+                        audioEngine.seek(to: targetSeconds)
                     }
                 )
                 .padding(.horizontal, 16)
@@ -98,8 +99,17 @@ public struct UnifiedAudioPlayerView: View {
             .frame(maxWidth: .infinity)
         }
         .onReceive(animationTimer) { _ in
-            if store.isPlaying {
-                rotationAngle = (rotationAngle + 0.6).truncatingRemainder(dividingBy: 360)
+            if audioEngine.isPlaying {
+                if rotationSpeed < 0.6 {
+                    rotationSpeed = min(0.6, rotationSpeed + 0.05)
+                }
+            } else {
+                if rotationSpeed > 0.0 {
+                    rotationSpeed = max(0.0, rotationSpeed * 0.92 - 0.005)
+                }
+            }
+            if rotationSpeed > 0.0001 {
+                rotationAngle = (rotationAngle + rotationSpeed).truncatingRemainder(dividingBy: 360)
             }
         }
         .onContinuousHover { phase in
@@ -113,27 +123,29 @@ public struct UnifiedAudioPlayerView: View {
             }
         }
         .onAppear {
-            setupPlayer()
+            setupTrackMetadata()
+            audioEngine.load(url: url)
             MediaPlaybackCoordinator.shared.registerSession(
                 id: sessionId,
-                isPlaying: store.isPlaying,
+                isPlaying: audioEngine.isPlaying,
                 togglePlayPause: {
-                    store.togglePlayPause()
+                    audioEngine.togglePlayPause()
                 },
                 seekBy: { delta in
-                    store.seekBy(delta)
+                    audioEngine.seekBy(delta)
                 }
             )
         }
-        .onChange(of: url) { _, _ in
-            setupPlayer()
+        .onChange(of: url) { _, newURL in
+            setupTrackMetadata()
+            audioEngine.load(url: newURL)
         }
-        .onChange(of: store.isPlaying) { _, playing in
+        .onChange(of: audioEngine.isPlaying) { _, playing in
             MediaPlaybackCoordinator.shared.updatePlaybackState(id: sessionId, isPlaying: playing)
         }
         .onDisappear {
             MediaPlaybackCoordinator.shared.unregisterSession(id: sessionId)
-            cleanUpPlayer()
+            audioEngine.pause()
         }
     }
     
@@ -146,7 +158,7 @@ public struct UnifiedAudioPlayerView: View {
                 .fill(
                     RadialGradient(
                         colors: [
-                            store.isPlaying ? TTZipTheme.bambooGreen.opacity(0.38) : TTZipTheme.kintsugiGold.opacity(0.18),
+                            audioEngine.isPlaying ? TTZipTheme.bambooGreen.opacity(0.38) : TTZipTheme.kintsugiGold.opacity(0.18),
                             Color.clear
                         ],
                         center: .center,
@@ -155,7 +167,7 @@ public struct UnifiedAudioPlayerView: View {
                     )
                 )
                 .frame(width: 200, height: 200)
-                .blur(radius: store.isPlaying ? 14 : 7)
+                .blur(radius: audioEngine.isPlaying ? 14 : 7)
             
             // 2. Vinyl Record Disc (152x152)
             ZStack {
@@ -231,7 +243,7 @@ public struct UnifiedAudioPlayerView: View {
                                 .strokeBorder(TTZipTheme.kintsugiGold.opacity(0.6), lineWidth: 1.0)
                         )
                     
-                    Image(systemName: store.isPlaying ? "wave.3.forward" : "music.note")
+                    Image(systemName: audioEngine.isPlaying ? "wave.3.forward" : "music.note")
                         .font(.system(size: 16, weight: .bold))
                         .foregroundStyle(.white)
                         .shadow(color: Color.black.opacity(0.3), radius: 2)
@@ -293,7 +305,7 @@ public struct UnifiedAudioPlayerView: View {
         VStack(spacing: 14) {
             HStack(spacing: 32) {
                 Button {
-                    store.seekBy(-15)
+                    audioEngine.seekBy(-15)
                 } label: {
                     Image(systemName: "gobackward.15")
                         .font(.system(size: 20, weight: .semibold))
@@ -303,7 +315,7 @@ public struct UnifiedAudioPlayerView: View {
                 .help("Rewind 15 seconds")
                 
                 Button {
-                    store.togglePlayPause()
+                    audioEngine.togglePlayPause()
                 } label: {
                     ZStack {
                         Circle()
@@ -318,18 +330,18 @@ public struct UnifiedAudioPlayerView: View {
                                 )
                             )
                             .frame(width: 52, height: 52)
-                            .shadow(color: TTZipTheme.bambooGreen.opacity(0.4), radius: store.isPlaying ? 10 : 4)
+                            .shadow(color: TTZipTheme.bambooGreen.opacity(0.4), radius: audioEngine.isPlaying ? 10 : 4)
                         
-                        Image(systemName: store.isPlaying ? "pause.fill" : "play.fill")
+                        Image(systemName: audioEngine.isPlaying ? "pause.fill" : "play.fill")
                             .font(.system(size: 22, weight: .bold))
                             .foregroundStyle(.white)
-                            .offset(x: store.isPlaying ? 0 : 2)
+                            .offset(x: audioEngine.isPlaying ? 0 : 2)
                     }
                 }
                 .buttonStyle(.plain)
                 
                 Button {
-                    store.seekBy(15)
+                    audioEngine.seekBy(15)
                 } label: {
                     Image(systemName: "goforward.15")
                         .font(.system(size: 20, weight: .semibold))
@@ -342,18 +354,18 @@ public struct UnifiedAudioPlayerView: View {
             // Volume & Mute Control
             HStack(spacing: 10) {
                 Button {
-                    store.toggleMute()
+                    audioEngine.toggleMute()
                 } label: {
-                    Image(systemName: store.isMuted ? "speaker.slash.fill" : (store.volume > 0.5 ? "speaker.wave.3.fill" : "speaker.wave.1.fill"))
+                    Image(systemName: audioEngine.isMuted ? "speaker.slash.fill" : (audioEngine.volume > 0.5 ? "speaker.wave.3.fill" : "speaker.wave.1.fill"))
                         .font(.system(size: 11))
-                        .foregroundStyle(store.isMuted ? TTZipTheme.cinnabarRed : Color.secondary)
+                        .foregroundStyle(audioEngine.isMuted ? TTZipTheme.cinnabarRed : Color.secondary)
                 }
                 .buttonStyle(.plain)
                 
                 Slider(
                     value: Binding(
-                        get: { store.volume },
-                        set: { store.setVolume($0) }
+                        get: { audioEngine.volume },
+                        set: { audioEngine.setVolume($0) }
                     ),
                     in: 0...1
                 )
@@ -386,7 +398,7 @@ public struct UnifiedAudioPlayerView: View {
                 }
                 GridRow {
                     audioMetaTag(title: "File Size", value: fileSizeFormatted.isEmpty ? "--" : fileSizeFormatted)
-                    audioMetaTag(title: "Duration", value: formatTimePrecise(store.duration))
+                    audioMetaTag(title: "Duration", value: formatTimePrecise(audioEngine.duration))
                 }
                 GridRow {
                     audioMetaTag(title: "Audio Engine", value: "libmpv Hi-Fi Core")
@@ -421,11 +433,9 @@ public struct UnifiedAudioPlayerView: View {
         .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
     }
     
-    // MARK: - Audio Player Engine Setup & Teardown
+    // MARK: - Audio Metadata Setup
     
-    private func setupPlayer() {
-        cleanUpPlayer()
-        
+    private func setupTrackMetadata() {
         let ext = url.pathExtension.lowercased()
         var estimatedBitrate: Int = 320_000
         var defaultSR = "44.1 kHz"
@@ -515,13 +525,6 @@ public struct UnifiedAudioPlayerView: View {
             formatter.countStyle = .file
             self.fileSizeFormatted = formatter.string(fromByteCount: s)
         }
-        
-        // Launch native libmpv engine in pure audio mode
-        store.setup(url: url, isAudioOnly: true)
-    }
-    
-    private func cleanUpPlayer() {
-        store.cleanUp()
     }
     
     private func formatTimePrecise(_ seconds: Double) -> String {

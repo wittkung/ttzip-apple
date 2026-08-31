@@ -300,9 +300,9 @@ public struct MainView: View {
                             EmptyView()
                         } content: {
                             ContentUnavailableView(
-                                "未加载该扩展",
+                                l10n.currentLanguage == .zhHans ? "未加载该扩展" : "Extension Not Loaded",
                                 systemImage: "puzzlepiece.extension",
-                                description: Text("请前往「插件中心」启用或安装对应扩展。")
+                                description: Text(l10n.currentLanguage == .zhHans ? "请前往「插件中心」启用或安装对应扩展。" : "Please navigate to Extensions to enable or install the extension.")
                             )
                             .frame(maxWidth: .infinity, maxHeight: .infinity)
                         }

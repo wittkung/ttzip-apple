@@ -12,7 +12,7 @@ import TTZipUI
 import TTZipPreviewKit
 import TTZipBenchmarkKit
 
-/// 通用插件安全凭证配置模态窗口
+/// Generic plugin security credentials configuration modal sheet
 public struct PluginConfigSheetView: View {
     public let pluginId: String
     @Binding public var isPresented: Bool

@@ -188,7 +188,9 @@ public struct MacEditorialSidebar: View {
                     .lineLimit(1)
             }
             
-            Text("\(tuner.topology.totalCores) 核心 (\(tuner.topology.performanceCores)P+\(tuner.topology.efficiencyCores)E) • \(Int(tuner.topology.unifiedMemoryGB))GB 内存")
+            Text(l10n.currentLanguage == .zhHans
+                ? "\(tuner.topology.totalCores) 核心 (\(tuner.topology.performanceCores)P+\(tuner.topology.efficiencyCores)E) • \(Int(tuner.topology.unifiedMemoryGB))GB 内存"
+                : "\(tuner.topology.totalCores) Cores (\(tuner.topology.performanceCores)P+\(tuner.topology.efficiencyCores)E) • \(Int(tuner.topology.unifiedMemoryGB))GB RAM")
                 .font(.system(size: 9.5))
                 .foregroundStyle(.secondary)
                 .lineLimit(1)
@@ -197,7 +199,7 @@ public struct MacEditorialSidebar: View {
                 Image(systemName: "bolt.fill")
                     .font(.system(size: 8))
                     .foregroundStyle(TTZipTheme.kintsugiGold)
-                Text("零拷贝 SIMD 加速")
+                Text(l10n.currentLanguage == .zhHans ? "零拷贝 SIMD 加速" : "Zero-Copy SIMD Acceleration")
                     .font(.system(size: 9, weight: .medium))
                     .foregroundStyle(TTZipTheme.kintsugiGold)
                     .lineLimit(1)
@@ -242,7 +244,7 @@ public struct MacEditorialSidebar: View {
                 .font(.system(size: 9, weight: .regular))
                 .foregroundStyle(.secondary.opacity(0.8))
                 .lineLimit(1)
-            Text("原生 macOS 架构")
+            Text(l10n.currentLanguage == .zhHans ? "原生 macOS 架构" : "Native macOS Architecture")
                 .font(.system(size: 9, weight: .regular, design: .monospaced))
                 .foregroundStyle(.secondary.opacity(0.6))
                 .lineLimit(1)

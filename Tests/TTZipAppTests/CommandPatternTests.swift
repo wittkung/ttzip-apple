@@ -13,10 +13,10 @@ import TTZipBenchmarkKit
 @testable import TTZipCore
 @testable import TTZipApp
 
-/// Mock ， MacroArchiveCommand Rollback
+/// Mock failing command for testing MacroArchiveCommand rollback
 final class MockFailingCommand: ArchiveCommandProtocol, @unchecked Sendable {
     let commandId: String = UUID().uuidString
-    let description: String = "Mock 故意失败命令"
+    let description: String = "Mock failing command"
     let isUndoable: Bool = true
     
     private let shouldFailOnExecute: Bool
@@ -31,7 +31,7 @@ final class MockFailingCommand: ArchiveCommandProtocol, @unchecked Sendable {
     func execute() async throws -> CommandResult {
         markExecuted()
         if shouldFailOnExecute {
-            throw CommandError.executionFailed(reason: "故意测试触发命令执行失败异常")
+            throw CommandError.executionFailed(reason: "Simulated command execution failure")
         }
         return CommandResult(commandId: commandId, success: true, message: "Mock Success")
     }
@@ -53,10 +53,10 @@ final class MockFailingCommand: ArchiveCommandProtocol, @unchecked Sendable {
     }
 }
 
-/// Mock Undo ， Rollback
+/// Mock undo failing command for testing rollback error handling
 final class MockUndoFailingCommand: ArchiveCommandProtocol, @unchecked Sendable {
     let commandId: String = UUID().uuidString
-    let description: String = "Mock Undo 故意抛错命令"
+    let description: String = "Mock undo failing command"
     let isUndoable: Bool = true
     
     private(set) var wasExecuted: Bool = false
@@ -69,7 +69,7 @@ final class MockUndoFailingCommand: ArchiveCommandProtocol, @unchecked Sendable 
     
     func undo() async throws {
         wasUndoneTried = true
-        throw CommandError.undoFailed(reason: "IOError: Mock Undo 磁盘写入失败")
+        throw CommandError.undoFailed(reason: "IOError: Simulated undo disk write failure")
     }
 }
 
@@ -237,17 +237,17 @@ final class CommandPatternTests: XCTestCase {
         
         do {
             _ = try await macro.execute()
-            XCTFail("宏命令应该在 step2 抛出异常并触发自动 Rollback")
+            XCTFail("Macro command should throw error at step 2 and trigger automatic rollback")
         } catch let CommandError.macroExecutionFailed(failedIdx, _, _) {
             XCTAssertEqual(failedIdx, 1)
-            // Rollback ：step1 zip1 ！
+            // Rollback: step 1 output zip1 should be removed
             XCTAssertFalse(FileManager.default.fileExists(atPath: zip1))
         } catch {
-            XCTFail("意外捕获到了其它未知的异常: \(error)")
+            XCTFail("Unexpected error caught: \(error)")
         }
     }
     
-    // MARK: - 5. CommandHistoryManager 、LRU
+    // MARK: - 5. CommandHistoryManager LRU & Undo/Redo
     
     func testCommandHistoryManagerExecuteUndoRedo() async throws {
         let manager = CommandHistoryManager(maxHistoryCapacity: 10)
@@ -506,14 +506,14 @@ final class CommandPatternTests: XCTestCase {
         
         do {
             _ = try await macro.execute()
-            XCTFail("宏命令在 step3 必须抛错")
+            XCTFail("Macro command must fail at step 3")
         } catch let CommandError.macroExecutionFailed(failedIdx, _, rollbackErrors) {
             XCTAssertEqual(failedIdx, 2)
-            // step2 undo ， step1Success Rollback
+            // step2 undo fails, step1 rollback succeeds
             XCTAssertFalse(FileManager.default.fileExists(atPath: outZip1))
             XCTAssertFalse(rollbackErrors.isEmpty)
         } catch {
-            XCTFail("未捕获到预期的 CommandError.macroExecutionFailed: \(error)")
+            XCTFail("Expected CommandError.macroExecutionFailed but caught: \(error)")
         }
     }
     
@@ -636,10 +636,10 @@ final class CommandPatternTests: XCTestCase {
             }
         }
         
-        XCTAssertEqual(leftoverBakCount, 0, "扫荡发现磁盘临时目录中残留了 \(leftoverBakCount) 个 .bak_<UUID> 痕迹！")
+        XCTAssertEqual(leftoverBakCount, 0, "Temporary disk directory contains \(leftoverBakCount) leftover .bak_<UUID> backup files!")
     }
     
-    /// 2. 100+ execute / undo / redo / clearHistory
+    /// Concurrency stress test: 100+ tasks executing / undoing / redoing / clearing history
     func testCommandHistoryManagerExtremeConcurrency100Threads() async throws {
         let history = CommandHistoryManager(maxHistoryCapacity: 50)
         let threadCount = 100

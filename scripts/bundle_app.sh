@@ -89,8 +89,8 @@ QUICKLOOK_SRC="${BIN_DIR}/libTTZipQuickLook.dylib"
 
 NEED_SWIFT_BUILD=true
 if [ "${FORCE_CLEAN}" = false ] && [ -f "${BIN_PATH}" ]; then
-    # 检查 Sources, Package.swift, Package.resolved, Vendor 是否有比现有可执行文件更新的文件
-    NEWER_FILE="$(find "${REPO_ROOT}/Sources" "${REPO_ROOT}/Package.swift" "${REPO_ROOT}/Package.resolved" "${REPO_ROOT}/Vendor" -newer "${BIN_PATH}" 2>/dev/null | head -n 1 || true)"
+    # Check if Sources, Package.swift, or Package.resolved are newer than the binary
+    NEWER_FILE="$(find "${REPO_ROOT}/Sources" "${REPO_ROOT}/Package.swift" "${REPO_ROOT}/Package.resolved" -newer "${BIN_PATH}" 2>/dev/null | head -n 1 || true)"
     if [ -z "${NEWER_FILE}" ]; then
         NEED_SWIFT_BUILD=false
     fi
@@ -102,7 +102,6 @@ if [ "${NEED_SWIFT_BUILD}" = true ]; then
         --build-path "${BUILD_DIR}" \
         --jobs "${NCPU}" \
         -c "${BUILD_CONFIG}" \
-        -Xlinker -L"${REPO_ROOT}/Vendor" \
         -Xlinker -rpath -Xlinker @executable_path/../Frameworks \
         -Xswiftc -warnings-as-errors \
         "${SWIFT_FLAGS[@]}"
@@ -404,8 +403,8 @@ if [ "${OPEN_APP}" = true ]; then
         /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/LaunchServices.framework/Versions/A/Support/lsregister -f "${APP_DIR}" 2>/dev/null || true
     fi
     open "${APP_DIR}"
-    echo "🎉 TTZip.app 已成功在桌面启动！"
-    echo "   产物路径: ${APP_DIR}"
+    echo "🎉 TTZip.app launched successfully!"
+    echo "   Bundle path: ${APP_DIR}"
     echo "======================================================================"
 fi
 

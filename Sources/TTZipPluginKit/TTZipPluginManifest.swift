@@ -7,7 +7,7 @@
 
 import Foundation
 
-/// 插件声明清单 (Declarative Plugin Manifest)
+/// Declarative Plugin Manifest
 public struct TTZipPluginManifest: Sendable, Codable, Identifiable {
     public let id: String
     public let name: String
@@ -39,7 +39,7 @@ public struct TTZipPluginManifest: Sendable, Codable, Identifiable {
     }
 }
 
-/// 基于能力安全模型的权限声明 (Object-Capability Security Permissions)
+/// Object-Capability Security Permissions (OCap Security Model)
 public enum TTZipPluginPermission: String, Sendable, Codable {
     case networkAccess = "permission.network"
     case keychainAccess = "permission.keychain"

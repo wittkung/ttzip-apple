@@ -58,7 +58,7 @@ public final class TTZipPluginInstaller: NSObject, ObservableObject, URLSessionD
         super.init()
     }
     
-    /// 执行完整的云端下载、安全验签、2PC 原子安装与热挂载流水线
+    /// Executes the full download, cryptographic verification, 2PC atomic installation, and dynamic hot-loading pipeline.
     public func install(plugin: TTZipMarketplacePlugin, context: TTZipHostContext) async throws {
         activeInstallingId = plugin.id
         defer { activeInstallingId = nil }
@@ -84,7 +84,7 @@ public final class TTZipPluginInstaller: NSObject, ObservableObject, URLSessionD
         let tempZipURL = fileManager.temporaryDirectory.appendingPathComponent("\(plugin.id)-\(UUID().uuidString).zip")
         
         do {
-            // Stage 1: 流式下载
+            // Stage 1: Streaming download
             currentPhase = .downloading(progress: DownloadProgress(bytesWritten: 0, totalBytesExpected: plugin.size, fractionCompleted: 0, bytesPerSecond: 0))
             
             var downloadedURL: URL
@@ -106,7 +106,7 @@ public final class TTZipPluginInstaller: NSObject, ObservableObject, URLSessionD
             try fileManager.copyItem(at: downloadedURL, to: tempZipURL)
             defer { try? fileManager.removeItem(at: tempZipURL) }
             
-            // Stage 2: 密码学完整性与签名门禁
+            // Stage 2: Cryptographic integrity and signature verification gate
             if !plugin.sha256.isEmpty {
                 currentPhase = .verifyingHash
                 try TTZipPluginSecurity.verifyStreamingSHA256(fileURL: tempZipURL, expectedHex: plugin.sha256)
@@ -121,7 +121,7 @@ public final class TTZipPluginInstaller: NSObject, ObservableObject, URLSessionD
                 )
             }
             
-            // Stage 3: 安全解压至 Staging
+            // Stage 3: Secure extraction to isolated staging directory
             currentPhase = .staging
             let stagingDir = fileManager.temporaryDirectory.appendingPathComponent("Staging-\(UUID().uuidString)", isDirectory: true)
             try fileManager.createDirectory(at: stagingDir, withIntermediateDirectories: true)
@@ -129,16 +129,16 @@ public final class TTZipPluginInstaller: NSObject, ObservableObject, URLSessionD
             
             let stagedBundleURL = try await extractArchive(zipURL: tempZipURL, to: stagingDir)
             
-            // Stage 4: 两阶段原子提交 (APFS 2PC Swap)
+            // Stage 4: Two-phase atomic commit (APFS 2PC Swap)
             currentPhase = .committing
             let userPluginsDir = TTZipPluginLoader.userPluginsDirectory
             try fileManager.createDirectory(at: userPluginsDir, withIntermediateDirectories: true)
             let liveBundleURL = userPluginsDir.appendingPathComponent(stagedBundleURL.lastPathComponent)
             
-            // 若存在旧版本，先从 Registry 反注册
+            // Unregister existing version if present
             await TTZipPluginRegistry.shared.unregister(pluginId: plugin.id)
             
-            // 原子替换
+            // Atomic file replacement
             if fileManager.fileExists(atPath: liveBundleURL.path) {
                 let backupName = "\(liveBundleURL.lastPathComponent).bak"
                 var resultingURL: NSURL?
@@ -155,7 +155,7 @@ public final class TTZipPluginInstaller: NSObject, ObservableObject, URLSessionD
                 try fileManager.moveItem(at: stagedBundleURL, to: liveBundleURL)
             }
             
-            // Stage 5: 动态热插拔与 UI 挂载
+            // Stage 5: Dynamic hot-plugging and host mounting
             currentPhase = .hotLoading
             await TTZipPluginLoader.loadPluginBundle(at: liveBundleURL, context: context)
             
@@ -166,7 +166,7 @@ public final class TTZipPluginInstaller: NSObject, ObservableObject, URLSessionD
         }
     }
     
-    // MARK: - 辅助下载与解压逻辑
+    // MARK: - Download & Extraction Helpers
     private func downloadArchive(from url: URL) async throws -> URL {
         try await withCheckedThrowingContinuation { continuation in
             self.downloadContinuation = continuation

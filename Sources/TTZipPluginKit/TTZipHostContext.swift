@@ -8,7 +8,7 @@
 import Foundation
 import SwiftUI
 
-/// 通知重要级别
+/// Notification priority level
 public enum TTZipNotificationLevel: String, Sendable {
     case info
     case success
@@ -16,7 +16,7 @@ public enum TTZipNotificationLevel: String, Sendable {
     case error
 }
 
-/// 强类型安全事件订阅令牌 (防内存泄漏)
+/// Strongly typed subscription token for event bus lifecycle management
 public struct SubscriptionToken: Sendable, Hashable {
     public let id: UUID
     public init() {
@@ -24,14 +24,14 @@ public struct SubscriptionToken: Sendable, Hashable {
     }
 }
 
-/// 凭证保险箱能力接口
+/// Keychain store capability interface
 public protocol TTZipKeychainStore: Sendable {
     func get(key: String) async throws -> String?
     func set(key: String, value: String) async throws
     func delete(key: String) async throws
 }
 
-/// TTZip 宿主向插件注入的核心能力上下文协议
+/// Host capability context protocol injected into TTZip plugins
 @MainActor
 public protocol TTZipHostContext: AnyObject {
     var pluginIdentifier: String { get }
@@ -41,18 +41,19 @@ public protocol TTZipHostContext: AnyObject {
     func showNotification(title: String, message: String, level: TTZipNotificationLevel)
     func setGlobalProgress(progress: Double?, statusText: String?)
     
-    // 强类型发布-订阅事件总线 (支持反注册与内存回收)
+    // Strongly typed publish-subscribe event bus
     func subscribeEvent<T: Sendable & Codable>(_ type: T.Type, name: String, handler: @escaping @Sendable (T) -> Void) -> SubscriptionToken
     func unsubscribeEvent(token: SubscriptionToken)
     func publishEvent<T: Sendable & Codable>(name: String, event: T)
 }
 
-/// 带有租户隔离保护的 Scoped Host Context 代理实现
+/// Scoped host context proxy enforcing tenant isolation, event namespacing, and token lifecycle cleanup
 @MainActor
 public final class PluginScopedHostContext: TTZipHostContext {
     public let pluginIdentifier: String
     private let masterKeychain: TTZipKeychainStore
     private let baseContext: TTZipHostContext
+    private var registeredTokens: Set<SubscriptionToken> = []
     
     public init(pluginIdentifier: String, baseContext: TTZipHostContext, masterKeychain: TTZipKeychainStore) {
         self.pluginIdentifier = pluginIdentifier
@@ -60,7 +61,7 @@ public final class PluginScopedHostContext: TTZipHostContext {
         self.masterKeychain = masterKeychain
     }
     
-    /// 强制增加租户命名空间前缀，彻底阻断跨插件越权访问
+    /// Tenant-scoped keychain store preventing cross-plugin access
     public var keychain: TTZipKeychainStore {
         ScopedKeychainStore(pluginPrefix: "com.ttzip.plugin.\(pluginIdentifier).", underlyingStore: masterKeychain)
     }
@@ -77,20 +78,42 @@ public final class PluginScopedHostContext: TTZipHostContext {
         baseContext.setGlobalProgress(progress: progress, statusText: statusText)
     }
     
+    /// Enforces tenant namespace prefix on event names (e.g., `plugin.<pluginId>.<eventName>`) to prevent event collision
+    private func scopedEventName(_ name: String) -> String {
+        let prefix = "plugin.\(pluginIdentifier)."
+        if name.hasPrefix(prefix) {
+            return name
+        }
+        return "\(prefix)\(name)"
+    }
+    
     public func subscribeEvent<T: Sendable & Codable>(_ type: T.Type, name: String, handler: @escaping @Sendable (T) -> Void) -> SubscriptionToken {
-        baseContext.subscribeEvent(type, name: name, handler: handler)
+        let scopedName = scopedEventName(name)
+        let token = baseContext.subscribeEvent(type, name: scopedName, handler: handler)
+        registeredTokens.insert(token)
+        return token
     }
     
     public func unsubscribeEvent(token: SubscriptionToken) {
+        registeredTokens.remove(token)
         baseContext.unsubscribeEvent(token: token)
     }
     
     public func publishEvent<T: Sendable & Codable>(name: String, event: T) {
-        baseContext.publishEvent(name: name, event: event)
+        let scopedName = scopedEventName(name)
+        baseContext.publishEvent(name: scopedName, event: event)
+    }
+    
+    /// Cleans up and unregisters all event subscription tokens created by this scoped context
+    public func cleanupTokens() {
+        for token in registeredTokens {
+            baseContext.unsubscribeEvent(token: token)
+        }
+        registeredTokens.removeAll()
     }
 }
 
-/// 租户命名空间隔离的 Keychain 代理
+/// Tenant namespace isolated Keychain proxy store
 public final class ScopedKeychainStore: TTZipKeychainStore, @unchecked Sendable {
     private let pluginPrefix: String
     private let underlyingStore: TTZipKeychainStore
@@ -113,7 +136,7 @@ public final class ScopedKeychainStore: TTZipKeychainStore, @unchecked Sendable 
     }
 }
 
-/// 原生 macOS Keychain 存储实现 (基于 Security.framework)
+/// Native macOS Keychain storage implementation (Security.framework)
 public final class SystemKeychainStore: TTZipKeychainStore, @unchecked Sendable {
     public static let shared = SystemKeychainStore()
     private let service = "com.metastudyline.ttzip.plugins"

@@ -14,8 +14,8 @@ public enum WorkspaceTab: Hashable, Identifiable, Codable, Sendable, CaseIterabl
     case presets
     case benchmark
     case vault
-    case plugins                                                 // 插件中心 / 插件商店
-    case dynamicExtension(pluginId: String, tabId: String)       // 通用动态扩展工作区
+    case plugins                                                 // Plugin Center / Extensions Marketplace
+    case dynamicExtension(pluginId: String, tabId: String)       // Dynamic plugin workspace extension
     case settings
 
     public var id: String {

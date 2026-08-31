@@ -26,7 +26,7 @@ final class AppStorePackageAuditTests: XCTestCase {
     
     func testPrivacyInfoManifestCompliance() throws {
         let privacyFile = repoRoot.appendingPathComponent("Sources/TTZipApp/PrivacyInfo.xcprivacy")
-        XCTAssertTrue(FileManager.default.fileExists(atPath: privacyFile.path), "PrivacyInfo.xcprivacy 必须存在于 Sources/TTZipApp/")
+        XCTAssertTrue(FileManager.default.fileExists(atPath: privacyFile.path), "PrivacyInfo.xcprivacy must exist in Sources/TTZipApp/")
         
         let data = try Data(contentsOf: privacyFile)
         guard let plist = try PropertyListSerialization.propertyList(from: data, options: [], format: nil) as? [String: Any] else {
@@ -35,39 +35,39 @@ final class AppStorePackageAuditTests: XCTestCase {
         }
         
         let tracking = plist["NSPrivacyTracking"] as? Bool
-        XCTAssertEqual(tracking, false, "TTZip 绝无用户行为追踪 (NSPrivacyTracking 必须为 false)")
+        XCTAssertEqual(tracking, false, "TTZip must not track user activity (NSPrivacyTracking must be false)")
         
         let collected = plist["NSPrivacyCollectedDataTypes"] as? [Any]
         XCTAssertNotNil(collected)
-        XCTAssertTrue(collected?.isEmpty == true, "TTZip 绝无用户数据上传或收集 (NSPrivacyCollectedDataTypes 必须为空)")
+        XCTAssertTrue(collected?.isEmpty == true, "TTZip must not collect or upload user data (NSPrivacyCollectedDataTypes must be empty)")
         
         let accessedAPIs = plist["NSPrivacyAccessedAPITypes"] as? [[String: Any]]
         XCTAssertNotNil(accessedAPIs)
-        XCTAssertTrue(accessedAPIs?.contains { ($0["NSPrivacyAccessedAPIType"] as? String) == "NSPrivacyAccessedAPICategoryFileTimestamp" } == true, "必须合法声明归档时间戳访问理由")
+        XCTAssertTrue(accessedAPIs?.contains { ($0["NSPrivacyAccessedAPIType"] as? String) == "NSPrivacyAccessedAPICategoryFileTimestamp" } == true, "Must legally declare archive timestamp access category")
     }
     
     func testAppSandboxEntitlementsCompliance() throws {
         let entitlementsFile = repoRoot.appendingPathComponent("Sources/TTZipApp/TTZip.entitlements")
-        XCTAssertTrue(FileManager.default.fileExists(atPath: entitlementsFile.path), "TTZip.entitlements 必须存在")
+        XCTAssertTrue(FileManager.default.fileExists(atPath: entitlementsFile.path), "TTZip.entitlements must exist")
         
         let data = try Data(contentsOf: entitlementsFile)
         guard let plist = try PropertyListSerialization.propertyList(from: data, options: [], format: nil) as? [String: Any] else {
-            XCTFail("TTZip.entitlements 必须是有效的 Property List")
+            XCTFail("TTZip.entitlements must be a valid Property List")
             return
         }
         
-        XCTAssertEqual(plist["com.apple.security.app-sandbox"] as? Bool, true, "MAS 构建必须开启 App Sandbox")
-        XCTAssertEqual(plist["com.apple.security.files.user-selected.read-write"] as? Bool, true, "必须请求用户选取文件读写权限")
-        XCTAssertEqual(plist["com.apple.security.files.bookmarks.app-scope"] as? Bool, true, "必须开启安全作用域书签")
+        XCTAssertEqual(plist["com.apple.security.app-sandbox"] as? Bool, true, "MAS build must enable App Sandbox")
+        XCTAssertEqual(plist["com.apple.security.files.user-selected.read-write"] as? Bool, true, "Must request user-selected file read-write permissions")
+        XCTAssertEqual(plist["com.apple.security.files.bookmarks.app-scope"] as? Bool, true, "Must enable security-scoped app bookmarks")
     }
     
     func testInfoPlistFormatAndUTICoverage() throws {
         let infoPlistFile = repoRoot.appendingPathComponent("Sources/TTZipApp/Info.plist")
-        XCTAssertTrue(FileManager.default.fileExists(atPath: infoPlistFile.path), "Info.plist 必须存在")
+        XCTAssertTrue(FileManager.default.fileExists(atPath: infoPlistFile.path), "Info.plist must exist")
         
         let data = try Data(contentsOf: infoPlistFile)
         guard let plist = try PropertyListSerialization.propertyList(from: data, options: [], format: nil) as? [String: Any] else {
-            XCTFail("Info.plist 必须是有效的 Property List")
+            XCTFail("Info.plist must be a valid Property List")
             return
         }
         
@@ -79,21 +79,21 @@ final class AppStorePackageAuditTests: XCTestCase {
         guard let docTypes = plist["CFBundleDocumentTypes"] as? [[String: Any]],
               let firstType = docTypes.first,
               let extensions = firstType["CFBundleTypeExtensions"] as? [String] else {
-            XCTFail("CFBundleDocumentTypes 必须定义支持的扩展名列表")
+            XCTFail("CFBundleDocumentTypes must declare supported file extensions list")
             return
         }
         
         let requiredFormats = ["zip", "7z", "tar", "gz", "bz2", "xz", "zst", "lz4", "lzip", "wim", "dmg", "iso", "rar", "001"]
         for fmt in requiredFormats {
-            XCTAssertTrue(extensions.contains(fmt), "Info.plist 必须声明支持 .\(fmt) 归档扩展名")
+            XCTAssertTrue(extensions.contains(fmt), "Info.plist must declare support for .\(fmt) archive extension")
         }
     }
     
     func testAppIconICNSAssetExists() {
         let iconFile = repoRoot.appendingPathComponent("Sources/TTZipApp/Resources/AppIcon.icns")
-        XCTAssertTrue(FileManager.default.fileExists(atPath: iconFile.path), "AppIcon.icns 资源文件必须存在")
+        XCTAssertTrue(FileManager.default.fileExists(atPath: iconFile.path), "AppIcon.icns asset file must exist")
         let attrs = try? FileManager.default.attributesOfItem(atPath: iconFile.path)
         let size = attrs?[.size] as? Int64 ?? 0
-        XCTAssertGreaterThan(size, 10000, "AppIcon.icns 必须包含完整的各分辨率图层")
+        XCTAssertGreaterThan(size, 10000, "AppIcon.icns must contain full multi-resolution icon layers")
     }
 }

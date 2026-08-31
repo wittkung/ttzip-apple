@@ -52,7 +52,7 @@ final class MediaPreviewAuditTests: XCTestCase {
             space: colorSpace,
             bitmapInfo: bitmapInfo.rawValue
         ) else {
-            XCTFail("无法创建 50MP 测试位图上下文")
+            XCTFail("Failed to create 50MP test bitmap context")
             return
         }
         
@@ -60,48 +60,48 @@ final class MediaPreviewAuditTests: XCTestCase {
         context.fill(CGRect(x: 0, y: 0, width: width, height: height))
         
         guard let cgImage50MP = context.makeImage() else {
-            XCTFail("无法生成 50MP CGImage")
+            XCTFail("Failed to generate 50MP CGImage")
             return
         }
         
-        // 2. JPEG /
+        // 2. JPEG encoding
         let jpegData = NSMutableData()
         guard let destination = CGImageDestinationCreateWithData(jpegData as CFMutableData, "public.jpeg" as CFString, 1, nil) else {
-            XCTFail("无法创建 CGImageDestination")
+            XCTFail("Failed to create CGImageDestination")
             return
         }
         CGImageDestinationAddImage(destination, cgImage50MP, nil)
-        XCTAssertTrue(CGImageDestinationFinalize(destination), "JPEG 编码导出失败")
+        XCTAssertTrue(CGImageDestinationFinalize(destination), "JPEG encoding export failed")
         
         let fileURL = tempDirURL.appendingPathComponent("sample_50mp.jpg")
         try (jpegData as Data).write(to: fileURL)
         
-        // 3. ImageIO ( maxPixelSize: 2048)
+        // 3. ImageIO downsampling (maxPixelSize: 2048)
         let cache = ImageIOThumbnailCache.shared
         guard let downsampledDataImage = cache.downsample(data: jpegData as Data, maxPixelSize: 2048) else {
-            XCTFail("从 Data 执行 ImageIO 下采样失败")
+            XCTFail("ImageIO downsampling from Data failed")
             return
         }
         
         guard let downsampledFileURLImage = cache.downsample(url: fileURL, maxPixelSize: 2048) else {
-            XCTFail("从 URL 执行 ImageIO 下采样失败")
+            XCTFail("ImageIO downsampling from URL failed")
             return
         }
         
-        // 4. <= 2048px，
+        // 4. Verify dimensions <= 2048px
         guard let cgData = downsampledDataImage.cgImage(forProposedRect: nil, context: nil, hints: nil),
               let cgFile = downsampledFileURLImage.cgImage(forProposedRect: nil, context: nil, hints: nil) else {
-            XCTFail("无法提取下采样后的底层 CGImage")
+            XCTFail("Failed to extract underlying CGImage after downsampling")
             return
         }
         
-        XCTAssertLessThanOrEqual(cgData.width, 2048, "Data 下采样宽度超过 2048px")
-        XCTAssertLessThanOrEqual(cgData.height, 2048, "Data 下采样高度超过 2048px")
-        XCTAssertEqual(cgData.width, 2048, "主轴宽度应严格约束为 2048px")
-        XCTAssertEqual(cgData.height, 1600, "副轴高度应保持 8000:6250 等比缩小至 1600px")
+        XCTAssertLessThanOrEqual(cgData.width, 2048, "Data downsampled width exceeds 2048px")
+        XCTAssertLessThanOrEqual(cgData.height, 2048, "Data downsampled height exceeds 2048px")
+        XCTAssertEqual(cgData.width, 2048, "Major axis width must be constrained to 2048px")
+        XCTAssertEqual(cgData.height, 1600, "Minor axis height must maintain aspect ratio (1600px)")
         
-        XCTAssertLessThanOrEqual(cgFile.width, 2048, "File URL 下采样宽度超过 2048px")
-        XCTAssertLessThanOrEqual(cgFile.height, 2048, "File URL 下采样高度超过 2048px")
+        XCTAssertLessThanOrEqual(cgFile.width, 2048, "File URL downsampled width exceeds 2048px")
+        XCTAssertLessThanOrEqual(cgFile.height, 2048, "File URL downsampled height exceeds 2048px")
     }
     
     // MARK: - Test 2: ImageIOThumbnailCache Hit/Miss Behavior & Thread Safety
@@ -183,23 +183,23 @@ final class MediaPreviewAuditTests: XCTestCase {
         store.cleanUp()
         
         // 4. Verify state reset
-        XCTAssertNil(store.currentURL, "currentURL 未清空")
-        XCTAssertFalse(store.isPlaying, "isPlaying 状态未重置")
-        XCTAssertEqual(store.currentTime, 0, "currentTime 未清零")
-        XCTAssertEqual(store.duration, 0, "duration 未清零")
+        XCTAssertNil(store.currentURL, "currentURL was not cleared")
+        XCTAssertFalse(store.isPlaying, "isPlaying state was not reset")
+        XCTAssertEqual(store.currentTime, 0, "currentTime was not reset to 0")
+        XCTAssertEqual(store.duration, 0, "duration was not reset to 0")
         
         // 5. AVPlayer replaceCurrentItem(with: nil)
         let directPlayer = AVPlayer(url: testMediaURL)
         XCTAssertNotNil(directPlayer.currentItem)
         directPlayer.replaceCurrentItem(with: nil)
-        XCTAssertNil(directPlayer.currentItem, "AVPlayerItem 未成功置空解绑")
+        XCTAssertNil(directPlayer.currentItem, "AVPlayerItem was not unbinded and cleared")
     }
     
     // MARK: - Test 4: Drag Provider Virtual Item Metadata
     
     @MainActor
     func testDragProviderWrapsVirtualItemMetadata() throws {
-        // 1. （ PreviewLRUCacheManager ）
+        // 1. Cached virtual item (PreviewLRUCacheManager hit)
         let mockArchivePath = "/Users/test/Documents/archive.zip"
         let mockSubpath = "assets/hero_banner.png"
         let virtualPath = "file://\(mockArchivePath)?subpath=\(mockSubpath)"
@@ -222,12 +222,12 @@ final class MediaPreviewAuditTests: XCTestCase {
             isArchive: false,
             sizeText: "1.2 MB",
             rawSizeBytes: 1200000,
-            kindText: "PNG 图像"
+            kindText: "PNG Image"
         )
         
         let cachedProvider = MillerColumnItemRowView.makeDragItemProvider(for: cachedItem)
-        XCTAssertEqual(cachedProvider.suggestedName, filename, "已缓存虚拟项拖拽 suggestedName 不匹配")
-        XCTAssertTrue(cachedProvider.canLoadObject(ofClass: URL.self), "Drag provider 应支持加载 URL 对象")
+        XCTAssertEqual(cachedProvider.suggestedName, filename, "Cached virtual item drag suggestedName mismatch")
+        XCTAssertTrue(cachedProvider.canLoadObject(ofClass: URL.self), "Drag provider should support loading URL object")
         
         // 2. Uncached virtual item
         let uncachedVirtualPath = "file://\(mockArchivePath)?subpath=docs/manual.pdf"
@@ -238,11 +238,11 @@ final class MediaPreviewAuditTests: XCTestCase {
             isArchive: false,
             sizeText: "500 KB",
             rawSizeBytes: 500000,
-            kindText: "PDF 文档"
+            kindText: "PDF Document"
         )
         
         let uncachedProvider = MillerColumnItemRowView.makeDragItemProvider(for: uncachedItem)
-        XCTAssertEqual(uncachedProvider.suggestedName, "manual.pdf", "未缓存虚拟项拖拽 suggestedName 不匹配")
+        XCTAssertEqual(uncachedProvider.suggestedName, "manual.pdf", "Uncached virtual item drag suggestedName mismatch")
         
         // 3. Physical file
         let physicalFile = tempDirURL.appendingPathComponent("regular_document.txt")
@@ -250,7 +250,7 @@ final class MediaPreviewAuditTests: XCTestCase {
         
         let physicalItem = DiskItemInfo(url: physicalFile)
         let physicalProvider = MillerColumnItemRowView.makeDragItemProvider(for: physicalItem)
-        XCTAssertEqual(physicalProvider.suggestedName, "regular_document.txt", "物理文件拖拽 suggestedName 不匹配")
+        XCTAssertEqual(physicalProvider.suggestedName, "regular_document.txt", "Physical file drag suggestedName mismatch")
     }
     
     // MARK: - Test 5: MKV & Non-Native Video Container Classification & Zero-Kickout In-App Routing

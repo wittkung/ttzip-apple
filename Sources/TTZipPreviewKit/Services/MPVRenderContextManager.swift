@@ -31,7 +31,7 @@ private func mpvRenderUpdateCallback(context: UnsafeMutableRawPointer?) {
 /// Thread-safe manager governing the lifecycle and dispatching of the native `mpv_render_context`.
 public final class MPVRenderContextManager: @unchecked Sendable {
     private let logger = Logger(subsystem: "com.metastudyline.ttzip", category: "MPVRenderContextManager")
-    private let lock = NSLock()
+    private let lock = NSRecursiveLock()
     
     private var renderContext: OpaquePointer?
     private var fallbackContext: CGLContextObj?

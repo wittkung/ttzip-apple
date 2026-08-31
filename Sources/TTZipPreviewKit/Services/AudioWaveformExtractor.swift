@@ -73,6 +73,7 @@ public actor AudioWaveformExtractor {
         let totalFrames = Double(frameCount)
         
         while file.framePosition < file.length {
+            guard !Task.isCancelled else { return nil }
             do {
                 try file.read(into: buffer)
             } catch {

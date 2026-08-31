@@ -71,19 +71,19 @@ public struct TTZipMarketplacePlugin: Codable, Sendable, Identifiable {
     }
 }
 
-/// 官方市场服务与索引拉取器
+/// Official marketplace service and remote index fetcher
 public actor TTZipMarketplaceService {
     public static let shared = TTZipMarketplaceService()
     
     public static let defaultMarketplaceURL = URL(string: "https://raw.githubusercontent.com/wittkung/ttzip-marketplace/main/marketplace.json")!
     
-    /// 官方插件列表（通用空列表初始化，由云端或本地配置动态填充）
+    /// Official plugin catalog (empty default list dynamically populated from remote or local bundles)
     public static let officialCatalog: [TTZipMarketplacePlugin] = []
     public static var defaultCatalog: [TTZipMarketplacePlugin] { officialCatalog }
     
     private init() {}
     
-    /// 拉取云端最新索引
+    /// Fetches the latest remote marketplace index
     public func fetchMarketplaceIndex(from url: URL = defaultMarketplaceURL) async -> [TTZipMarketplacePlugin] {
         var request = URLRequest(url: url)
         request.timeoutInterval = 5.0

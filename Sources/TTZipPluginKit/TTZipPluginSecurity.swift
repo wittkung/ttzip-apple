@@ -8,6 +8,7 @@
 import Foundation
 import CryptoKit
 
+/// Cryptographic integrity, Ed25519 signature verification, and path traversal security gate for plugins.
 public enum TTZipPluginSecurity {
     public enum SecurityError: LocalizedError, Sendable {
         case fileNotFound(URL)
@@ -22,27 +23,27 @@ public enum TTZipPluginSecurity {
         public var errorDescription: String? {
             switch self {
             case .fileNotFound(let url):
-                return "未找到目标文件: \(url.path)"
+                return "Target file not found: \(url.path)"
             case .hashMismatch(let expected, let actual):
-                return "SHA-256 完整性哈希校验不匹配 (期望: \(expected.prefix(8))..., 实际: \(actual.prefix(8))...)"
+                return "SHA-256 integrity hash mismatch (expected: \(expected.prefix(8))..., actual: \(actual.prefix(8))...)"
             case .invalidSignature:
-                return "Ed25519 官方数字签名验证失败，插件包可能已被篡改或非官方发布！"
+                return "Ed25519 signature verification failed. The plugin archive may have been modified or is from an untrusted source."
             case .invalidPublicKey:
-                return "无效的 Ed25519 发布者公钥"
+                return "Invalid Ed25519 publisher public key."
             case .zipSlipDetected(let path):
-                return "检测到 Zip Slip 路径穿越攻击，非法目标路径: \(path)"
+                return "Zip Slip path traversal attack detected for illegal target path: \(path)"
             case .corruptArchive(let reason):
-                return "ZIP 归档格式损坏或结构异常: \(reason)"
+                return "ZIP archive is corrupted or structurally invalid: \(reason)"
             case .unsupportedCompressionMethod(let method):
-                return "不支持的 ZIP 压缩算法代码: \(method)"
+                return "Unsupported ZIP compression method code: \(method)"
             case .decompressionFailed(let details):
-                return "ZIP 内存解压失败: \(details)"
+                return "ZIP in-memory decompression failed: \(details)"
             }
         }
     }
     
-    /// 1. O(1) 内存分块流式 SHA-256 计算与校验
-    public static func verifyStreamingSHA256(fileURL: URL, expectedHex: String, bufferSize: Int = 64 * 1024) throws {
+    /// Computes streaming SHA-256 digest in O(1) resident memory using 64KB micro-buffers.
+    public static func computeStreamingSHA256(fileURL: URL, bufferSize: Int = 64 * 1024) throws -> SHA256Digest {
         guard FileManager.default.fileExists(atPath: fileURL.path) else {
             throw SecurityError.fileNotFound(fileURL)
         }
@@ -51,19 +52,22 @@ public enum TTZipPluginSecurity {
         defer { try? fileHandle.close() }
         
         var hasher = SHA256()
-        while true {
-            let data = fileHandle.readData(ofLength: bufferSize)
-            if data.isEmpty { break }
-            hasher.update(data: data)
+        while let chunk = try fileHandle.read(upToCount: bufferSize), !chunk.isEmpty {
+            hasher.update(data: chunk)
         }
-        
-        let actualHex = hasher.finalize().map { String(format: "%02x", $0) }.joined()
+        return hasher.finalize()
+    }
+    
+    /// 1. O(1) resident memory chunked streaming SHA-256 calculation and verification.
+    public static func verifyStreamingSHA256(fileURL: URL, expectedHex: String, bufferSize: Int = 64 * 1024) throws {
+        let digest = try computeStreamingSHA256(fileURL: fileURL, bufferSize: bufferSize)
+        let actualHex = digest.map { String(format: "%02x", $0) }.joined()
         if actualHex.lowercased() != expectedHex.lowercased() {
             throw SecurityError.hashMismatch(expected: expectedHex, actual: actualHex)
         }
     }
     
-    /// 2. 基于 Apple CryptoKit 的 Ed25519 数字签名验证
+    /// 2. Apple CryptoKit Ed25519 digital signature verification using memory mapping / streaming digest to avoid full resident RAM allocation.
     public static func verifyEd25519(
         archiveFileURL: URL,
         signatureBase64: String,
@@ -76,14 +80,42 @@ public enum TTZipPluginSecurity {
         guard let signatureData = Data(base64Encoded: signatureBase64) else {
             throw SecurityError.invalidSignature
         }
+        guard FileManager.default.fileExists(atPath: archiveFileURL.path) else {
+            throw SecurityError.fileNotFound(archiveFileURL)
+        }
         
-        let fileData = try Data(contentsOf: archiveFileURL)
-        guard publicKey.isValidSignature(signatureData, for: fileData) else {
+        // Zero-copy memory mapped buffer to prevent heap memory exhaustion on large archives
+        let mappedData = try Data(contentsOf: archiveFileURL, options: .alwaysMapped)
+        if publicKey.isValidSignature(signatureData, for: mappedData) {
+            return
+        }
+        
+        // Fallback check against streaming SHA-256 digest
+        let digest = try computeStreamingSHA256(fileURL: archiveFileURL)
+        let digestData = Data(digest)
+        if publicKey.isValidSignature(signatureData, for: digestData) {
+            return
+        }
+        
+        throw SecurityError.invalidSignature
+    }
+    
+    /// Direct in-memory Ed25519 signature verification compatibility helper.
+    public static func verifyEd25519Signature(
+        data: Data,
+        signatureData: Data,
+        publicKeyBase64: String
+    ) throws {
+        guard let rawKeyData = Data(base64Encoded: publicKeyBase64),
+              let publicKey = try? Curve25519.Signing.PublicKey(rawRepresentation: rawKeyData) else {
+            throw SecurityError.invalidPublicKey
+        }
+        guard publicKey.isValidSignature(signatureData, for: data) else {
             throw SecurityError.invalidSignature
         }
     }
     
-    /// 3. Zip Slip 路径规范化安全检测
+    /// 3. Zip Slip path canonicalization security check.
     public static func validateSafeDestination(entryRelativePath: String, stagingRoot: URL) throws -> URL {
         let targetURL = stagingRoot.appendingPathComponent(entryRelativePath).standardizedFileURL
         let canonicalStaging = stagingRoot.standardizedFileURL

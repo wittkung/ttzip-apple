@@ -93,16 +93,16 @@ final class AudioWaveformExtractionTests: XCTestCase {
         let sampleCount = 36
         let peaks = await extractor.extractWaveform(from: wavURL, targetSampleCount: sampleCount)
         
-        XCTAssertEqual(peaks.count, sampleCount, "波形采样数应严格等于目标采样数 \(sampleCount)")
+        XCTAssertEqual(peaks.count, sampleCount, "Waveform sample count should match target \(sampleCount)")
         for (idx, peak) in peaks.enumerated() {
-            XCTAssertGreaterThanOrEqual(peak, 0.02, "第 \(idx) 个采样高度不能低于最小可见高度 0.02")
-            XCTAssertLessThanOrEqual(peak, 1.0, "第 \(idx) 个采样高度不能超过 1.0")
+            XCTAssertGreaterThanOrEqual(peak, 0.02, "Sample height at \(idx) cannot be lower than minimum 0.02")
+            XCTAssertLessThanOrEqual(peak, 1.0, "Sample height at \(idx) cannot exceed 1.0")
         }
         
-        // 验证波形对称峰值特征（正弦包络在中间位置达到最大值）
+        // Verify symmetric peak envelope
         let middleIndex = sampleCount / 2
         let edgeIndex = 1
-        XCTAssertGreaterThan(peaks[middleIndex], peaks[edgeIndex], "中间包络振幅应显著大于边缘起始振幅")
+        XCTAssertGreaterThan(peaks[middleIndex], peaks[edgeIndex], "Middle envelope amplitude should be greater than boundary amplitude")
     }
     
     // MARK: - Test 2: In-Memory Waveform Cache Hit
@@ -114,7 +114,7 @@ final class AudioWaveformExtractionTests: XCTestCase {
         let firstResult = await extractor.extractWaveform(from: wavURL, targetSampleCount: 24)
         let secondResult = await extractor.extractWaveform(from: wavURL, targetSampleCount: 24)
         
-        XCTAssertEqual(firstResult, secondResult, "二次提取应命中内存缓存并返回完全一致的数据")
+        XCTAssertEqual(firstResult, secondResult, "Second extraction should hit in-memory cache and return identical data")
     }
     
     // MARK: - Test 3: Fallback Waveform on Non-Audio File
@@ -126,8 +126,8 @@ final class AudioWaveformExtractionTests: XCTestCase {
         let extractor = AudioWaveformExtractor()
         let peaks = await extractor.extractWaveform(from: corruptURL, targetSampleCount: 20)
         
-        XCTAssertEqual(peaks.count, 20, "解析失败时应返回指定数量的优雅回退波形")
-        XCTAssertTrue(peaks.allSatisfy { $0 >= 0.02 && $0 <= 1.0 }, "回退波形数值应处于合法区间")
+        XCTAssertEqual(peaks.count, 20, "Should return requested count of fallback samples on parse failure")
+        XCTAssertTrue(peaks.allSatisfy { $0 >= 0.02 && $0 <= 1.0 }, "Fallback waveform values must be within [0.02, 1.0]")
     }
     
     // MARK: - Test 4: Default Waveform Generator

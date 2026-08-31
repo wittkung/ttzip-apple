@@ -52,33 +52,33 @@ final class MediaPlaybackKeyboardControlTests: XCTestCase {
             }
         )
         
-        XCTAssertTrue(coordinator.isMediaActive, "Coordinator 应标记媒体会话处于活跃状态")
-        XCTAssertFalse(coordinator.isPlaying, "初始播放状态应为 false")
+        XCTAssertTrue(coordinator.isMediaActive, "Coordinator should mark media session as active")
+        XCTAssertFalse(coordinator.isPlaying, "Initial playback state should be false")
         
-        // 触发播放/暂停
+        // Trigger play/pause
         coordinator.triggerPlayPause()
-        XCTAssertTrue(playPauseCalled, "触发后 playPauseHandler 闭包应被调用")
+        XCTAssertTrue(playPauseCalled, "playPauseHandler closure should be called")
         
-        // 更新播放状态
+        // Update playback state
         coordinator.updatePlaybackState(id: testSessionID, isPlaying: true)
-        XCTAssertTrue(coordinator.isPlaying, "Coordinator 播放状态应同步更新为 true")
-        XCTAssertTrue(coordinator.shouldInterceptMediaKeys(), "媒体播放中 shouldInterceptMediaKeys 应返回 true")
+        XCTAssertTrue(coordinator.isPlaying, "Coordinator playback state should update to true")
+        XCTAssertTrue(coordinator.shouldInterceptMediaKeys(), "shouldInterceptMediaKeys should return true during playback")
         
-        // 触发快进/快退
+        // Trigger seek forward/backward
         coordinator.triggerSeek(by: -5.0)
-        XCTAssertEqual(lastSeekAmount, -5.0, "快退 5 秒分发不正确")
+        XCTAssertEqual(lastSeekAmount, -5.0, "Seek backward by 5 seconds dispatched incorrectly")
         
         coordinator.triggerSeek(by: 5.0)
-        XCTAssertEqual(lastSeekAmount, 5.0, "快进 5 秒分发不正确")
+        XCTAssertEqual(lastSeekAmount, 5.0, "Seek forward by 5 seconds dispatched incorrectly")
         
         coordinator.triggerSeek(by: 15.0)
-        XCTAssertEqual(lastSeekAmount, 15.0, "Shift 步进 15 秒分发不正确")
+        XCTAssertEqual(lastSeekAmount, 15.0, "Shift seek by 15 seconds dispatched incorrectly")
         
-        // 注销会话
+        // Unregister session
         coordinator.unregisterSession(id: testSessionID)
-        XCTAssertFalse(coordinator.isMediaActive, "注销后 isMediaActive 应恢复为 false")
-        XCTAssertFalse(coordinator.isPlaying, "注销后 isPlaying 应重置为 false")
-        XCTAssertFalse(coordinator.shouldInterceptMediaKeys(), "注销后 shouldInterceptMediaKeys 应返回 false")
+        XCTAssertFalse(coordinator.isMediaActive, "isMediaActive should reset to false after unregistering")
+        XCTAssertFalse(coordinator.isPlaying, "isPlaying should reset to false after unregistering")
+        XCTAssertFalse(coordinator.shouldInterceptMediaKeys(), "shouldInterceptMediaKeys should return false after unregistering")
     }
     
     // MARK: - Test 2: SharedVideoPlayerStore seekBy Bounds Clamping
@@ -93,21 +93,21 @@ final class MediaPlaybackKeyboardControlTests: XCTestCase {
         store.duration = 100.0
         store.currentTime = 10.0
         
-        // 1. 正常后退 5 秒 -> 5.0
+        // 1. Normal backward seek 5s -> 5.0
         store.seekBy(-5.0)
-        XCTAssertEqual(store.currentTime, 5.0, accuracy: 0.01, "后退 5 秒后当前时间应为 5.0")
+        XCTAssertEqual(store.currentTime, 5.0, accuracy: 0.01, "Current time after seeking backward 5s should be 5.0")
         
-        // 2. 超限后退 -> 截断至 0.0
+        // 2. Out-of-bounds backward seek -> Clamped to 0.0
         store.seekBy(-20.0)
-        XCTAssertEqual(store.currentTime, 0.0, accuracy: 0.01, "过度后退应截断为 0.0")
+        XCTAssertEqual(store.currentTime, 0.0, accuracy: 0.01, "Out-of-bounds backward seek should clamp to 0.0")
         
-        // 3. 正常前进 15 秒 -> 15.0
+        // 3. Normal forward seek 15s -> 15.0
         store.seekBy(15.0)
-        XCTAssertEqual(store.currentTime, 15.0, accuracy: 0.01, "前进 15 秒后当前时间应为 15.0")
+        XCTAssertEqual(store.currentTime, 15.0, accuracy: 0.01, "Current time after seeking forward 15s should be 15.0")
         
-        // 4. 超限前进 -> 截断至 duration (100.0)
+        // 4. Out-of-bounds forward seek -> Clamped to duration (100.0)
         store.seekBy(200.0)
-        XCTAssertEqual(store.currentTime, 100.0, accuracy: 0.01, "过度前进应截断为总时长 100.0")
+        XCTAssertEqual(store.currentTime, 100.0, accuracy: 0.01, "Out-of-bounds forward seek should clamp to duration 100.0")
         
         store.cleanUp()
     }
@@ -126,17 +126,17 @@ final class MediaPlaybackKeyboardControlTests: XCTestCase {
             seekBy: { _ in }
         )
         
-        // 未播放且未悬停 -> 不拦截方向键（允许目录导航）
-        XCTAssertFalse(coordinator.shouldInterceptMediaKeys(), "未播放且未悬停时应允许目录左右键导航")
+        // Neither playing nor hovered -> Do not intercept arrow keys (allow directory navigation)
+        XCTAssertFalse(coordinator.shouldInterceptMediaKeys(), "Should allow directory arrow key navigation when neither playing nor hovered")
         
-        // 鼠标悬停在播放器上 -> 拦截方向键（允许快进快退）
+        // Mouse hovered over player -> Intercept arrow keys (allow seeking)
         coordinator.setHovered(id: sessionID, isHovered: true)
         XCTAssertTrue(coordinator.isFocusedOrHovered)
-        XCTAssertTrue(coordinator.shouldInterceptMediaKeys(), "鼠标悬停在播放器上时应拦截方向键以供快进快退")
+        XCTAssertTrue(coordinator.shouldInterceptMediaKeys(), "Should intercept arrow keys when mouse is hovered over player")
         
-        // 鼠标移出
+        // Mouse moved out
         coordinator.setHovered(id: sessionID, isHovered: false)
-        XCTAssertFalse(coordinator.shouldInterceptMediaKeys(), "鼠标移出且未播放时不应拦截方向键")
+        XCTAssertFalse(coordinator.shouldInterceptMediaKeys(), "Should not intercept arrow keys when mouse moved out and not playing")
         
         coordinator.unregisterSession(id: sessionID)
     }

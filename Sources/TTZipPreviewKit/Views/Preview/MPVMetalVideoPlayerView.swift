@@ -42,8 +42,8 @@ public struct MPVMetalVideoPlayerView: View {
         ZStack(alignment: .center) {
             Color.black.ignoresSafeArea()
             
-            // Native libmpv EDR/Metal Viewport
-            MPVNativeMetalContainerView(
+            // Native libmpv 16-bit float Metal EDR hardware passthrough viewport
+            MPVMetalContainerRepresentableView(
                 url: url,
                 store: store,
                 onDropSubtitle: { subURL in
@@ -305,8 +305,9 @@ public struct MPVNativeMetalContainerView: NSViewRepresentable {
 }
 
 /// High-performance NSView subclass configured for XDR Extended Dynamic Range, keyboard shortcuts, and subtitle drag operations.
-public final class MPVMetalNSView: NSView {
-    public weak var store: MPVMetalPlayerStore? {
+/// Preserved as layer host base class and white-box test target.
+open class MPVMetalNSView: NSView {
+    open weak var store: MPVMetalPlayerStore? {
         didSet {
             if let window = self.window, let store = store {
                 if let glLayer = self.layer as? MPVOpenGLLayer {
@@ -316,11 +317,11 @@ public final class MPVMetalNSView: NSView {
             }
         }
     }
-    public var onDropSubtitle: ((URL) -> Void)?
-    public var onTogglePlayPause: (() -> Void)?
-    public var onToggleFullScreen: (() -> Void)?
+    open var onDropSubtitle: ((URL) -> Void)?
+    open var onTogglePlayPause: (() -> Void)?
+    open var onToggleFullScreen: (() -> Void)?
     
-    public override func makeBackingLayer() -> CALayer {
+    open override func makeBackingLayer() -> CALayer {
         let glLayer = MPVOpenGLLayer()
         glLayer.contentsScale = NSScreen.main?.backingScaleFactor ?? 2.0
         return glLayer
@@ -344,9 +345,9 @@ public final class MPVMetalNSView: NSView {
         self.layer?.masksToBounds = true
     }
     
-    public override var acceptsFirstResponder: Bool { true }
+    open override var acceptsFirstResponder: Bool { true }
     
-    public override func viewDidMoveToWindow() {
+    open override func viewDidMoveToWindow() {
         super.viewDidMoveToWindow()
         let targetStore = self.store ?? MPVMetalPlayerStore.shared
         if let window = self.window {
@@ -361,14 +362,14 @@ public final class MPVMetalNSView: NSView {
         }
     }
     
-    public override func viewDidChangeBackingProperties() {
+    open override func viewDidChangeBackingProperties() {
         super.viewDidChangeBackingProperties()
         if let window = self.window {
             self.layer?.contentsScale = window.backingScaleFactor
         }
     }
     
-    public override func mouseUp(with event: NSEvent) {
+    open override func mouseUp(with event: NSEvent) {
         if event.clickCount == 2 {
             onToggleFullScreen?()
         } else if event.clickCount == 1 {
@@ -378,7 +379,7 @@ public final class MPVMetalNSView: NSView {
         }
     }
     
-    public override func keyDown(with event: NSEvent) {
+    open override func keyDown(with event: NSEvent) {
         // KeyCode 3 is 'F' (Fullscreen toggle)
         if event.keyCode == 3 || event.charactersIgnoringModifiers?.lowercased() == "f" {
             onToggleFullScreen?()
@@ -399,14 +400,14 @@ public final class MPVMetalNSView: NSView {
         super.keyDown(with: event)
     }
     
-    public override func draggingEntered(_ sender: NSDraggingInfo) -> NSDragOperation {
+    open override func draggingEntered(_ sender: NSDraggingInfo) -> NSDragOperation {
         if hasValidSubtitleURL(sender) {
             return .copy
         }
         return []
     }
     
-    public override func performDragOperation(_ sender: NSDraggingInfo) -> Bool {
+    open override func performDragOperation(_ sender: NSDraggingInfo) -> Bool {
         if let urls = sender.draggingPasteboard.readObjects(forClasses: [NSURL.self], options: nil) as? [URL],
            let firstURL = urls.first, isSubtitleURL(firstURL) {
             onDropSubtitle?(firstURL)

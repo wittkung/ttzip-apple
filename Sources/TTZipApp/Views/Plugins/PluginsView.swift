@@ -15,7 +15,7 @@ import TTZipBenchmarkKit
 public struct PluginsView: View {
     @ObservedObject private var l10nState = AppLocalizationState.shared
     
-    @State private var selectedTab: Int = 0 // 0: 已安装, 1: 插件商店
+    @State private var selectedTab: Int = 0 // 0: Installed, 1: Marketplace
     @State private var showConfigSheet: Bool = false
     @State private var configPluginId: String = ""
     @State private var marketplacePlugins: [TTZipMarketplacePlugin] = []
@@ -78,7 +78,7 @@ public struct PluginsView: View {
         }
     }
     
-    // MARK: - TTZip Kintsugi Gold 胶囊选项卡
+    // MARK: - TTZip Kintsugi Gold Capsule Tabs
     private var customSegmentedTabBar: some View {
         HStack(spacing: 0) {
             tabButton(
@@ -154,7 +154,7 @@ public struct PluginsView: View {
         .background(TTZipTheme.cinnabarRed.opacity(0.1))
     }
     
-    // MARK: - 已安装插件列表
+    // MARK: - Installed Plugins List
     private var installedPluginsList: some View {
         VStack(spacing: 12) {
             let plugins = registry.installedPlugins
@@ -211,7 +211,7 @@ public struct PluginsView: View {
         .padding(48)
     }
     
-    // MARK: - 插件商店列表
+    // MARK: - Marketplace Plugins List
     private var marketplacePluginsList: some View {
         VStack(spacing: 16) {
             ForEach(marketplacePlugins) { plugin in
@@ -234,7 +234,7 @@ public struct PluginsView: View {
         .padding(20)
     }
     
-    // MARK: - 动态安装与卸载操作
+    // MARK: - Dynamic Installation & Uninstallation Operations
     private func performInstall(plugin: TTZipMarketplacePlugin) {
         errorMessage = nil
         Task {

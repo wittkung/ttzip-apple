@@ -11,7 +11,7 @@ import TTZipUI
 import TTZipPreviewKit
 import TTZipBenchmarkKit
 
-/// 通用插件凭证键值对配置项 (Generic Plugin Configuration Item)
+/// Generic Plugin Configuration Item
 public struct PluginConfigEntry: Identifiable, Sendable, Hashable {
     public var id: String { key }
     public var key: String
@@ -35,7 +35,7 @@ public struct PluginConfigEntry: Identifiable, Sendable, Hashable {
     }
 }
 
-/// 通用插件配置状态与持久化适配器
+/// Generic plugin configuration state and persistence adapter
 @MainActor
 public final class PluginConfigStore: ObservableObject {
     public let pluginId: String
@@ -55,7 +55,7 @@ public final class PluginConfigStore: ObservableObject {
         var loaded: [PluginConfigEntry] = []
         let keychain = TTZipHostContextImpl.shared.keychain
         
-        // 预设通用字段
+        // Preset standard keys
         let standardKeys = ["app_id", "app_secret", "access_token", "api_endpoint"]
         for k in standardKeys {
             let val = (try? await keychain.get(key: prefix + k)) ?? ""
