@@ -114,15 +114,16 @@ private final class MPVHandleHolder: @unchecked Sendable {
             mpv_set_option_string(newHandle, "ao", isTesting ? "null" : "auto")
         } else {
             mpv_set_option_string(newHandle, "vo", isTesting ? "null" : "libmpv")
-            mpv_set_option_string(newHandle, "hwdec", isTesting ? "no" : "videotoolbox")
+            mpv_set_option_string(newHandle, "hwdec", isTesting ? "no" : "videotoolbox-copy")
+            mpv_set_option_string(newHandle, "hwdec-codecs", "all")
             mpv_set_option_string(newHandle, "ao", isTesting ? "null" : "auto")
         }
 
-        mpv_set_option_string(newHandle, "target-colorspace-hint", "yes")
+        mpv_set_option_string(newHandle, "target-colorspace-hint", "no")
         mpv_set_option_string(newHandle, "target-trc", "auto")
-        mpv_set_option_string(newHandle, "tone-mapping", "auto")
+        mpv_set_option_string(newHandle, "tone-mapping", "bt.2446a")
         mpv_set_option_string(newHandle, "gamut-mapping-mode", "perceptual")
-        mpv_set_option_string(newHandle, "hdr-compute-peak", "yes")
+        mpv_set_option_string(newHandle, "hdr-compute-peak", "no")
         mpv_set_option_string(newHandle, "sub-auto", "fuzzy")
         mpv_set_option_string(newHandle, "sub-codepage", "auto")
         mpv_set_option_string(newHandle, "sub-font-size", "52")
@@ -368,7 +369,8 @@ public actor MPVCoreEngine {
         } else {
             mpv_set_option_string(handle, "vo", isTesting ? "null" : "libmpv")
             mpv_set_option_string(handle, "vid", "auto")
-            mpv_set_option_string(handle, "hwdec", isTesting ? "no" : "videotoolbox")
+            mpv_set_option_string(handle, "hwdec", isTesting ? "no" : "videotoolbox-copy")
+            mpv_set_option_string(handle, "hwdec-codecs", "all")
             mpv_set_option_string(handle, "ao", isTesting ? "null" : "auto")
         }
     }
