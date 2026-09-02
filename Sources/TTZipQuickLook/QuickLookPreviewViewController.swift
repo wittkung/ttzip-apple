@@ -139,4 +139,12 @@ public final class QuickLookPreviewViewController: NSViewController, @preconcurr
             completion(error)
         }
     }
+    
+    public func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
+        activityIndicator.stopAnimation(nil)
+        if let completion = pendingCompletion {
+            pendingCompletion = nil
+            completion(error)
+        }
+    }
 }

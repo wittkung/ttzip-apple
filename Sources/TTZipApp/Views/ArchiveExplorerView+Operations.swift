@@ -240,38 +240,46 @@ extension ArchiveExplorerView {
     
     func extractSelectedForPreview(entryID: String?) {
         previewTask?.cancel()
-        if let oldTempDir = currentTempDir {
-            try? FileManager.default.removeItem(at: oldTempDir)
-            currentTempDir = nil
-        }
         
         guard let entryID = entryID,
               let entry = entries.first(where: { $0.id == entryID || $0.path == entryID }),
               !entry.isDirectory else {
             previewFileURL = nil
+            isExtractingTemp = false
             return
         }
         
-        let filename = (entry.path as NSString).lastPathComponent
         isExtractingTemp = true
-        let tempDir = FileManager.default.temporaryDirectory.appendingPathComponent("TTZipPreview_\(UUID().uuidString)")
-        try? FileManager.default.createDirectory(at: tempDir, withIntermediateDirectories: true)
-        currentTempDir = tempDir
+        let vfsURL = TTZipArchiveVfsProvider.shared.vfsURL(
+            archivePath: archivePath,
+            password: password,
+            entryPath: entry.path
+        )
+        let targetArchiveId = TTZipArchiveVfsProvider.makeArchiveId(from: archivePath)
         
         previewTask = Task {
             do {
-                let expectedFileURL = tempDir.appendingPathComponent(filename)
-                
-                try await TTZipEngineFacade.shared.extractSingleEntry(
+                if let data = try await ArchiveSelectiveExtractor.shared.extractSingleEntryData(
                     archivePath: archivePath,
                     entryPath: entry.path,
-                    destinationDir: tempDir.path,
                     password: password
-                )
-                guard !Task.isCancelled else { return }
-                await MainActor.run {
-                    self.previewFileURL = expectedFileURL
-                    self.isExtractingTemp = false
+                ) {
+                    guard !Task.isCancelled else { return }
+                    TTZipArchiveVfsProvider.shared.cacheEntryData(
+                        archiveId: targetArchiveId,
+                        entryPath: entry.path,
+                        data: data
+                    )
+                    await MainActor.run {
+                        self.previewFileURL = vfsURL
+                        self.isExtractingTemp = false
+                    }
+                } else {
+                    guard !Task.isCancelled else { return }
+                    await MainActor.run {
+                        self.previewFileURL = nil
+                        self.isExtractingTemp = false
+                    }
                 }
             } catch {
                 guard !Task.isCancelled else { return }

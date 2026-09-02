@@ -15,6 +15,7 @@ public struct SpreadsheetTablePreviewView: View {
     public let initialContent: String
     public let fileURL: URL?
     public let fileName: String
+    public let initialWorkbook: OfficeSpreadsheetWorkbook?
 
     @State private var mode: SpreadsheetPreviewMode = .table
     @State private var rawContent = ""
@@ -33,12 +34,31 @@ public struct SpreadsheetTablePreviewView: View {
     @State private var copyToastMessage: String? = nil
     @State private var isToastVisible = false
     @State private var columnWidths: [Int: CGFloat] = [:]
+    @State private var availableSheets: [String] = []
+    @State private var selectedSheetName: String = ""
 
-    public init(initialContent: String, fileURL: URL? = nil, fileName: String = "") {
+    public init(initialContent: String, fileURL: URL? = nil, fileName: String = "", workbook: OfficeSpreadsheetWorkbook? = nil) {
         self.initialContent = initialContent
-        self.fileURL = fileURL
-        self.fileName = fileName.isEmpty ? (fileURL?.lastPathComponent ?? "Spreadsheet Document") : fileName
+        self.fileURL = fileURL ?? workbook?.fileURL
+        self.fileName = fileName.isEmpty ? (workbook?.fileName ?? fileURL?.lastPathComponent ?? "Spreadsheet Document") : fileName
+        self.initialWorkbook = workbook
         self._rawContent = State(initialValue: initialContent)
+    }
+    
+    public init(workbook: OfficeSpreadsheetWorkbook) {
+        self.initialWorkbook = workbook
+        self.fileURL = workbook.fileURL
+        self.fileName = workbook.fileName
+        
+        let content: String
+        if let sheet = workbook.activeSheet {
+            let rows = TTZipSpreadsheetParser.convertSheetDataToRows(sheet)
+            content = TTZipSpreadsheetParser.exportToDelimited(rows: rows, delimiter: ",")
+        } else {
+            content = ""
+        }
+        self.initialContent = content
+        self._rawContent = State(initialValue: content)
     }
 
     // MARK: - Computed Properties
@@ -117,6 +137,17 @@ public struct SpreadsheetTablePreviewView: View {
         }
         .background(Color(NSColor.textBackgroundColor))
         .task(id: initialContent) {
+            if let wb = initialWorkbook {
+                availableSheets = wb.sheetNames
+                selectedSheetName = wb.activeSheet?.sheetName ?? wb.sheetNames.first ?? ""
+                if let active = wb.activeSheet {
+                    let rows = TTZipSpreadsheetParser.convertSheetDataToRows(active)
+                    self.parsedRows = rows
+                    self.rawContent = TTZipSpreadsheetParser.exportToDelimited(rows: rows, delimiter: ",")
+                    self.columnWidths = SpreadsheetTableLayoutEngine.calculateColumnWidths(parsedRows: parsedRows, headerNames: headerNames, maxColumnCount: maxColumnCount)
+                    return
+                }
+            }
             rawContent = initialContent; isEdited = false; reparseContent(initialContent)
         }
     }
@@ -127,16 +158,43 @@ public struct SpreadsheetTablePreviewView: View {
         HStack(spacing: 8) {
             HStack(spacing: 5) {
                 Image(systemName: "tablecells.fill").font(.system(size: 11, weight: .bold)).foregroundStyle(TTZipTheme.bambooGreen)
-                Text(selectedDelimiter.shortName).font(.system(size: 10.5, weight: .bold, design: .monospaced))
+                Text(availableSheets.isEmpty ? selectedDelimiter.shortName : "XLSX").font(.system(size: 10.5, weight: .bold, design: .monospaced))
             }.padding(.horizontal, 8).padding(.vertical, 3.5).background(TTZipTheme.bambooGreen.opacity(0.12)).clipShape(RoundedRectangle(cornerRadius: 6))
             Text(fileName).font(.system(size: 11.5, weight: .semibold)).lineLimit(1).truncationMode(.middle)
             if isEdited {
                 Text("Unsaved").font(.system(size: 10, weight: .bold)).foregroundStyle(Color.orange)
                     .padding(.horizontal, 6).padding(.vertical, 2.5).background(Color.orange.opacity(0.12)).clipShape(Capsule())
             }
+            if availableSheets.count > 1 {
+                sheetPickerMenu
+            }
             Spacer()
             searchBar; headerToggleBtn; delimiterMenu; modePicker; copyMenu; saveButton
         }.padding(.horizontal, 10).padding(.vertical, 6).background(Color(NSColor.windowBackgroundColor))
+    }
+
+    private var sheetPickerMenu: some View {
+        Menu {
+            ForEach(availableSheets, id: \.self) { sheetName in
+                Button(action: { selectSheet(sheetName) }) {
+                    HStack {
+                        Text(sheetName)
+                        if selectedSheetName == sheetName { Image(systemName: "checkmark") }
+                    }
+                }
+            }
+        } label: {
+            HStack(spacing: 4) {
+                Image(systemName: "doc.on.doc.fill").font(.system(size: 10))
+                Text(selectedSheetName.isEmpty ? "Sheet" : selectedSheetName).font(.system(size: 10.5, weight: .bold))
+                Image(systemName: "chevron.down").font(.system(size: 8))
+            }
+            .padding(.horizontal, 8).padding(.vertical, 3.5)
+            .background(TTZipTheme.bambooGreen.opacity(0.15))
+            .foregroundStyle(TTZipTheme.bambooGreen)
+            .clipShape(RoundedRectangle(cornerRadius: 5))
+        }
+        .menuStyle(.borderlessButton).fixedSize()
     }
 
     private var searchBar: some View {
@@ -303,6 +361,29 @@ public struct SpreadsheetTablePreviewView: View {
     }
 
     // MARK: - Actions
+
+    private func selectSheet(_ sheetName: String) {
+        selectedSheetName = sheetName
+        guard let wb = initialWorkbook else { return }
+        
+        let officeService = UniFfiOfficeService()
+        let sheetData: UniFfiSheetData?
+        if let raw = wb.rawData {
+            sheetData = try? officeService.extractSheetData(data: raw, sheetNameOrIndex: sheetName, maxRows: 10000, fileName: wb.fileName)
+        } else if let url = wb.fileURL, url.isFileURL {
+            sheetData = try? officeService.extractSheetDataFromFile(filePath: url.path, sheetNameOrIndex: sheetName, maxRows: 10000)
+        } else {
+            sheetData = nil
+        }
+        
+        if let sheet = sheetData {
+            let rows = TTZipSpreadsheetParser.convertSheetDataToRows(sheet)
+            self.parsedRows = rows
+            self.rawContent = TTZipSpreadsheetParser.exportToDelimited(rows: rows, delimiter: ",")
+            self.currentPageIndex = 0
+            self.columnWidths = SpreadsheetTableLayoutEngine.calculateColumnWidths(parsedRows: parsedRows, headerNames: headerNames, maxColumnCount: maxColumnCount)
+        }
+    }
 
     private func reparseContent(_ content: String, overrideDelimiter: Character? = nil) {
         let delim = overrideDelimiter ?? {

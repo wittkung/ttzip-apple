@@ -40,6 +40,7 @@ final class CompressionLevelDualModeSelectorTests: XCTestCase {
         XCTAssertEqual(clampedTar, 0)
     }
     
+    @MainActor
     func testDualModeViewInstantiation() {
         var level = ArchiveCompressionLevel.normal
         let binding = Binding<ArchiveCompressionLevel>(

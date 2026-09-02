@@ -177,8 +177,14 @@ public struct MediaPreviewView: View {
         }
     }
 
-    
     nonisolated public static func readTextContent(from url: URL) -> String? {
+        if url.scheme == TTZipVfsSchemeHandler.scheme {
+            if let data = TTZipArchiveVfsProvider.shared.cachedData(for: url.absoluteString), !data.isEmpty {
+                return decodeText(data: data)
+            }
+            return nil
+        }
+        
         guard let fileSize = (try? FileManager.default.attributesOfItem(atPath: url.path)[.size] as? Int64) ?? (try? url.resourceValues(forKeys: [.fileSizeKey]).fileSize.map(Int64.init)) else {
             return nil
         }
@@ -202,25 +208,25 @@ public struct MediaPreviewView: View {
         
         try? fileHandle.seek(toOffset: 0)
         guard let data = try? fileHandle.readToEnd(), !data.isEmpty else { return nil }
-        
-        var text: String?
+        return decodeText(data: data)
+    }
+    
+    nonisolated public static func decodeText(data: Data) -> String? {
         if let s = String(data: data, encoding: .utf8) {
-            text = s
+            return s
         } else {
             let detectedStr = CharsetDetector.sanitizeFilename(bytes: data)
             if !detectedStr.isEmpty {
-                text = detectedStr
+                return detectedStr
             } else if let s = String(data: data, encoding: .utf16) {
-                text = s
+                return s
             } else if let s = String(data: data, encoding: .ascii) {
-                text = s
+                return s
             } else if let s = String(data: data, encoding: .isoLatin1) {
-                text = s
+                return s
             } else {
-                text = String(decoding: data, as: UTF8.self)
+                return String(decoding: data, as: UTF8.self)
             }
         }
-        
-        return text
     }
 }

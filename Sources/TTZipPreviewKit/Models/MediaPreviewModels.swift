@@ -6,6 +6,7 @@
 // TTZip: High-performance native archiving and compression engine.
 
 import SwiftUI
+import TTZipCore
 import TTZipUI
 
 public struct EBookMetadata {
@@ -52,6 +53,36 @@ public struct EPUBBookModel {
     }
 }
 
+/// Structured workbook representation with multiple sheets parsed via UniFfiOfficeService.
+public struct OfficeSpreadsheetWorkbook {
+    public let fileName: String
+    public let sheetNames: [String]
+    public let activeSheet: UniFfiSheetData?
+    public let fileURL: URL?
+    public let rawData: Data?
+    
+    public init(fileName: String, sheetNames: [String], activeSheet: UniFfiSheetData?, fileURL: URL? = nil, rawData: Data? = nil) {
+        self.fileName = fileName
+        self.sheetNames = sheetNames
+        self.activeSheet = activeSheet
+        self.fileURL = fileURL
+        self.rawData = rawData
+    }
+}
+
+/// Structural presentation representation parsed via UniFfiXmlMetaService.
+public struct OfficePresentationModel {
+    public let fileName: String
+    public let outline: UniFfiOfficeOutline
+    public let fileURL: URL?
+    
+    public init(fileName: String, outline: UniFfiOfficeOutline, fileURL: URL? = nil) {
+        self.fileName = fileName
+        self.outline = outline
+        self.fileURL = fileURL
+    }
+}
+
 public enum MediaPreviewType {
     case pluginView(AnyView)
     case image(NSImage)
@@ -59,6 +90,7 @@ public enum MediaPreviewType {
     case audio(URL)
     case unsupportedAudio(URL, String)
     case pdf(URL)
+    case pdfData(Data, URL?)
     case text(String)
     case docxDocument(NSAttributedString, URL)
     case epubBook(EPUBBookModel)
@@ -66,6 +98,8 @@ public enum MediaPreviewType {
     case hexViewer(Data, URL?)
     case markdown(String, URL?)
     case spreadsheetTable(String, URL?)
+    case officeSpreadsheet(OfficeSpreadsheetWorkbook)
+    case officePresentation(OfficePresentationModel)
     case unsupported(String)
     
     /// Convenience helper for .hexViewer

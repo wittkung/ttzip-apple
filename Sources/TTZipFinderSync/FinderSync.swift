@@ -112,13 +112,18 @@ public final class FinderSync: FIFinderSync {
     @objc private func handleContextMenuAction(_ sender: NSMenuItem) {
         guard let payload = sender.representedObject as? [String: Any],
               let action = payload["action"] as? String,
-              let paths = payload["urls"] as? [String] else { return }
+              let paths = payload["urls"] as? [String],
+              !paths.isEmpty else { return }
         
-        let joinedPaths = paths.joined(separator: "|")
-        guard let encodedPaths = joinedPaths.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) else { return }
+        var components = URLComponents()
+        components.scheme = "ttzip"
+        components.host = "action"
+        components.queryItems = [
+            URLQueryItem(name: "type", value: action),
+            URLQueryItem(name: "paths", value: paths.joined(separator: "|"))
+        ]
         
-        let urlString = "ttzip://action?type=\(action)&paths=\(encodedPaths)"
-        if let url = URL(string: urlString) {
+        if let url = components.url {
             NSWorkspace.shared.open(url)
         }
     }

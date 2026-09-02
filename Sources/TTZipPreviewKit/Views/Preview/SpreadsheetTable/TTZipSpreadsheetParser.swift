@@ -6,6 +6,7 @@
 // TTZip: High-performance native archiving and compression engine.
 
 import Foundation
+import TTZipCore
 import TTZipUI
 
 // MARK: - RFC 4180 High-Performance CSV/TSV Parser
@@ -207,5 +208,45 @@ public enum TTZipSpreadsheetParser {
             result += formattedCells.joined(separator: String(delimiter)) + "\n"
         }
         return result
+    }
+    
+    /// Converts UniFfiSheetData into 2D String matrix for table grid view.
+    public static func convertSheetDataToRows(_ sheetData: UniFfiSheetData) -> [[String]] {
+        let maxCol = max(Int(sheetData.totalCols), sheetData.rows.flatMap(\.cells).map { Int($0.col) }.max() ?? 0)
+        guard maxCol > 0 else { return [] }
+        var grid: [[String]] = []
+        for sheetRow in sheetData.rows {
+            var rowArray = Array(repeating: "", count: maxCol)
+            for cell in sheetRow.cells {
+                let colIdx = Int(cell.col) - 1
+                if colIdx >= 0 && colIdx < maxCol {
+                    rowArray[colIdx] = formatCellValue(cell.value)
+                }
+            }
+            grid.append(rowArray)
+        }
+        return grid
+    }
+    
+    /// Formats strongly-typed UniFfiCellValue into human-readable display string.
+    public static func formatCellValue(_ value: UniFfiCellValue) -> String {
+        switch value {
+        case .empty:
+            return ""
+        case .text(let text):
+            return text
+        case .number(let num):
+            if num.truncatingRemainder(dividingBy: 1) == 0 && abs(num) < 1e15 {
+                return String(Int64(num))
+            } else {
+                return String(format: "%g", num)
+            }
+        case .boolean(let b):
+            return b ? "TRUE" : "FALSE"
+        case .formula(let expr, let cached):
+            return cached ?? "=\(expr)"
+        case .error(let err):
+            return "#ERR: \(err)"
+        }
     }
 }

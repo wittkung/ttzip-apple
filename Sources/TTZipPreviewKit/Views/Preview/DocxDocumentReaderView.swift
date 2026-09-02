@@ -7,19 +7,46 @@
 
 import SwiftUI
 import AppKit
+import TTZipCore
 import TTZipUI
 
 public struct DocxDocumentReaderView: View {
-    public let attributedString: NSAttributedString
-    public let url: URL
+    public let attributedString: NSAttributedString?
+    public let markdownContent: String?
+    public let url: URL?
     
-    public init(attributedString: NSAttributedString, url: URL) {
+    public init(attributedString: NSAttributedString, url: URL? = nil) {
         self.attributedString = attributedString
+        self.markdownContent = nil
+        self.url = url
+    }
+    
+    public init(markdownContent: String, url: URL? = nil) {
+        self.attributedString = nil
+        self.markdownContent = markdownContent
         self.url = url
     }
     
     public var body: some View {
-        DocxTextEditorNSView(attributedString: attributedString)
+        if let md = markdownContent, !md.isEmpty {
+            MarkdownRichPreviewView(
+                initialMarkdown: md,
+                fileURL: url,
+                fileName: url?.lastPathComponent ?? "Document.docx"
+            )
+        } else if let attrStr = attributedString {
+            DocxTextEditorNSView(attributedString: attrStr)
+        } else {
+            VStack(spacing: 8) {
+                Image(systemName: "doc.richtext")
+                    .font(.system(size: 36))
+                    .foregroundStyle(.secondary)
+                Text("Unable to render document content.")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+        }
     }
 }
 

@@ -7,6 +7,7 @@
 
 import SwiftUI
 import WebKit
+import TTZipCore
 import TTZipUI
 
 public struct EPUBNativeWKWebView: NSViewRepresentable {
@@ -26,6 +27,8 @@ public struct EPUBNativeWKWebView: NSViewRepresentable {
     
     public func makeNSView(context: Context) -> WKWebView {
         let config = WKWebViewConfiguration()
+        let vfsHandler = TTZipVfsSchemeHandler(provider: TTZipArchiveVfsProvider.shared)
+        config.setURLSchemeHandler(vfsHandler, forURLScheme: TTZipVfsSchemeHandler.scheme)
         let webView = WKWebView(frame: .zero, configuration: config)
         webView.underPageBackgroundColor = .clear
         return webView
@@ -85,6 +88,8 @@ public struct EPUBNativeWKWebView: NSViewRepresentable {
             await MainActor.run {
                 if let injectedHTML = loadedHTML {
                     webView.loadHTMLString(injectedHTML, baseURL: url.deletingLastPathComponent())
+                } else if url.scheme == TTZipVfsSchemeHandler.scheme {
+                    webView.load(URLRequest(url: url))
                 } else if FileManager.default.fileExists(atPath: url.path) {
                     webView.loadFileURL(url, allowingReadAccessTo: baseDir)
                 } else {
@@ -103,14 +108,21 @@ public actor EPUBChapterContentLoaderActor {
     
     private init() {}
     
-    public func loadChapter(at chapterURL: URL, customCSS: String) -> String? {
-        guard let rawHTML = try? String(contentsOf: chapterURL, encoding: .utf8) else {
-            return nil
-        }
-        if rawHTML.contains("</head>") {
-            return rawHTML.replacingOccurrences(of: "</head>", with: "\(customCSS)</head>")
+    public func loadChapter(at chapterURL: URL, customCSS: String) async -> String? {
+        var rawHTML: String? = nil
+        if chapterURL.scheme == TTZipVfsSchemeHandler.scheme {
+            if let (data, _) = try? await TTZipArchiveVfsProvider.shared.loadResource(uri: chapterURL.absoluteString) {
+                rawHTML = String(data: data, encoding: .utf8) ?? String(decoding: data, as: UTF8.self)
+            }
         } else {
-            return customCSS + rawHTML
+            rawHTML = try? String(contentsOf: chapterURL, encoding: .utf8)
+        }
+        
+        guard let html = rawHTML else { return nil }
+        if html.contains("</head>") {
+            return html.replacingOccurrences(of: "</head>", with: "\(customCSS)</head>")
+        } else {
+            return customCSS + html
         }
     }
 }

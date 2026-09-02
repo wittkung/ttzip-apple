@@ -47,6 +47,10 @@ extension MediaPreviewFactory {
                 InteractivePDFPreviewContainerView(url: url)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                 
+            case .pdfData(let data, let url):
+                InteractivePDFPreviewContainerView(data: data, url: url)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                
             case .text(let textContent):
                 CodeTextEditorContainerView(initialText: textContent, fileURL: fileURL, fileName: fileName)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -73,6 +77,14 @@ extension MediaPreviewFactory {
                 
             case .spreadsheetTable(let csvContent, let targetURL):
                 SpreadsheetTablePreviewView(initialContent: csvContent, fileURL: targetURL ?? fileURL, fileName: fileName)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                
+            case .officeSpreadsheet(let workbook):
+                SpreadsheetTablePreviewView(workbook: workbook)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                
+            case .officePresentation(let model):
+                PresentationPreviewView(model: model)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                 
             case .unsupported(let msg):

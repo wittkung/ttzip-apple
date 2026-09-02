@@ -28,21 +28,40 @@ public enum PDFLayoutMode: String, CaseIterable, Identifiable {
 }
 
 public struct InteractivePDFPreviewContainerView: View {
-    public let url: URL
+    public let url: URL?
+    public let data: Data?
     @State private var layoutMode: PDFLayoutMode = .singleFullWidth
+    @State private var document: PDFDocument? = nil
     
     public init(url: URL) {
         self.url = url
+        self.data = nil
+    }
+    
+    public init(data: Data, url: URL? = nil) {
+        self.url = url
+        self.data = data
     }
     
     public var body: some View {
         ZStack(alignment: .bottomTrailing) {
             Group {
-                switch layoutMode {
-                case .singleFullWidth, .twoPages:
-                    PDFKitView(url: url, layoutMode: layoutMode)
-                case .threePages:
-                    PDFThreePageTileGridView(url: url)
+                if let doc = document {
+                    switch layoutMode {
+                    case .singleFullWidth, .twoPages:
+                        PDFKitView(document: doc, layoutMode: layoutMode)
+                    case .threePages:
+                        PDFThreePageTileGridView(document: doc)
+                    }
+                } else {
+                    VStack(spacing: 12) {
+                        ProgressView()
+                            .controlSize(.regular)
+                        Text("Loading PDF Stream...")
+                            .font(.system(size: 11))
+                            .foregroundStyle(.secondary)
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -75,18 +94,39 @@ public struct InteractivePDFPreviewContainerView: View {
             .shadow(color: Color.black.opacity(0.15), radius: 6, x: 0, y: 3)
             .padding(12)
         }
+        .task(id: url?.absoluteString ?? "\(data?.count ?? 0)") {
+            await loadDocument()
+        }
+    }
+    
+    private func loadDocument() async {
+        if let raw = data {
+            self.document = PDFDocument(data: raw)
+            return
+        }
+        guard let validURL = url else { return }
+        if validURL.scheme == TTZipVfsSchemeHandler.scheme {
+            if let (resData, _) = try? await TTZipArchiveVfsProvider.shared.loadResource(uri: validURL.absoluteString) {
+                self.document = PDFDocument(data: resData)
+            }
+        } else {
+            self.document = PDFDocument(url: validURL)
+        }
     }
 }
 
 public struct PDFThreePageTileGridView: View {
-    public let url: URL
-    @State private var document: PDFDocument?
+    public let document: PDFDocument?
     @State private var passwordInput: String = ""
     @State private var isUnlocking: Bool = false
     @State private var unlockError: String? = nil
     
     public init(url: URL) {
-        self.url = url
+        self.document = PDFDocument(url: url)
+    }
+    
+    public init(document: PDFDocument?) {
+        self.document = document
     }
     
     private let columns = [
@@ -169,17 +209,12 @@ public struct PDFThreePageTileGridView: View {
                 .frame(maxWidth: .infinity, minHeight: 200)
             }
         }
-        .task(id: url) {
-            self.document = PDFDocument(url: url)
-        }
     }
     
     private func unlockDocument(doc: PDFDocument) {
         guard !passwordInput.isEmpty else { return }
         if doc.unlock(withPassword: passwordInput) {
             self.unlockError = nil
-            // Trigger SwiftUI re-render
-            self.document = doc
         } else {
             self.unlockError = "Incorrect password. Please try again."
         }
@@ -257,17 +292,22 @@ public final class InteractivePDFView: PDFView {
 }
 
 public struct PDFKitView: NSViewRepresentable {
-    public let url: URL
+    public let document: PDFDocument?
     public let layoutMode: PDFLayoutMode
     
     public init(url: URL, layoutMode: PDFLayoutMode) {
-        self.url = url
+        self.document = PDFDocument(url: url)
+        self.layoutMode = layoutMode
+    }
+    
+    public init(document: PDFDocument?, layoutMode: PDFLayoutMode) {
+        self.document = document
         self.layoutMode = layoutMode
     }
     
     public func makeNSView(context: Context) -> PDFView {
         let pdfView = InteractivePDFView()
-        pdfView.document = PDFDocument(url: url)
+        pdfView.document = document
         pdfView.minScaleFactor = 0.25
         pdfView.maxScaleFactor = 10.0
         pdfView.interpolationQuality = .high
@@ -282,8 +322,8 @@ public struct PDFKitView: NSViewRepresentable {
     }
     
     public func updateNSView(_ nsView: PDFView, context: Context) {
-        if nsView.document?.documentURL != url {
-            nsView.document = PDFDocument(url: url)
+        if nsView.document != document {
+            nsView.document = document
         }
         configurePDFScrollView(nsView)
         nsView.layer?.contentsScale = NSScreen.main?.backingScaleFactor ?? 2.0

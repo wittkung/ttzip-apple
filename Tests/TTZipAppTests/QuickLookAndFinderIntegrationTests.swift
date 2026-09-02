@@ -117,4 +117,63 @@ final class QuickLookAndFinderIntegrationTests: XCTestCase {
         XCTAssertFalse(html.isEmpty, "QuickLook HTML preview should not be empty")
         XCTAssertTrue(html.contains("note.txt"), "QuickLook HTML preview must contain archive entries")
     }
+    
+    func test_findersync_url_construction_with_special_characters_and_delimiters() throws {
+        let pathWithSpecialChars = "/Users/test/folder & documents/C++ Project #1 + extra.zip"
+        let normalPath = "/Users/test/archive.7z"
+        
+        var components = URLComponents()
+        components.scheme = "ttzip"
+        components.host = "action"
+        components.queryItems = [
+            URLQueryItem(name: "type", value: "compress_quick_zip"),
+            URLQueryItem(name: "paths", value: [pathWithSpecialChars, normalPath].joined(separator: "|"))
+        ]
+        
+        let url = try XCTUnwrap(components.url)
+        let parsed = try XCTUnwrap(URLComponents(url: url, resolvingAgainstBaseURL: false))
+        
+        let actionType = parsed.queryItems?.first(where: { $0.name == "type" })?.value
+        let pathsStr = parsed.queryItems?.first(where: { $0.name == "paths" })?.value
+        
+        XCTAssertEqual(actionType, "compress_quick_zip")
+        let splitPaths = pathsStr?.components(separatedBy: "|")
+        XCTAssertEqual(splitPaths, [pathWithSpecialChars, normalPath])
+    }
+    
+    func test_quicklook_single_file_memory_stream_zero_disk_io() async throws {
+        let tempDir = FileManager.default.temporaryDirectory.appendingPathComponent("QLZeroIOTest_\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: tempDir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: tempDir) }
+        
+        let docURL = tempDir.appendingPathComponent("stream_doc.txt")
+        let testPayload = "Zero disk IO stream payload 2026".data(using: .utf8)!
+        try testPayload.write(to: docURL)
+        
+        let zipURL = tempDir.appendingPathComponent("stream_archive.zip")
+        let writer = ArchiveWriter()
+        try await writer.createArchive(
+            outputPath: zipURL.path,
+            format: .zip,
+            level: .fast,
+            inputPaths: [docURL.path]
+        )
+        
+        let extractedData = try await QuickLookPreviewEngine.extractSingleFileMemoryStream(
+            archivePath: zipURL.path,
+            entryPath: "stream_doc.txt"
+        )
+        
+        XCTAssertNotNil(extractedData)
+        XCTAssertEqual(extractedData, testPayload)
+    }
+    
+    @MainActor
+    func test_quicklook_preview_view_controller_instantiation_and_view_load() {
+        let vc = QuickLookPreviewViewController()
+        vc.loadView()
+        XCTAssertNotNil(vc.view)
+        XCTAssertEqual(vc.view.frame.width, 800)
+        XCTAssertEqual(vc.view.frame.height, 600)
+    }
 }

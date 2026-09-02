@@ -60,6 +60,11 @@ public enum MediaPreviewFactory {
         "docx", "doc", "rtf", "odt"
     ]
     
+    /// Presentation extensions.
+    public static let presentationExtensions: Set<String> = [
+        "pptx", "ppt", "odp", "key"
+    ]
+    
     /// Markdown extensions.
     public static let markdownExtensions: Set<String> = [
         "md", "markdown", "mdown", "mkd", "mkdn"
@@ -67,7 +72,7 @@ public enum MediaPreviewFactory {
     
     /// Spreadsheet extensions.
     public static let spreadsheetExtensions: Set<String> = [
-        "csv", "tsv", "tab", "psv", "ssv"
+        "xlsx", "xls", "ods", "csv", "tsv", "tab", "psv", "ssv"
     ]
     
     /// Binary extensions.
@@ -100,6 +105,25 @@ public enum MediaPreviewFactory {
         }
         if ext == "pdf" {
             return .pdf(url)
+        }
+        if presentationExtensions.contains(ext) {
+            let xmlService = UniFfiXmlMetaService()
+            if let outline = try? xmlService.extractOfficeOutline(filePath: url.path) {
+                return .officePresentation(OfficePresentationModel(fileName: url.lastPathComponent, outline: outline, fileURL: url))
+            }
+        }
+        if ext == "xlsx" || ext == "ods" {
+            let officeService = UniFfiOfficeService()
+            if let sheetNames = try? officeService.extractSheetNamesFromFile(filePath: url.path),
+               let firstSheetName = sheetNames.first,
+               let sheetData = try? officeService.extractSheetDataFromFile(filePath: url.path, sheetNameOrIndex: firstSheetName, maxRows: 10000) {
+                return .officeSpreadsheet(OfficeSpreadsheetWorkbook(
+                    fileName: url.lastPathComponent,
+                    sheetNames: sheetNames,
+                    activeSheet: sheetData,
+                    fileURL: url
+                ))
+            }
         }
         if ebookExtensions.contains(ext) {
             let fileSize = (try? url.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0
@@ -145,6 +169,13 @@ public enum MediaPreviewFactory {
         
         if archiveExtensions.contains(ext) {
             return .unsupported("Archive loaded. Double-click to browse contents.")
+        }
+        
+        // Handle in-archive VFS streaming URLs
+        if url.scheme == TTZipVfsSchemeHandler.scheme {
+            if let (resData, _) = try? await TTZipArchiveVfsProvider.shared.loadResource(uri: url.absoluteString) {
+                return detectTypeFromMemory(data: resData, suggestedName: url.lastPathComponent, sourceURL: url)
+            }
         }
         
         if ext == "epub" {
@@ -195,7 +226,32 @@ public enum MediaPreviewFactory {
             return .pdf(url)
         }
         
+        if presentationExtensions.contains(ext) {
+            let xmlService = UniFfiXmlMetaService()
+            if let outline = try? xmlService.extractOfficeOutline(filePath: url.path) {
+                return .officePresentation(OfficePresentationModel(fileName: url.lastPathComponent, outline: outline, fileURL: url))
+            }
+        }
+        
+        if ext == "xlsx" || ext == "ods" {
+            let officeService = UniFfiOfficeService()
+            if let sheetNames = try? officeService.extractSheetNamesFromFile(filePath: url.path),
+               let firstSheetName = sheetNames.first,
+               let sheetData = try? officeService.extractSheetDataFromFile(filePath: url.path, sheetNameOrIndex: firstSheetName, maxRows: 10000) {
+                return .officeSpreadsheet(OfficeSpreadsheetWorkbook(
+                    fileName: url.lastPathComponent,
+                    sheetNames: sheetNames,
+                    activeSheet: sheetData,
+                    fileURL: url
+                ))
+            }
+        }
+        
         if docxExtensions.contains(ext) {
+            let officeService = UniFfiOfficeService()
+            if let md = try? officeService.convertDocxToMarkdownFromFile(filePath: url.path), !md.isEmpty {
+                return .markdown(md, url)
+            }
             if let attrStr = try? NSAttributedString(url: url, options: [:], documentAttributes: nil) {
                 return .docxDocument(attrStr, url)
             }
@@ -260,6 +316,7 @@ public enum MediaPreviewFactory {
         if ["srt", "ass", "vtt", "sub", "lrc"].contains(ext) { return "captions.bubble.fill" }
         if markdownExtensions.contains(ext) { return "doc.text.fill" }
         if spreadsheetExtensions.contains(ext) { return "tablecells.fill" }
+        if presentationExtensions.contains(ext) { return "rectangle.inset.filled.and.person.filled" }
         if binaryExtensions.contains(ext) { return "memorychip.fill" }
         if textExtensions.contains(ext) {
             if ["txt", "log", "ini", "conf", "cfg", "properties", "env", "plist"].contains(ext) {
@@ -271,34 +328,68 @@ public enum MediaPreviewFactory {
     }
 
     /// Detects MediaPreviewType directly from in-memory Data (Zero Disk I/O).
-    nonisolated public static func detectTypeFromMemory(data: Data, suggestedName: String) -> MediaPreviewType {
+    nonisolated public static func detectTypeFromMemory(data: Data, suggestedName: String, sourceURL: URL? = nil) -> MediaPreviewType {
         let sniff = NativeMicrokernelBridge.sniffMagic(data: data)
         if sniff.kind == TTZIP_KIND_IMAGE, let image = DownsampledImageLoader.loadDownsampledImage(from: data) {
             return .image(image)
         }
         
         let ext = (suggestedName as NSString).pathExtension.lowercased()
+        
+        if ext == "pdf" {
+            return .pdfData(data, sourceURL)
+        }
+        
+        if presentationExtensions.contains(ext) {
+            let xmlService = UniFfiXmlMetaService()
+            if let outline = try? xmlService.extractOfficeOutlineFromBytes(bytes: data) {
+                return .officePresentation(OfficePresentationModel(fileName: suggestedName, outline: outline, fileURL: sourceURL))
+            }
+        }
+        
+        if ext == "xlsx" || ext == "ods" {
+            let officeService = UniFfiOfficeService()
+            if let sheetNames = try? officeService.extractSheetNames(data: data, fileName: suggestedName),
+               let firstSheetName = sheetNames.first,
+               let sheetData = try? officeService.extractSheetData(data: data, sheetNameOrIndex: firstSheetName, maxRows: 10000, fileName: suggestedName) {
+                return .officeSpreadsheet(OfficeSpreadsheetWorkbook(
+                    fileName: suggestedName,
+                    sheetNames: sheetNames,
+                    activeSheet: sheetData,
+                    fileURL: sourceURL,
+                    rawData: data
+                ))
+            }
+        }
+        
+        if docxExtensions.contains(ext) {
+            let officeService = UniFfiOfficeService()
+            if let md = try? officeService.convertDocxToMarkdown(data: data, fileName: suggestedName), !md.isEmpty {
+                return .markdown(md, sourceURL)
+            }
+        }
+        
         if markdownExtensions.contains(ext) {
             if let str = String(data: data.prefix(1024 * 1024), encoding: .utf8) {
-                return .markdown(str, nil)
+                return .markdown(str, sourceURL)
             }
         }
         
         if spreadsheetExtensions.contains(ext) {
             if let str = String(data: data.prefix(1024 * 1024), encoding: .utf8) ?? String(data: data.prefix(1024 * 1024), encoding: .isoLatin1) {
-                return .spreadsheetTable(str, nil)
+                return .spreadsheetTable(str, sourceURL)
             }
         }
         
         if binaryExtensions.contains(ext) {
-            return .hexViewer(data, nil)
+            return .hexViewer(data, sourceURL)
         }
         
         if textExtensions.contains(ext) || ext.isEmpty {
             let sample = data.prefix(4096)
             let nullCount = sample.filter { $0 == 0 }.count
             if !sample.isEmpty && Double(nullCount) / Double(sample.count) > 0.01 {
-                return .hexViewer(data, nil)
+                return .hexViewer(data, sourceURL)
             }
             if let str = String(data: data.prefix(128 * 1024), encoding: .utf8) {
                 return .text(str)
@@ -306,7 +397,7 @@ public enum MediaPreviewFactory {
         }
         
         if !data.isEmpty {
-            return .hexViewer(data, nil)
+            return .hexViewer(data, sourceURL)
         }
         
         return .unsupported("Format: \(sniff.format) (\(sniff.mime))")
