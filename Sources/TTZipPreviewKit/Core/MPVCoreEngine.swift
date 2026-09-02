@@ -151,7 +151,13 @@ private final class MPVHandleHolder: @unchecked Sendable {
             (6, "cache-buffering-state", MPV_FORMAT_INT64),
             (7, "eof-reached", MPV_FORMAT_FLAG),
             (8, "core-idle", MPV_FORMAT_FLAG),
-            (9, "sub-text", MPV_FORMAT_STRING)
+            (9, "sub-text", MPV_FORMAT_STRING),
+            (10, "audio-codec-name", MPV_FORMAT_STRING),
+            (11, "audio-params/samplerate", MPV_FORMAT_DOUBLE),
+            (12, "audio-params/channels", MPV_FORMAT_STRING),
+            (13, "audio-bitrate", MPV_FORMAT_DOUBLE),
+            (14, "video-params/w", MPV_FORMAT_DOUBLE),
+            (15, "video-params/h", MPV_FORMAT_DOUBLE)
         ]
         for (replyId, name, format) in properties {
             mpv_observe_property(newHandle, replyId, name, format)
@@ -187,7 +193,8 @@ public actor MPVCoreEngine {
     private var handle: OpaquePointer? { handleHolder.pointer }
     private var securityScopedURL: URL? = nil
     private var currentOutputMode: MPVOutputMode = .video(renderBackend: "libmpv")
-    private var customWakeupHandler: (@Sendable () -> Void)? = nil
+    private var legacyWakeupHandler: (@Sendable () -> Void)? = nil
+    private var wakeupListeners: [UUID: @Sendable () -> Void] = [:]
 
     /// Native libmpv client handle pointer accessible across concurrency boundaries.
     public nonisolated var rawHandle: OpaquePointer? { handleHolder.pointer }
@@ -207,9 +214,29 @@ public actor MPVCoreEngine {
         handleHolder.terminateAndClear()
     }
 
-    /// Attaches an asynchronous wakeup handler triggered when libmpv queues new events.
+    /// Registers an asynchronous wakeup listener triggered when libmpv queues new events.
+    ///
+    /// - Parameter listener: Asynchronous callback closure invoked upon event arrival.
+    /// - Returns: Unique identifier used to unregister the listener.
+    @discardableResult
+    public func addWakeupListener(_ listener: @escaping @Sendable () -> Void) -> UUID {
+        let id = UUID()
+        wakeupListeners[id] = listener
+        return id
+    }
+
+    /// Unregisters a previously registered wakeup listener by its identifier.
+    ///
+    /// - Parameter id: Unique listener identifier returned from `addWakeupListener`.
+    public func removeWakeupListener(id: UUID) {
+        wakeupListeners.removeValue(forKey: id)
+    }
+
+    /// Attaches a legacy asynchronous wakeup handler triggered when libmpv queues new events.
+    ///
+    /// - Parameter handler: Optional callback closure. Passing nil unsets the legacy handler.
     public func setWakeupHandler(_ handler: (@Sendable () -> Void)?) {
-        self.customWakeupHandler = handler
+        self.legacyWakeupHandler = handler
     }
 
     /// Synchronously ensures the native libmpv instance is allocated and initialized once.
@@ -358,6 +385,8 @@ public actor MPVCoreEngine {
             securityScopedURL = nil
         }
 
+        legacyWakeupHandler = nil
+        wakeupListeners.removeAll()
         handleHolder.terminateAndClear()
         logger.info("libmpv Core Engine terminated successfully")
     }
@@ -380,7 +409,10 @@ public actor MPVCoreEngine {
     }
 
     private func handleWakeupNotification() {
-        customWakeupHandler?()
+        legacyWakeupHandler?()
+        for listener in wakeupListeners.values {
+            listener()
+        }
     }
 
     private func parseMpvEvent(_ event: mpv_event) -> MPVEvent? {

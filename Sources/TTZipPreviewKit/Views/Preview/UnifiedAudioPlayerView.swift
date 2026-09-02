@@ -18,6 +18,8 @@ public struct UnifiedAudioPlayerView: View {
     public let fileName: String
     
     @State private var audioEngine = MPVAudioEngine.shared
+    @State private var albumArtImage: NSImage? = nil
+    @State private var copySuccessToast = false
     @State private var rotationAngle: Double = 0
     @State private var rotationSpeed: Double = 0
     @State private var isHovering = false
@@ -76,7 +78,10 @@ public struct UnifiedAudioPlayerView: View {
                 // 2. Track Title & Format Badge
                 trackHeaderSection
                 
-                // 3. Dynamic 1600-point Sound Wave Visualizer with Microsecond Scrubber
+                // 3. Fail-Fast Diagnostic Card (if playback error occurs)
+                diagnosticErrorCard
+                
+                // 4. Dynamic 1600-point Sound Wave Visualizer with Microsecond Scrubber
                 AudioWaveformVisualizerView(
                     url: url,
                     isPlaying: audioEngine.isPlaying,
@@ -89,10 +94,10 @@ public struct UnifiedAudioPlayerView: View {
                 )
                 .padding(.horizontal, 16)
                 
-                // 4. Playback Controls Bar
+                // 5. Playback Controls Bar
                 playbackControlsSection
                 
-                // 5. Audio Specs DAW Inspection Grid
+                // 6. Audio Specs DAW Inspection Grid
                 audioSpecsSection
             }
             .padding(.vertical, 14)
@@ -214,44 +219,151 @@ public struct UnifiedAudioPlayerView: View {
                     )
                     .frame(width: 148, height: 148)
                 
-                // 3. Center Vinyl Label (48x48)
+                // 3. Center Vinyl Label (48x48) with Gold Spindle Ring and Album Artwork
                 ZStack {
-                    Circle()
-                        .fill(
-                            LinearGradient(
-                                colors: [
-                                    TTZipTheme.bambooGreen,
-                                    TTZipTheme.kintsugiGold
-                                ],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
+                    if let albumArtImage {
+                        Image(nsImage: albumArtImage)
+                            .resizable()
+                            .scaledToFill()
+                            .frame(width: 48, height: 48)
+                            .clipShape(Circle())
+                            .overlay(
+                                Circle()
+                                    .strokeBorder(TTZipTheme.kintsugiGold, lineWidth: 1.2)
                             )
-                        )
-                        .frame(width: 48, height: 48)
-                        .overlay(
-                            Circle()
-                                .strokeBorder(Color.white.opacity(0.25), lineWidth: 1.0)
-                        )
-                        .shadow(color: TTZipTheme.bambooGreen.opacity(0.4), radius: 6)
+                            .shadow(color: Color.black.opacity(0.4), radius: 4)
+                    } else {
+                        Circle()
+                            .fill(
+                                LinearGradient(
+                                    colors: [
+                                        TTZipTheme.bambooGreen,
+                                        TTZipTheme.kintsugiGold
+                                    ],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                )
+                            )
+                            .frame(width: 48, height: 48)
+                            .overlay(
+                                Circle()
+                                    .strokeBorder(TTZipTheme.kintsugiGold, lineWidth: 1.2)
+                            )
+                            .shadow(color: TTZipTheme.bambooGreen.opacity(0.4), radius: 6)
+                        
+                        Image(systemName: audioEngine.isPlaying ? "wave.3.forward" : "music.note")
+                            .font(.system(size: 16, weight: .bold))
+                            .foregroundStyle(.white)
+                            .shadow(color: Color.black.opacity(0.3), radius: 2)
+                    }
                     
-                    // Spindle Hole
+                    // Spindle Hole (12x12)
                     Circle()
                         .fill(Color(red: 0.05, green: 0.06, blue: 0.07))
                         .frame(width: 12, height: 12)
                         .overlay(
                             Circle()
-                                .strokeBorder(TTZipTheme.kintsugiGold.opacity(0.6), lineWidth: 1.0)
+                                .strokeBorder(TTZipTheme.kintsugiGold.opacity(0.8), lineWidth: 1.0)
                         )
-                    
-                    Image(systemName: audioEngine.isPlaying ? "wave.3.forward" : "music.note")
-                        .font(.system(size: 16, weight: .bold))
-                        .foregroundStyle(.white)
-                        .shadow(color: Color.black.opacity(0.3), radius: 2)
                 }
             }
             .rotationEffect(.degrees(rotationAngle))
         }
         .padding(.top, 10)
+    }
+    
+    // MARK: - Fail-Fast Diagnostic Card
+    
+    @ViewBuilder
+    private var diagnosticErrorCard: some View {
+        if audioEngine.hasPlaybackError {
+            VStack(alignment: .leading, spacing: 10) {
+                HStack(spacing: 8) {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .font(.system(size: 14, weight: .bold))
+                        .foregroundStyle(TTZipTheme.cinnabarRed)
+                    Text("Playback Failure (libmpv)")
+                        .font(.system(size: 13, weight: .bold, design: .rounded))
+                        .foregroundStyle(TTZipTheme.cinnabarRed)
+                    Spacer()
+                    Text(formatBadge)
+                        .font(.system(size: 9, weight: .heavy, design: .monospaced))
+                        .foregroundStyle(TTZipTheme.cinnabarRed)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(TTZipTheme.cinnabarRed.opacity(0.12))
+                        .clipShape(Capsule())
+                }
+                
+                Text(audioEngine.errorMessage ?? "Native microkernel failed to demux or decode audio stream.")
+                    .font(.system(size: 11.5, weight: .medium, design: .monospaced))
+                    .foregroundStyle(.primary)
+                    .lineLimit(4)
+                    .padding(8)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(Color.black.opacity(0.2))
+                    .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+                
+                HStack(spacing: 10) {
+                    Button {
+                        let diagnostics = """
+                        [TTZip Audio Diagnostics]
+                        File: \(fileName)
+                        Path: \(url.path)
+                        Format: \(formatBadge)
+                        Engine: libmpv native core
+                        Error: \(audioEngine.errorMessage ?? "Unknown decoding error")
+                        """
+                        NSPasteboard.general.clearContents()
+                        NSPasteboard.general.setString(diagnostics, forType: .string)
+                        copySuccessToast = true
+                        Task {
+                            try? await Task.sleep(nanoseconds: 2_000_000_000)
+                            copySuccessToast = false
+                        }
+                    } label: {
+                        HStack(spacing: 4) {
+                            Image(systemName: copySuccessToast ? "checkmark" : "doc.on.doc")
+                            Text(copySuccessToast ? "Copied" : "Copy Diagnostics")
+                        }
+                        .font(.system(size: 11, weight: .semibold))
+                    }
+                    .buttonStyle(.bordered)
+                    .tint(TTZipTheme.kintsugiGold)
+                    
+                    Button {
+                        NSWorkspace.shared.open(url)
+                    } label: {
+                        HStack(spacing: 4) {
+                            Image(systemName: "arrow.up.right.square")
+                            Text("Open with External App")
+                        }
+                        .font(.system(size: 11, weight: .semibold))
+                    }
+                    .buttonStyle(.bordered)
+                    
+                    Button {
+                        audioEngine.load(url: url)
+                    } label: {
+                        HStack(spacing: 4) {
+                            Image(systemName: "arrow.clockwise")
+                            Text("Retry")
+                        }
+                        .font(.system(size: 11, weight: .semibold))
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .tint(TTZipTheme.bambooGreen)
+                }
+            }
+            .padding(12)
+            .background(TTZipTheme.cinnabarRed.opacity(0.08))
+            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .strokeBorder(TTZipTheme.cinnabarRed.opacity(0.35), lineWidth: 1.0)
+            )
+            .padding(.horizontal, 16)
+        }
     }
     
     // MARK: - Track Header Section
@@ -524,6 +636,21 @@ public struct UnifiedAudioPlayerView: View {
             formatter.allowedUnits = [.useAll]
             formatter.countStyle = .file
             self.fileSizeFormatted = formatter.string(fromByteCount: s)
+        }
+        
+        // Asynchronous album cover art extraction with memory bounds
+        let currentURL = self.url
+        Task {
+            if let cover = try? await TTZipAudioPlaybackService.shared.extractCoverArt(url: currentURL),
+               let img = NSImage(data: cover.data) {
+                await MainActor.run {
+                    self.albumArtImage = img
+                }
+            } else {
+                await MainActor.run {
+                    self.albumArtImage = nil
+                }
+            }
         }
     }
     

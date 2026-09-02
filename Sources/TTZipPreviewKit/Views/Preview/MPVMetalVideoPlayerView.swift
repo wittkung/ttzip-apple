@@ -21,6 +21,7 @@ public struct MPVMetalVideoPlayerView: View {
     @State private var isHovering: Bool = false
     @State private var isDropTargeted: Bool = false
     @State private var isPlaylistOpen: Bool = false
+    @State private var copySuccessToast: Bool = false
     @State private var hideTimer: Timer? = nil
     @ObservedObject private var l10n = AppLocalizationState.shared
     
@@ -57,6 +58,88 @@ public struct MPVMetalVideoPlayerView: View {
                 }
             )
             .frame(maxWidth: .infinity, maxHeight: .infinity)
+            
+            // Fail-Fast Video Diagnostic Overlay
+            if store.hasPlaybackError {
+                VStack(spacing: 16) {
+                    HStack(spacing: 8) {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                            .font(.system(size: 20, weight: .bold))
+                            .foregroundStyle(TTZipTheme.cinnabarRed)
+                        Text(isChinese ? "视频播放失败 (libmpv)" : "Video Playback Error (libmpv)")
+                            .font(.system(size: 15, weight: .bold, design: .rounded))
+                            .foregroundStyle(TTZipTheme.cinnabarRed)
+                    }
+                    
+                    Text(store.errorMessage ?? (isChinese ? "微内核解复用或硬解解码失败" : "Failed to decode video stream in libmpv microkernel"))
+                        .font(.system(size: 12, weight: .medium, design: .monospaced))
+                        .foregroundStyle(.white.opacity(0.9))
+                        .multilineTextAlignment(.center)
+                        .padding(10)
+                        .background(Color.black.opacity(0.5))
+                        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                        .frame(maxWidth: 420)
+                    
+                    HStack(spacing: 12) {
+                        Button {
+                            let diag = """
+                            [TTZip Video Diagnostics]
+                            URL: \(url.path)
+                            Store URL: \(store.currentURL?.path ?? "none")
+                            Error: \(store.errorMessage ?? "Unknown video error")
+                            """
+                            NSPasteboard.general.clearContents()
+                            NSPasteboard.general.setString(diag, forType: .string)
+                            copySuccessToast = true
+                            Task {
+                                try? await Task.sleep(nanoseconds: 2_000_000_000)
+                                copySuccessToast = false
+                            }
+                        } label: {
+                            HStack(spacing: 4) {
+                                Image(systemName: copySuccessToast ? "checkmark" : "doc.on.doc")
+                                Text(copySuccessToast ? (isChinese ? "已复制" : "Copied") : (isChinese ? "复制诊断日志" : "Copy Diagnostics"))
+                            }
+                            .font(.system(size: 12, weight: .semibold))
+                        }
+                        .buttonStyle(.bordered)
+                        .tint(TTZipTheme.kintsugiGold)
+                        
+                        Button {
+                            NSWorkspace.shared.open(store.currentURL ?? url)
+                        } label: {
+                            HStack(spacing: 4) {
+                                Image(systemName: "arrow.up.right.square")
+                                Text(isChinese ? "用外部应用打开" : "Open in External App")
+                            }
+                            .font(.system(size: 12, weight: .semibold))
+                        }
+                        .buttonStyle(.bordered)
+                        
+                        Button {
+                            store.load(url: url)
+                        } label: {
+                            HStack(spacing: 4) {
+                                Image(systemName: "arrow.clockwise")
+                                Text(isChinese ? "重试" : "Retry")
+                            }
+                            .font(.system(size: 12, weight: .semibold))
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .tint(TTZipTheme.bambooGreen)
+                    }
+                }
+                .padding(24)
+                .background(.ultraThinMaterial.opacity(0.95))
+                .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                        .strokeBorder(TTZipTheme.cinnabarRed.opacity(0.4), lineWidth: 1.2)
+                )
+                .shadow(color: Color.black.opacity(0.6), radius: 20)
+                .padding(20)
+                .transition(.opacity.animation(.easeInOut(duration: 0.2)))
+            }
             
             // Subtitle Drag-and-Drop Highlight Overlay
             if isDropTargeted {

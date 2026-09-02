@@ -88,7 +88,6 @@ public enum MediaPreviewType {
     case image(NSImage)
     case video(URL)
     case audio(URL)
-    case unsupportedAudio(URL, String)
     case pdf(URL)
     case pdfData(Data, URL?)
     case text(String)

@@ -24,7 +24,6 @@ public final class MPVMetalContainerView: MPVMetalNSView {
         }
     }
     
-    private let metalLayer = MPVMetalRenderLayer()
     private let displayLink = MPVMetalDisplayLink()
     private final class ObserverTokenHolder: @unchecked Sendable {
         var tokens: [NSObjectProtocol] = []
@@ -40,7 +39,10 @@ public final class MPVMetalContainerView: MPVMetalNSView {
     private let observerHolder = ObserverTokenHolder()
     
     public override func makeBackingLayer() -> CALayer {
-        return metalLayer
+        let glLayer = MPVOpenGLLayer()
+        let scale = window?.backingScaleFactor ?? NSScreen.main?.backingScaleFactor ?? 2.0
+        glLayer.contentsScale = scale
+        return glLayer
     }
     
     public override init(frame frameRect: NSRect) {
@@ -60,16 +62,20 @@ public final class MPVMetalContainerView: MPVMetalNSView {
     
     private func setupContainer() {
         self.wantsLayer = true
-        self.layer = metalLayer
         self.layerContentsRedrawPolicy = .duringViewResize
         self.layer?.backgroundColor = NSColor.black.cgColor
+        self.layer?.wantsExtendedDynamicRangeContent = true
         self.layer?.masksToBounds = true
+        let scale = window?.backingScaleFactor ?? NSScreen.main?.backingScaleFactor ?? 2.0
+        self.layer?.contentsScale = scale
         
         registerForDraggedTypes([.fileURL])
         
-        let layer = self.metalLayer
-        displayLink.setFrameCallback { [weak layer] _, _ in
-            layer?.requestRender()
+        displayLink.setFrameCallback { [weak self] _, _ in
+            Task { @MainActor [weak self] in
+                guard let self = self, let glLayer = self.layer as? MPVOpenGLLayer else { return }
+                glLayer.forceRedraw()
+            }
         }
     }
     
@@ -89,7 +95,7 @@ public final class MPVMetalContainerView: MPVMetalNSView {
             bindStore()
         } else {
             displayLink.suspend()
-            metalLayer.unbind()
+            (layer as? MPVOpenGLLayer)?.unbind()
         }
     }
     
@@ -105,13 +111,19 @@ public final class MPVMetalContainerView: MPVMetalNSView {
     
     private func updateScaleAndBounds() {
         let scale = window?.backingScaleFactor ?? NSScreen.main?.backingScaleFactor ?? 2.0
-        metalLayer.updateDrawableSize(boundsSize: bounds.size, scaleFactor: scale)
+        if let glLayer = layer as? MPVOpenGLLayer {
+            glLayer.contentsScale = scale
+            glLayer.forceRedraw()
+        }
     }
     
     private func bindStore() {
-        guard let window = self.window, let store = store ?? MPVMetalPlayerStore.shared as MPVMetalPlayerStore? else { return }
-        metalLayer.updateDrawableSize(boundsSize: bounds.size, scaleFactor: window.backingScaleFactor)
-        metalLayer.bind(store: store)
+        guard let targetStore = store ?? MPVMetalPlayerStore.shared as MPVMetalPlayerStore? else { return }
+        if let glLayer = layer as? MPVOpenGLLayer {
+            let scale = window?.backingScaleFactor ?? NSScreen.main?.backingScaleFactor ?? 2.0
+            glLayer.contentsScale = scale
+            glLayer.bind(store: targetStore)
+        }
     }
     
     // MARK: - Occlusion & Power Management

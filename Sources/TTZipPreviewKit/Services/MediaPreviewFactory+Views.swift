@@ -39,7 +39,7 @@ extension MediaPreviewFactory {
                 UnifiedVideoPlayerView(url: url)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                 
-            case .audio(let url), .unsupportedAudio(let url, _):
+            case .audio(let url):
                 UnifiedAudioPlayerView(url: url, fileName: fileName)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                 

@@ -430,7 +430,7 @@ final class MediaPreviewAuditTests: XCTestCase {
     
     @MainActor
     func testHexViewerAndBinaryExtensionsClassification() async throws {
-        let binaryExts = ["bin", "dat", "so", "dylib", "wasm", "class", "o"]
+        let binaryExts = ["bin", "hex", "so", "dylib", "wasm", "class", "o"]
         for ext in binaryExts {
             let mockURL = tempDirURL.appendingPathComponent("payload.\(ext)")
             let dummyBytes: [UInt8] = [0x7F, 0x45, 0x4C, 0x46, 0x02, 0x01, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]
@@ -599,5 +599,179 @@ final class MediaPreviewAuditTests: XCTestCase {
             XCTAssertEqual(parsed[1], ["1", "alice", "95"])
             XCTAssertEqual(parsed[2], ["2", "bob", "88"])
         }
+    }
+    
+    // MARK: - Test 13: All 69 Media Formats Matrix Classification & Zero Hex Fallthrough
+    
+    @MainActor
+    func testAll69MediaFormatsClassificationAndZeroHexFallthrough() async throws {
+        let expectedVideoExts = [
+            "mp4", "mov", "m4v", "qt", "mkv", "avi", "webm", "ogv", "flv", "3gp",
+            "3g2", "ts", "mts", "m2ts", "m2t", "wmv", "vob", "rmvb", "rm", "divx",
+            "asf", "f4v", "y4m", "mpg", "mpeg", "mpe", "mpv", "m2v", "vro", "dat",
+            "nut", "dv"
+        ]
+        XCTAssertGreaterThanOrEqual(MediaPreviewFactory.videoExtensions.count, 32)
+        
+        for ext in expectedVideoExts {
+            XCTAssertTrue(MediaPreviewFactory.videoExtensions.contains(ext), "Missing video format: \(ext)")
+            let mockURL = tempDirURL.appendingPathComponent("sample_\(ext).\(ext)")
+            let mockData = Data("mock video payload for \(ext)".utf8)
+            try mockData.write(to: mockURL)
+            
+            // Sync & Async detection
+            if case .video(let u) = MediaPreviewFactory.detectType(url: mockURL) {
+                XCTAssertEqual(u, mockURL)
+            } else {
+                XCTFail("Extension .\(ext) sync failed to detect as .video")
+            }
+            if case .video(let u) = await MediaPreviewFactory.detectTypeAsync(url: mockURL) {
+                XCTAssertEqual(u, mockURL)
+            } else {
+                XCTFail("Extension .\(ext) async failed to detect as .video")
+            }
+            
+            // In-Memory detection (Must not fall through to .hexViewer)
+            let memType = MediaPreviewFactory.detectTypeFromMemory(data: mockData, suggestedName: "entry.\(ext)")
+            if case .video(let stagedURL) = memType {
+                XCTAssertTrue(FileManager.default.fileExists(atPath: stagedURL.path))
+                XCTAssertEqual(stagedURL.pathExtension.lowercased(), ext)
+            } else {
+                XCTFail("Extension .\(ext) in-memory fell through to \(memType) instead of .video")
+            }
+            XCTAssertEqual(MediaPreviewFactory.iconName(for: "sample.\(ext)"), "film.fill")
+        }
+        
+        let expectedAudioExts = [
+            "mp3", "wav", "m4a", "aac", "flac", "aifc", "aiff", "aif", "m4b", "m4r",
+            "alac", "caf", "ogg", "oga", "opus", "wma", "ape", "dts", "ac3", "eac3",
+            "amr", "mid", "midi", "mka", "dsd", "dsf", "dff", "wv", "tta", "mpc",
+            "tak", "spx", "au", "snd", "voc", "ra", "gsm"
+        ]
+        XCTAssertGreaterThanOrEqual(MediaPreviewFactory.audioExtensions.count, 37)
+        
+        for ext in expectedAudioExts {
+            XCTAssertTrue(MediaPreviewFactory.audioExtensions.contains(ext), "Missing audio format: \(ext)")
+            let mockURL = tempDirURL.appendingPathComponent("sample_\(ext).\(ext)")
+            let mockData = Data("mock audio payload for \(ext)".utf8)
+            try mockData.write(to: mockURL)
+            
+            if case .audio(let u) = MediaPreviewFactory.detectType(url: mockURL) {
+                XCTAssertEqual(u, mockURL)
+            } else {
+                XCTFail("Extension .\(ext) sync failed to detect as .audio")
+            }
+            if case .audio(let u) = await MediaPreviewFactory.detectTypeAsync(url: mockURL) {
+                XCTAssertEqual(u, mockURL)
+            } else {
+                XCTFail("Extension .\(ext) async failed to detect as .audio")
+            }
+            
+            let memType = MediaPreviewFactory.detectTypeFromMemory(data: mockData, suggestedName: "entry.\(ext)")
+            if case .audio(let stagedURL) = memType {
+                XCTAssertTrue(FileManager.default.fileExists(atPath: stagedURL.path))
+                XCTAssertEqual(stagedURL.pathExtension.lowercased(), ext)
+            } else {
+                XCTFail("Extension .\(ext) in-memory fell through to \(memType) instead of .audio")
+            }
+            XCTAssertEqual(MediaPreviewFactory.iconName(for: "sample.\(ext)"), "music.note")
+        }
+    }
+    
+    // MARK: - Test 14: ArchiveMediaCachePool Staging & LRU Eviction
+    
+    func testArchiveMediaCachePoolStagingAndLRUEviction() throws {
+        let poolDir = tempDirURL.appendingPathComponent("CustomPool_\(UUID().uuidString)")
+        let pool = ArchiveMediaCachePool(maxQuotaBytes: 1000, maxItemCount: 3, customRootDirectory: poolDir)
+        
+        let dataA = Data(repeating: 0x41, count: 300)
+        let dataB = Data(repeating: 0x42, count: 300)
+        let dataC = Data(repeating: 0x43, count: 300)
+        let dataD = Data(repeating: 0x44, count: 300)
+        
+        let urlA = try pool.stageData(dataA, fileName: "trackA.flac")
+        XCTAssertTrue(FileManager.default.fileExists(atPath: urlA.path))
+        XCTAssertEqual(pool.cachedItemCount, 1)
+        
+        let filePerms = (try FileManager.default.attributesOfItem(atPath: urlA.path)[.posixPermissions] as? NSNumber)?.intValue
+        XCTAssertEqual(filePerms, 0o600)
+        let dirPerms = (try FileManager.default.attributesOfItem(atPath: urlA.deletingLastPathComponent().path)[.posixPermissions] as? NSNumber)?.intValue
+        XCTAssertEqual(dirPerms, 0o700)
+        
+        _ = try pool.stageData(dataB, fileName: "trackB.flac")
+        _ = try pool.stageData(dataC, fileName: "trackC.flac")
+        XCTAssertEqual(pool.cachedItemCount, 3)
+        XCTAssertEqual(pool.totalCacheSizeBytes, 900)
+        
+        _ = try pool.stageData(dataB, fileName: "trackB.flac")
+        let urlD = try pool.stageData(dataD, fileName: "trackD.flac")
+        XCTAssertTrue(FileManager.default.fileExists(atPath: urlD.path))
+        XCTAssertLessThanOrEqual(pool.cachedItemCount, 3)
+        XCTAssertLessThanOrEqual(pool.totalCacheSizeBytes, 1000)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: urlA.path), "Oldest item A should be evicted")
+    }
+    
+    // MARK: - Test 15: ArchiveMediaCachePool Concurrency & Deduplication
+    
+    func testArchiveMediaCachePoolConcurrencyAndDeduplication() throws {
+        final class SafeCollector: @unchecked Sendable {
+            private var items = [URL]()
+            private let lock = NSLock()
+            func append(_ url: URL) {
+                lock.lock()
+                items.append(url)
+                lock.unlock()
+            }
+            var count: Int {
+                lock.lock()
+                defer { lock.unlock() }
+                return items.count
+            }
+        }
+        
+        let poolDir = tempDirURL.appendingPathComponent("PoolDedup_\(UUID().uuidString)")
+        let pool = ArchiveMediaCachePool(maxQuotaBytes: 10 * 1024 * 1024, maxItemCount: 20, customRootDirectory: poolDir)
+        let testData = Data("concurrent test media stream".utf8)
+        let group = DispatchGroup()
+        let collector = SafeCollector()
+        
+        for i in 0..<20 {
+            group.enter()
+            DispatchQueue.global(qos: .userInitiated).async {
+                if let url = try? pool.stageData(testData, fileName: "movie_\(i % 3).mp4") {
+                    collector.append(url)
+                }
+                group.leave()
+            }
+        }
+        
+        group.wait()
+        XCTAssertEqual(collector.count, 20)
+        XCTAssertLessThanOrEqual(pool.cachedItemCount, 3)
+    }
+    
+    // MARK: - Test 16: ArchiveMediaCachePool Key, Sanitization & Purge
+    
+    func testArchiveMediaCachePoolKeySanitizationAndPurge() throws {
+        let poolDir = tempDirURL.appendingPathComponent("PoolPurge_\(UUID().uuidString)")
+        let pool = ArchiveMediaCachePool(customRootDirectory: poolDir)
+        
+        let key1 = ArchiveMediaCachePool.computeCacheKey(archivePath: "/a.zip", entryPath: "a.mp3", uncompressedSize: 100, crc32: 1)
+        let key2 = ArchiveMediaCachePool.computeCacheKey(archivePath: "/a.zip", entryPath: "a.mp3", uncompressedSize: 100, crc32: 1)
+        let key3 = ArchiveMediaCachePool.computeCacheKey(archivePath: "/a.zip", entryPath: "b.mp3", uncompressedSize: 100, crc32: 1)
+        XCTAssertEqual(key1, key2)
+        XCTAssertNotEqual(key1, key3)
+        XCTAssertEqual(key1.count, 64)
+        
+        XCTAssertEqual(ArchiveMediaCachePool.sanitizeFileName("folder/sub/cool:song?*.flac"), "cool_song__.flac")
+        XCTAssertEqual(ArchiveMediaCachePool.sanitizeFileName("../../../escape.mp4"), "escape.mp4")
+        
+        let staged = try pool.stageData(Data([1, 2, 3]), fileName: "test.wav")
+        XCTAssertTrue(FileManager.default.fileExists(atPath: staged.path))
+        XCTAssertEqual(pool.cachedItemCount, 1)
+        
+        pool.purgeAll()
+        XCTAssertEqual(pool.cachedItemCount, 0)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: staged.path))
     }
 }

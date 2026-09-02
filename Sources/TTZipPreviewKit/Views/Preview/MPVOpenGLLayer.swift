@@ -29,6 +29,8 @@ public final class MPVOpenGLLayer: CAOpenGLLayer {
     public weak var playerStore: MPVMetalPlayerStore?
     
     private let renderQueue = DispatchQueue(label: "com.metastudyline.ttzip.mpv.renderQueue", qos: .userInteractive)
+    private let stateLock = NSLock()
+    private var _needsForceRedraw: Bool = false
     private var isBound: Bool = false
     private var proxy: MPVLayerProxy?
     
@@ -49,10 +51,18 @@ public final class MPVOpenGLLayer: CAOpenGLLayer {
     
     private func configureLayerProperties() {
         self.proxy = MPVLayerProxy(layer: self)
-        self.isAsynchronous = false
+        self.isAsynchronous = true
         self.needsDisplayOnBoundsChange = true
         self.autoresizingMask = [.layerWidthSizable, .layerHeightSizable]
         self.contentsGravity = .resizeAspect
+    }
+    
+    /// Forces an immediate redraw on the next render cycle, useful for viewport resizing and scrubbing while paused.
+    public func forceRedraw() {
+        stateLock.lock()
+        _needsForceRedraw = true
+        stateLock.unlock()
+        requestRender()
     }
     
     /// Binds this layer to the player store and registers its update listener.
@@ -67,6 +77,7 @@ public final class MPVOpenGLLayer: CAOpenGLLayer {
         store.renderContextManager.setUpdateHandler { [weak localProxy] in
             localProxy?.trigger()
         }
+        forceRedraw()
     }
     
     /// Unbinds this layer and detaches update callbacks.
@@ -82,7 +93,6 @@ public final class MPVOpenGLLayer: CAOpenGLLayer {
         renderQueue.async { [weak localProxy] in
             guard let layer = localProxy?.layer, layer.isBound else { return }
             layer.setNeedsDisplay()
-            layer.display()
         }
     }
     
@@ -137,12 +147,27 @@ public final class MPVOpenGLLayer: CAOpenGLLayer {
         guard let store = playerStore, let mpvHandle = store.mpv else { return false }
         guard let manager = renderContextManager else { return false }
         
-        if manager.rawContext == nil {
+        if manager.rawContext == nil || manager.activeContext != glContext {
             manager.createRenderContext(mpvHandle: mpvHandle, cglContext: glContext)
         }
         
+        let previousContext = CGLGetCurrentContext()
+        if previousContext != glContext {
+            CGLSetCurrentContext(glContext)
+        }
+        defer {
+            if previousContext != glContext {
+                CGLSetCurrentContext(previousContext)
+            }
+        }
+        
         let flags = manager.update()
-        return (flags & UInt64(MPV_RENDER_UPDATE_FRAME.rawValue)) != 0
+        stateLock.lock()
+        let force = _needsForceRedraw
+        stateLock.unlock()
+        
+        let hasFrame = (flags & UInt64(MPV_RENDER_UPDATE_FRAME.rawValue)) != 0
+        return hasFrame || force
     }
     
     public override func draw(
@@ -151,19 +176,24 @@ public final class MPVOpenGLLayer: CAOpenGLLayer {
         forLayerTime time: CFTimeInterval,
         displayTime: UnsafePointer<CVTimeStamp>?
     ) {
+        stateLock.lock()
+        _needsForceRedraw = false
+        stateLock.unlock()
+        
         guard let manager = renderContextManager else { return }
+        
+        CGLSetCurrentContext(glContext)
         
         var currentFBO: GLint = 0
         glGetIntegerv(GLenum(GL_DRAW_FRAMEBUFFER_BINDING), &currentFBO)
         
-        var dims: [GLint] = [0, 0, 0, 0]
-        glGetIntegerv(GLenum(GL_VIEWPORT), &dims)
-        
-        let width = dims[2] > 0 ? dims[2] : Int32(bounds.width * contentsScale)
-        let height = dims[3] > 0 ? dims[3] : Int32(bounds.height * contentsScale)
+        let scale = self.contentsScale > 0 ? self.contentsScale : (NSScreen.main?.backingScaleFactor ?? 2.0)
+        let width = Int32(max(1.0, ceil(bounds.width * scale)))
+        let height = Int32(max(1.0, ceil(bounds.height * scale)))
         
         manager.render(fbo: currentFBO, width: width, height: height)
         manager.reportSwap()
+        CGLFlushDrawable(glContext)
         glFlush()
     }
 }

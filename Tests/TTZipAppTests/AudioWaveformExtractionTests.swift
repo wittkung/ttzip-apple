@@ -176,13 +176,11 @@ final class AudioWaveformExtractionTests: XCTestCase {
                 XCTFail("Format .\(ext) failed to route to .audio, got \(detected)")
             }
             
-            // 2. Verify UnifiedAudioPlayerView instantiation
+            // 2. Verify UnifiedAudioPlayerView direct microkernel instantiation
             let playerView = UnifiedAudioPlayerView(url: fileURL, fileName: "test_track.\(ext)")
             XCTAssertEqual(playerView.formatBadge, ext.uppercased())
-            
-            // 3. Verify AudioPlaybackFallbackView embeds UnifiedAudioPlayerView
-            let fallbackView = AudioPlaybackFallbackView(url: fileURL, fileName: "test_track.\(ext)")
-            XCTAssertEqual(fallbackView.fileName, "test_track.\(ext)")
+            XCTAssertEqual(playerView.fileName, "test_track.\(ext)")
+            XCTAssertEqual(playerView.url, fileURL)
         }
     }
 }

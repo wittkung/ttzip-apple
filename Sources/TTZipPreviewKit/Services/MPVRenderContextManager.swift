@@ -35,6 +35,7 @@ public final class MPVRenderContextManager: @unchecked Sendable {
     
     private var renderContext: OpaquePointer?
     private var fallbackContext: CGLContextObj?
+    private var activeCGLContext: CGLContextObj?
     private var updateHandler: (@Sendable () -> Void)?
     
     /// Returns the active native `mpv_render_context` handle.
@@ -42,6 +43,13 @@ public final class MPVRenderContextManager: @unchecked Sendable {
         lock.lock()
         defer { lock.unlock() }
         return renderContext
+    }
+    
+    /// Returns the currently active `CGLContextObj` bound to the render context.
+    public var activeContext: CGLContextObj? {
+        lock.lock()
+        defer { lock.unlock() }
+        return activeCGLContext
     }
     
     public init() {}
@@ -63,7 +71,13 @@ public final class MPVRenderContextManager: @unchecked Sendable {
         lock.lock()
         defer { lock.unlock() }
         
-        if renderContext != nil { return true }
+        if renderContext != nil {
+            if let target = cglContext, target != activeCGLContext {
+                detachAndFreeInternal()
+            } else {
+                return true
+            }
+        }
         
         let previousContext = CGLGetCurrentContext()
         var targetContext = cglContext ?? previousContext
@@ -123,6 +137,7 @@ public final class MPVRenderContextManager: @unchecked Sendable {
         }
         
         self.renderContext = validCtx
+        self.activeCGLContext = activeContext
         
         let selfPtr = Unmanaged.passUnretained(self).toOpaque()
         mpv_render_context_set_update_callback(validCtx, mpvRenderUpdateCallback, selfPtr)
@@ -138,8 +153,19 @@ public final class MPVRenderContextManager: @unchecked Sendable {
             lock.unlock()
             return 0
         }
+        let targetCGL = self.activeCGLContext
         lock.unlock()
-        guard CGLGetCurrentContext() != nil else { return 0 }
+        
+        let previousContext = CGLGetCurrentContext()
+        if previousContext == nil, let target = targetCGL {
+            CGLSetCurrentContext(target)
+        }
+        defer {
+            if previousContext == nil && targetCGL != nil {
+                CGLSetCurrentContext(nil)
+            }
+        }
+        
         return mpv_render_context_update(ctx)
     }
     
@@ -150,10 +176,20 @@ public final class MPVRenderContextManager: @unchecked Sendable {
             lock.unlock()
             return
         }
+        let targetCGL = self.activeCGLContext
         lock.unlock()
         
         guard width > 0, height > 0 else { return }
-        guard CGLGetCurrentContext() != nil else { return }
+        
+        let previousContext = CGLGetCurrentContext()
+        if previousContext == nil, let target = targetCGL {
+            CGLSetCurrentContext(target)
+        }
+        defer {
+            if previousContext == nil && targetCGL != nil {
+                CGLSetCurrentContext(nil)
+            }
+        }
         
         var glFbo = mpv_opengl_fbo(
             fbo: Int32(fbo),
@@ -181,27 +217,43 @@ public final class MPVRenderContextManager: @unchecked Sendable {
             lock.unlock()
             return
         }
+        let targetCGL = self.activeCGLContext
         lock.unlock()
-        guard CGLGetCurrentContext() != nil else { return }
+        
+        let previousContext = CGLGetCurrentContext()
+        if previousContext == nil, let target = targetCGL {
+            CGLSetCurrentContext(target)
+        }
+        defer {
+            if previousContext == nil && targetCGL != nil {
+                CGLSetCurrentContext(nil)
+            }
+        }
+        
         mpv_render_context_report_swap(ctx)
     }
     
     /// Safely detaches update callbacks and destroys the native `mpv_render_context`.
     public func detachAndFree() {
         lock.lock()
+        defer { lock.unlock() }
+        detachAndFreeInternal()
+    }
+    
+    private func detachAndFreeInternal() {
         guard let ctx = renderContext else {
             if let fallback = fallbackContext {
                 CGLDestroyContext(fallback)
                 fallbackContext = nil
             }
-            lock.unlock()
+            activeCGLContext = nil
             return
         }
         renderContext = nil
         let fallback = fallbackContext
         fallbackContext = nil
+        activeCGLContext = nil
         updateHandler = nil
-        lock.unlock()
         
         let previousContext = CGLGetCurrentContext()
         if let fallback = fallback {

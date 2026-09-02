@@ -47,13 +47,14 @@ public final class MPVAudioEngine {
     public private(set) var peakAmplitude: Float = 0.0
     public private(set) var metadata: MPVMediaMetadataSnapshot? = nil
 
-    // MARK: - Internal Tasks & Timers
+    // MARK: - Internal Tasks & Streams
 
     private var activeWaveformTask: Task<Void, Never>? = nil
-    private var telemetryPollTask: Task<Void, Never>? = nil
+    private var stateObservationTask: Task<Void, Never>? = nil
+    private var eventObservationTask: Task<Void, Never>? = nil
 
     public init() {
-        setupWakeupBridge()
+        startObservingDispatcher()
     }
 
     // MARK: - Primary Domain Operations
@@ -97,7 +98,6 @@ public final class MPVAudioEngine {
                 if !autoPlay {
                     try await MPVCoreEngine.shared.setProperty(name: "pause", value: true)
                 }
-                self.startTelemetryPolling()
             } catch {
                 self.hasPlaybackError = true
                 self.errorMessage = error.localizedDescription
@@ -112,7 +112,6 @@ public final class MPVAudioEngine {
             do {
                 try await MPVCoreEngine.shared.setProperty(name: "pause", value: false)
                 self.isPlaying = true
-                self.startTelemetryPolling()
             } catch {
                 self.logger.error("Failed to play: \(error.localizedDescription, privacy: .public)")
             }
@@ -199,82 +198,107 @@ public final class MPVAudioEngine {
     public func stop() {
         isPlaying = false
         currentTime = 0.0
-        telemetryPollTask?.cancel()
-        telemetryPollTask = nil
         Task {
             await MPVCoreEngine.shared.stop()
         }
     }
 
-    // MARK: - Telemetry & Event Synchronization
+    // MARK: - Telemetry & Event Synchronization via MPVEventDispatcher
 
-    private func setupWakeupBridge() {
-        Task {
-            await MPVCoreEngine.shared.setWakeupHandler { [weak self] in
-                Task { @MainActor [weak self] in
-                    self?.synchronizeState()
-                }
+    private func startObservingDispatcher() {
+        stateObservationTask?.cancel()
+        stateObservationTask = Task { @MainActor [weak self] in
+            let stream = await MPVEventDispatcher.shared.stateStream
+            for await state in stream {
+                guard let self, !Task.isCancelled else { break }
+                self.applyStateSnapshot(state)
+            }
+        }
+
+        eventObservationTask?.cancel()
+        eventObservationTask = Task { @MainActor [weak self] in
+            let stream = await MPVEventDispatcher.shared.eventStream
+            for await event in stream {
+                guard let self, !Task.isCancelled else { break }
+                self.applyEvent(event)
             }
         }
     }
 
-    private func startTelemetryPolling() {
-        guard telemetryPollTask == nil else { return }
-        telemetryPollTask = Task { [weak self] in
-            while !Task.isCancelled {
-                try? await Task.sleep(nanoseconds: 100_000_000) // 10 Hz refresh
-                guard let self, self.isPlaying else { continue }
-                self.synchronizeState()
-            }
+    private func applyStateSnapshot(_ state: MPVPlaybackStateSnapshot) {
+        self.currentTime = state.currentTime
+        if state.duration > 0.0 {
+            self.duration = state.duration
+        }
+        self.isPlaying = !state.isPaused
+        self.volume = state.volume
+        self.isMuted = state.isMuted
+        self.isBuffering = state.isBuffering
+        if state.isEOF {
+            self.isPlaying = false
+            self.currentTime = self.duration > 0 ? self.duration : self.currentTime
         }
     }
 
-    private func synchronizeState() {
-        Task { [weak self] in
-            guard let self else { return }
-            let events = await MPVCoreEngine.shared.drainEvents()
-            for event in events {
-                switch event {
-                case .fileLoaded, .playbackRestart:
-                    self.isBuffering = false
-                case .pause(let paused):
-                    self.isPlaying = !paused
-                case .seek(let pos):
-                    self.currentTime = pos
-                case .eof:
-                    self.isPlaying = false
-                    self.currentTime = self.duration
-                case .error(let msg):
-                    self.hasPlaybackError = true
-                    self.errorMessage = msg
-                default:
-                    break
-                }
-            }
+    private func applyEvent(_ event: MPVEvent) {
+        switch event {
+        case .fileLoaded, .playbackRestart:
+            self.isBuffering = false
+            self.hasPlaybackError = false
+            self.errorMessage = nil
+        case .pause(let paused):
+            self.isPlaying = !paused
+        case .seek(let pos):
+            self.currentTime = pos
+        case .eof:
+            self.isPlaying = false
+            self.currentTime = self.duration
+        case .error(let msg):
+            self.hasPlaybackError = true
+            self.errorMessage = msg
+        case .propertyChange(let name, let value):
+            applyTelemetryPropertyChange(name: name, value: value)
+        case .logMessage:
+            break
+        }
+    }
 
-            if let time = await MPVCoreEngine.shared.getPropertyDouble(name: "time-pos") {
-                self.currentTime = max(0.0, time)
-            }
-            if let dur = await MPVCoreEngine.shared.getPropertyDouble(name: "duration"), dur > 0.0 {
-                self.duration = dur
-            }
-            if let paused = await MPVCoreEngine.shared.getPropertyBool(name: "pause") {
-                self.isPlaying = !paused
-            }
-
-            // Sync DAW metrics
-            if let rawCodec = await MPVCoreEngine.shared.getPropertyString(name: "audio-codec-name"), !rawCodec.isEmpty {
+    private func applyTelemetryPropertyChange(name: String, value: MPVPropertyValue) {
+        switch name {
+        case "audio-codec-name":
+            if case .string(let rawCodec) = value, !rawCodec.isEmpty {
                 self.codecFormatted = MPVMetalPlayerStore.formatAudioCodecName(rawCodec)
             }
-            if let sr = await MPVCoreEngine.shared.getPropertyDouble(name: "audio-params/samplerate"), sr > 0 {
+        case "audio-params/samplerate":
+            let sr: Double?
+            if case .double(let val) = value, val > 0 {
+                sr = val
+            } else if case .int64(let val) = value, val > 0 {
+                sr = Double(val)
+            } else {
+                sr = nil
+            }
+            if let sr {
                 self.sampleRateFormatted = sr >= 1_000_000 ? String(format: "%.4f MHz", sr / 1_000_000.0) : String(format: "%.1f kHz", sr / 1000.0)
             }
-            if let channels = await MPVCoreEngine.shared.getPropertyString(name: "audio-params/channels"), !channels.isEmpty {
+        case "audio-params/channels":
+            if case .string(let channels) = value, !channels.isEmpty {
                 self.channelsFormatted = channels.capitalized
             }
-            if let br = await MPVCoreEngine.shared.getPropertyDouble(name: "audio-bitrate"), br > 0 {
+        case "audio-bitrate":
+            let br: Double?
+            if case .double(let val) = value, val > 0 {
+                br = val
+            } else if case .int64(let val) = value, val > 0 {
+                br = Double(val)
+            } else {
+                br = nil
+            }
+            if let br {
                 self.bitrateFormatted = String(format: "%.0f kbps", br / 1000.0)
             }
+        default:
+            break
         }
     }
 }
