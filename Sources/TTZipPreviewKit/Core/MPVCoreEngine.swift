@@ -111,13 +111,21 @@ private final class MPVHandleHolder: @unchecked Sendable {
             mpv_set_option_string(newHandle, "vo", "null")
             mpv_set_option_string(newHandle, "vid", "no")
             mpv_set_option_string(newHandle, "hwdec", "no")
-            mpv_set_option_string(newHandle, "ao", isTesting ? "null" : "auto")
+            mpv_set_option_string(newHandle, "ao", isTesting ? "null" : "coreaudio,auto")
         } else {
             mpv_set_option_string(newHandle, "vo", isTesting ? "null" : "libmpv")
             mpv_set_option_string(newHandle, "hwdec", isTesting ? "no" : "videotoolbox-copy")
             mpv_set_option_string(newHandle, "hwdec-codecs", "all")
-            mpv_set_option_string(newHandle, "ao", isTesting ? "null" : "auto")
+            mpv_set_option_string(newHandle, "ao", isTesting ? "null" : "coreaudio,auto")
         }
+
+        mpv_set_option_string(newHandle, "audio-channels", "auto-safe")
+        mpv_set_option_string(newHandle, "audio-exclusive", "no")
+        mpv_set_option_string(newHandle, "audio-pitch-correction", "yes")
+        mpv_set_option_string(newHandle, "volume", "100")
+        mpv_set_option_string(newHandle, "volume-max", "150")
+        mpv_set_option_string(newHandle, "mute", "no")
+        mpv_set_option_string(newHandle, "aid", "auto")
 
         mpv_set_option_string(newHandle, "target-colorspace-hint", "no")
         mpv_set_option_string(newHandle, "target-trc", "auto")
@@ -365,13 +373,13 @@ public actor MPVCoreEngine {
             mpv_set_option_string(handle, "vo", "null")
             mpv_set_option_string(handle, "vid", "no")
             mpv_set_option_string(handle, "hwdec", "no")
-            mpv_set_option_string(handle, "ao", isTesting ? "null" : "auto")
+            mpv_set_option_string(handle, "ao", isTesting ? "null" : "coreaudio,auto")
         } else {
             mpv_set_option_string(handle, "vo", isTesting ? "null" : "libmpv")
             mpv_set_option_string(handle, "vid", "auto")
             mpv_set_option_string(handle, "hwdec", isTesting ? "no" : "videotoolbox-copy")
             mpv_set_option_string(handle, "hwdec-codecs", "all")
-            mpv_set_option_string(handle, "ao", isTesting ? "null" : "auto")
+            mpv_set_option_string(handle, "ao", isTesting ? "null" : "coreaudio,auto")
         }
     }
 

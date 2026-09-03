@@ -236,6 +236,10 @@ public final class MPVMetalPlayerStore: ObservableObject {
             do {
                 try await MPVCoreEngine.shared.loadFile(url: url, replace: true, isAudioOnly: isAudioOnly)
                 await MPVEventDispatcher.shared.start()
+                let targetVol = (self.volume > 0.0 ? self.volume : 1.0) * 100.0
+                try? await MPVCoreEngine.shared.setProperty(name: "volume", value: targetVol)
+                try? await MPVCoreEngine.shared.setProperty(name: "mute", value: self.isMuted)
+                try? await MPVCoreEngine.shared.setProperty(name: "aid", value: "auto")
             } catch {
                 self.hasPlaybackError = true
                 self.errorMessage = error.localizedDescription
@@ -494,8 +498,8 @@ public final class MPVMetalPlayerStore: ObservableObject {
         
         if let selAudio = snapshot.selectedAudioTrackId {
             self.selectedAudioTrackId = selAudio
-        } else if self.selectedAudioTrackId == nil, let defAudio = snapshot.audioTracks.first(where: { $0.isDefault })?.id ?? snapshot.audioTracks.first?.id {
-            self.selectedAudioTrackId = defAudio
+        } else if self.selectedAudioTrackId == nil, let defTrack = snapshot.audioTracks.first(where: { $0.isDefault }) ?? snapshot.audioTracks.first {
+            self.selectAudioTrack(defTrack)
         }
         if let selSub = snapshot.selectedSubtitleTrackId { self.selectedSubtitleTrackId = selSub }
         self.updateEDRMetrics(detectedHDR: snapshot.hdrFormat)
