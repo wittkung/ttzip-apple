@@ -48,6 +48,7 @@ public enum MPVEvent: Sendable, Equatable {
     case pause(isPaused: Bool)
     case eof
     case error(String)
+    case playbackAbort
     case propertyChange(name: String, value: MPVPropertyValue)
     case logMessage(level: String, text: String)
 }
@@ -117,6 +118,7 @@ public struct MPVSubtitleSnapshot: Sendable, Equatable, Hashable, Identifiable {
 public struct MPVMediaMetadataSnapshot: Sendable, Equatable, Hashable {
     public let videoCodec: String
     public let audioCodec: String
+    public let hwdecCurrent: String
     public let videoWidth: Int
     public let videoHeight: Int
     public let aspectRatio: Double
@@ -132,6 +134,7 @@ public struct MPVMediaMetadataSnapshot: Sendable, Equatable, Hashable {
     public init(
         videoCodec: String = "",
         audioCodec: String = "",
+        hwdecCurrent: String = "",
         videoWidth: Int = 0,
         videoHeight: Int = 0,
         aspectRatio: Double = 0.0,
@@ -146,6 +149,7 @@ public struct MPVMediaMetadataSnapshot: Sendable, Equatable, Hashable {
     ) {
         self.videoCodec = videoCodec
         self.audioCodec = audioCodec
+        self.hwdecCurrent = hwdecCurrent
         self.videoWidth = videoWidth
         self.videoHeight = videoHeight
         self.aspectRatio = aspectRatio
@@ -224,3 +228,20 @@ public enum MPVError: Error, Sendable, LocalizedError, Equatable {
         }
     }
 }
+
+/// Hardware video decoding policy configuration for libmpv on Apple platforms.
+public enum MPVHardwareDecodingPolicy: String, Sendable, Equatable, CaseIterable {
+    /// Native hardware decoder with direct zero-copy GPU memory mapping (videotoolbox).
+    /// Eliminates CPU memory copies and thermal throttling.
+    case auto = "auto"
+    
+    /// Explicit VideoToolbox hardware decoding.
+    case videotoolbox = "videotoolbox"
+    
+    /// Conservative copy-back mode decoding into system RAM.
+    case autoSafe = "auto-safe"
+    
+    /// Pure software decoding with no hardware acceleration.
+    case disabled = "no"
+}
+

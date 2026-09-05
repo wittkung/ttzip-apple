@@ -113,9 +113,14 @@ extension MPVMetalPlayerStore {
             }
         }
         
+        let videoCodecStr = getMpvString(handle, "video-codec") ?? ""
+        let hwdecCurrentStr = getMpvString(handle, "hwdec-current") ?? ""
+
         return MPVMediaParamsSnapshot(
             width: Int(w), height: Int(h), hdrFormat: detectedHDR,
-            sampleRate: sampleRateStr, channels: channelsStr, audioCodec: codecStr, bitrate: bitrateStr,
+            sampleRate: sampleRateStr, channels: channelsStr, audioCodec: codecStr,
+            videoCodec: videoCodecStr, hwdecCurrent: hwdecCurrentStr,
+            bitrate: bitrateStr,
             audioTracks: audios, subtitleTracks: subs,
             selectedAudioTrackId: selAudioId, selectedSubtitleTrackId: selSubId
         )

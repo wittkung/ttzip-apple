@@ -32,9 +32,11 @@ public struct SingleMillerColumnView: View {
     public let onTriggerNewFolder: (URL) -> Void
     public let onTriggerNewFile: (URL) -> Void
     public let onRefresh: () -> Void
-    public let onHoverColumn: (Int) -> Void
     public let onSelectAll: () -> Void
     public let onWidthChanged: (CGFloat) -> Void
+    
+    public static let defaultWidth: CGFloat = 260
+    public static let minComfortableWidth: CGFloat = 240
     
     public init(
         index: Int,
@@ -42,7 +44,7 @@ public struct SingleMillerColumnView: View {
         selectedPath: String?,
         currentSort: DiskSortOption,
         items: [DiskItemInfo]?,
-        currentWidth: CGFloat,
+        currentWidth: CGFloat = SingleMillerColumnView.defaultWidth,
         canGoParent: Bool,
         isColumnActive: Bool = true,
         multiSelectedPaths: Set<String>,
@@ -54,7 +56,6 @@ public struct SingleMillerColumnView: View {
         onTriggerNewFolder: @escaping (URL) -> Void,
         onTriggerNewFile: @escaping (URL) -> Void,
         onRefresh: @escaping () -> Void,
-        onHoverColumn: @escaping (Int) -> Void,
         onSelectAll: @escaping () -> Void,
         onWidthChanged: @escaping (CGFloat) -> Void
     ) {
@@ -75,7 +76,6 @@ public struct SingleMillerColumnView: View {
         self.onTriggerNewFolder = onTriggerNewFolder
         self.onTriggerNewFile = onTriggerNewFile
         self.onRefresh = onRefresh
-        self.onHoverColumn = onHoverColumn
         self.onSelectAll = onSelectAll
         self.onWidthChanged = onWidthChanged
     }
@@ -106,8 +106,9 @@ public struct SingleMillerColumnView: View {
                     .fixedSize(horizontal: true, vertical: false)
                     
                     Text(dirURL.lastPathComponent.isEmpty ? "/" : dirURL.lastPathComponent)
-                        .font(.system(size: 11, weight: .bold, design: .serif))
-                        .foregroundStyle(.secondary)
+                        .font(.system(size: 11, weight: .semibold, design: .serif))
+                        .tracking(0.3)
+                        .foregroundStyle(Color.primary.opacity(0.85))
                         .lineLimit(1)
                         .truncationMode(.middle)
                     
@@ -117,22 +118,25 @@ public struct SingleMillerColumnView: View {
                         ForEach(DiskSortOption.allCases) { opt in
                             Button(action: { onChangeSort(opt) }) {
                                 if currentSort == opt {
-                                    Label(opt.rawValue, systemImage: "checkmark")
+                                    Label(opt.localizedTitle, systemImage: "checkmark")
                                 } else {
-                                    Text(opt.rawValue)
+                                    Text(opt.localizedTitle)
                                 }
                             }
                         }
                     } label: {
-                        HStack(spacing: 2) {
+                        HStack(spacing: 3) {
                             Image(systemName: currentSort.iconName)
-                                .font(.system(size: 9))
+                                .font(.system(size: 10, weight: .medium))
                                 .foregroundStyle(.secondary)
                             Image(systemName: "chevron.down")
-                                .font(.system(size: 7))
+                                .font(.system(size: 7, weight: .semibold))
                                 .foregroundStyle(.secondary.opacity(0.6))
                         }
-                        .padding(2)
+                        .padding(.horizontal, 4)
+                        .padding(.vertical, 2)
+                        .background(Color.primary.opacity(0.04))
+                        .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
                     }
                     .menuStyle(.borderlessButton)
                     .fixedSize(horizontal: true, vertical: false)
@@ -141,7 +145,7 @@ public struct SingleMillerColumnView: View {
                 }
                 .padding(.horizontal, 8)
                 .frame(height: 30)
-                .background(Color.clear)
+                .background(Color.primary.opacity(0.015))
                 
                 Divider()
                 
@@ -282,13 +286,8 @@ public struct SingleMillerColumnView: View {
                     }
                 }
             }
-            .frame(width: currentWidth)
+            .frame(width: max(currentWidth, Self.minComfortableWidth))
             .frame(maxHeight: .infinity, alignment: .topLeading)
-            .onHover { isHovered in
-                if isHovered {
-                    onHoverColumn(index)
-                }
-            }
             .background(
                 Button("") {
                     onSelectAll()
@@ -313,7 +312,7 @@ public struct SingleMillerColumnView: View {
                         .gesture(
                             DragGesture(minimumDistance: 1)
                                 .onChanged { gesture in
-                                    let updated = min(max(currentWidth + gesture.translation.width, 110), 600)
+                                    let updated = min(max(currentWidth + gesture.translation.width, Self.minComfortableWidth), 800)
                                     onWidthChanged(updated)
                                 }
                         )

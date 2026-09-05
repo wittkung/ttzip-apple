@@ -374,6 +374,9 @@ public final class MPVVideoEngine {
         case .error(let msg):
             self.hasPlaybackError = true
             self.errorMessage = msg
+        case .playbackAbort:
+            self.hasPlaybackError = true
+            self.errorMessage = "Playback aborted by decoder"
         case .propertyChange(let name, let value):
             if name == "sub-text" {
                 if case .string(let text) = value {

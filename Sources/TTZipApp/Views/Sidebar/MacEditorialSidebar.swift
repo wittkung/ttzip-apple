@@ -192,7 +192,7 @@ public struct MacEditorialSidebar: View {
                 ? "\(tuner.topology.totalCores) 核心 (\(tuner.topology.performanceCores)P+\(tuner.topology.efficiencyCores)E) • \(Int(tuner.topology.unifiedMemoryGB))GB 内存"
                 : "\(tuner.topology.totalCores) Cores (\(tuner.topology.performanceCores)P+\(tuner.topology.efficiencyCores)E) • \(Int(tuner.topology.unifiedMemoryGB))GB RAM")
                 .font(.system(size: 9.5))
-                .foregroundStyle(.secondary)
+                .foregroundStyle(.secondary.opacity(0.85))
                 .lineLimit(1)
             
             HStack(spacing: 3) {
@@ -242,11 +242,11 @@ public struct MacEditorialSidebar: View {
         VStack(alignment: .leading, spacing: 1) {
             Text(currentDateString)
                 .font(.system(size: 9, weight: .regular))
-                .foregroundStyle(.secondary.opacity(0.8))
+                .foregroundStyle(.secondary.opacity(0.85))
                 .lineLimit(1)
             Text(l10n.currentLanguage == .zhHans ? "原生 macOS 架构" : "Native macOS Architecture")
                 .font(.system(size: 9, weight: .regular, design: .monospaced))
-                .foregroundStyle(.secondary.opacity(0.6))
+                .foregroundStyle(.secondary.opacity(0.85))
                 .lineLimit(1)
         }
         .padding(.horizontal, 14)
@@ -255,8 +255,9 @@ public struct MacEditorialSidebar: View {
     
     private var currentDateString: String {
         let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "zh_CN")
-        formatter.dateFormat = "yyyy年M月d日 HH:mm"
+        formatter.locale = Locale.current
+        formatter.dateStyle = .medium
+        formatter.timeStyle = .short
         return formatter.string(from: Date())
     }
 }

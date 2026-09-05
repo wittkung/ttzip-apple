@@ -415,9 +415,9 @@ open class MPVMetalNSView: NSView {
     open weak var store: MPVMetalPlayerStore? {
         didSet {
             if let window = self.window, let store = store {
-                if let glLayer = self.layer as? MPVOpenGLLayer {
-                    glLayer.contentsScale = window.backingScaleFactor
-                    glLayer.bind(store: store)
+                if let videoLayer = self.layer as? (any MPVVideoLayerProtocol) {
+                    videoLayer.contentsScale = window.backingScaleFactor
+                    videoLayer.bind(store: store)
                 }
             }
         }
@@ -467,15 +467,15 @@ open class MPVMetalNSView: NSView {
         super.viewDidMoveToWindow()
         let targetStore = self.store ?? MPVMetalPlayerStore.shared
         if let window = self.window {
-            if let glLayer = self.layer as? MPVOpenGLLayer {
-                glLayer.contentsScale = window.backingScaleFactor
-                glLayer.bind(store: targetStore)
+            if let videoLayer = self.layer as? (any MPVVideoLayerProtocol) {
+                videoLayer.contentsScale = window.backingScaleFactor
+                videoLayer.bind(store: targetStore)
             }
         } else {
             singleClickWorkItem?.cancel()
             singleClickWorkItem = nil
-            if let glLayer = self.layer as? MPVOpenGLLayer {
-                glLayer.unbind()
+            if let videoLayer = self.layer as? (any MPVVideoLayerProtocol) {
+                videoLayer.unbind()
             }
         }
     }
@@ -483,7 +483,12 @@ open class MPVMetalNSView: NSView {
     open override func viewDidChangeBackingProperties() {
         super.viewDidChangeBackingProperties()
         if let window = self.window {
-            self.layer?.contentsScale = window.backingScaleFactor
+            if let videoLayer = self.layer as? (any MPVVideoLayerProtocol) {
+                videoLayer.contentsScale = window.backingScaleFactor
+                videoLayer.forceRedraw()
+            } else {
+                self.layer?.contentsScale = window.backingScaleFactor
+            }
         }
     }
     

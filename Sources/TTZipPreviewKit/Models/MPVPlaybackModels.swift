@@ -125,6 +125,8 @@ public struct MPVMediaParamsSnapshot: Sendable {
     public let sampleRate: String
     public let channels: String
     public let audioCodec: String
+    public let videoCodec: String
+    public let hwdecCurrent: String
     public let bitrate: String
     public let audioTracks: [MPVTrackItem]
     public let subtitleTracks: [MPVSubtitleItem]
@@ -138,6 +140,8 @@ public struct MPVMediaParamsSnapshot: Sendable {
         sampleRate: String = "--",
         channels: String = "--",
         audioCodec: String = "",
+        videoCodec: String = "",
+        hwdecCurrent: String = "",
         bitrate: String = "",
         audioTracks: [MPVTrackItem] = [],
         subtitleTracks: [MPVSubtitleItem] = [],
@@ -150,6 +154,8 @@ public struct MPVMediaParamsSnapshot: Sendable {
         self.sampleRate = sampleRate
         self.channels = channels
         self.audioCodec = audioCodec
+        self.videoCodec = videoCodec
+        self.hwdecCurrent = hwdecCurrent
         self.bitrate = bitrate
         self.audioTracks = audioTracks
         self.subtitleTracks = subtitleTracks

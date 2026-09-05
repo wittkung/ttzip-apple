@@ -11,6 +11,7 @@ import TTZipCore
 import TTZipUI
 import TTZipPreviewKit
 import TTZipBenchmarkKit
+import Darwin
 
 extension FolderMediaArtboardView {
     @ViewBuilder
@@ -26,7 +27,7 @@ extension FolderMediaArtboardView {
                 detailRow(label: "Modified", value: formattedDate)
                 detailRow(label: "File System", value: "APFS (Apple File System)")
                 detailRow(label: "POSIX Permissions", value: "0755 (drwxr-xr-x)")
-                detailRow(label: "Owner / Group", value: "kevintung (501) / staff (20)")
+                detailRow(label: "Owner / Group", value: ownerGroupString)
             }
         }
     }
@@ -117,6 +118,17 @@ extension FolderMediaArtboardView {
                     .truncationMode(.tail)
             }
         }
+    }
+    
+    private var ownerGroupString: String {
+        if let attrs = try? FileManager.default.attributesOfItem(atPath: item.path) {
+            let owner = attrs[.ownerAccountName] as? String ?? NSUserName()
+            let ownerID = (attrs[.ownerAccountID] as? NSNumber)?.stringValue ?? "\(getuid())"
+            let group = attrs[.groupOwnerAccountName] as? String ?? "staff"
+            let groupID = (attrs[.groupOwnerAccountID] as? NSNumber)?.stringValue ?? "\(getgid())"
+            return "\(owner) (\(ownerID)) / \(group) (\(groupID))"
+        }
+        return "\(NSUserName()) (\(getuid())) / staff (\(getgid()))"
     }
     
     func categoryColor(_ cat: String) -> Color {

@@ -61,6 +61,8 @@ public final class MPVMetalPlayerStore: ObservableObject {
     @Published public var audioChannels: String = "--"
     @Published public var audioCodecFormatted: String = ""
     @Published public var audioBitrateFormatted: String = ""
+    @Published public var videoCodec: String = ""
+    @Published public var hwdecCurrent: String = ""
     
     /// Callback invoked on the MainActor when file playback reaches the end (MPV_EVENT_END_FILE), enabling playlist auto-advance.
     public var onFilePlaybackEnded: (@MainActor (URL?) -> Void)?
@@ -77,6 +79,7 @@ public final class MPVMetalPlayerStore: ObservableObject {
     private var pendingParamsRefreshTask: Task<Void, Never>? = nil
     private var stateObservationTask: Task<Void, Never>? = nil
     private var eventObservationTask: Task<Void, Never>? = nil
+    private var hasAttemptedSoftwareFallback = false
     var discoveredCompanionSubtitles: [MPVSubtitleItem] = []
     
     public init() {
@@ -141,14 +144,38 @@ public final class MPVMetalPlayerStore: ObservableObject {
             self.isPlaying = false
             let finishedURL = self.currentURL
             self.onFilePlaybackEnded?(finishedURL)
+        case .playbackAbort:
+            self.handlePlaybackFailure(reason: "Playback aborted by decoder")
         case .error(let msg):
-            self.hasPlaybackError = true
-            self.errorMessage = msg
-            self.isPlaying = false
+            self.handlePlaybackFailure(reason: msg)
         case .propertyChange(let name, let value):
             self.handlePropertyChange(name: name, value: value)
         case .logMessage(let level, let text):
             logger.debug("[\(level)] \(text, privacy: .public)")
+        }
+    }
+    
+    private func handlePlaybackFailure(reason: String) {
+        if !hasAttemptedSoftwareFallback, let url = currentURL {
+            hasAttemptedSoftwareFallback = true
+            logger.warning("Playback failure encountered (\(reason, privacy: .public)); automatically attempting software decoding fallback for \(url.lastPathComponent, privacy: .public)...")
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                do {
+                    try await MPVCoreEngine.shared.fallbackToSoftwareDecodingAndReload(url: url)
+                    self.hasPlaybackError = false
+                    self.errorMessage = nil
+                } catch {
+                    self.hasPlaybackError = true
+                    self.errorMessage = reason
+                    self.isPlaying = false
+                    self.logger.error("Software decoding fallback failed: \(error.localizedDescription, privacy: .public)")
+                }
+            }
+        } else {
+            self.hasPlaybackError = true
+            self.errorMessage = reason
+            self.isPlaying = false
         }
     }
     
@@ -164,18 +191,38 @@ public final class MPVMetalPlayerStore: ObservableObject {
             if case .double(let delay) = value {
                 self.subtitleDelay = delay
             }
-        case "audio-codec-name":
+        case "audio-codec-name", "audio-codec":
             if case .string(let codec) = value {
                 self.audioCodecFormatted = Self.formatAudioCodecName(codec)
             }
+            self.scheduleAsyncParamsRefresh()
         case "audio-bitrate":
             if case .double(let bitrate) = value, bitrate > 0 {
                 self.audioBitrateFormatted = String(format: "%.0f kbps", bitrate / 1000.0)
             }
-        case "track-list", "video-params", "audio-params":
+        case "video-codec":
+            if case .string(let codec) = value {
+                self.videoCodec = codec
+            }
+            self.scheduleAsyncParamsRefresh()
+        case "hwdec-current":
+            if case .string(let hwdec) = value {
+                self.hwdecCurrent = hwdec
+            }
+            self.scheduleAsyncParamsRefresh()
+        case "track-list", "aid", "sid", "video-params", "audio-params", "video-params/pixelformat":
             self.scheduleAsyncParamsRefresh()
         default:
-            break
+            if name.hasPrefix("track-list") || name.hasPrefix("audio-params") || name.hasPrefix("video-params") {
+                self.scheduleAsyncParamsRefresh()
+            }
+        }
+    }
+    
+    /// Dynamically applies a hardware decoding policy (e.g. zero-copy auto vs software decoding).
+    public func setHardwareDecodingPolicy(_ policy: MPVHardwareDecodingPolicy) {
+        Task {
+            try? await MPVCoreEngine.shared.setHardwareDecodingPolicy(policy)
         }
     }
     
@@ -220,6 +267,9 @@ public final class MPVMetalPlayerStore: ObservableObject {
         self.selectedSecondarySubtitleTrackId = nil
         self.activeSubtitleDialogue = nil
         self.subtitleDelay = 0.0
+        self.hasAttemptedSoftwareFallback = false
+        self.videoCodec = ""
+        self.hwdecCurrent = ""
         self.audioSampleRate = "--"
         self.audioChannels = "--"
         self.audioCodecFormatted = ""
@@ -254,22 +304,10 @@ public final class MPVMetalPlayerStore: ObservableObject {
         loadMedia(url: url, isAudioOnly: isAudioOnly)
     }
     
-    /// Ensures the shared resident libmpv microkernel is initialized and OpenGL render context is pre-allocated.
+    /// Ensures the shared resident libmpv microkernel is initialized without allocating an unattached dummy render context.
     private func ensureMpvInitialized(isAudioOnly: Bool = false) {
         do {
-            let handle = try MPVCoreEngine.shared.ensureInitialized(mode: isAudioOnly ? .audioOnly : .video(renderBackend: "libmpv"))
-            let isTesting: Bool = {
-                if NSClassFromString("XCTestCase") != nil { return true }
-                if ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil { return true }
-                if Bundle.main.bundlePath.hasSuffix(".xctest") { return true }
-                let proc = ProcessInfo.processInfo.processName.lowercased()
-                if proc.contains("test") || proc.contains("xctest") { return true }
-                return false
-            }()
-            
-            if !isTesting && !isAudioOnly {
-                renderContextManager.createRenderContext(mpvHandle: handle)
-            }
+            _ = try MPVCoreEngine.shared.ensureInitialized(mode: isAudioOnly ? .audioOnly : .video(renderBackend: "libmpv"))
         } catch {
             self.hasPlaybackError = true
             self.errorMessage = "Failed to initialize MPVCoreEngine: \(error.localizedDescription)"
@@ -501,6 +539,8 @@ public final class MPVMetalPlayerStore: ObservableObject {
         if !snapshot.sampleRate.isEmpty && snapshot.sampleRate != "--" { self.audioSampleRate = snapshot.sampleRate }
         if !snapshot.channels.isEmpty && snapshot.channels != "--" { self.audioChannels = snapshot.channels }
         if !snapshot.audioCodec.isEmpty { self.audioCodecFormatted = snapshot.audioCodec }
+        if !snapshot.videoCodec.isEmpty { self.videoCodec = snapshot.videoCodec }
+        if !snapshot.hwdecCurrent.isEmpty { self.hwdecCurrent = snapshot.hwdecCurrent }
         if !snapshot.bitrate.isEmpty { self.audioBitrateFormatted = snapshot.bitrate }
         if !snapshot.audioTracks.isEmpty { self.audioTracks = snapshot.audioTracks }
         
@@ -551,6 +591,9 @@ public final class MPVMetalPlayerStore: ObservableObject {
         currentURL = nil
         isPlaying = false
         isFullScreen = false
+        hasAttemptedSoftwareFallback = false
+        videoCodec = ""
+        hwdecCurrent = ""
         renderContextManager.detachAndFree()
         currentTime = 0
         duration = 0

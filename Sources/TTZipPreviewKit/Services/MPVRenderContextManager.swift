@@ -36,7 +36,6 @@ public final class MPVRenderContextManager: @unchecked Sendable {
     private let lock = NSRecursiveLock()
     
     private var renderContext: OpaquePointer?
-    private var fallbackContext: CGLContextObj?
     private var activeCGLContext: CGLContextObj?
     private var updateHandlerOwner: ObjectIdentifier?
     private var updateHandler: (@Sendable () -> Void)?
@@ -103,83 +102,57 @@ public final class MPVRenderContextManager: @unchecked Sendable {
         
         if renderContext != nil {
             if let target = cglContext, target != activeCGLContext {
-                detachAndFreeInternal()
-            } else {
-                return true
+                self.activeCGLContext = target
             }
+            return true
         }
         
         let previousContext = CGLGetCurrentContext()
-        var targetContext = cglContext ?? previousContext
+        guard let activeContext = cglContext ?? previousContext else {
+            logger.debug("Deferred mpv_render_context creation: No active CGLContext available yet")
+            return false
+        }
         
-        if targetContext == nil {
-            let attribs: [CGLPixelFormatAttribute] = [
-                kCGLPFAOpenGLProfile,
-                CGLPixelFormatAttribute(kCGLOGLPVersion_3_2_Core.rawValue),
-                kCGLPFADoubleBuffer,
-                kCGLPFAAccelerated,
-                kCGLPFAAllowOfflineRenderers,
-                CGLPixelFormatAttribute(0)
-            ]
-        var pix: CGLPixelFormatObj?
-        var npix: GLint = 0
-        CGLChoosePixelFormat(attribs, &pix, &npix)
-        if let validPix = pix {
-            CGLCreateContext(validPix, nil, &self.fallbackContext)
-            CGLReleasePixelFormat(validPix)
-            targetContext = self.fallbackContext
+        CGLSetCurrentContext(activeContext)
+        defer {
+            CGLSetCurrentContext(previousContext)
         }
-    }
-    
-    guard let activeContext = targetContext else {
-        logger.error("Failed to create mpv_render_context: No valid CGLContext available")
-        return false
-    }
-    
-    CGLSetCurrentContext(activeContext)
-    defer {
-        CGLSetCurrentContext(previousContext)
-    }
-    
-    var initParams = mpv_opengl_init_params(
-        get_proc_address: mpvOpenGLGetProcAddress,
-        get_proc_address_ctx: nil
-    )
-    
-    let apiType = ("opengl" as NSString).utf8String
-    var advancedControl: Int32 = 1
-    
-    var ctx: OpaquePointer?
-    let status = withUnsafeMutablePointer(to: &initParams) { initParamsPtr in
-        withUnsafeMutablePointer(to: &advancedControl) { advPtr in
-            var params: [mpv_render_param] = [
-                mpv_render_param(type: MPV_RENDER_PARAM_API_TYPE, data: UnsafeMutableRawPointer(mutating: apiType)),
-                mpv_render_param(type: MPV_RENDER_PARAM_OPENGL_INIT_PARAMS, data: initParamsPtr),
-                mpv_render_param(type: MPV_RENDER_PARAM_ADVANCED_CONTROL, data: advPtr),
-                mpv_render_param(type: MPV_RENDER_PARAM_INVALID, data: nil)
-            ]
-            return mpv_render_context_create(&ctx, mpvHandle, &params)
+        
+        var initParams = mpv_opengl_init_params(
+            get_proc_address: mpvOpenGLGetProcAddress,
+            get_proc_address_ctx: nil
+        )
+        
+        let apiType = ("opengl" as NSString).utf8String
+        var advancedControl: Int32 = 1
+        
+        var ctx: OpaquePointer?
+        let status = withUnsafeMutablePointer(to: &initParams) { initParamsPtr in
+            withUnsafeMutablePointer(to: &advancedControl) { advPtr in
+                var params: [mpv_render_param] = [
+                    mpv_render_param(type: MPV_RENDER_PARAM_API_TYPE, data: UnsafeMutableRawPointer(mutating: apiType)),
+                    mpv_render_param(type: MPV_RENDER_PARAM_OPENGL_INIT_PARAMS, data: initParamsPtr),
+                    mpv_render_param(type: MPV_RENDER_PARAM_ADVANCED_CONTROL, data: advPtr),
+                    mpv_render_param(type: MPV_RENDER_PARAM_INVALID, data: nil)
+                ]
+                return mpv_render_context_create(&ctx, mpvHandle, &params)
+            }
         }
-    }
-    guard status >= 0, let validCtx = ctx else {
-        let errStr = mpv_error_string(status).map { String(cString: $0) } ?? "Code \(status)"
-        logger.error("Failed to create mpv_render_context: \(errStr, privacy: .public)")
-        if let fallback = self.fallbackContext {
-            CGLDestroyContext(fallback)
-            self.fallbackContext = nil
+        guard status >= 0, let validCtx = ctx else {
+            let errStr = mpv_error_string(status).map { String(cString: $0) } ?? "Code \(status)"
+            logger.error("Failed to create mpv_render_context: \(errStr, privacy: .public)")
+            return false
         }
-        return false
+    
+        self.renderContext = validCtx
+        self.activeCGLContext = activeContext
+        
+        let selfPtr = Unmanaged.passUnretained(self).toOpaque()
+        mpv_render_context_set_update_callback(validCtx, mpvRenderUpdateCallback, selfPtr)
+        
+        logger.info("mpv_render_context initialized successfully with OpenGL 3.2 backend")
+        return true
     }
-    
-    self.renderContext = validCtx
-    self.activeCGLContext = activeContext
-    
-    let selfPtr = Unmanaged.passUnretained(self).toOpaque()
-    mpv_render_context_set_update_callback(validCtx, mpvRenderUpdateCallback, selfPtr)
-    
-    logger.info("mpv_render_context initialized successfully with OpenGL 3.2 backend")
-    return true
-}
 
 /// Queries the render context for pending flags (e.g. `MPV_RENDER_UPDATE_FRAME`).
 public func update() -> UInt64 {
@@ -204,15 +177,16 @@ public func update() -> UInt64 {
 }
 
 /// Rasterizes the current decoded video frame into the specified target OpenGL Framebuffer Object (FBO).
-public func render(fbo: GLint, width: Int32, height: Int32) {
+@discardableResult
+public func render(fbo: GLint, width: Int32, height: Int32, internalFormat: GLint = GLint(GL_RGBA8)) -> Int32 {
     lock.lock()
     defer { lock.unlock() }
     guard let ctx = renderContext else {
-        return
+        return 0
     }
     let targetCGL = self.activeCGLContext
     
-    guard width > 0, height > 0 else { return }
+    guard width > 0, height > 0 else { return 0 }
     
     let previousContext = CGLGetCurrentContext()
     if previousContext == nil, let target = targetCGL {
@@ -228,19 +202,23 @@ public func render(fbo: GLint, width: Int32, height: Int32) {
         fbo: Int32(fbo),
         w: width,
         h: height,
-        internal_format: 0
+        internal_format: internalFormat
     )
     var flipY: Int32 = 1
-    withUnsafeMutablePointer(to: &glFbo) { fboPtr in
+    let err: Int32 = withUnsafeMutablePointer(to: &glFbo) { fboPtr in
         withUnsafeMutablePointer(to: &flipY) { flipYPtr in
             var renderParams: [mpv_render_param] = [
                 mpv_render_param(type: MPV_RENDER_PARAM_OPENGL_FBO, data: fboPtr),
                 mpv_render_param(type: MPV_RENDER_PARAM_FLIP_Y, data: flipYPtr),
                 mpv_render_param(type: MPV_RENDER_PARAM_INVALID, data: nil)
             ]
-            _ = mpv_render_context_render(ctx, &renderParams)
+            return mpv_render_context_render(ctx, &renderParams)
         }
     }
+    if err < 0 {
+        logger.warning("mpv_render_context_render returned error: \(err)")
+    }
+    return err
 }
 
 /// Informs libmpv that the backbuffer swap occurred to keep audio/video sync locked to display vsync.
@@ -274,16 +252,12 @@ public func reportSwap() {
     
     private func detachAndFreeInternal() {
         guard let ctx = renderContext else {
-            if let fallback = fallbackContext {
-                CGLDestroyContext(fallback)
-                fallbackContext = nil
-            }
             activeCGLContext = nil
             return
         }
         
         let previousContext = CGLGetCurrentContext()
-        let active = self.activeCGLContext ?? self.fallbackContext
+        let active = self.activeCGLContext
         if let active = active {
             CGLSetCurrentContext(active)
         }
@@ -294,11 +268,6 @@ public func reportSwap() {
         self.activeCGLContext = nil
         self.updateHandler = nil
         self.updateHandlerOwner = nil
-        
-        if let fallback = self.fallbackContext {
-            CGLDestroyContext(fallback)
-            self.fallbackContext = nil
-        }
         
         if let prev = previousContext, prev != active {
             CGLSetCurrentContext(prev)

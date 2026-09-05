@@ -67,7 +67,7 @@ public struct MainView: View {
             let minRightSidebarWidth: CGFloat = 200.0
             let maxRightSidebarWidth: CGFloat = max(850.0, totalWidth * 0.55)
             
-            let isRightPanelAvailable: Bool = (tier != .compact && viewModel.activeTab == .home && viewModel.selectedDiskItem != nil && viewModel.selectedDiskItem?.isDirectory == false)
+            let isRightPanelAvailable: Bool = (tier != .compact && viewModel.activeTab == .home)
             let shouldShowRightPanel = !isMediaFocus && isRightSidebarVisible && isRightPanelAvailable
             
             let totalChrome = effectiveLeftSidebarWidth + leftDividerWidth + (shouldShowRightPanel ? (rightDividerWidth + rightPanelPadding) : 0)

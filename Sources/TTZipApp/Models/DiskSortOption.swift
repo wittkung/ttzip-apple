@@ -6,6 +6,7 @@
 // TTZip: High-performance native archiving and compression engine.
 
 import SwiftUI
+import TTZipCore
 import TTZipUI
 import TTZipPreviewKit
 import TTZipBenchmarkKit
@@ -23,13 +24,42 @@ public enum DiskSortOption: String, CaseIterable, Identifiable, Codable {
     
     public var iconName: String {
         switch self {
-        case .nameAsc: return "textformat.abc"
-        case .nameDesc: return "textformat.abc"
+        case .nameAsc: return "arrow.up.arrow.down"
+        case .nameDesc: return "arrow.up.arrow.down"
         case .sizeDesc: return "arrow.down.circle"
         case .sizeAsc: return "arrow.up.circle"
         case .dateDesc: return "calendar.badge.clock"
         case .dateAsc: return "calendar"
         case .kind: return "square.grid.3x3.fill"
+        }
+    }
+    
+    /// Provides localized display title for sorting dropdowns across languages.
+    public var localizedTitle: String {
+        let lang = TTZipLocalizationManager.shared.currentLanguage
+        switch lang {
+        case .zhHans:
+            switch self {
+            case .nameAsc: return "名称 (A-Z)"
+            case .nameDesc: return "名称 (Z-A)"
+            case .sizeDesc: return "大小 (降序)"
+            case .sizeAsc: return "大小 (升序)"
+            case .dateDesc: return "修改日期 (最新优先)"
+            case .dateAsc: return "修改日期 (最早优先)"
+            case .kind: return "种类"
+            }
+        case .zhHant:
+            switch self {
+            case .nameAsc: return "名稱 (A-Z)"
+            case .nameDesc: return "名稱 (Z-A)"
+            case .sizeDesc: return "大小 (由大到小)"
+            case .sizeAsc: return "大小 (由小到大)"
+            case .dateDesc: return "修改日期 (由新到舊)"
+            case .dateAsc: return "修改日期 (由舊到新)"
+            case .kind: return "種類"
+            }
+        default:
+            return rawValue
         }
     }
 }

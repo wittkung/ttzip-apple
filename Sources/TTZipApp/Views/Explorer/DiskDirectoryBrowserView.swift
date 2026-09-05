@@ -82,25 +82,17 @@ public struct DiskDirectoryBrowserView: View {
                         }
                         
                         Button(action: addCustomPinnedFolder) {
-                            HStack(spacing: 4) {
-                                Image(systemName: "plus")
-                                    .font(.system(size: 9.5, weight: .bold))
-                                Text("Add Shortcut")
-                                    .font(.system(size: 10.5, weight: .bold))
-                                    .lineLimit(1)
-                                    .fixedSize(horizontal: true, vertical: false)
-                            }
-                            .padding(.horizontal, 9)
-                            .padding(.vertical, 4.5)
-                            .background(TTZipTheme.bambooGreen.opacity(0.12))
-                            .foregroundStyle(TTZipTheme.bambooGreen)
-                            .clipShape(Capsule())
-                            .overlay(
-                                Capsule().strokeBorder(TTZipTheme.bambooGreen.opacity(0.3), lineWidth: 0.8)
-                            )
+                            Image(systemName: "plus")
+                                .font(.system(size: 10, weight: .semibold))
+                                .foregroundStyle(.secondary)
+                                .frame(width: 22, height: 22)
+                                .background(Color.primary.opacity(0.03))
+                                .clipShape(Circle())
+                                .overlay(
+                                    Circle().strokeBorder(Color.primary.opacity(0.05), lineWidth: 0.5)
+                                )
                         }
                         .buttonStyle(.plain)
-                        .fixedSize(horizontal: true, vertical: false)
                         .help("Add any custom folder on Mac to shortcuts")
                     }
                     .padding(.horizontal, 4)
@@ -120,25 +112,17 @@ public struct DiskDirectoryBrowserView: View {
                 )
                 
                 Button(action: { reloadCurrentDirectory() }) {
-                    HStack(spacing: 4) {
-                        Image(systemName: "arrow.clockwise")
-                            .font(.system(size: 10, weight: .bold))
-                        Text("Refresh")
-                            .font(.system(size: 10.5, weight: .medium))
-                            .lineLimit(1)
-                            .fixedSize(horizontal: true, vertical: false)
-                    }
-                    .foregroundStyle(TTZipTheme.bambooGreen)
-                    .padding(.horizontal, 9)
-                    .padding(.vertical, 4.5)
-                    .background(TTZipTheme.bambooGreen.opacity(0.12))
-                    .clipShape(Capsule())
-                    .overlay(
-                        Capsule().strokeBorder(TTZipTheme.bambooGreen.opacity(0.3), lineWidth: 0.8)
-                    )
+                    Image(systemName: "arrow.clockwise")
+                        .font(.system(size: 10, weight: .semibold))
+                        .foregroundStyle(.secondary)
+                        .frame(width: 22, height: 22)
+                        .background(Color.primary.opacity(0.03))
+                        .clipShape(Circle())
+                        .overlay(
+                            Circle().strokeBorder(Color.primary.opacity(0.05), lineWidth: 0.5)
+                        )
                 }
                 .buttonStyle(.plain)
-                .fixedSize(horizontal: true, vertical: false)
                 .layoutPriority(1)
                 .help("Refresh browser contents")
             }
@@ -194,12 +178,12 @@ public struct DiskDirectoryBrowserView: View {
             }
             .padding(.horizontal, 9)
             .padding(.vertical, 4.5)
-            .background(isSelected ? TTZipTheme.bambooGreen.opacity(0.16) : Color.primary.opacity(0.035))
+            .background(isSelected ? TTZipTheme.bambooGreen.opacity(0.12) : Color.primary.opacity(0.03))
             .foregroundStyle(isSelected ? TTZipTheme.bambooGreen : Color.primary.opacity(0.85))
             .clipShape(Capsule())
             .overlay(
                 Capsule()
-                    .strokeBorder(isSelected ? TTZipTheme.bambooGreen.opacity(0.35) : Color.primary.opacity(0.06), lineWidth: isSelected ? 1 : 0.5)
+                    .strokeBorder(isSelected ? TTZipTheme.bambooGreen.opacity(0.25) : Color.primary.opacity(0.05), lineWidth: 0.5)
             )
         }
         .buttonStyle(.plain)

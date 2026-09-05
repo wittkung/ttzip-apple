@@ -207,7 +207,7 @@ public actor MPVEventDispatcher {
                 )
                 needsImmediateStateFlush = true
 
-            case .error:
+            case .error, .playbackAbort:
                 currentState = MPVPlaybackStateSnapshot(
                     currentTime: currentState.currentTime,
                     duration: currentState.duration,
@@ -343,11 +343,56 @@ public actor MPVEventDispatcher {
                     isBuffering: false
                 )
             }
-        case "audio-codec-name":
+        case "playback-abort":
+            if case .flag(let aborted) = value, aborted {
+                for cont in eventContinuations.values {
+                    cont.yield(.playbackAbort)
+                }
+            }
+        case "hwdec-current":
+            if case .string(let val) = value {
+                currentMetadata = MPVMediaMetadataSnapshot(
+                    videoCodec: currentMetadata.videoCodec,
+                    audioCodec: currentMetadata.audioCodec,
+                    hwdecCurrent: val,
+                    videoWidth: currentMetadata.videoWidth,
+                    videoHeight: currentMetadata.videoHeight,
+                    aspectRatio: currentMetadata.aspectRatio,
+                    colorSpace: currentMetadata.colorSpace,
+                    audioSampleRate: currentMetadata.audioSampleRate,
+                    audioChannels: currentMetadata.audioChannels,
+                    audioBitDepth: currentMetadata.audioBitDepth,
+                    audioTracks: currentMetadata.audioTracks,
+                    subtitleTracks: currentMetadata.subtitleTracks,
+                    title: currentMetadata.title,
+                    artist: currentMetadata.artist
+                )
+            }
+        case "video-codec":
+            if case .string(let val) = value {
+                currentMetadata = MPVMediaMetadataSnapshot(
+                    videoCodec: val,
+                    audioCodec: currentMetadata.audioCodec,
+                    hwdecCurrent: currentMetadata.hwdecCurrent,
+                    videoWidth: currentMetadata.videoWidth,
+                    videoHeight: currentMetadata.videoHeight,
+                    aspectRatio: currentMetadata.aspectRatio,
+                    colorSpace: currentMetadata.colorSpace,
+                    audioSampleRate: currentMetadata.audioSampleRate,
+                    audioChannels: currentMetadata.audioChannels,
+                    audioBitDepth: currentMetadata.audioBitDepth,
+                    audioTracks: currentMetadata.audioTracks,
+                    subtitleTracks: currentMetadata.subtitleTracks,
+                    title: currentMetadata.title,
+                    artist: currentMetadata.artist
+                )
+            }
+        case "audio-codec-name", "audio-codec":
             if case .string(let val) = value {
                 currentMetadata = MPVMediaMetadataSnapshot(
                     videoCodec: currentMetadata.videoCodec,
                     audioCodec: val,
+                    hwdecCurrent: currentMetadata.hwdecCurrent,
                     videoWidth: currentMetadata.videoWidth,
                     videoHeight: currentMetadata.videoHeight,
                     aspectRatio: currentMetadata.aspectRatio,
@@ -373,6 +418,7 @@ public actor MPVEventDispatcher {
             currentMetadata = MPVMediaMetadataSnapshot(
                 videoCodec: currentMetadata.videoCodec,
                 audioCodec: currentMetadata.audioCodec,
+                hwdecCurrent: currentMetadata.hwdecCurrent,
                 videoWidth: currentMetadata.videoWidth,
                 videoHeight: currentMetadata.videoHeight,
                 aspectRatio: currentMetadata.aspectRatio,
@@ -408,6 +454,7 @@ public actor MPVEventDispatcher {
             currentMetadata = MPVMediaMetadataSnapshot(
                 videoCodec: currentMetadata.videoCodec,
                 audioCodec: currentMetadata.audioCodec,
+                hwdecCurrent: currentMetadata.hwdecCurrent,
                 videoWidth: currentMetadata.videoWidth,
                 videoHeight: currentMetadata.videoHeight,
                 aspectRatio: currentMetadata.aspectRatio,
@@ -432,6 +479,7 @@ public actor MPVEventDispatcher {
             currentMetadata = MPVMediaMetadataSnapshot(
                 videoCodec: currentMetadata.videoCodec,
                 audioCodec: currentMetadata.audioCodec,
+                hwdecCurrent: currentMetadata.hwdecCurrent,
                 videoWidth: w,
                 videoHeight: currentMetadata.videoHeight,
                 aspectRatio: currentMetadata.aspectRatio,
@@ -456,6 +504,7 @@ public actor MPVEventDispatcher {
             currentMetadata = MPVMediaMetadataSnapshot(
                 videoCodec: currentMetadata.videoCodec,
                 audioCodec: currentMetadata.audioCodec,
+                hwdecCurrent: currentMetadata.hwdecCurrent,
                 videoWidth: currentMetadata.videoWidth,
                 videoHeight: h,
                 aspectRatio: currentMetadata.aspectRatio,

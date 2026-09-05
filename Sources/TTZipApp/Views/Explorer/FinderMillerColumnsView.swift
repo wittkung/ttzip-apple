@@ -26,7 +26,6 @@ public struct FinderMillerColumnsView: View {
     @State var columnPaths: [URL] = []
     @State var selectedPaths: [Int: String] = [:]
     @State var multiSelectedPaths: Set<String> = []
-    @State var hoveredColumnIndex: Int? = nil
     @State var selectedItem: DiskItemInfo? = nil
     @State var cachedColumnItems: [String: [DiskItemInfo]] = [:]
     @State var refreshKey: UUID = UUID()
@@ -65,40 +64,28 @@ public struct FinderMillerColumnsView: View {
     }
     
     public var body: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            ScrollViewReader { proxy in
-                HStack(alignment: .top, spacing: 0) {
-                    ForEach(Array(columnPaths.enumerated()), id: \.offset) { index, dirURL in
-                        millerColumn(index: index, dirURL: dirURL)
-                            .id(index)
-                    }
-                }
-                .frame(maxHeight: .infinity, alignment: .topLeading)
-                .onChange(of: columnPaths.count) { _, newCount in
-                    if newCount > 0 {
-                        withAnimation(.spring(response: 0.25, dampingFraction: 0.85)) {
-                            proxy.scrollTo(newCount - 1, anchor: .trailing)
+        GeometryReader { geometry in
+            ScrollView(.horizontal, showsIndicators: false) {
+                ScrollViewReader { proxy in
+                    HStack(alignment: .top, spacing: 0) {
+                        ForEach(Array(columnPaths.enumerated()), id: \.offset) { index, dirURL in
+                            millerColumn(index: index, dirURL: dirURL, availableWidth: geometry.size.width)
+                                .id(index)
                         }
                     }
-                }
-                .onChange(of: hoveredColumnIndex) { _, newHover in
-                    if let idx = newHover, idx >= 0 && idx < columnPaths.count {
-                        withAnimation(.spring(response: 0.25, dampingFraction: 0.85)) {
-                            proxy.scrollTo(idx, anchor: .trailing)
-                        }
-                    }
-                }
-                .onChange(of: activeColumnIndex) { _, newActive in
-                    if newActive >= 0 && newActive < columnPaths.count {
-                        withAnimation(.spring(response: 0.25, dampingFraction: 0.85)) {
-                            proxy.scrollTo(newActive, anchor: .trailing)
+                    .frame(minWidth: geometry.size.width, maxHeight: .infinity, alignment: .topLeading)
+                    .onChange(of: columnPaths.count) { _, newCount in
+                        if newCount > 0 {
+                            withAnimation(.spring(response: 0.25, dampingFraction: 0.85)) {
+                                proxy.scrollTo(newCount - 1, anchor: .trailing)
+                            }
                         }
                     }
                 }
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            .clipped()
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .clipped()
         .alert("New Folder", isPresented: $showNewFolderAlert) {
             TextField("Folder Name", text: $newFolderName)
             Button("Cancel", role: .cancel) {
@@ -207,7 +194,6 @@ public struct FinderMillerColumnsView: View {
         }
         .onChange(of: rootDirectory) { _, newRoot in
             selectedPaths = [:]
-            hoveredColumnIndex = 0
             if let target = initialSelectedPath, !target.isEmpty {
                 selectedPaths[0] = target
                 let targetURL = URL(fileURLWithPath: target)
@@ -282,12 +268,31 @@ public struct FinderMillerColumnsView: View {
         )
     }
     
-    func millerColumn(index: Int, dirURL: URL) -> some View {
+    private let defaultColumnWidth: CGFloat = 260
+    
+    private func computeColumnWidth(for index: Int, availableWidth: CGFloat) -> CGFloat {
+        if let custom = columnWidths[index] {
+            return custom
+        }
+        let count = columnPaths.count
+        if count <= 1 {
+            // When only 1 column exists, expand to occupy the full available width (at least defaultColumnWidth)
+            return max(availableWidth, defaultColumnWidth)
+        } else if count == 2 {
+            // When 2 columns exist, share the viewport comfortably if availableWidth allows
+            let half = availableWidth / 2.0
+            return max(half, defaultColumnWidth)
+        } else {
+            return defaultColumnWidth
+        }
+    }
+    
+    func millerColumn(index: Int, dirURL: URL, availableWidth: CGFloat) -> some View {
         let selectedPath = selectedPaths[index]
         let currentSort = perColumnSortOption[index] ?? sortOption
         let cacheKey = "\(dirURL.absoluteString)_\(currentSort.rawValue)"
         let items = cachedColumnItems[cacheKey]
-        let currentWidth = columnWidths[index] ?? 200
+        let currentWidth = computeColumnWidth(for: index, availableWidth: availableWidth)
         let canGoParent = dirURL.path != "/" && dirURL.pathComponents.count > 1
         let isColumnActive = (index == activeColumnIndex)
         
@@ -322,7 +327,6 @@ public struct FinderMillerColumnsView: View {
                 cachedColumnItems.removeAll()
                 refreshKey = UUID()
             },
-            onHoverColumn: { idx in hoveredColumnIndex = idx },
             onSelectAll: { selectAllInActiveColumn() },
             onWidthChanged: { w in columnWidths[index] = w }
         )

@@ -23,7 +23,7 @@ private final class MPVLayerProxy: @unchecked Sendable {
 }
 
 /// High-performance OpenGL 3.2 Core rasterization layer driving libmpv frame rendering directly into CoreAnimation.
-public final class MPVOpenGLLayer: CAOpenGLLayer {
+public final class MPVOpenGLLayer: CAOpenGLLayer, MPVVideoLayerProtocol {
     private let logger = Logger(subsystem: "com.metastudyline.ttzip", category: "MPVOpenGLLayer")
     public weak var renderContextManager: MPVRenderContextManager?
     public weak var playerStore: MPVMetalPlayerStore?
@@ -214,7 +214,7 @@ public final class MPVOpenGLLayer: CAOpenGLLayer {
         stateLock.unlock()
         guard isBound else { return }
         
-        guard let manager = renderContextManager else { return }
+        guard let manager = renderContextManager, let ctx = manager.rawContext else { return }
         
         CGLSetCurrentContext(glContext)
         
@@ -225,7 +225,29 @@ public final class MPVOpenGLLayer: CAOpenGLLayer {
         let width = Int32(max(1.0, ceil(bounds.width * scale)))
         let height = Int32(max(1.0, ceil(bounds.height * scale)))
         
-        manager.render(fbo: currentFBO, width: width, height: height)
+        guard width > 0, height > 0 else { return }
+        
+        var glFbo = mpv_opengl_fbo(
+            fbo: currentFBO,
+            w: width,
+            h: height,
+            internal_format: GLint(GL_RGBA8)
+        )
+        var flipY: Int32 = 1
+        let err = withUnsafeMutablePointer(to: &glFbo) { fboPtr in
+            withUnsafeMutablePointer(to: &flipY) { flipYPtr in
+                var renderParams: [mpv_render_param] = [
+                    mpv_render_param(type: MPV_RENDER_PARAM_OPENGL_FBO, data: fboPtr),
+                    mpv_render_param(type: MPV_RENDER_PARAM_FLIP_Y, data: flipYPtr),
+                    mpv_render_param(type: MPV_RENDER_PARAM_INVALID, data: nil)
+                ]
+                return mpv_render_context_render(ctx, &renderParams)
+            }
+        }
+        if err < 0 {
+            logger.warning("mpv_render_context_render returned error: \(err)")
+        }
+        
         manager.reportSwap()
         CGLFlushDrawable(glContext)
         glFlush()

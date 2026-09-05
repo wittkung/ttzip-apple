@@ -21,18 +21,33 @@ public struct RightInspectorSidePanel: View {
         self._rightVerticalTopHeight = rightVerticalTopHeight
     }
     
+    private var headerSectionTitle: String {
+        if let item = viewModel.selectedDiskItem {
+            return item.isDirectory ? "DIRECTORY CANVAS" : "INSPECTOR"
+        }
+        return "CURRENT DIRECTORY"
+    }
+    
+    private var headerItemName: String {
+        if let item = viewModel.selectedDiskItem {
+            return item.name
+        }
+        let folderName = viewModel.currentDirectory.lastPathComponent
+        return folderName.isEmpty ? "Macintosh HD" : folderName
+    }
+    
     public var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            // Subordinate 44pt Inspector Header (Distinct from 52pt Primary Workspace)
+            // 52pt Header strictly honoring Y=90pt Golden Line rule
             HStack(spacing: 8) {
                 VStack(alignment: .leading, spacing: 1) {
-                    Text(viewModel.selectedDiskItem?.isDirectory == true ? "DIRECTORY CANVAS" : "INSPECTOR")
+                    Text(headerSectionTitle)
                         .font(.system(size: 8.5, weight: .bold, design: .serif))
                         .tracking(1.8)
                         .foregroundStyle(TTZipTheme.kintsugiGold)
                     
-                    Text(viewModel.selectedDiskItem?.name ?? (viewModel.selectedDiskItem?.isDirectory == true ? "Folder Properties" : "File Properties"))
-                        .font(.system(size: 13, weight: .semibold, design: .default))
+                    Text(headerItemName)
+                        .font(.system(size: 13.5, weight: .bold, design: .serif))
                         .foregroundStyle(.primary)
                         .lineLimit(1)
                 }
@@ -63,53 +78,82 @@ public struct RightInspectorSidePanel: View {
                             .foregroundStyle(.secondary.opacity(0.8))
                     }
                     .buttonStyle(.plain)
+                    .help("Clear selection and view current directory canvas")
                 }
             }
-            .padding(.horizontal, 16)
-            .frame(height: 44)
+            .padding(.horizontal, 20)
+            .frame(height: 52)
             
-            // Subtle Hairline Divider (Replaces full-bleed 1.5pt gold line to avoid Y=90pt visual merge)
+            // 1.5pt Kintsugi Gold Line (Y=90pt Alignment)
             Rectangle()
-                .fill(Color.primary.opacity(0.08))
-                .frame(height: 0.8)
+                .fill(TTZipTheme.kintsugiGold)
+                .frame(height: 1.5)
             
+            // Contextual Content Area: Directory Canvas, File Preview, or Current Directory Canvas
             VStack(alignment: .leading, spacing: 0) {
                 if let item = viewModel.selectedDiskItem {
-                    InspectorColumnView(
-                        item: item,
-                        onSelectArchive: { archivePath in
-                            Task { await viewModel.loadArchive(path: archivePath) }
-                        },
-                        onCompressPath: { folderPath in
-                            viewModel.openCompressWorkspace(paths: [folderPath])
-                        },
-                        onPreviewFile: { _ in }
-                    )
-                    .id(item.path)
-                    .frame(maxHeight: .infinity)
-                } else {
-                    VStack(spacing: 12) {
-                        Spacer()
-                        Image(systemName: "photo.on.rectangle.angled")
-                            .font(.system(size: 32))
-                            .foregroundStyle(.tertiary)
-                        Text("Select a file or folder in the explorer")
-                            .font(.system(size: 11.5, weight: .medium))
-                            .foregroundStyle(.secondary)
-                        Text("Selected items can be previewed directly")
-                            .font(.system(size: 10))
-                            .foregroundStyle(.tertiary)
-                        Spacer()
+                    if item.isDirectory {
+                        FolderMediaArtboardView(
+                            item: item,
+                            onCompressPath: { folderPath in
+                                viewModel.openCompressWorkspace(paths: [folderPath])
+                            }
+                        )
+                        .id(item.path)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    } else {
+                        InspectorColumnView(
+                            item: item,
+                            onSelectArchive: { archivePath in
+                                Task { await viewModel.loadArchive(path: archivePath) }
+                            },
+                            onCompressPath: { folderPath in
+                                viewModel.openCompressWorkspace(paths: [folderPath])
+                            },
+                            onPreviewFile: { _ in }
+                        )
+                        .id(item.path)
+                        .frame(maxHeight: .infinity)
                     }
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                } else {
+                    let currentFolderItem = DiskItemInfo(url: viewModel.currentDirectory)
+                    if currentFolderItem.isDirectory {
+                        FolderMediaArtboardView(
+                            item: currentFolderItem,
+                            onCompressPath: { folderPath in
+                                viewModel.openCompressWorkspace(paths: [folderPath])
+                            }
+                        )
+                        .id(viewModel.currentDirectory.path)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    } else {
+                        zenPlaceholderView
+                    }
                 }
             }
         }
-        .background(Color.primary.opacity(0.018))
-        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .background(Color.primary.opacity(0.025))
+        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
         .overlay(
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .strokeBorder(Color.primary.opacity(0.05), lineWidth: 0.8)
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .strokeBorder(Color.primary.opacity(0.07), lineWidth: 1)
         )
+    }
+    
+    private var zenPlaceholderView: some View {
+        VStack(spacing: 12) {
+            Spacer()
+            Image(systemName: "circle.dotted")
+                .font(.system(size: 32, weight: .light))
+                .foregroundStyle(TTZipTheme.kintsugiGold.opacity(0.6))
+            Text("Zen Workspace")
+                .font(.system(size: 13, weight: .medium, design: .serif))
+                .foregroundStyle(.primary.opacity(0.8))
+            Text("Select an item in the explorer to inspect")
+                .font(.system(size: 11))
+                .foregroundStyle(.secondary)
+            Spacer()
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }

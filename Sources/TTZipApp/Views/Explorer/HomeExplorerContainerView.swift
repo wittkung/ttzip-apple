@@ -24,62 +24,35 @@ public struct HomeExplorerContainerView: View {
         self.isActive = isActive
     }
     
-    private var hasRightInspector: Bool {
-        isRightSidebarVisible && viewModel.selectedDiskItem != nil && viewModel.selectedDiskItem?.isDirectory == false
-    }
-    
     public var body: some View {
         TTZipWorkspaceScaffold(
             title: l10n.t(L10n.Explorer.fileExplorer),
             isCardEnclosed: true
         ) {
-            HStack(alignment: .center, spacing: 8) {
-                Button(action: {
-                    RootFolderAccessManager.shared.requestRootAccess(for: RootFolderAccessManager.shared.highestRootURL(for: viewModel.currentDirectory))
-                }) {
-                    HStack(spacing: 4) {
-                        Image(systemName: "lock.open.fill")
-                            .font(.system(size: 9, weight: .bold))
-                        L10nText(L10n.Explorer.rootAccess)
-                            .font(.system(size: 10, weight: .semibold))
-                            .lineLimit(1)
-                            .fixedSize(horizontal: true, vertical: false)
-                    }
-                    .foregroundStyle(TTZipTheme.kintsugiGold)
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 3.5)
-                    .background(TTZipTheme.kintsugiGold.opacity(0.12))
-                    .clipShape(Capsule())
+            Button(action: {
+                RootFolderAccessManager.shared.requestRootAccess(for: RootFolderAccessManager.shared.highestRootURL(for: viewModel.currentDirectory))
+            }) {
+                HStack(spacing: 4) {
+                    Image(systemName: "lock.open")
+                        .font(.system(size: 9.5, weight: .medium))
+                    L10nText(L10n.Explorer.rootAccess)
+                        .font(.system(size: 10.5, weight: .medium))
+                        .lineLimit(1)
+                        .fixedSize(horizontal: true, vertical: false)
                 }
-                .buttonStyle(.plain)
-                .fixedSize(horizontal: true, vertical: false)
-                .help("Grant root access to parent directory to browse without sandbox prompts")
-                
-                Button(action: {
-                    viewModel.navigationState.triggerOmnibarFocus()
-                }) {
-                    HStack(spacing: 4) {
-                        Image(systemName: "folder.fill")
-                            .font(.system(size: 10))
-                        Text(viewModel.currentDirectory.lastPathComponent.isEmpty ? "/" : viewModel.currentDirectory.lastPathComponent)
-                            .font(.system(size: 11, weight: .bold, design: .monospaced))
-                            .lineLimit(1)
-                            .truncationMode(.middle)
-                            .frame(maxWidth: 160)
-                            .foregroundStyle(TTZipTheme.bambooGreen)
-                    }
-                    .padding(.horizontal, 9)
-                    .padding(.vertical, 3.5)
-                    .background(TTZipTheme.bambooGreen.opacity(0.12))
-                    .clipShape(Capsule())
-                }
-                .buttonStyle(.plain)
-                .fixedSize(horizontal: true, vertical: false)
-                .layoutPriority(1)
-                .help("Current directory (Click or press ⌘L / ⇧⌘G to navigate by path)")
+                .foregroundStyle(.secondary)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 3.5)
+                .background(Color.primary.opacity(0.04))
+                .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 6, style: .continuous)
+                        .strokeBorder(Color.primary.opacity(0.08), lineWidth: 0.8)
+                )
             }
+            .buttonStyle(.plain)
             .fixedSize(horizontal: true, vertical: false)
-            .layoutPriority(1)
+            .help("Grant root access to parent directory to browse without sandbox prompts")
         } content: {
             DiskDirectoryBrowserView(
                 rootDirectory: viewModel.currentDirectory,

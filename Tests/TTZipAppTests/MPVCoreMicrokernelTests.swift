@@ -266,4 +266,71 @@ final class MPVCoreMicrokernelTests: XCTestCase {
         await engine.removeWakeupListener(id: id3)
         await engine.terminate()
     }
+
+    // MARK: - Test 8: Playback Abort and Metadata Hwdec Properties
+
+    func testMPVPlaybackAbortAndMetadataHwdecProperties() {
+        let abortEvent = MPVEvent.playbackAbort
+        XCTAssertEqual(abortEvent, .playbackAbort)
+
+        let metadata = MPVMediaMetadataSnapshot(
+            videoCodec: "vp8",
+            audioCodec: "opus",
+            hwdecCurrent: "no",
+            videoWidth: 1920,
+            videoHeight: 1080
+        )
+        XCTAssertEqual(metadata.videoCodec, "vp8")
+        XCTAssertEqual(metadata.audioCodec, "opus")
+        XCTAssertEqual(metadata.hwdecCurrent, "no")
+
+        let paramsSnapshot = MPVMediaParamsSnapshot(
+            width: 1920,
+            height: 1080,
+            hdrFormat: .sdr,
+            sampleRate: "48.0 kHz",
+            channels: "Stereo",
+            audioCodec: "Opus",
+            videoCodec: "vp8",
+            hwdecCurrent: "no",
+            bitrate: "128 kbps"
+        )
+        XCTAssertEqual(paramsSnapshot.videoCodec, "vp8")
+        XCTAssertEqual(paramsSnapshot.hwdecCurrent, "no")
+    }
+
+    // MARK: - Test 9: MPVMetalPlayerStore State & Fallback State Machine
+
+    @MainActor
+    func testMPVMetalPlayerStorePropertiesAndFallbackState() {
+        let store = MPVMetalPlayerStore.shared
+        store.cleanUp()
+
+        XCTAssertEqual(store.videoCodec, "")
+        XCTAssertEqual(store.hwdecCurrent, "")
+        XCTAssertFalse(store.hasPlaybackError)
+
+        store.cleanUp()
+    }
+
+    // MARK: - Test 10: MPVHardwareDecodingPolicy and Viewport Protocol Conformance
+
+    @MainActor
+    func testMPVHardwareDecodingPolicyAndProtocolConformance() {
+        XCTAssertEqual(MPVHardwareDecodingPolicy.auto.rawValue, "auto")
+        XCTAssertEqual(MPVHardwareDecodingPolicy.videotoolbox.rawValue, "videotoolbox")
+        XCTAssertEqual(MPVHardwareDecodingPolicy.autoSafe.rawValue, "auto-safe")
+        XCTAssertEqual(MPVHardwareDecodingPolicy.disabled.rawValue, "no")
+
+        let glLayer: any MPVVideoLayerProtocol = MPVOpenGLLayer()
+        XCTAssertFalse(glLayer.isBound)
+        glLayer.contentsScale = 2.0
+        XCTAssertEqual(glLayer.contentsScale, 2.0)
+
+        let metalLayer: any MPVVideoLayerProtocol = MPVMetalRenderLayer()
+        XCTAssertFalse(metalLayer.isBound)
+        metalLayer.contentsScale = 2.0
+        XCTAssertEqual(metalLayer.contentsScale, 2.0)
+    }
 }
+

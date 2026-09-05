@@ -15,10 +15,15 @@ import TTZipBenchmarkKit
 extension FinderMillerColumnsView {
     
     var activeColumnIndex: Int {
-        if let idx = hoveredColumnIndex, idx >= 0 && idx < columnPaths.count {
-            return idx
+        if let maxSelected = selectedPaths.keys.max(), maxSelected >= 0 && maxSelected < columnPaths.count {
+            return maxSelected
         }
         return max(0, columnPaths.count - 1)
+    }
+    
+    var hoveredColumnIndex: Int? {
+        get { activeColumnIndex }
+        nonmutating set { }
     }
     
     func prependParentColumn(for dirURL: URL) {
@@ -93,7 +98,6 @@ extension FinderMillerColumnsView {
         let activeIndex = activeColumnIndex
         if activeIndex > 0 {
             let nextActive = activeIndex - 1
-            hoveredColumnIndex = nextActive
             if columnPaths.count > nextActive + 1 {
                 columnPaths = Array(columnPaths.prefix(nextActive + 1))
             }
@@ -116,7 +120,6 @@ extension FinderMillerColumnsView {
         let activeIndex = activeColumnIndex
         if activeIndex < columnPaths.count - 1 {
             let nextActive = activeIndex + 1
-            hoveredColumnIndex = nextActive
             let targetURL = columnPaths[nextActive]
             let currentSort = perColumnSortOption[nextActive] ?? sortOption
             let cacheKey = "\(targetURL.absoluteString)_\(currentSort.rawValue)"
@@ -138,7 +141,6 @@ extension FinderMillerColumnsView {
                let selected = items.first(where: { $0.path == selectedPath }),
                (selected.isDirectory || selected.isArchive) {
                 selectItem(item: selected, columnIndex: activeIndex, dirURL: targetURL)
-                hoveredColumnIndex = activeIndex + 1
             }
         }
     }

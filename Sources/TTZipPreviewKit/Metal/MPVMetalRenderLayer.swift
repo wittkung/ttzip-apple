@@ -25,14 +25,14 @@ private final class MPVMetalLayerProxy: @unchecked Sendable {
 ///
 /// Configures a 16-bit floating point (`.rgba16Float`) texture pipeline mapped into extended linear sRGB
 /// color space, bypassing standard 8-bit SDR clamp boundaries and driving direct zero-copy frame presentation.
-public final class MPVMetalRenderLayer: CAMetalLayer, @unchecked Sendable {
+public final class MPVMetalRenderLayer: CAMetalLayer, MPVVideoLayerProtocol, @unchecked Sendable {
     private let logger = Logger(subsystem: "com.metastudyline.ttzip", category: "MPVMetalRenderLayer")
     
     public weak var renderContextManager: MPVRenderContextManager?
     public weak var playerStore: MPVMetalPlayerStore?
     
     private let renderQueue = DispatchQueue(label: "com.metastudyline.ttzip.mpv.metalRenderQueue", qos: .userInteractive)
-    private var isBound: Bool = false
+    public private(set) var isBound: Bool = false
     private var proxy: MPVMetalLayerProxy?
     private var commandQueue: MTLCommandQueue?
     
@@ -101,6 +101,11 @@ public final class MPVMetalRenderLayer: CAMetalLayer, @unchecked Sendable {
             guard let layer = localProxy?.layer, layer.isBound else { return }
             layer.renderNextFrame()
         }
+    }
+
+    /// Forces an immediate frame redraw cycle.
+    public func forceRedraw() {
+        requestRender()
     }
     
     /// Executes a frame render pass, presenting into the next available CAMetalDrawable or compatible buffer.

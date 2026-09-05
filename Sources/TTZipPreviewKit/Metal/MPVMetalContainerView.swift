@@ -80,15 +80,15 @@ public final class MPVMetalContainerView: MPVMetalNSView {
         
         displayLink.setFrameCallback { [weak self] _, _ in
             Task { @MainActor [weak self] in
-                guard let self = self, let glLayer = self.layer as? MPVOpenGLLayer else { return }
+                guard let self = self, let videoLayer = self.layer as? (any MPVVideoLayerProtocol) else { return }
                 guard let store = self.store ?? MPVMetalPlayerStore.shared as MPVMetalPlayerStore? else { return }
                 if self.warmupFrameCount > 0 {
                     self.warmupFrameCount -= 1
-                    glLayer.forceRedraw()
+                    videoLayer.forceRedraw()
                     return
                 }
                 guard store.isPlaying else { return }
-                glLayer.forceRedraw()
+                videoLayer.forceRedraw()
             }
         }
     }
@@ -112,7 +112,7 @@ public final class MPVMetalContainerView: MPVMetalNSView {
             singleClickWorkItem?.cancel()
             singleClickWorkItem = nil
             displayLink.suspend()
-            (layer as? MPVOpenGLLayer)?.unbind()
+            (layer as? (any MPVVideoLayerProtocol))?.unbind()
         }
     }
     
@@ -128,18 +128,18 @@ public final class MPVMetalContainerView: MPVMetalNSView {
     
     private func updateScaleAndBounds() {
         let scale = window?.backingScaleFactor ?? NSScreen.main?.backingScaleFactor ?? 2.0
-        if let glLayer = layer as? MPVOpenGLLayer {
-            glLayer.contentsScale = scale
-            glLayer.forceRedraw()
+        if let videoLayer = layer as? (any MPVVideoLayerProtocol) {
+            videoLayer.contentsScale = scale
+            videoLayer.forceRedraw()
         }
     }
     
     private func bindStore() {
         guard let targetStore = store ?? MPVMetalPlayerStore.shared as MPVMetalPlayerStore? else { return }
-        if let glLayer = layer as? MPVOpenGLLayer {
+        if let videoLayer = layer as? (any MPVVideoLayerProtocol) {
             let scale = window?.backingScaleFactor ?? NSScreen.main?.backingScaleFactor ?? 2.0
-            glLayer.contentsScale = scale
-            glLayer.bind(store: targetStore)
+            videoLayer.contentsScale = scale
+            videoLayer.bind(store: targetStore)
             warmupFrameCount = 5
         }
     }
@@ -168,7 +168,7 @@ public final class MPVMetalContainerView: MPVMetalNSView {
             Task { @MainActor [weak self] in
                 self?.logger.debug("Window un-minimized: resuming Metal display link")
                 self?.displayLink.resume()
-                (self?.layer as? MPVOpenGLLayer)?.forceRedraw()
+                (self?.layer as? (any MPVVideoLayerProtocol))?.forceRedraw()
             }
         }
         
@@ -181,7 +181,7 @@ public final class MPVMetalContainerView: MPVMetalNSView {
                 guard let self = self, let win = self.window else { return }
                 if win.occlusionState.contains(.visible) {
                     self.displayLink.resume()
-                    (self.layer as? MPVOpenGLLayer)?.forceRedraw()
+                    (self.layer as? (any MPVVideoLayerProtocol))?.forceRedraw()
                 } else {
                     self.displayLink.suspend()
                 }

@@ -113,11 +113,13 @@ private final class MPVHandleHolder: @unchecked Sendable {
             mpv_set_option_string(newHandle, "ao", "coreaudio,auto")
         } else {
             mpv_set_option_string(newHandle, "vo", "libmpv")
-            mpv_set_option_string(newHandle, "hwdec", "auto-safe")
+            mpv_set_option_string(newHandle, "hwdec", "auto")
             mpv_set_option_string(newHandle, "hwdec-codecs", "all")
             mpv_set_option_string(newHandle, "ao", "coreaudio,auto")
         }
+        mpv_set_option_string(newHandle, "vd-lavc-dr", "no")
 
+        mpv_set_option_string(newHandle, "audio-stream-silence", "yes")
         mpv_set_option_string(newHandle, "audio-channels", "auto-safe")
         mpv_set_option_string(newHandle, "audio-exclusive", "no")
         mpv_set_option_string(newHandle, "audio-pitch-correction", "yes")
@@ -128,7 +130,7 @@ private final class MPVHandleHolder: @unchecked Sendable {
 
         mpv_set_option_string(newHandle, "target-colorspace-hint", "no")
         mpv_set_option_string(newHandle, "target-trc", "auto")
-        mpv_set_option_string(newHandle, "tone-mapping", "bt.2446a")
+        mpv_set_option_string(newHandle, "tone-mapping", "auto")
         mpv_set_option_string(newHandle, "gamut-mapping-mode", "perceptual")
         mpv_set_option_string(newHandle, "hdr-compute-peak", "no")
         mpv_set_option_string(newHandle, "sub-auto", "fuzzy")
@@ -165,7 +167,13 @@ private final class MPVHandleHolder: @unchecked Sendable {
             (12, "audio-params/channels", MPV_FORMAT_STRING),
             (13, "audio-bitrate", MPV_FORMAT_DOUBLE),
             (14, "video-params/w", MPV_FORMAT_DOUBLE),
-            (15, "video-params/h", MPV_FORMAT_DOUBLE)
+            (15, "video-params/h", MPV_FORMAT_DOUBLE),
+            (16, "track-list", MPV_FORMAT_NONE),
+            (17, "hwdec-current", MPV_FORMAT_STRING),
+            (18, "video-codec", MPV_FORMAT_STRING),
+            (19, "audio-codec", MPV_FORMAT_STRING),
+            (20, "video-params/pixelformat", MPV_FORMAT_STRING),
+            (21, "playback-abort", MPV_FORMAT_FLAG)
         ]
         for (replyId, name, format) in properties {
             mpv_observe_property(newHandle, replyId, name, format)
@@ -278,6 +286,14 @@ public actor MPVCoreEngine {
         try sendCommand(["loadfile", url.path, replace ? "replace" : "append"])
     }
 
+    /// Dynamically fallback to pure software decoding (hwdec=no) and reload the media file.
+    public func fallbackToSoftwareDecodingAndReload(url: URL) async throws {
+        logger.warning("Dynamic fallback: switching to software decoding (hwdec=no) for \(url.lastPathComponent, privacy: .public)")
+        try setProperty(name: "hwdec", value: "no")
+        try setProperty(name: "vd-lavc-dr", value: "no")
+        try await loadFile(url: url, replace: true, isAudioOnly: false)
+    }
+
     /// Executes a low-level synchronous libmpv command.
     public func sendCommand(_ args: [String]) throws {
         guard let handle else { throw MPVError.handleDeallocated }
@@ -366,9 +382,18 @@ public actor MPVCoreEngine {
         } else {
             mpv_set_option_string(handle, "vo", "libmpv")
             mpv_set_option_string(handle, "vid", "auto")
-            mpv_set_option_string(handle, "hwdec", "auto-safe")
+            mpv_set_option_string(handle, "hwdec", "auto")
             mpv_set_option_string(handle, "hwdec-codecs", "all")
             mpv_set_option_string(handle, "ao", "coreaudio,auto")
+        }
+    }
+
+    /// Dynamically configures the hardware video decoding policy (e.g. zero-copy auto vs software fallback).
+    public func setHardwareDecodingPolicy(_ policy: MPVHardwareDecodingPolicy) async throws {
+        logger.info("Setting hardware decoding policy to \(policy.rawValue, privacy: .public)")
+        try setProperty(name: "hwdec", value: policy.rawValue)
+        if policy != .disabled {
+            try setProperty(name: "hwdec-codecs", value: "all")
         }
     }
 

@@ -83,6 +83,11 @@ cd "${REPO_ROOT}"
 
 # Deterministic binary and build path resolution (0 SPM subprocess overhead)
 BIN_DIR="${BUILD_DIR}/${BUILD_CONFIG}"
+if [ ! -f "${BIN_DIR}/TTZipApp" ] && [ -f "${BUILD_DIR}/arm64-apple-macosx/${BUILD_CONFIG}/TTZipApp" ]; then
+    BIN_DIR="${BUILD_DIR}/arm64-apple-macosx/${BUILD_CONFIG}"
+elif [ ! -f "${BIN_DIR}/TTZipApp" ] && [ -f "${BUILD_DIR}/x86_64-apple-macosx/${BUILD_CONFIG}/TTZipApp" ]; then
+    BIN_DIR="${BUILD_DIR}/x86_64-apple-macosx/${BUILD_CONFIG}"
+fi
 BIN_PATH="${BIN_DIR}/TTZipApp"
 FINDER_SYNC_SRC="${BIN_DIR}/libTTZipFinderSync.dylib"
 QUICKLOOK_SRC="${BIN_DIR}/libTTZipQuickLook.dylib"
@@ -117,13 +122,15 @@ RESOURCES_DIR="${CONTENTS_DIR}/Resources"
 PLUGINS_DIR="${CONTENTS_DIR}/PlugIns"
 
 if [ ! -f "${BIN_PATH}" ]; then
-    BIN_PATH="$(swift build --build-path "${BUILD_DIR}" -c "${BUILD_CONFIG}" --show-bin-path)/TTZipApp"
-    BIN_DIR="$(dirname "${BIN_PATH}")"
+    BIN_PATH="$(swift build --build-path "${BUILD_DIR}" -c "${BUILD_CONFIG}" --show-bin-path 2>/dev/null || true)/TTZipApp"
+    if [ -f "${BIN_PATH}" ]; then
+        BIN_DIR="$(dirname "${BIN_PATH}")"
+    fi
 fi
 
 if [ "${FORCE_CLEAN}" = true ]; then
     echo "--> [Clean Mode] Removing existing bundle: ${APP_DIR}"
-    rm -rf "${APP_DIR}"
+    rm -rf "${APP_DIR}" "${BUILD_DIR}/.bundle_state"
 fi
 
 STATE_DIR="${BUILD_DIR}/.bundle_state"
@@ -278,24 +285,166 @@ else
     fi
 fi
 
-# 6. Handle libmpv.dylib (Stamp-based change detection to avoid codesign diff loop)
-MPV_SRC="${REPO_ROOT}/Frameworks/libmpv.dylib"
-
-if [ -n "${MPV_SRC}" ] && [ -f "${MPV_SRC}" ]; then
-    TARGET_MPV="${FRAMEWORKS_DIR}/libmpv.dylib"
-    MPV_SRC_STAT="$(get_file_stat "${MPV_SRC}")"
-    LAST_MPV_STAT="$(cat "${STATE_DIR}/libmpv.stamp" 2>/dev/null || true)"
-
-    if [ ! -f "${TARGET_MPV}" ] || [ "${MPV_SRC_STAT}" != "${LAST_MPV_STAT}" ]; then
-        echo "--> Bundling libmpv.dylib..."
-        mkdir -p "${FRAMEWORKS_DIR}"
-        cp -f "${MPV_SRC}" "${TARGET_MPV}"
-        chmod 755 "${TARGET_MPV}"
-        install_name_tool -id @rpath/libmpv.dylib "${TARGET_MPV}" 2>/dev/null || true
-        echo -n "${MPV_SRC_STAT}" > "${STATE_DIR}/libmpv.stamp"
-        APP_UPDATED=true
+# 6. Bundle libmpv.dylib and Transitive Dynamic Libraries with @rpath Relocation
+bundle_and_relocate_mpv_deps() {
+    local mpv_src="${REPO_ROOT}/Frameworks/libmpv.dylib"
+    if [ ! -f "${mpv_src}" ]; then
+        echo "--> [Warning] libmpv.dylib not found at ${mpv_src}, skipping preview engine bundling."
+        return 0
     fi
-fi
+
+    local target_mpv="${FRAMEWORKS_DIR}/libmpv.dylib"
+    local mpv_src_stat
+    mpv_src_stat="$(get_file_stat "${mpv_src}")"
+    local last_stat
+    last_stat="$(cat "${STATE_DIR}/libmpv.stamp" 2>/dev/null || true)"
+    local state_done="${STATE_DIR}/libmpv_relocated.done"
+    local existing_dylib_count
+    existing_dylib_count="$(find "${FRAMEWORKS_DIR}" -maxdepth 1 -name "*.dylib" -type f 2>/dev/null | wc -l | tr -d ' ')"
+
+    # Fast incremental check: skip if binary stamp matches, relocation marker exists, and closure is populated (>10 dylibs)
+    if [ "${existing_dylib_count}" -gt 10 ] && [ -f "${target_mpv}" ] && [ "${mpv_src_stat}" = "${last_stat}" ] && [ -f "${state_done}" ]; then
+        echo "--> [2.5/4] libmpv.dylib and transitive dependencies (${existing_dylib_count} libraries) are up-to-date (Skipped)."
+        return 0
+    fi
+
+    echo "--> Bundling libmpv.dylib and recursively collecting transitive dynamic dependencies..."
+    mkdir -p "${FRAMEWORKS_DIR}"
+    cp -f "${mpv_src}" "${target_mpv}"
+    chmod 755 "${target_mpv}"
+
+    # Recursively collect all non-system dependencies into FRAMEWORKS_DIR
+    local copied=true
+    while [ "${copied}" = true ]; do
+        copied=false
+        for dylib in "${FRAMEWORKS_DIR}"/*.dylib; do
+            [ -f "${dylib}" ] || continue
+            while read -r dep _; do
+                case "${dep}" in
+                    /usr/lib/*|/System/Library/*|@rpath/*|@loader_path/*|@executable_path/*|"")
+                        continue
+                        ;;
+                    *)
+                        local base="${dep##*/}"
+                        local target="${FRAMEWORKS_DIR}/${base}"
+                        if [ ! -f "${target}" ] && [ -f "${dep}" ]; then
+                            cp -L "${dep}" "${target}"
+                            chmod 755 "${target}"
+                            copied=true
+                        fi
+                        ;;
+                esac
+            done < <(otool -L "${dylib}" | tail -n +2)
+        done
+    done
+
+    local dylib_count
+    dylib_count="$(find "${FRAMEWORKS_DIR}" -maxdepth 1 -name "*.dylib" -type f 2>/dev/null | wc -l | tr -d ' ')"
+    echo "    • Collected ${dylib_count} dynamic libraries into Frameworks."
+
+    # Batch rewrite Mach-O install names (LC_ID_DYLIB) and inject @loader_path
+    echo "    • Rewriting Mach-O install names (LC_ID_DYLIB) to @rpath..."
+    for dylib in "${FRAMEWORKS_DIR}"/*.dylib; do
+        [ -f "${dylib}" ] || continue
+        local base="${dylib##*/}"
+        chmod 755 "${dylib}"
+        install_name_tool -id "@rpath/${base}" "${dylib}" 2>/dev/null || true
+        if ! otool -l "${dylib}" | grep -A2 LC_RPATH | grep -q "@loader_path"; then
+            install_name_tool -add_rpath "@loader_path" "${dylib}" 2>/dev/null || true
+        fi
+    done
+
+    # Batch rewrite inter-dylib dependency paths to @rpath/<filename>
+    echo "    • Relocating inter-library references to @rpath..."
+    for dylib in "${FRAMEWORKS_DIR}"/*.dylib; do
+        [ -f "${dylib}" ] || continue
+        local changes=()
+        while read -r dep _; do
+            case "${dep}" in
+                /usr/lib/*|/System/Library/*|@rpath/*|@loader_path/*|@executable_path/*|"")
+                    continue
+                    ;;
+                *)
+                    local base="${dep##*/}"
+                    if [ -f "${FRAMEWORKS_DIR}/${base}" ]; then
+                        changes+=("-change" "${dep}" "@rpath/${base}")
+                    fi
+                    ;;
+            esac
+        done < <(otool -L "${dylib}" | tail -n +2)
+
+        if [ ${#changes[@]} -gt 0 ]; then
+            install_name_tool "${changes[@]}" "${dylib}" 2>/dev/null || true
+        fi
+    done
+
+    # Relocate any non-system references in main executable TTZip to @rpath
+    if [ -f "${MACOS_DIR}/TTZip" ]; then
+        local main_changes=()
+        while read -r dep _; do
+            case "${dep}" in
+                /usr/lib/*|/System/Library/*|@rpath/*|@loader_path/*|@executable_path/*|"")
+                    continue
+                    ;;
+                *)
+                    local base="${dep##*/}"
+                    if [ -f "${FRAMEWORKS_DIR}/${base}" ]; then
+                        main_changes+=("-change" "${dep}" "@rpath/${base}")
+                    fi
+                    ;;
+            esac
+        done < <(otool -L "${MACOS_DIR}/TTZip" | tail -n +2)
+
+        if [ ${#main_changes[@]} -gt 0 ]; then
+            chmod 755 "${MACOS_DIR}/TTZip"
+            install_name_tool "${main_changes[@]}" "${MACOS_DIR}/TTZip" 2>/dev/null || true
+        fi
+    fi
+
+    # Zero-leak audit: ensure no dangling external dependencies remain
+    echo "    • Verifying zero external dependency leaks in bundled libraries..."
+    local leak_count=0
+    for dylib in "${FRAMEWORKS_DIR}"/*.dylib; do
+        [ -f "${dylib}" ] || continue
+        while read -r dep _; do
+            case "${dep}" in
+                /usr/lib/*|/System/Library/*|@rpath/*|@loader_path/*|@executable_path/*|"")
+                    continue
+                    ;;
+                *)
+                    echo "      ❌ ERROR: External dependency leak in $(basename "${dylib}"): ${dep}"
+                    leak_count=$((leak_count + 1))
+                    ;;
+            esac
+        done < <(otool -L "${dylib}" | tail -n +2)
+    done
+
+    if [ -f "${MACOS_DIR}/TTZip" ]; then
+        while read -r dep _; do
+            case "${dep}" in
+                /usr/lib/*|/System/Library/*|@rpath/*|@loader_path/*|@executable_path/*|"")
+                    continue
+                    ;;
+                *)
+                    echo "      ❌ ERROR: External dependency leak in TTZip binary: ${dep}"
+                    leak_count=$((leak_count + 1))
+                    ;;
+            esac
+        done < <(otool -L "${MACOS_DIR}/TTZip" | tail -n +2)
+    fi
+
+    if [ "${leak_count}" -gt 0 ]; then
+        echo "❌ Aborting: ${leak_count} external dependencies remained uncontained!"
+        exit 1
+    fi
+    echo "    • Verification passed: All ${dylib_count} dynamic libraries are fully self-contained."
+
+    echo -n "${mpv_src_stat}" > "${STATE_DIR}/libmpv.stamp"
+    touch "${state_done}"
+    APP_UPDATED=true
+}
+
+bundle_and_relocate_mpv_deps
 
 # 7. Clean up loose extension dylibs from Frameworks and Copy genuine Auxiliary Dynamic Libraries
 rm -f "${FRAMEWORKS_DIR}/libTTZipFinderSync.dylib" "${FRAMEWORKS_DIR}/libTTZipQuickLook.dylib"
@@ -336,7 +485,31 @@ fi
 if [ "${NEEDS_BUNDLE_SIGN}" = true ]; then
     echo "--> [3/4] Performing Inside-Out code signing with Hardened Runtime..."
 
-    # Step 1: Sign App Extensions (.appex)
+    # Step 1: Sign Embedded Dynamic Libraries (libmpv.dylib and transitive dependencies)
+    if [ -d "${FRAMEWORKS_DIR}" ]; then
+        for item in "${FRAMEWORKS_DIR}"/*.dylib; do
+            if [ -f "${item}" ]; then
+                echo "    • Signing embedded library: $(basename "${item}")..."
+                LIB_SIGN_ARGS=(--force --sign "${SIGN_IDENTITY}")
+                if [ "${SIGN_IDENTITY}" != "-" ]; then
+                    LIB_SIGN_ARGS+=(--options runtime --timestamp)
+                fi
+                codesign "${LIB_SIGN_ARGS[@]}" "${item}"
+            fi
+        done
+    fi
+
+    # Step 2: Sign Embedded Frameworks (Sparkle.framework)
+    if [ -d "${FRAMEWORKS_DIR}/Sparkle.framework" ]; then
+        echo "    • Signing embedded Sparkle.framework..."
+        SPARKLE_SIGN_ARGS=(--force --deep --sign "${SIGN_IDENTITY}")
+        if [ "${SIGN_IDENTITY}" != "-" ]; then
+            SPARKLE_SIGN_ARGS+=(--options runtime --timestamp)
+        fi
+        codesign "${SPARKLE_SIGN_ARGS[@]}" "${FRAMEWORKS_DIR}/Sparkle.framework"
+    fi
+
+    # Step 3: Sign App Extensions (.appex)
     if [ -d "${PLUGINS_DIR}" ]; then
         for appex_dir in "${PLUGINS_DIR}"/*.appex; do
             if [ -d "${appex_dir}" ]; then
@@ -346,30 +519,6 @@ if [ "${NEEDS_BUNDLE_SIGN}" = true ]; then
                     EXT_SIGN_ARGS+=(--options runtime --timestamp)
                 fi
                 codesign "${EXT_SIGN_ARGS[@]}" "${appex_dir}"
-            fi
-        done
-    fi
-
-    # Step 2: Sign Embedded Frameworks (Sparkle.framework)
-    if [ -d "${FRAMEWORKS_DIR}/Sparkle.framework" ]; then
-        echo "    • Signing embedded Sparkle.framework..."
-        SPARKLE_SIGN_ARGS=(--force --sign "${SIGN_IDENTITY}")
-        if [ "${SIGN_IDENTITY}" != "-" ]; then
-            SPARKLE_SIGN_ARGS+=(--options runtime --timestamp)
-        fi
-        codesign "${SPARKLE_SIGN_ARGS[@]}" "${FRAMEWORKS_DIR}/Sparkle.framework"
-    fi
-
-    # Step 3: Sign Embedded Dynamic Libraries (libmpv.dylib, etc.)
-    if [ -d "${FRAMEWORKS_DIR}" ]; then
-        for item in "${FRAMEWORKS_DIR}"/*; do
-            if [ -e "${item}" ] && [ "$(basename "${item}")" != "Sparkle.framework" ]; then
-                echo "    • Signing embedded library: $(basename "${item}")..."
-                LIB_SIGN_ARGS=(--force --sign "${SIGN_IDENTITY}")
-                if [ "${SIGN_IDENTITY}" != "-" ]; then
-                    LIB_SIGN_ARGS+=(--options runtime --timestamp)
-                fi
-                codesign "${LIB_SIGN_ARGS[@]}" "${item}"
             fi
         done
     fi

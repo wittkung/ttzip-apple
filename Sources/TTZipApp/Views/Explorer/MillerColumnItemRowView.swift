@@ -52,7 +52,7 @@ public struct MillerColumnItemRowView: View {
     }
     
     private var isEncryptedLockItem: Bool {
-        item.kindText == "Password-Protected Archive" || item.kindText == "受密码保护的归档包" || item.name.contains("Encrypted Archive") || item.name.contains("压缩包已被加密")
+        item.isEncryptedLockItem
     }
     
     private var iconName: String {
@@ -60,7 +60,7 @@ public struct MillerColumnItemRowView: View {
     }
     
     private var iconColor: Color {
-        isEncryptedLockItem ? Color.orange : (item.isDirectory ? TTZipTheme.bambooGreen : (item.isArchive ? Color.orange : Color.secondary))
+        isEncryptedLockItem ? TTZipTheme.archiveAmber : (item.isDirectory ? TTZipTheme.bambooGreen : (item.isArchive ? TTZipTheme.archiveAmber : Color.secondary))
     }
     
     public var body: some View {
@@ -72,7 +72,7 @@ public struct MillerColumnItemRowView: View {
             
             Text(item.name)
                 .font(.system(size: 11, weight: isSelected ? .semibold : .regular))
-                .foregroundStyle(isSelected ? Color.primary : (isEncryptedLockItem ? Color.orange : (item.isArchive ? TTZipTheme.bambooGreen : Color.primary.opacity(0.85))))
+                .foregroundStyle(isSelected ? Color.primary : (isEncryptedLockItem ? TTZipTheme.archiveAmber : (item.isArchive ? TTZipTheme.bambooGreen : Color.primary.opacity(0.85))))
                 .lineLimit(1)
             
             Spacer()
@@ -211,3 +211,17 @@ public struct MillerColumnItemRowView: View {
         }
     }
 }
+
+extension DiskItemInfo {
+    /// Determines whether this item represents an encrypted/password-protected archive entry.
+    public var isEncryptedLockItem: Bool {
+        kindText == "Password-Protected Archive"
+            || sizeText == "Password Required"
+            || name.localizedCaseInsensitiveContains("Encrypted Archive")
+            || name.contains("受密码保护")
+            || name.contains("已被加密")
+            || kindText.localizedCaseInsensitiveContains("Password-Protected")
+            || kindText.contains("受密码保护")
+    }
+}
+
