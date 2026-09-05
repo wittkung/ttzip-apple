@@ -31,10 +31,15 @@ public struct MainView: View {
     @ObservedObject var registry = TTZipPluginRegistry.shared
     @State var viewModel = AppViewState()
     @State var isRightSidebarVisible: Bool = true
+    @State var isLeftSidebarVisible: Bool = true
     @State var presentedSecondaryTool: WorkspaceTab? = nil
     @State private var isDropTargeted: Bool = false
     
     public init() {}
+    
+    @AppStorage("TTZip_UserLeftSidebarWidth") private var userLeftSidebarWidth: Double = 190.0
+    @State private var leftSidebarWidth: CGFloat = 190
+    @State private var initialLeftWidth: CGFloat = 190
     
     @AppStorage("TTZip_UserRightSidebarWidth") private var userRightSidebarWidth: Double = 280.0
     @State private var rightSidebarWidth: CGFloat = 280
@@ -53,17 +58,28 @@ public struct MainView: View {
             let isMediaFocus = viewModel.navigationState.layoutMode == .mediaFocus
             
             // Fixed Chrome Geometry & Safety Clamping Constants
-            let rightDividerWidth: CGFloat = ResizableDividerHandle.gutterWidth
+            let dividerWidth: CGFloat = ResizableDividerHandle.gutterWidth
             let rightPanelPadding: CGFloat = 14.0 // leading: 4 + trailing: 10
-            let minSafeWorkspaceWidth: CGFloat = 420.0
+            let minSafeWorkspaceWidth: CGFloat = 380.0
+            
+            let minLeftSidebarWidth: CGFloat = 150.0
+            let maxLeftSidebarWidth: CGFloat = 280.0
+            let isLeftPanelAvailable: Bool = (tier != .compact && viewModel.activeTab == .home)
+            let shouldShowLeftPanel = !isMediaFocus && isLeftSidebarVisible && isLeftPanelAvailable
+            
+            let effectiveLeftWidth: CGFloat = {
+                if !shouldShowLeftPanel { return 0 }
+                return min(max(leftSidebarWidth, minLeftSidebarWidth), maxLeftSidebarWidth)
+            }()
+            
             let minRightSidebarWidth: CGFloat = 200.0
             let maxRightSidebarWidth: CGFloat = max(850.0, totalWidth * 0.55)
-            
             let isRightPanelAvailable: Bool = (tier != .compact && viewModel.activeTab == .home)
             let shouldShowRightPanel = !isMediaFocus && isRightSidebarVisible && isRightPanelAvailable
             
-            let totalChrome = shouldShowRightPanel ? (rightDividerWidth + rightPanelPadding) : 0
-            let maxRightAllowedByWorkspace = max(minRightSidebarWidth, totalWidth - totalChrome - minSafeWorkspaceWidth)
+            let leftChrome = shouldShowLeftPanel ? (effectiveLeftWidth + dividerWidth) : 0
+            let rightChrome = shouldShowRightPanel ? (dividerWidth + rightPanelPadding) : 0
+            let maxRightAllowedByWorkspace = max(minRightSidebarWidth, totalWidth - leftChrome - rightChrome - minSafeWorkspaceWidth)
             let effectiveMaxRightWidth = min(maxRightSidebarWidth, maxRightAllowedByWorkspace)
             
             let effectiveRightWidth: CGFloat = {
@@ -77,6 +93,31 @@ public struct MainView: View {
                     .allowsHitTesting(false)
                 
                 HStack(alignment: .top, spacing: 0) {
+                    if shouldShowLeftPanel {
+                        FinderFavoritesSidebarView(
+                            currentDirectory: viewModel.currentDirectory,
+                            onSelectDirectory: { url in
+                                viewModel.currentDirectory = url
+                                viewModel.selectedDiskItem = nil
+                            }
+                        )
+                        .frame(width: effectiveLeftWidth, height: totalHeight, alignment: .topLeading)
+                        .transition(.move(edge: .leading).combined(with: .opacity))
+                        
+                        if tier != .compact {
+                            ResizableDividerHandle(
+                                onDragStart: { initialLeftWidth = leftSidebarWidth },
+                                onDragChanged: { translation in
+                                    let newWidth = initialLeftWidth + translation
+                                    leftSidebarWidth = min(max(newWidth, minLeftSidebarWidth), maxLeftSidebarWidth)
+                                },
+                                onDragEnd: { userLeftSidebarWidth = Double(leftSidebarWidth) }
+                            )
+                            .frame(height: totalHeight)
+                            .transition(.opacity)
+                        }
+                    }
+                    
                     detailArea
                         .frame(minWidth: isMediaFocus ? 0 : minSafeWorkspaceWidth, maxWidth: .infinity, maxHeight: totalHeight, alignment: .topLeading)
                     
@@ -134,6 +175,7 @@ public struct MainView: View {
             .clipped()
             .simultaneousGesture(TapGesture().onEnded { NSApp.keyWindow?.makeFirstResponder(nil) })
             .onAppear {
+                self.leftSidebarWidth = CGFloat(userLeftSidebarWidth)
                 self.rightSidebarWidth = CGFloat(userRightSidebarWidth)
             }
             .onChange(of: viewModel.selectedDiskItem) { _, _ in NSApp.keyWindow?.makeFirstResponder(nil) }
@@ -247,12 +289,16 @@ public struct MainView: View {
         .onReceive(NotificationCenter.default.publisher(for: NSWindow.didExitFullScreenNotification)) { _ in
             withAnimation(.easeInOut(duration: 0.25)) {
                 viewModel.navigationState.layoutMode = .standard
+                self.leftSidebarWidth = CGFloat(userLeftSidebarWidth)
+                self.rightSidebarWidth = CGFloat(userRightSidebarWidth)
             }
         }
         .onChange(of: viewModel.activePreviewFileURL) { _, newURL in
             if newURL == nil && viewModel.navigationState.layoutMode == .mediaFocus {
                 withAnimation(.easeInOut(duration: 0.25)) {
                     viewModel.navigationState.layoutMode = .standard
+                    self.leftSidebarWidth = CGFloat(userLeftSidebarWidth)
+                    self.rightSidebarWidth = CGFloat(userRightSidebarWidth)
                 }
                 if let window = NSApp.keyWindow ?? NSApp.windows.first(where: { $0.isVisible && !$0.isMiniaturized }),
                    window.styleMask.contains(.fullScreen) {

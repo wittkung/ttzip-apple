@@ -15,6 +15,20 @@ import TTZipBenchmarkKit
 extension MainView {
     @ToolbarContentBuilder
     var mainToolbarContent: some ToolbarContent {
+        ToolbarItemGroup(placement: .navigation) {
+            Button {
+                withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                    isLeftSidebarVisible.toggle()
+                }
+            } label: {
+                Image(systemName: "sidebar.left")
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundStyle(isLeftSidebarVisible ? TTZipTheme.bambooGreen : .secondary)
+            }
+            .help(l10n.currentLanguage == .zhHans ? "切换常用目录边栏 (⌃⌘S)" : "Toggle Favorites Sidebar (⌃⌘S)")
+            .keyboardShortcut("s", modifiers: [.control, .command])
+        }
+        
         ToolbarItemGroup(placement: .automatic) {
             Button { pickAndOpenArchive() } label: {
                 Label(l10n.t(L10n.Menu.openArchive), systemImage: "folder.badge.plus")
