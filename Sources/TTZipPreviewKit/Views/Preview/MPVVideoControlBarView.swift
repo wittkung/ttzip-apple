@@ -11,8 +11,9 @@ import UniformTypeIdentifiers
 import TTZipCore
 import TTZipUI
 
-/// Zen minimalist floating control bar with glassmorphic styling, precision scrubbing, track selectors,
-/// subtitle delay stepper, playlist drawer toggles, and HDR status metrics.
+/// Zen minimalist two-tier floating control bar with Apple Pro styling:
+/// - Tier 1: Dedicated full-width precision timeline scrubber with non-wrapping timestamps.
+/// - Tier 2: Ergonomic playback transport, HDR metrics, hover volume slider, speed menu, and media tools.
 public struct MPVVideoControlBarView: View {
     @ObservedObject public var store: MPVMetalPlayerStore
     public var playlistStore: MediaPlaylistStore
@@ -22,9 +23,13 @@ public struct MPVVideoControlBarView: View {
     public let onOpenExternal: () -> Void
     
     @State private var isVolumeHovered: Bool = false
+    @State private var isTimelineHovered: Bool = false
     @State private var isScrubbing: Bool = false
     @State private var scrubTime: Double = 0
+    @State private var showRemainingTime: Bool = false
     @ObservedObject private var l10n = AppLocalizationState.shared
+    
+    private let availablePlaybackSpeeds: [Double] = [0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0]
     
     public init(
         store: MPVMetalPlayerStore,
@@ -51,74 +56,77 @@ public struct MPVVideoControlBarView: View {
     }
     
     public var body: some View {
+        VStack(spacing: 6) {
+            tier1TimelineRow
+            tier2ControlsRow
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 7)
+        .background(.ultraThinMaterial.opacity(0.90))
+        .clipShape(RoundedRectangle(cornerRadius: 13, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 13, style: .continuous)
+                .strokeBorder(
+                    LinearGradient(
+                        colors: [
+                            Color.white.opacity(0.24),
+                            Color.white.opacity(0.08),
+                            TTZipTheme.kintsugiGold.opacity(0.18)
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    ),
+                    lineWidth: 0.8
+                )
+        )
+        .shadow(color: Color.black.opacity(0.42), radius: 12, x: 0, y: 3)
+    }
+    
+    // MARK: - Tier 1: Full-Width Precision Timeline Scrubber
+    
+    private var tier1TimelineRow: some View {
         HStack(spacing: 8) {
-            // MARK: - Previous Episode
-            Button(action: {
-                if let prevItem = playlistStore.playPrevious() {
-                    store.load(url: prevItem.url)
-                }
-            }) {
-                Image(systemName: "backward.end.fill")
-                    .font(.system(size: 9.5, weight: .bold))
-                    .foregroundStyle(playlistStore.hasPrevious ? Color.white.opacity(0.9) : Color.white.opacity(0.3))
-                    .frame(width: 16, height: 16)
-                    .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-            .disabled(!playlistStore.hasPrevious)
-            .help(isChinese ? "上一集" : "Previous Episode")
+            // Elapsed Current Time Label
+            Text(formatTime(displayTime))
+                .font(.system(size: 10, weight: .semibold, design: .monospaced))
+                .monospacedDigit()
+                .lineLimit(1)
+                .fixedSize(horizontal: true, vertical: false)
+                .foregroundStyle(isScrubbing ? TTZipTheme.kintsugiGold : Color.white.opacity(0.9))
+                .frame(minWidth: 38, alignment: .leading)
             
-            // MARK: - Play / Pause Toggle
-            Button(action: { store.togglePlayPause() }) {
-                Image(systemName: store.isPlaying ? "pause.fill" : "play.fill")
-                    .font(.system(size: 11, weight: .bold))
-                    .foregroundStyle(.white)
-                    .frame(width: 18, height: 18)
-                    .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-            .help(store.isPlaying ? (isChinese ? "暂停 (空格)" : "Pause (Space)") : (isChinese ? "播放 (空格)" : "Play (Space)"))
-            
-            // MARK: - Next Episode
-            Button(action: {
-                if let nextItem = playlistStore.playNext() {
-                    store.load(url: nextItem.url)
-                }
-            }) {
-                Image(systemName: "forward.end.fill")
-                    .font(.system(size: 9.5, weight: .bold))
-                    .foregroundStyle(playlistStore.hasNext ? Color.white.opacity(0.9) : Color.white.opacity(0.3))
-                    .frame(width: 16, height: 16)
-                    .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-            .disabled(!playlistStore.hasNext)
-            .help(isChinese ? "下一集" : "Next Episode")
-            
-            // MARK: - Precise Time Indicator
-            Text("\(formatTime(displayTime)) / \(formatTime(store.duration))")
-                .font(.system(size: 9.5, weight: .semibold, design: .monospaced))
-                .foregroundStyle(.white.opacity(0.85))
-            
-            // MARK: - Microsecond/Fractional Precision Timeline Slider
+            // Interactive Precision Scrub Bar
             GeometryReader { geo in
+                let width = geo.size.width
+                let progress = store.duration > 0 ? (displayTime / store.duration) : 0.0
+                let clampedProgress = max(0.0, min(1.0, progress))
+                let currentTrackWidth = max(0.0, min(CGFloat(clampedProgress) * width, width))
+                let trackHeight: CGFloat = (isTimelineHovered || isScrubbing) ? 4.5 : 3.0
+                let knobSize: CGFloat = isScrubbing ? 11.0 : ((isTimelineHovered) ? 9.0 : 6.5)
+                
                 ZStack(alignment: .leading) {
-                    // Track Background
+                    // Track Background Trench
                     Capsule()
-                        .fill(Color.white.opacity(0.2))
-                        .frame(height: 3)
+                        .fill(Color.white.opacity(0.22))
+                        .frame(height: trackHeight)
                     
-                    // Progress Fill
+                    // Active Progress Glow Fill
                     Capsule()
-                        .fill(TTZipTheme.bambooGreen)
-                        .frame(width: progressWidth(totalWidth: geo.size.width), height: 3)
+                        .fill(
+                            LinearGradient(
+                                colors: [TTZipTheme.bambooGreen.opacity(0.85), TTZipTheme.bambooGreen],
+                                startPoint: .leading,
+                                endPoint: .trailing
+                            )
+                        )
+                        .frame(width: currentTrackWidth, height: trackHeight)
                     
-                    // Scrubbing Thumb Knob
+                    // Precision Thumb Knob
                     Circle()
                         .fill(Color.white)
-                        .frame(width: isScrubbing ? 8 : 6, height: isScrubbing ? 8 : 6)
-                        .shadow(color: Color.black.opacity(0.4), radius: 2, x: 0, y: 1)
-                        .offset(x: max(0, min(progressWidth(totalWidth: geo.size.width) - (isScrubbing ? 4 : 3), geo.size.width - 6)))
+                        .frame(width: knobSize, height: knobSize)
+                        .shadow(color: Color.black.opacity(0.45), radius: 2.5, x: 0, y: 1)
+                        .offset(x: max(0, min(currentTrackWidth - knobSize / 2, width - knobSize)))
                 }
                 .frame(maxHeight: .infinity, alignment: .center)
                 .contentShape(Rectangle())
@@ -126,99 +134,243 @@ public struct MPVVideoControlBarView: View {
                     DragGesture(minimumDistance: 0)
                         .onChanged { value in
                             isScrubbing = true
-                            let progress = max(0.0, min(1.0, value.location.x / max(geo.size.width, 1.0)))
+                            let progress = max(0.0, min(1.0, value.location.x / max(width, 1.0)))
                             scrubTime = progress * max(store.duration, 0.1)
                         }
                         .onEnded { value in
-                            let progress = max(0.0, min(1.0, value.location.x / max(geo.size.width, 1.0)))
+                            let progress = max(0.0, min(1.0, value.location.x / max(width, 1.0)))
                             let targetTime = progress * max(store.duration, 0.1)
                             store.seek(to: targetTime)
                             isScrubbing = false
                         }
                 )
+                .onHover { hovering in
+                    withAnimation(.easeInOut(duration: 0.15)) {
+                        isTimelineHovered = hovering
+                    }
+                }
             }
             .frame(height: 12)
             
-            // MARK: - HDR / EDR Status Indicator Pill
-            hdrStatusBadge
-            
-            // MARK: - Audio Track Selector Menu
-            if !store.audioTracks.isEmpty {
-                Menu {
-                    Text(isChinese ? "音轨选择" : "Audio Tracks")
-                    Divider()
-                    ForEach(store.audioTracks) { track in
-                        Button(action: { store.selectAudioTrack(track) }) {
-                            HStack {
-                                if store.selectedAudioTrackId == track.id {
-                                    Image(systemName: "checkmark")
-                                }
-                                Text("\(track.title) (\(track.codec.uppercased()) [\(track.language.uppercased())])")
-                            }
-                        }
-                    }
-                } label: {
-                    Image(systemName: "waveform")
-                        .font(.system(size: 10, weight: .semibold))
-                        .foregroundStyle(TTZipTheme.kintsugiGold)
+            // Remaining Time / Total Duration Toggle Button
+            Button(action: {
+                withAnimation(.easeInOut(duration: 0.15)) {
+                    showRemainingTime.toggle()
                 }
-                .menuStyle(.borderlessButton)
-                .fixedSize()
-                .help(isChinese ? "选择音频轨道" : "Select Audio Track")
+            }) {
+                Text(formattedRightTime)
+                    .font(.system(size: 10, weight: .semibold, design: .monospaced))
+                    .monospacedDigit()
+                    .lineLimit(1)
+                    .fixedSize(horizontal: true, vertical: false)
+                    .foregroundStyle(Color.white.opacity(0.75))
+                    .frame(minWidth: 42, alignment: .trailing)
+            }
+            .buttonStyle(.plain)
+            .help(showRemainingTime ? (isChinese ? "显示总时长" : "Show Total Duration") : (isChinese ? "显示剩余时间" : "Show Remaining Time"))
+        }
+    }
+    
+    // MARK: - Tier 2: Controls, Status & Media Utilities
+    
+    private var tier2ControlsRow: some View {
+        HStack(spacing: 6) {
+            // MARK: Left: Core Playback Controls
+            HStack(spacing: 5) {
+                // Previous Episode
+                Button(action: {
+                    if let prevItem = playlistStore.playPrevious() {
+                        store.load(url: prevItem.url)
+                    }
+                }) {
+                    Image(systemName: "backward.end.fill")
+                        .font(.system(size: 9.5, weight: .bold))
+                        .foregroundStyle(playlistStore.hasPrevious ? Color.white.opacity(0.9) : Color.white.opacity(0.28))
+                        .frame(width: 18, height: 18)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .disabled(!playlistStore.hasPrevious)
+                .help(isChinese ? "上一集" : "Previous Episode")
+                
+                // Skip Backward 10 Seconds
+                Button(action: { store.seekBy(-10) }) {
+                    Image(systemName: "gobackward.10")
+                        .font(.system(size: 10.5, weight: .semibold))
+                        .foregroundStyle(Color.white.opacity(0.88))
+                        .frame(width: 20, height: 20)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .help(isChinese ? "快退 10 秒 (J / 左箭头)" : "Rewind 10 Seconds (J / Left Arrow)")
+                
+                // Play / Pause Primary Button (Featured Center-Left Circle)
+                Button(action: { store.togglePlayPause() }) {
+                    ZStack {
+                        Circle()
+                            .fill(Color.white.opacity(0.18))
+                            .frame(width: 26, height: 26)
+                        
+                        Image(systemName: store.isPlaying ? "pause.fill" : "play.fill")
+                            .font(.system(size: 11.5, weight: .bold))
+                            .foregroundStyle(.white)
+                            .offset(x: store.isPlaying ? 0 : 0.8)
+                    }
+                }
+                .buttonStyle(.plain)
+                .help(store.isPlaying ? (isChinese ? "暂停 (空格)" : "Pause (Space)") : (isChinese ? "播放 (空格)" : "Play (Space)"))
+                
+                // Skip Forward 10 Seconds
+                Button(action: { store.seekBy(10) }) {
+                    Image(systemName: "goforward.10")
+                        .font(.system(size: 10.5, weight: .semibold))
+                        .foregroundStyle(Color.white.opacity(0.88))
+                        .frame(width: 20, height: 20)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .help(isChinese ? "快进 10 秒 (L / 右箭头)" : "Forward 10 Seconds (L / Right Arrow)")
+                
+                // Next Episode
+                Button(action: {
+                    if let nextItem = playlistStore.playNext() {
+                        store.load(url: nextItem.url)
+                    }
+                }) {
+                    Image(systemName: "forward.end.fill")
+                        .font(.system(size: 9.5, weight: .bold))
+                        .foregroundStyle(playlistStore.hasNext ? Color.white.opacity(0.9) : Color.white.opacity(0.28))
+                        .frame(width: 18, height: 18)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .disabled(!playlistStore.hasNext)
+                .help(isChinese ? "下一集" : "Next Episode")
             }
             
-            // MARK: - Universal Dual Subtitle & Delay Selector Menu
-            subtitleMenu
+            Spacer(minLength: 4)
             
-            // MARK: - Volume / Mute Toggle
+            // MARK: Center: HDR / EDR Status Pill
+            hdrStatusBadge
+            
+            Spacer(minLength: 4)
+            
+            // MARK: Right: Utilities & Menus
+            HStack(spacing: 5) {
+                // Interactive Volume Slider (Expand on Hover)
+                volumeControlView
+                
+                // Playback Speed Selector Menu
+                playbackSpeedMenuView
+                
+                // Universal Dual Subtitle & Delay Selector Menu
+                subtitleMenu
+                
+                // Audio Track Selector Menu
+                audioTrackMenu
+                
+                // Playlist Drawer Toggle
+                Button(action: { onTogglePlaylist() }) {
+                    Image(systemName: isPlaylistOpen ? "list.bullet.rectangle.fill" : "list.bullet.rectangle")
+                        .font(.system(size: 10, weight: .semibold))
+                        .foregroundStyle(isPlaylistOpen ? TTZipTheme.kintsugiGold : Color.white.opacity(0.82))
+                        .frame(width: 18, height: 18)
+                }
+                .buttonStyle(.plain)
+                .help(isChinese ? "播放列表" : "Toggle Playlist")
+                
+                // Open in External Player
+                Button(action: { onOpenExternal() }) {
+                    Image(systemName: "arrow.up.forward.app")
+                        .font(.system(size: 10, weight: .bold))
+                        .foregroundStyle(TTZipTheme.kintsugiGold)
+                        .frame(width: 18, height: 18)
+                }
+                .buttonStyle(.plain)
+                .help(isChinese ? "在外部应用中打开 (IINA/QuickTime)" : "Open in External App (IINA/QuickTime)")
+                
+                // Native Fullscreen Toggle
+                Button(action: { onToggleFullScreen() }) {
+                    Image(systemName: store.isFullScreen ? "arrow.down.right.and.arrow.up.left" : "arrow.up.left.and.arrow.down.right")
+                        .font(.system(size: 10, weight: .semibold))
+                        .foregroundStyle(.white)
+                        .frame(width: 18, height: 18)
+                }
+                .buttonStyle(.plain)
+                .help(store.isFullScreen ? (isChinese ? "退出全屏 (Esc/F)" : "Exit Full Screen (Esc/F)") : (isChinese ? "全屏播放 (F)" : "Full Screen (F)"))
+            }
+        }
+    }
+    
+    // MARK: - Subviews: Volume & Speed
+    
+    private var volumeControlView: some View {
+        HStack(spacing: 3) {
             Button(action: { store.toggleMute() }) {
                 Image(systemName: volumeIconName)
                     .font(.system(size: 10, weight: .semibold))
-                    .foregroundStyle(store.isMuted ? .white.opacity(0.5) : .white.opacity(0.85))
-                    .frame(width: 16, height: 16)
+                    .foregroundStyle(store.isMuted ? Color.white.opacity(0.42) : Color.white.opacity(0.85))
+                    .frame(width: 18, height: 18)
             }
             .buttonStyle(.plain)
             .help(store.isMuted ? (isChinese ? "取消静音" : "Unmute") : (isChinese ? "静音" : "Mute"))
             
-            // MARK: - Playlist Drawer Toggle
-            Button(action: { onTogglePlaylist() }) {
-                Image(systemName: isPlaylistOpen ? "list.bullet.rectangle.fill" : "list.bullet.rectangle")
-                    .font(.system(size: 10, weight: .semibold))
-                    .foregroundStyle(isPlaylistOpen ? TTZipTheme.kintsugiGold : Color.white.opacity(0.85))
-                    .frame(width: 16, height: 16)
+            if isVolumeHovered {
+                Slider(
+                    value: Binding(
+                        get: { store.volume },
+                        set: { store.setVolume($0) }
+                    ),
+                    in: 0.0...1.0
+                )
+                .frame(width: 50)
+                .controlSize(.mini)
+                .tint(TTZipTheme.bambooGreen)
+                .transition(.asymmetric(
+                    insertion: .opacity.combined(with: .scale(scale: 0.85, anchor: .leading)),
+                    removal: .opacity
+                ))
             }
-            .buttonStyle(.plain)
-            .help(isChinese ? "播放列表" : "Toggle Playlist")
-            
-            // MARK: - Fullscreen Toggle
-            Button(action: { onToggleFullScreen() }) {
-                Image(systemName: "arrow.up.left.and.arrow.down.right")
-                    .font(.system(size: 10, weight: .semibold))
-                    .foregroundStyle(.white)
-                    .frame(width: 16, height: 16)
-            }
-            .buttonStyle(.plain)
-            .help(isChinese ? "进入/退出全屏 (F)" : "Toggle Full Screen (F)")
-            
-            // MARK: - Open in External Player
-            Button(action: { onOpenExternal() }) {
-                Image(systemName: "arrow.up.forward.app")
-                    .font(.system(size: 10, weight: .bold))
-                    .foregroundStyle(TTZipTheme.kintsugiGold)
-                    .frame(width: 16, height: 16)
-            }
-            .buttonStyle(.plain)
-            .help(isChinese ? "在系统播放器中打开 (IINA/QuickTime)" : "Open in Default Player (IINA/QuickTime)")
         }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 5)
-        .background(.ultraThinMaterial.opacity(0.85))
-        .clipShape(Capsule())
-        .overlay(Capsule().strokeBorder(Color.white.opacity(0.18), lineWidth: 0.5))
-        .shadow(color: Color.black.opacity(0.35), radius: 6, x: 0, y: 2)
+        .padding(.horizontal, 2)
+        .onHover { hovering in
+            withAnimation(.easeInOut(duration: 0.18)) {
+                isVolumeHovered = hovering
+            }
+        }
     }
     
-    // MARK: - Subviews & Controls
+    private var playbackSpeedMenuView: some View {
+        Menu {
+            Text(isChinese ? "播放速度" : "Playback Speed")
+            Divider()
+            ForEach(availablePlaybackSpeeds, id: \.self) { speed in
+                Button(action: { store.setPlaybackSpeed(speed) }) {
+                    HStack {
+                        if abs(store.playbackSpeed - speed) < 0.01 {
+                            Image(systemName: "checkmark")
+                        }
+                        Text(speed == 1.0 ? (isChinese ? "1.0× (正常)" : "1.0× (Normal)") : String(format: "%.2g×", speed))
+                    }
+                }
+            }
+        } label: {
+            HStack(spacing: 2) {
+                Text(store.playbackSpeed == 1.0 ? "1.0×" : String(format: "%.2g×", store.playbackSpeed))
+                    .font(.system(size: 9.0, weight: .bold, design: .monospaced))
+            }
+            .foregroundStyle(store.playbackSpeed != 1.0 ? TTZipTheme.kintsugiGold : Color.white.opacity(0.82))
+            .padding(.horizontal, 4)
+            .padding(.vertical, 1.5)
+            .background(store.playbackSpeed != 1.0 ? TTZipTheme.kintsugiGold.opacity(0.18) : Color.white.opacity(0.08))
+            .clipShape(RoundedRectangle(cornerRadius: 3.5, style: .continuous))
+        }
+        .menuStyle(.borderlessButton)
+        .fixedSize()
+        .help(isChinese ? "倍速播放调节" : "Playback Speed")
+    }
+    
+    // MARK: - Subviews: Badges & Menus
     
     @ViewBuilder
     private var hdrStatusBadge: some View {
@@ -227,7 +379,7 @@ public struct MPVVideoControlBarView: View {
             HStack(spacing: 3) {
                 Circle()
                     .fill(TTZipTheme.kintsugiGold)
-                    .frame(width: 5, height: 5)
+                    .frame(width: 4.5, height: 4.5)
                 Text(metrics.hdrFormat.rawValue)
                     .font(.system(size: 8.5, weight: .bold, design: .monospaced))
                     .foregroundStyle(TTZipTheme.kintsugiGold)
@@ -240,11 +392,39 @@ public struct MPVVideoControlBarView: View {
         } else {
             Text("SDR")
                 .font(.system(size: 8.5, weight: .semibold, design: .monospaced))
-                .foregroundStyle(.white.opacity(0.5))
+                .foregroundStyle(.white.opacity(0.45))
                 .padding(.horizontal, 4)
                 .padding(.vertical, 1.5)
                 .background(Color.white.opacity(0.08))
                 .clipShape(Capsule())
+        }
+    }
+    
+    @ViewBuilder
+    private var audioTrackMenu: some View {
+        if !store.audioTracks.isEmpty {
+            Menu {
+                Text(isChinese ? "音轨选择" : "Audio Tracks")
+                Divider()
+                ForEach(store.audioTracks) { track in
+                    Button(action: { store.selectAudioTrack(track) }) {
+                        HStack {
+                            if store.selectedAudioTrackId == track.id {
+                                Image(systemName: "checkmark")
+                            }
+                            Text("\(track.title) (\(track.codec.uppercased()) [\(track.language.uppercased())])")
+                        }
+                    }
+                }
+            } label: {
+                Image(systemName: "waveform")
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundStyle(TTZipTheme.kintsugiGold)
+                    .frame(width: 18, height: 18)
+            }
+            .menuStyle(.borderlessButton)
+            .fixedSize()
+            .help(isChinese ? "选择音频轨道" : "Select Audio Track")
         }
     }
     
@@ -325,9 +505,19 @@ public struct MPVVideoControlBarView: View {
                 }
             }
         } label: {
-            Image(systemName: store.selectedSubtitleTrackId != nil ? "captions.bubble.fill" : "captions.bubble")
-                .font(.system(size: 10, weight: .semibold))
-                .foregroundStyle(store.selectedSubtitleTrackId != nil ? TTZipTheme.bambooGreen : Color.white.opacity(0.8))
+            ZStack(alignment: .topTrailing) {
+                Image(systemName: store.selectedSubtitleTrackId != nil ? "captions.bubble.fill" : "captions.bubble")
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundStyle(store.selectedSubtitleTrackId != nil ? TTZipTheme.bambooGreen : Color.white.opacity(0.82))
+                    .frame(width: 18, height: 18)
+                
+                if store.selectedSubtitleTrackId != nil {
+                    Circle()
+                        .fill(TTZipTheme.bambooGreen)
+                        .frame(width: 4, height: 4)
+                        .offset(x: 1, y: -1)
+                }
+            }
         }
         .menuStyle(.borderlessButton)
         .fixedSize()
@@ -349,6 +539,17 @@ public struct MPVVideoControlBarView: View {
         }
     }
     
+    // MARK: - Utilities & Formatters
+    
+    private var formattedRightTime: String {
+        if showRemainingTime {
+            let remaining = max(0.0, store.duration - displayTime)
+            return "-\(formatTime(remaining))"
+        } else {
+            return formatTime(store.duration)
+        }
+    }
+    
     private var volumeIconName: String {
         if store.isMuted || store.volume == 0 {
             return "speaker.slash.fill"
@@ -359,12 +560,6 @@ public struct MPVVideoControlBarView: View {
         } else {
             return "speaker.wave.3.fill"
         }
-    }
-    
-    private func progressWidth(totalWidth: CGFloat) -> CGFloat {
-        guard store.duration > 0 else { return 0 }
-        let progress = displayTime / store.duration
-        return max(0, min(CGFloat(progress) * totalWidth, totalWidth))
     }
     
     private func formatTime(_ seconds: Double) -> String {

@@ -28,7 +28,8 @@ public enum MediaPreviewFactory {
     
     /// Image extensions.
     public static let imageExtensions: Set<String> = [
-        "png", "jpg", "jpeg", "gif", "webp", "heic", "bmp", "tiff", "ico"
+        "png", "jpg", "jpeg", "gif", "webp", "heic", "bmp", "tiff", "ico",
+        "arw", "cr3", "nef", "dng"
     ]
     
     /// All video extensions supported for unified in-app zero-kickout playback via MPV Metal viewport.
@@ -36,7 +37,7 @@ public enum MediaPreviewFactory {
         "mp4", "mov", "m4v", "qt", "mkv", "avi", "webm", "ogv", "flv", "3gp",
         "3g2", "ts", "mts", "m2ts", "m2t", "wmv", "vob", "rmvb", "rm", "divx",
         "asf", "f4v", "y4m", "mpg", "mpeg", "mpe", "mpv", "m2v", "vro", "dat",
-        "nut", "dv"
+        "nut", "dv", "mxf"
     ]
     
     /// Backward-compatible alias for video extensions.

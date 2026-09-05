@@ -36,7 +36,7 @@ extension MediaPreviewFactory {
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                 
             case .video(let url):
-                UnifiedVideoPlayerView(url: url)
+                UnifiedVideoPlayerView(url: url, isFullScreen: isFullScreenActive)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                 
             case .audio(let url):

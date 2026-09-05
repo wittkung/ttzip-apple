@@ -119,7 +119,8 @@ public final class MediaPlaylistStore: ObservableObject {
     /// Standard multimedia file extensions supported for automatic playlist discovery.
     public static let supportedExtensions: Set<String> = [
         "mp4", "mkv", "mov", "avi", "webm", "flv", "wmv", "m4v", "ts",
-        "mp3", "flac", "wav", "aac", "m4a"
+        "mp3", "flac", "wav", "aac", "m4a",
+        "mts", "m2ts", "mxf"
     ]
     
     /// Array of items currently in the playlist.

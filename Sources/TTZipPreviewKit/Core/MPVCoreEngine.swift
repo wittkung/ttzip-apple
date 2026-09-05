@@ -73,7 +73,6 @@ private final class MPVHandleHolder: @unchecked Sendable {
 
     func lockAndInitialize(
         mode: MPVOutputMode,
-        isTesting: Bool,
         onWakeup: @escaping @Sendable () -> Void
     ) throws -> OpaquePointer {
         lock.lock()
@@ -111,12 +110,12 @@ private final class MPVHandleHolder: @unchecked Sendable {
             mpv_set_option_string(newHandle, "vo", "null")
             mpv_set_option_string(newHandle, "vid", "no")
             mpv_set_option_string(newHandle, "hwdec", "no")
-            mpv_set_option_string(newHandle, "ao", isTesting ? "null" : "coreaudio,auto")
+            mpv_set_option_string(newHandle, "ao", "coreaudio,auto")
         } else {
-            mpv_set_option_string(newHandle, "vo", isTesting ? "null" : "libmpv")
-            mpv_set_option_string(newHandle, "hwdec", isTesting ? "no" : "videotoolbox-copy")
+            mpv_set_option_string(newHandle, "vo", "libmpv")
+            mpv_set_option_string(newHandle, "hwdec", "auto-safe")
             mpv_set_option_string(newHandle, "hwdec-codecs", "all")
-            mpv_set_option_string(newHandle, "ao", isTesting ? "null" : "coreaudio,auto")
+            mpv_set_option_string(newHandle, "ao", "coreaudio,auto")
         }
 
         mpv_set_option_string(newHandle, "audio-channels", "auto-safe")
@@ -208,15 +207,6 @@ public actor MPVCoreEngine {
     /// Native libmpv client handle pointer accessible across concurrency boundaries.
     public nonisolated var rawHandle: OpaquePointer? { handleHolder.pointer }
 
-    private static var isTestEnvironment: Bool {
-        if NSClassFromString("XCTestCase") != nil { return true }
-        if ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil { return true }
-        if Bundle.main.bundlePath.hasSuffix(".xctest") { return true }
-        let proc = ProcessInfo.processInfo.processName.lowercased()
-        if proc.contains("test") || proc.contains("xctest") { return true }
-        return false
-    }
-
     public init() {}
 
     deinit {
@@ -251,7 +241,7 @@ public actor MPVCoreEngine {
     /// Synchronously ensures the native libmpv instance is allocated and initialized once.
     @discardableResult
     public nonisolated func ensureInitialized(mode: MPVOutputMode = .video(renderBackend: "libmpv")) throws -> OpaquePointer {
-        try handleHolder.lockAndInitialize(mode: mode, isTesting: Self.isTestEnvironment, onWakeup: { [weak self] in
+        try handleHolder.lockAndInitialize(mode: mode, onWakeup: { [weak self] in
             guard let self else { return }
             Task {
                 await self.handleWakeupNotification()
@@ -368,18 +358,17 @@ public actor MPVCoreEngine {
     public func setOutputMode(_ mode: MPVOutputMode) {
         self.currentOutputMode = mode
         guard let handle else { return }
-        let isTesting = Self.isTestEnvironment
         if mode.isAudioOnly {
             mpv_set_option_string(handle, "vo", "null")
             mpv_set_option_string(handle, "vid", "no")
             mpv_set_option_string(handle, "hwdec", "no")
-            mpv_set_option_string(handle, "ao", isTesting ? "null" : "coreaudio,auto")
+            mpv_set_option_string(handle, "ao", "coreaudio,auto")
         } else {
-            mpv_set_option_string(handle, "vo", isTesting ? "null" : "libmpv")
+            mpv_set_option_string(handle, "vo", "libmpv")
             mpv_set_option_string(handle, "vid", "auto")
-            mpv_set_option_string(handle, "hwdec", isTesting ? "no" : "videotoolbox-copy")
+            mpv_set_option_string(handle, "hwdec", "auto-safe")
             mpv_set_option_string(handle, "hwdec-codecs", "all")
-            mpv_set_option_string(handle, "ao", isTesting ? "null" : "coreaudio,auto")
+            mpv_set_option_string(handle, "ao", "coreaudio,auto")
         }
     }
 

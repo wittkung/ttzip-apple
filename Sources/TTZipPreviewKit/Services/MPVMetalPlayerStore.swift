@@ -54,6 +54,8 @@ public final class MPVMetalPlayerStore: ObservableObject {
     @Published public var videoWidth: Int = 0
     @Published public var videoHeight: Int = 0
     @Published public var videoSize: CGSize = .zero
+    @Published public var isFullScreen: Bool = false
+    @Published public var playbackSpeed: Double = 1.0
     
     @Published public var audioSampleRate: String = "--"
     @Published public var audioChannels: String = "--"
@@ -338,6 +340,20 @@ public final class MPVMetalPlayerStore: ObservableObject {
         }
     }
     
+    /// Adjusts active video playback rate (e.g. 0.5x, 1.0x, 1.5x, 2.0x).
+    public func setPlaybackSpeed(_ newSpeed: Double) {
+        let clamped = max(0.25, min(4.0, newSpeed))
+        self.playbackSpeed = clamped
+        Task {
+            try? await MPVCoreEngine.shared.setProperty(name: "speed", value: clamped)
+        }
+    }
+    
+    /// Coordinates full screen routing state across inline and presentation viewports.
+    public func setFullScreen(_ fullScreen: Bool) {
+        self.isFullScreen = fullScreen
+    }
+    
     // MARK: - Audio & Subtitle Track Scheduling
     
     public func selectAudioTrack(_ track: MPVTrackItem) { selectAudioTrack(id: track.id) }
@@ -534,6 +550,8 @@ public final class MPVMetalPlayerStore: ObservableObject {
         
         currentURL = nil
         isPlaying = false
+        isFullScreen = false
+        renderContextManager.detachAndFree()
         currentTime = 0
         duration = 0
         hasPlaybackError = false

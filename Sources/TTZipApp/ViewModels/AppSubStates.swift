@@ -13,6 +13,16 @@ import TTZipUI
 import TTZipPreviewKit
 import TTZipBenchmarkKit
 
+/// Window layout presentation mode for standard and immersive media focus states.
+public enum WindowLayoutMode: Sendable, Hashable {
+    case standard
+    case mediaFocus
+}
+
+extension NSNotification.Name {
+    public static let ttzipToggleMediaFocus = NSNotification.Name("TTZipToggleMediaFocusNotification")
+}
+
 /// 1. Navigation and routing state.
 @Observable
 @MainActor
@@ -22,11 +32,20 @@ public final class NavigationState {
     public var isInspectorVisible: Bool = true
     public var currentDirectory: URL = URL(fileURLWithPath: NSHomeDirectory() + "/Downloads")
     public var isOmnibarFocused: Bool = false
+    public var layoutMode: WindowLayoutMode = .standard
     
     public init() {}
     
     public func triggerOmnibarFocus() {
         self.isOmnibarFocused = true
+    }
+    
+    public func toggleMediaFocusMode() {
+        layoutMode = (layoutMode == .standard ? .mediaFocus : .standard)
+    }
+    
+    public func setLayoutMode(_ mode: WindowLayoutMode) {
+        self.layoutMode = mode
     }
 }
 

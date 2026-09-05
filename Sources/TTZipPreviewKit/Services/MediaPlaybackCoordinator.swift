@@ -52,7 +52,7 @@ public final class MediaPlaybackCoordinator: ObservableObject {
                 return event
             }
             
-            let isFullScreen = FullScreenMediaWindowController.shared.isPresenting
+            let isFullScreen = NSApp.keyWindow?.styleMask.contains(.fullScreen) == true
             
             // KeyCode 49 is Space Bar (only handled when in full-screen presentation or explicitly focused/hovered)
             if event.keyCode == 49 {
@@ -82,7 +82,7 @@ public final class MediaPlaybackCoordinator: ObservableObject {
     
     /// Queries whether arrow keys should be intercepted for media seeking rather than directory navigation.
     public func shouldInterceptMediaKeys() -> Bool {
-        let isFullScreen = FullScreenMediaWindowController.shared.isPresenting
+        let isFullScreen = NSApp.keyWindow?.styleMask.contains(.fullScreen) == true
         return isMediaActive && playPauseHandler != nil && (isPlaying || isFocusedOrHovered || isFullScreen)
     }
     

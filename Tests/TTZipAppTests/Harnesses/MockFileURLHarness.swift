@@ -31,7 +31,15 @@ public final class MockFileURLHarness {
         return url
     }
     
+    private var isCleaned: Bool = false
+
     public func cleanup() throws {
+        guard !isCleaned else { return }
+        isCleaned = true
         try FileManager.default.removeItem(at: sandboxDir)
+    }
+
+    deinit {
+        try? cleanup()
     }
 }

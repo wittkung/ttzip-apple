@@ -12,7 +12,7 @@ import AVFoundation
 import Metal
 import QuartzCore
 import TTZipUI
-import TTZipPreviewKit
+@testable import TTZipPreviewKit
 import TTZipBenchmarkKit
 @testable import TTZipCore
 @testable import TTZipApp
@@ -34,16 +34,17 @@ final class NativeMPVPlaybackTests: XCTestCase {
         try super.tearDownWithError()
     }
     
-    // MARK: - Test 1: All 16 Video Extensions Unified Factory Routing
+    // MARK: - Test 1: Unified Video and Camera Formats Factory Routing
     
     @MainActor
     func testAllSixteenVideoExtensionsFactoryRouting() async throws {
-        let sixteenFormats = [
+        let videoFormats = [
             "mkv", "mp4", "webm", "avi", "flv", "ts", "wmv", "vob",
-            "rmvb", "ogv", "3gp", "m2ts", "mov", "m4v", "f4v", "asf"
+            "rmvb", "ogv", "3gp", "m2ts", "mov", "m4v", "f4v", "asf",
+            "mts", "mxf"
         ]
         
-        for ext in sixteenFormats {
+        for ext in videoFormats {
             let fileURL = tempDirURL.appendingPathComponent("video_sample.\(ext)")
             try Data("sample video stream payload".utf8).write(to: fileURL)
             
@@ -75,6 +76,14 @@ final class NativeMPVPlaybackTests: XCTestCase {
                 fileURL: fileURL
             )
             XCTAssertNotNil(view, "Factory makePreviewView must succeed for format .\(ext)")
+        }
+        
+        // 5. Professional RAW images and playlist support
+        for raw in ["arw", "cr3", "nef", "dng"] {
+            XCTAssertTrue(MediaPreviewFactory.imageExtensions.contains(raw))
+        }
+        for pro in ["mts", "m2ts", "mxf"] {
+            XCTAssertTrue(MediaPlaylistStore.supportedExtensions.contains(pro))
         }
     }
     
@@ -356,6 +365,390 @@ final class NativeMPVPlaybackTests: XCTestCase {
         XCTAssertNotNil(ctx, "copyCGLContext must allocate a valid CGLContextObj")
         
         layer.unbind()
+        store.cleanUp()
+    }
+    
+    // MARK: - Test 10: Subtitle Deduplication Single Rasterization Path
+    
+    @MainActor
+    func testSubtitleDeduplicationSingleRasterizationPath() throws {
+        let videoURL = tempDirURL.appendingPathComponent("subtitle_test.mkv")
+        try Data("mock mkv video stream".utf8).write(to: videoURL)
+        
+        let store = MPVMetalPlayerStore()
+        store.setup(url: videoURL)
+        store.activeSubtitleDialogue = "Hello world dialogue line"
+        
+        let playerView = MPVMetalVideoPlayerView(url: videoURL, store: store)
+        let inspector = UIHierarchyInspector(rootView: playerView, size: CGSize(width: 800, height: 450))
+        
+        // Assert: No redundant SwiftUI NSTextField or text overlay with subtitle text
+        let allSubviews = inspector.allSubviews()
+        for view in allSubviews {
+            if let tf = view as? NSTextField {
+                XCTAssertNotEqual(tf.stringValue, "Hello world dialogue line", "SwiftUI text overlay bubble must NOT be rendered; libass handles subtitles exclusively")
+            }
+        }
+        
+        store.cleanUp()
+    }
+    
+    // MARK: - Test 11: Full Screen Rendering Context Exclusivity & Seamless Recovery
+    
+    @MainActor
+    func testFullScreenRenderingContextExclusivityAndPlaceholder() throws {
+        let videoURL = tempDirURL.appendingPathComponent("exclusive_test.mp4")
+        try Data("mock mp4 stream".utf8).write(to: videoURL)
+        
+        let store = MPVMetalPlayerStore()
+        store.setup(url: videoURL)
+        store.play()
+        XCTAssertTrue(store.isPlaying, "Playback should be active initially")
+        XCTAssertFalse(store.isFullScreen, "store.isFullScreen must default to false")
+        
+        // 1. Mount inline player in window
+        let inlinePlayer = MPVMetalVideoPlayerView(url: videoURL, store: store, isFullScreen: false)
+        let inlineInspector = UIHierarchyInspector(rootView: inlinePlayer, size: CGSize(width: 640, height: 360))
+        
+        let initialViews = inlineInspector.allSubviews()
+        let initialGLViews = initialViews.compactMap { $0 as? MPVMetalNSView }
+        XCTAssertFalse(initialGLViews.isEmpty, "Inline view must contain MPVMetalNSView when not fullscreen")
+        
+        // 2. Transition into full screen
+        store.setFullScreen(true)
+        inlineInspector.hostingView.layoutSubtreeIfNeeded()
+        
+        // 3. Verify single-layer in-place model retains MPVMetalNSView without unmounting
+        let fsInlineViews = inlineInspector.allSubviews()
+        let fsInlineGLViews = fsInlineViews.compactMap { $0 as? MPVMetalNSView }
+        XCTAssertFalse(fsInlineGLViews.isEmpty, "Inline viewport must retain MPVMetalNSView during in-place full-screen expansion")
+        
+        // 4. Verify playback is NOT paused during full screen transition
+        XCTAssertTrue(store.isPlaying, "Playback must continue playing during full-screen transition")
+        
+        // 5. Transition out of full screen back to inline
+        store.setFullScreen(false)
+        inlineInspector.hostingView.layoutSubtreeIfNeeded()
+        
+        // 6. Verify inline view remounted MPVMetalNSView
+        let restoredViews = inlineInspector.allSubviews()
+        let restoredGLViews = restoredViews.compactMap { $0 as? MPVMetalNSView }
+        XCTAssertFalse(restoredGLViews.isEmpty, "Inline viewport must seamlessly remount MPVMetalNSView on exit from full screen")
+        XCTAssertTrue(store.isPlaying, "Playback must remain continuous on return to inline view")
+        
+        store.cleanUp()
+    }
+    
+    // MARK: - Test 12: Single-Layer In-Place Resizing & Context Defense
+    
+    @MainActor
+    func testSingleLayerInPlaceResizingAndContextDefense() {
+        let store = MPVMetalPlayerStore()
+        let manager = store.renderContextManager
+        
+        let layer = MPVOpenGLLayer()
+        layer.bind(store: store)
+        
+        let pf = layer.copyCGLPixelFormat(forDisplayMask: 0)
+        let glCtx = layer.copyCGLContext(forPixelFormat: pf)
+        
+        // Mode 1: Inline mode (store.isFullScreen == false)
+        store.setFullScreen(false)
+        XCTAssertFalse(store.isFullScreen)
+        
+        // Single layer is allowed to draw in inline mode
+        _ = layer.canDraw(inCGLContext: glCtx, pixelFormat: pf, forLayerTime: 0, displayTime: nil)
+        XCTAssertTrue(layer.isBound)
+        
+        // Mode 2: In-place fullscreen expansion
+        store.setFullScreen(true)
+        XCTAssertTrue(store.isFullScreen)
+        
+        // Single layer seamlessly continues to draw in full screen mode without destruction
+        _ = layer.canDraw(inCGLContext: glCtx, pixelFormat: pf, forLayerTime: 0, displayTime: nil)
+        XCTAssertTrue(layer.isBound)
+        
+        layer.unbind()
+        store.cleanUp()
+    }
+    
+    // MARK: - Test 13: Render Context Manager UpdateHandler Ownership Protection
+    
+    @MainActor
+    func testRenderContextManagerUpdateHandlerOwnershipProtection() {
+        let manager = MPVRenderContextManager()
+        let layerA = MPVOpenGLLayer()
+        let layerB = MPVOpenGLLayer()
+        
+        final class CallTracker: @unchecked Sendable {
+            var layerACalled = false
+            var layerBCalled = false
+        }
+        let tracker = CallTracker()
+        
+        // Layer A registers
+        manager.setUpdateHandler(owner: layerA) {
+            tracker.layerACalled = true
+        }
+        
+        // Layer B registers
+        manager.setUpdateHandler(owner: layerB) {
+            tracker.layerBCalled = true
+        }
+        
+        // Layer A unbinds and attempts to clear handler
+        manager.setUpdateHandler(owner: layerA, nil)
+        
+        // Layer B's handler must still be active and callable
+        let store = MPVMetalPlayerStore()
+        layerB.bind(store: store)
+        store.renderContextManager.setUpdateHandler(owner: layerB) {
+            tracker.layerBCalled = true
+        }
+        store.renderContextManager.setUpdateHandler(owner: layerA, nil)
+        
+        // Unbinding Layer B clears it properly
+        store.renderContextManager.setUpdateHandler(owner: layerB, nil)
+        
+        layerA.unbind()
+        layerB.unbind()
+        store.cleanUp()
+    }
+    
+    // MARK: - Test 14: Media Player FullScreen Notification and State Toggle
+    
+    @MainActor
+    func testMediaPlayerFullScreenNotificationAndStateToggle() {
+        let store = MPVMetalPlayerStore()
+        XCTAssertFalse(store.isFullScreen)
+        
+        var notificationFired = false
+        let observer = NotificationCenter.default.addObserver(
+            forName: NSNotification.Name("TTZipToggleMediaFocusNotification"),
+            object: nil,
+            queue: .main
+        ) { _ in
+            notificationFired = true
+        }
+        defer { NotificationCenter.default.removeObserver(observer) }
+        
+        NotificationCenter.default.post(
+            name: NSNotification.Name("TTZipToggleMediaFocusNotification"),
+            object: nil
+        )
+        XCTAssertTrue(notificationFired, "TTZipToggleMediaFocusNotification must be broadcast on toggle")
+        
+        store.setFullScreen(true)
+        XCTAssertTrue(store.isFullScreen)
+        store.setFullScreen(false)
+        XCTAssertFalse(store.isFullScreen)
+        store.cleanUp()
+    }
+    
+    // MARK: - Test 15: Inline Player URL Retention on Re-appearance
+    
+    @MainActor
+    func testInlinePlayerURLRetentionOnReappearance() throws {
+        let videoURL1 = tempDirURL.appendingPathComponent("video1.mp4")
+        let videoURL2 = tempDirURL.appendingPathComponent("video2.mp4")
+        try Data("v1".utf8).write(to: videoURL1)
+        try Data("v2".utf8).write(to: videoURL2)
+        
+        let store = MPVMetalPlayerStore()
+        store.setup(url: videoURL1)
+        XCTAssertEqual(store.currentURL, videoURL1)
+        
+        // Simulate playlist switching in full screen mode to video2
+        store.setFullScreen(true)
+        store.load(url: videoURL2)
+        XCTAssertEqual(store.currentURL, videoURL2)
+        
+        // Inline player view mounts with the current active track
+        let playerView = MPVMetalVideoPlayerView(url: store.currentURL ?? videoURL1, store: store, isFullScreen: false)
+        let inspector = UIHierarchyInspector(rootView: playerView, size: CGSize(width: 640, height: 360))
+        
+        // Exit full screen
+        store.setFullScreen(false)
+        inspector.hostingView.layoutSubtreeIfNeeded()
+        
+        // Verify that store.currentURL is NOT reverted back to videoURL1
+        XCTAssertEqual(store.currentURL, videoURL2, "Inline view on re-appearance must preserve the active playlist track without reverting")
+        
+        store.cleanUp()
+    }
+    
+    // MARK: - Test 16: Render Context Manager Context Activation & Restoration on Teardown
+    
+    @MainActor
+    func testDetachAndFreeInternalRestoresAndFreesWithActiveCGLContext() {
+        let manager = MPVRenderContextManager()
+        let layer = MPVOpenGLLayer()
+        let pf = layer.copyCGLPixelFormat(forDisplayMask: 0)
+        _ = layer.copyCGLContext(forPixelFormat: pf)
+        
+        let previousContext = CGLGetCurrentContext()
+        
+        // Calling detachAndFree without initial context must cleanly no-op
+        manager.detachAndFree()
+        XCTAssertNil(manager.rawContext)
+        XCTAssertNil(manager.activeContext)
+        XCTAssertEqual(CGLGetCurrentContext(), previousContext, "CGL context must be restored to previous context after detachAndFree")
+        
+        // When active context is present, detachAndFree must set and restore
+        let store = MPVMetalPlayerStore()
+        layer.bind(store: store)
+        store.renderContextManager.detachAndFree()
+        XCTAssertNil(store.renderContextManager.activeContext)
+        
+        layer.unbind()
+        store.cleanUp()
+    }
+    
+    // MARK: - Test 17: Owner Protection on Update Handler Registration
+    
+    @MainActor
+    func testInactiveLayerCannotHijackUpdateHandler() {
+        let manager = MPVRenderContextManager()
+        let layerA = MPVOpenGLLayer()
+        let layerB = MPVOpenGLLayer()
+        
+        final class Tracker: @unchecked Sendable {
+            var aTriggered = false
+            var bTriggered = false
+        }
+        let tracker = Tracker()
+        
+        // Layer A registers -> Accepted
+        manager.setUpdateHandler(owner: layerA) {
+            tracker.aTriggered = true
+        }
+        XCTAssertEqual(manager.activeUpdateHandlerOwner, ObjectIdentifier(layerA))
+        
+        // Layer B registers -> Overwrites with new active owner
+        manager.setUpdateHandler(owner: layerB) {
+            tracker.bTriggered = true
+        }
+        XCTAssertEqual(manager.activeUpdateHandlerOwner, ObjectIdentifier(layerB))
+        
+        // Layer A unbinds -> Does NOT clear Layer B's active handler
+        manager.setUpdateHandler(owner: layerA, nil)
+        XCTAssertEqual(manager.activeUpdateHandlerOwner, ObjectIdentifier(layerB), "Inactive layer unbind must NOT clear active layer's handler")
+        
+        // Layer B unbinds -> Clears properly
+        manager.setUpdateHandler(owner: layerB, nil)
+        XCTAssertNil(manager.activeUpdateHandlerOwner)
+    }
+    
+    // MARK: - Test 18: Rapid Repeated FullScreen Toggling Stress Loop
+    
+    @MainActor
+    func testRapidRepeatedFullScreenTogglingStressLoop() throws {
+        let videoURL = tempDirURL.appendingPathComponent("stress_toggle.mp4")
+        try Data("dummy_stress".utf8).write(to: videoURL)
+        
+        let store = MPVMetalPlayerStore()
+        store.setup(url: videoURL)
+        store.play()
+        XCTAssertTrue(store.isPlaying)
+        
+        let playerView = MPVMetalVideoPlayerView(url: videoURL, store: store, isFullScreen: false)
+        let inspector = UIHierarchyInspector(rootView: playerView, size: CGSize(width: 640, height: 360))
+        
+        // Stress test: Rapidly toggle full screen 10 times in tight succession
+        for cycle in 1...10 {
+            store.setFullScreen(true)
+            inspector.hostingView.layoutSubtreeIfNeeded()
+            XCTAssertTrue(store.isFullScreen, "Cycle \(cycle): Store must be in fullscreen")
+            
+            store.setFullScreen(false)
+            inspector.hostingView.layoutSubtreeIfNeeded()
+            XCTAssertFalse(store.isFullScreen, "Cycle \(cycle): Store must be in inline mode")
+            XCTAssertTrue(store.isPlaying, "Cycle \(cycle): Playback must remain continuous across toggles")
+        }
+        
+        // Verify final UI state
+        let finalViews = inspector.allSubviews()
+        let finalGLViews = finalViews.compactMap { $0 as? MPVMetalNSView }
+        XCTAssertFalse(finalGLViews.isEmpty, "Inline view must hold MPVMetalNSView after stress toggling loop")
+        
+        store.cleanUp()
+    }
+    
+    // MARK: - Test 19: Double-Click Fullscreen Debounce Does Not Pause Playback
+    
+    @MainActor
+    func testDoubleClickFullscreenDebounceDoesNotPausePlayback() {
+        let nsView = MPVMetalNSView(frame: NSRect(x: 0, y: 0, width: 320, height: 240))
+        var playPauseCalled = false
+        var fullScreenCalled = false
+        
+        nsView.onTogglePlayPause = { playPauseCalled = true }
+        nsView.onToggleFullScreen = { fullScreenCalled = true }
+        
+        // Simulate click 1 of double click
+        let click1 = NSEvent.mouseEvent(
+            with: .leftMouseUp, location: NSPoint(x: 100, y: 100), modifierFlags: [],
+            timestamp: ProcessInfo.processInfo.systemUptime, windowNumber: 0, context: nil,
+            eventNumber: 1, clickCount: 1, pressure: 1.0
+        )!
+        nsView.mouseUp(with: click1)
+        
+        // Immediately simulate click 2 of double click
+        let click2 = NSEvent.mouseEvent(
+            with: .leftMouseUp, location: NSPoint(x: 100, y: 100), modifierFlags: [],
+            timestamp: ProcessInfo.processInfo.systemUptime, windowNumber: 0, context: nil,
+            eventNumber: 2, clickCount: 2, pressure: 1.0
+        )!
+        nsView.mouseUp(with: click2)
+        
+        XCTAssertTrue(fullScreenCalled, "Double click must trigger onToggleFullScreen")
+        XCTAssertFalse(playPauseCalled, "Double click must cancel the scheduled play/pause toggle")
+    }
+    
+    // MARK: - Test 20: MediaPlaybackCoordinator Dynamic Session Tracking & Relative Seek
+    
+    @MainActor
+    func testMediaPlaybackCoordinatorDynamicSessionTrackingAndRelativeSeek() throws {
+        let videoURL1 = tempDirURL.appendingPathComponent("track1.mp4")
+        let videoURL2 = tempDirURL.appendingPathComponent("track2.mp4")
+        try Data("t1".utf8).write(to: videoURL1)
+        try Data("t2".utf8).write(to: videoURL2)
+        
+        let store = MPVMetalPlayerStore()
+        store.setup(url: videoURL1)
+        
+        var relativeSeekDelta: Double = 0
+        MediaPlaybackCoordinator.shared.registerSession(
+            id: videoURL1.path,
+            isPlaying: true,
+            togglePlayPause: { store.togglePlayPause() },
+            seekBy: { delta in relativeSeekDelta = delta }
+        )
+        
+        XCTAssertTrue(MediaPlaybackCoordinator.shared.isMediaActive)
+        
+        // Trigger seek via coordinator
+        MediaPlaybackCoordinator.shared.triggerSeek(by: 5.0)
+        XCTAssertEqual(relativeSeekDelta, 5.0, "Coordinator seek must relay relative step")
+        
+        // Simulate switching to track 2
+        store.load(url: videoURL2)
+        MediaPlaybackCoordinator.shared.registerSession(
+            id: videoURL2.path,
+            isPlaying: true,
+            togglePlayPause: { store.togglePlayPause() },
+            seekBy: { delta in relativeSeekDelta = delta }
+        )
+        MediaPlaybackCoordinator.shared.updatePlaybackState(id: videoURL2.path, isPlaying: true)
+        
+        // Unregister track 1 must NOT deactivate the session of track 2
+        MediaPlaybackCoordinator.shared.unregisterSession(id: videoURL1.path)
+        XCTAssertTrue(MediaPlaybackCoordinator.shared.isMediaActive, "Unregistering stale track ID must not deactivate current track session")
+        
+        // Unregister track 2 must cleanly deactivate
+        MediaPlaybackCoordinator.shared.unregisterSession(id: videoURL2.path)
+        XCTAssertFalse(MediaPlaybackCoordinator.shared.isMediaActive, "Unregistering current track ID must cleanly deactivate session")
+        
         store.cleanUp()
     }
 }

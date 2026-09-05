@@ -55,13 +55,90 @@ public enum TTZipTheme {
         Color(nsColor: .labelColor).opacity(0.035)
     }
     
-    /// Hairline border (0.5pt).
+    /// Hairline border (0.5pt specular Fresnel highlight).
     public static var hairlineBorder: Color {
-        Color(nsColor: .separatorColor).opacity(0.35)
+        TTZipUniversalTokens.Border.specularHairline
     }
     
     public static var adaptiveBorder: Color {
         hairlineBorder
+    }
+
+    // MARK: - Universal Design Tokens (Aliases to TTZipUniversalTokens)
+    
+    /// Layer 1 Canvas Emitter (OLED True Black in Dark, Solar Pure White in Light).
+    public static var canvasEmitter: Color {
+        TTZipUniversalTokens.Canvas.emitter
+    }
+    
+    /// Layer 2 Fluid Body Core.
+    public static var fluidBodyCore: Color {
+        TTZipUniversalTokens.Fluid.bodyCore
+    }
+    
+    /// Layer 2 Micro-Surface Sheen Dispersion.
+    public static var fluidSheenDispersion: Color {
+        TTZipUniversalTokens.Fluid.sheenDispersion
+    }
+    
+    /// Layer 3 Frosted Plate Surface Level 1 (Base Plate).
+    public static var plateSurfaceL1: Color {
+        TTZipUniversalTokens.Plate.surfaceL1
+    }
+    
+    /// Layer 3 Frosted Plate Surface Level 2 (Columns & Sidebar).
+    public static var plateSurfaceL2: Color {
+        TTZipUniversalTokens.Plate.surfaceL2
+    }
+    
+    /// Layer 3 Frosted Plate Surface Level 3 (Modal & Omnibar).
+    public static var plateSurfaceL3: Color {
+        TTZipUniversalTokens.Plate.surfaceL3
+    }
+    
+    /// Layer 3 Bevel: 0.5pt Specular Hairline (14% White in Dark, 8% Black in Light).
+    public static var specularHairline: Color {
+        TTZipUniversalTokens.Border.specularHairline
+    }
+    
+    /// Layer 4 Singular Interactive Action Anchor (Electric Azure in Dark, Cupertino Blue in Light).
+    public static var actionAnchor: Color {
+        TTZipUniversalTokens.Action.anchor
+    }
+    
+    /// Layer 4 Photonic Primary Text.
+    public static var textPhotonicPrimary: Color {
+        TTZipUniversalTokens.Text.primary
+    }
+    
+    /// Layer 4 Photonic Inverted Text.
+    public static var textPhotonicInverted: Color {
+        TTZipUniversalTokens.Text.inverted
+    }
+    
+    /// Calibrated Mineral Gold (CIELAB L* = 76.2 / 65.1).
+    public static var mineralGold: Color {
+        TTZipUniversalTokens.Mineral.gold
+    }
+    
+    /// Calibrated Mineral Bamboo (CIELAB L* = 74.8 / 64.5).
+    public static var mineralBamboo: Color {
+        TTZipUniversalTokens.Mineral.bamboo
+    }
+    
+    /// Calibrated Mineral Amber (CIELAB L* = 75.5 / 65.8).
+    public static var mineralAmber: Color {
+        TTZipUniversalTokens.Mineral.amber
+    }
+    
+    /// Calibrated Mineral Cinnabar (CIELAB L* = 74.4 / 64.8).
+    public static var mineralCinnabar: Color {
+        TTZipUniversalTokens.Mineral.cinnabar
+    }
+    
+    /// Calibrated Mineral Amethyst (CIELAB L* = 75.2 / 65.3).
+    public static var mineralAmethyst: Color {
+        TTZipUniversalTokens.Mineral.amethyst
     }
     
     // Semantic status colors
@@ -206,7 +283,7 @@ public enum TTZipTheme {
         public static let headerBarHeight: CGFloat = 52.0
         public static let topBarOffset: CGFloat = 38.0
         public static let kintsugiGoldLineHeight: CGFloat = 1.5
-        public static let hairlineBorderWidth: CGFloat = 0.5
+        public static let hairlineBorderWidth: CGFloat = TTZipUniversalTokens.Dimensions.hairlineWidth
         public static let millerColumnMinWidth: CGFloat = 110.0
         public static let millerColumnMaxWidth: CGFloat = 600.0
         public static let omnibarWidth: CGFloat = 480.0
