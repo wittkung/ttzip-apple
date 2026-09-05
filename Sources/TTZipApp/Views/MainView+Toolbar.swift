@@ -40,6 +40,19 @@ extension MainView {
                     .keyboardShortcut("w", modifiers: [.command])
                 }
             }
+            
+            if viewModel.activePreviewFileURL != nil {
+                Button {
+                    NotificationCenter.default.post(name: NSNotification.Name("TTZipToggleMediaFocusNotification"), object: nil)
+                } label: {
+                    Label(
+                        viewModel.navigationState.layoutMode == .mediaFocus ? "Exit Focus" : "Focus Mode",
+                        systemImage: viewModel.navigationState.layoutMode == .mediaFocus ? "arrow.down.right.and.arrow.up.left" : "arrow.up.left.and.arrow.down.right"
+                    )
+                }
+                .keyboardShortcut("f", modifiers: [.command, .control])
+                .help("Toggle Media Focus Mode (⌃⌘F)")
+            }
         }
     }
     

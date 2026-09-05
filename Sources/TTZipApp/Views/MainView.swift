@@ -55,11 +55,12 @@ public struct MainView: View {
             let totalWidth = geo.size.width
             let totalHeight = geo.size.height
             let tier = WindowLayoutTier.evaluate(width: totalWidth)
-            let effectiveLeftSidebarWidth: CGFloat = (tier == .compact) ? 64 : leftSidebarWidth
+            let isMediaFocus = viewModel.navigationState.layoutMode == .mediaFocus
+            let effectiveLeftSidebarWidth: CGFloat = isMediaFocus ? 0 : ((tier == .compact) ? 64 : leftSidebarWidth)
             let isLeftCompact: Bool = (tier == .compact) || (leftSidebarWidth < 140)
             
             // Fixed Chrome Geometry & Safety Clamping Constants
-            let leftDividerWidth: CGFloat = (tier == .compact) ? 0 : ResizableDividerHandle.gutterWidth
+            let leftDividerWidth: CGFloat = (tier == .compact || isMediaFocus) ? 0 : ResizableDividerHandle.gutterWidth
             let rightDividerWidth: CGFloat = ResizableDividerHandle.gutterWidth
             let rightPanelPadding: CGFloat = 14.0 // leading: 4 + trailing: 10
             let minSafeWorkspaceWidth: CGFloat = 420.0
@@ -67,7 +68,7 @@ public struct MainView: View {
             let maxRightSidebarWidth: CGFloat = max(850.0, totalWidth * 0.55)
             
             let isRightPanelAvailable: Bool = (tier != .compact && viewModel.activeTab == .home && viewModel.selectedDiskItem != nil && viewModel.selectedDiskItem?.isDirectory == false)
-            let shouldShowRightPanel = isRightSidebarVisible && isRightPanelAvailable
+            let shouldShowRightPanel = !isMediaFocus && isRightSidebarVisible && isRightPanelAvailable
             
             let totalChrome = effectiveLeftSidebarWidth + leftDividerWidth + (shouldShowRightPanel ? (rightDividerWidth + rightPanelPadding) : 0)
             let maxRightAllowedByWorkspace = max(minRightSidebarWidth, totalWidth - totalChrome - minSafeWorkspaceWidth)
@@ -84,26 +85,30 @@ public struct MainView: View {
                     .allowsHitTesting(false)
                 
                 HStack(alignment: .top, spacing: 0) {
-                    MacEditorialSidebar(
-                        activeTab: $viewModel.activeTab,
-                        currentArchivePath: viewModel.currentArchivePath,
-                        isCompact: isLeftCompact
-                    )
-                    .frame(width: effectiveLeftSidebarWidth, height: totalHeight, alignment: .topLeading)
-                    
-                    if tier != .compact {
-                        ResizableDividerHandle(
-                            onDragStart: { initialLeftWidth = leftSidebarWidth },
-                            onDragChanged: { translation in
-                                leftSidebarWidth = min(max(initialLeftWidth + translation, 60), 280)
-                            },
-                            onDragEnd: { userLeftSidebarWidth = Double(leftSidebarWidth) }
+                    if !isMediaFocus {
+                        MacEditorialSidebar(
+                            activeTab: $viewModel.activeTab,
+                            currentArchivePath: viewModel.currentArchivePath,
+                            isCompact: isLeftCompact
                         )
-                        .frame(height: totalHeight)
+                        .frame(width: effectiveLeftSidebarWidth, height: totalHeight, alignment: .topLeading)
+                        .transition(.move(edge: .leading).combined(with: .opacity))
+                        
+                        if tier != .compact {
+                            ResizableDividerHandle(
+                                onDragStart: { initialLeftWidth = leftSidebarWidth },
+                                onDragChanged: { translation in
+                                    leftSidebarWidth = min(max(initialLeftWidth + translation, 60), 280)
+                                },
+                                onDragEnd: { userLeftSidebarWidth = Double(leftSidebarWidth) }
+                            )
+                            .frame(height: totalHeight)
+                            .transition(.opacity)
+                        }
                     }
                     
                     detailArea
-                        .frame(minWidth: minSafeWorkspaceWidth, maxWidth: .infinity, maxHeight: totalHeight, alignment: .topLeading)
+                        .frame(minWidth: isMediaFocus ? 0 : minSafeWorkspaceWidth, maxWidth: .infinity, maxHeight: totalHeight, alignment: .topLeading)
                     
                     if shouldShowRightPanel {
                         ResizableDividerHandle(
@@ -115,6 +120,7 @@ public struct MainView: View {
                             onDragEnd: { userRightSidebarWidth = Double(rightSidebarWidth) }
                         )
                         .frame(height: totalHeight)
+                        .transition(.opacity)
                         
                         RightInspectorSidePanel(viewModel: viewModel, rightVerticalTopHeight: $rightVerticalTopHeight)
                             .frame(width: effectiveRightWidth, alignment: .topLeading)
@@ -123,12 +129,13 @@ public struct MainView: View {
                             .padding(.trailing, 10)
                             .padding(.bottom, TTZipTheme.Spacing.md)
                             .frame(maxHeight: totalHeight, alignment: .topLeading)
+                            .transition(.move(edge: .trailing).combined(with: .opacity))
                     }
                 }
                 .frame(width: totalWidth, height: totalHeight, alignment: .topLeading)
                 .clipped()
                 
-                if viewModel.activeTab == .home {
+                if !isMediaFocus && viewModel.activeTab == .home {
                     let omnibarMaxWidth = min(480.0, max(180.0, totalWidth - 280.0))
                     HStack(spacing: 0) {
                         Spacer(minLength: 140)
@@ -233,31 +240,65 @@ public struct MainView: View {
                 viewModel.openCompressWorkspace(paths: paths)
             }
         }
+        .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("TTZipToggleMediaFocusNotification"))) { _ in
+            withAnimation(.easeInOut(duration: 0.25)) {
+                viewModel.navigationState.toggleMediaFocusMode()
+            }
+            if let window = NSApp.keyWindow ?? NSApp.windows.first(where: { $0.isVisible && !$0.isMiniaturized }) {
+                window.toggleFullScreen(nil)
+            }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: NSWindow.willEnterFullScreenNotification)) { _ in
+            // Window is entering fullscreen; maintain alignment with active presentation
+        }
+        .onReceive(NotificationCenter.default.publisher(for: NSWindow.didExitFullScreenNotification)) { _ in
+            withAnimation(.easeInOut(duration: 0.25)) {
+                viewModel.navigationState.layoutMode = .standard
+                self.leftSidebarWidth = CGFloat(userLeftSidebarWidth)
+            }
+        }
+        .onChange(of: viewModel.activePreviewFileURL) { _, newURL in
+            if newURL == nil && viewModel.navigationState.layoutMode == .mediaFocus {
+                withAnimation(.easeInOut(duration: 0.25)) {
+                    viewModel.navigationState.layoutMode = .standard
+                    self.leftSidebarWidth = CGFloat(userLeftSidebarWidth)
+                }
+                if let window = NSApp.keyWindow ?? NSApp.windows.first(where: { $0.isVisible && !$0.isMiniaturized }),
+                   window.styleMask.contains(.fullScreen) {
+                    window.toggleFullScreen(nil)
+                }
+            }
+        }
     }
     
     @ViewBuilder
     private var detailArea: some View {
         if let previewURL = viewModel.activePreviewFileURL, let name = viewModel.activePreviewFileName {
-            TTZipWorkspaceScaffold(
-                title: name,
-                isCardEnclosed: true
-            ) {
-                Button(action: { viewModel.closeMediaPreview() }) {
-                    HStack(spacing: 4) {
-                        Image(systemName: "xmark")
-                        Text(l10n.t(L10n.Common.close))
-                    }
-                    .font(.system(size: 11, weight: .medium))
-                    .foregroundStyle(TTZipTheme.cinnabarRed)
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 4)
-                    .background(TTZipTheme.cinnabarRed.opacity(0.12))
-                    .clipShape(Capsule())
-                }
-                .buttonStyle(.plain)
-            } content: {
+            if viewModel.navigationState.layoutMode == .mediaFocus {
                 MediaPreviewView(fileURL: previewURL, fileName: name)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else {
+                TTZipWorkspaceScaffold(
+                    title: name,
+                    isCardEnclosed: true
+                ) {
+                    Button(action: { viewModel.closeMediaPreview() }) {
+                        HStack(spacing: 4) {
+                            Image(systemName: "xmark")
+                            Text(l10n.t(L10n.Common.close))
+                        }
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundStyle(TTZipTheme.cinnabarRed)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 4)
+                        .background(TTZipTheme.cinnabarRed.opacity(0.12))
+                        .clipShape(Capsule())
+                    }
+                    .buttonStyle(.plain)
+                } content: {
+                    MediaPreviewView(fileURL: previewURL, fileName: name)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                }
             }
         } else {
             KeepAliveTabContainer(activeTab: viewModel.activeTab) { tab, isActive in

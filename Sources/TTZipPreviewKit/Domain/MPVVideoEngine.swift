@@ -57,11 +57,12 @@ public final class MPVVideoEngine {
     // MARK: - Internal References
 
     private weak var boundRenderLayer: MPVMetalRenderLayer? = nil
-    private var telemetryPollTask: Task<Void, Never>? = nil
+    private var stateObservationTask: Task<Void, Never>? = nil
+    private var eventObservationTask: Task<Void, Never>? = nil
     private var wasPlayingBeforeBackground: Bool = false
 
     public init() {
-        setupWakeupBridge()
+        startObservingDispatcher()
     }
 
     // MARK: - Viewport & Metal Layer Binding
@@ -120,7 +121,6 @@ public final class MPVVideoEngine {
 
                 // Discover and attach external companion subtitles safely
                 self.discoverCompanionSubtitles(for: url)
-                self.startTelemetryPolling()
                 self.updateEDRHeadroom()
             } catch {
                 self.hasPlaybackError = true
@@ -136,7 +136,6 @@ public final class MPVVideoEngine {
             do {
                 try await MPVCoreEngine.shared.setProperty(name: "pause", value: false)
                 self.isPlaying = true
-                self.startTelemetryPolling()
             } catch {
                 self.logger.error("Failed to resume playback: \(error.localizedDescription, privacy: .public)")
             }
@@ -205,8 +204,6 @@ public final class MPVVideoEngine {
     public func stop() {
         isPlaying = false
         currentTime = 0.0
-        telemetryPollTask?.cancel()
-        telemetryPollTask = nil
         Task {
             await MPVCoreEngine.shared.stop()
         }
@@ -320,66 +317,75 @@ public final class MPVVideoEngine {
         )
     }
 
-    private func setupWakeupBridge() {
-        Task {
-            await MPVCoreEngine.shared.setWakeupHandler { [weak self] in
-                Task { @MainActor [weak self] in
-                    self?.synchronizeState()
-                }
+    // MARK: - Telemetry & Event Synchronization via MPVEventDispatcher
+
+    private func startObservingDispatcher() {
+        stateObservationTask?.cancel()
+        stateObservationTask = Task { @MainActor [weak self] in
+            let stream = await MPVEventDispatcher.shared.stateStream
+            for await state in stream {
+                guard let self, !Task.isCancelled else { break }
+                self.applyStateSnapshot(state)
+            }
+        }
+
+        eventObservationTask?.cancel()
+        eventObservationTask = Task { @MainActor [weak self] in
+            let stream = await MPVEventDispatcher.shared.eventStream
+            for await event in stream {
+                guard let self, !Task.isCancelled else { break }
+                self.applyEvent(event)
             }
         }
     }
 
-    private func startTelemetryPolling() {
-        guard telemetryPollTask == nil else { return }
-        telemetryPollTask = Task { [weak self] in
-            while !Task.isCancelled {
-                try? await Task.sleep(nanoseconds: 100_000_000)
-                guard let self, self.isPlaying else { continue }
-                self.synchronizeState()
-            }
+    private func applyStateSnapshot(_ state: MPVPlaybackStateSnapshot) {
+        self.currentTime = state.currentTime
+        if state.duration > 0.0 {
+            self.duration = state.duration
         }
+        self.isPlaying = !state.isPaused
+        self.volume = state.volume
+        self.isMuted = state.isMuted
+        self.isBuffering = state.isBuffering
+        if state.isEOF {
+            self.isPlaying = false
+            self.currentTime = self.duration > 0 ? self.duration : self.currentTime
+        }
+        self.boundRenderLayer?.requestRender()
     }
 
-    private func synchronizeState() {
-        Task { [weak self] in
-            guard let self else { return }
-            let events = await MPVCoreEngine.shared.drainEvents()
-            for event in events {
-                switch event {
-                case .fileLoaded, .playbackRestart:
-                    self.isBuffering = false
-                    self.boundRenderLayer?.requestRender()
-                case .pause(let paused):
-                    self.isPlaying = !paused
-                case .seek(let pos):
-                    self.currentTime = pos
-                    self.boundRenderLayer?.requestRender()
-                case .eof:
-                    self.isPlaying = false
-                    self.currentTime = self.duration
-                case .error(let msg):
-                    self.hasPlaybackError = true
-                    self.errorMessage = msg
-                default:
-                    break
-                }
-            }
-
-            if let time = await MPVCoreEngine.shared.getPropertyDouble(name: "time-pos") {
-                self.currentTime = max(0.0, time)
-            }
-            if let dur = await MPVCoreEngine.shared.getPropertyDouble(name: "duration"), dur > 0.0 {
-                self.duration = dur
-            }
-            if let paused = await MPVCoreEngine.shared.getPropertyBool(name: "pause") {
-                self.isPlaying = !paused
-            }
-            if let subText = await MPVCoreEngine.shared.getPropertyString(name: "sub-text") {
-                self.activeSubtitleDialogue = subText.isEmpty ? nil : subText
-            }
-
+    private func applyEvent(_ event: MPVEvent) {
+        switch event {
+        case .fileLoaded, .playbackRestart:
+            self.isBuffering = false
+            self.hasPlaybackError = false
+            self.errorMessage = nil
+            self.boundRenderLayer?.requestRender()
             self.synchronizeTrackList()
+        case .pause(let paused):
+            self.isPlaying = !paused
+        case .seek(let pos):
+            self.currentTime = pos
+            self.boundRenderLayer?.requestRender()
+        case .eof:
+            self.isPlaying = false
+            self.currentTime = self.duration
+        case .error(let msg):
+            self.hasPlaybackError = true
+            self.errorMessage = msg
+        case .propertyChange(let name, let value):
+            if name == "sub-text" {
+                if case .string(let text) = value {
+                    self.activeSubtitleDialogue = text.isEmpty ? nil : text
+                } else {
+                    self.activeSubtitleDialogue = nil
+                }
+            } else if name == "video-params/w" || name == "video-params/h" {
+                self.synchronizeTrackList()
+            }
+        case .logMessage:
+            break
         }
     }
 

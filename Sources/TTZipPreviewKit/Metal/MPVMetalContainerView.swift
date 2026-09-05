@@ -24,7 +24,6 @@ public final class MPVMetalContainerView: MPVMetalNSView {
         }
     }
     
-    private let metalLayer = MPVMetalRenderLayer()
     private let displayLink = MPVMetalDisplayLink()
     private final class ObserverTokenHolder: @unchecked Sendable {
         var tokens: [NSObjectProtocol] = []
@@ -38,13 +37,23 @@ public final class MPVMetalContainerView: MPVMetalNSView {
     }
     
     private let observerHolder = ObserverTokenHolder()
+    private var singleClickWorkItem: DispatchWorkItem? = nil
+    private var warmupFrameCount: Int = 5
     
     public override func makeBackingLayer() -> CALayer {
-        return metalLayer
+        let glLayer = MPVOpenGLLayer()
+        let scale = window?.backingScaleFactor ?? NSScreen.main?.backingScaleFactor ?? 2.0
+        glLayer.contentsScale = scale
+        return glLayer
+    }
+    
+    public override init(frame frameRect: NSRect, isFullScreen: Bool) {
+        super.init(frame: frameRect, isFullScreen: isFullScreen)
+        setupContainer()
     }
     
     public override init(frame frameRect: NSRect) {
-        super.init(frame: frameRect)
+        super.init(frame: frameRect, isFullScreen: false)
         setupContainer()
     }
     
@@ -60,16 +69,27 @@ public final class MPVMetalContainerView: MPVMetalNSView {
     
     private func setupContainer() {
         self.wantsLayer = true
-        self.layer = metalLayer
         self.layerContentsRedrawPolicy = .duringViewResize
         self.layer?.backgroundColor = NSColor.black.cgColor
+        self.layer?.wantsExtendedDynamicRangeContent = true
         self.layer?.masksToBounds = true
+        let scale = window?.backingScaleFactor ?? NSScreen.main?.backingScaleFactor ?? 2.0
+        self.layer?.contentsScale = scale
         
         registerForDraggedTypes([.fileURL])
         
-        let layer = self.metalLayer
-        displayLink.setFrameCallback { [weak layer] _, _ in
-            layer?.requestRender()
+        displayLink.setFrameCallback { [weak self] _, _ in
+            Task { @MainActor [weak self] in
+                guard let self = self, let glLayer = self.layer as? MPVOpenGLLayer else { return }
+                guard let store = self.store ?? MPVMetalPlayerStore.shared as MPVMetalPlayerStore? else { return }
+                if self.warmupFrameCount > 0 {
+                    self.warmupFrameCount -= 1
+                    glLayer.forceRedraw()
+                    return
+                }
+                guard store.isPlaying else { return }
+                glLayer.forceRedraw()
+            }
         }
     }
     
@@ -82,14 +102,17 @@ public final class MPVMetalContainerView: MPVMetalNSView {
         observerHolder.removeAll()
         
         if let window = self.window {
+            warmupFrameCount = 5
             setupWindowObservers(for: window)
             updateScaleAndBounds()
             displayLink.attach(to: self)
             displayLink.start()
             bindStore()
         } else {
+            singleClickWorkItem?.cancel()
+            singleClickWorkItem = nil
             displayLink.suspend()
-            metalLayer.unbind()
+            (layer as? MPVOpenGLLayer)?.unbind()
         }
     }
     
@@ -105,13 +128,20 @@ public final class MPVMetalContainerView: MPVMetalNSView {
     
     private func updateScaleAndBounds() {
         let scale = window?.backingScaleFactor ?? NSScreen.main?.backingScaleFactor ?? 2.0
-        metalLayer.updateDrawableSize(boundsSize: bounds.size, scaleFactor: scale)
+        if let glLayer = layer as? MPVOpenGLLayer {
+            glLayer.contentsScale = scale
+            glLayer.forceRedraw()
+        }
     }
     
     private func bindStore() {
-        guard let window = self.window, let store = store ?? MPVMetalPlayerStore.shared as MPVMetalPlayerStore? else { return }
-        metalLayer.updateDrawableSize(boundsSize: bounds.size, scaleFactor: window.backingScaleFactor)
-        metalLayer.bind(store: store)
+        guard let targetStore = store ?? MPVMetalPlayerStore.shared as MPVMetalPlayerStore? else { return }
+        if let glLayer = layer as? MPVOpenGLLayer {
+            let scale = window?.backingScaleFactor ?? NSScreen.main?.backingScaleFactor ?? 2.0
+            glLayer.contentsScale = scale
+            glLayer.bind(store: targetStore)
+            warmupFrameCount = 5
+        }
     }
     
     // MARK: - Occlusion & Power Management
@@ -136,12 +166,13 @@ public final class MPVMetalContainerView: MPVMetalNSView {
             queue: .main
         ) { [weak self] _ in
             Task { @MainActor [weak self] in
-                self?.logger.debug("Window deminimized: resuming Metal display link")
+                self?.logger.debug("Window un-minimized: resuming Metal display link")
                 self?.displayLink.resume()
+                (self?.layer as? MPVOpenGLLayer)?.forceRedraw()
             }
         }
         
-        let occlusionObs = center.addObserver(
+        let occludeObs = center.addObserver(
             forName: NSWindow.didChangeOcclusionStateNotification,
             object: window,
             queue: .main
@@ -150,23 +181,30 @@ public final class MPVMetalContainerView: MPVMetalNSView {
                 guard let self = self, let win = self.window else { return }
                 if win.occlusionState.contains(.visible) {
                     self.displayLink.resume()
+                    (self.layer as? MPVOpenGLLayer)?.forceRedraw()
                 } else {
-                    self.logger.debug("Window occluded: suspending Metal pipeline")
                     self.displayLink.suspend()
                 }
             }
         }
         
-        observerHolder.tokens = [miniObs, deminiObs, occlusionObs]
+        observerHolder.tokens.append(contentsOf: [miniObs, deminiObs, occludeObs])
     }
     
     // MARK: - User Interaction & Keyboard Handling
     
     public override func mouseUp(with event: NSEvent) {
         if event.clickCount == 2 {
+            singleClickWorkItem?.cancel()
+            singleClickWorkItem = nil
             onToggleFullScreen?()
         } else if event.clickCount == 1 {
-            onTogglePlayPause?()
+            singleClickWorkItem?.cancel()
+            let work = DispatchWorkItem { [weak self] in
+                self?.onTogglePlayPause?()
+            }
+            self.singleClickWorkItem = work
+            DispatchQueue.main.asyncAfter(deadline: .now() + NSEvent.doubleClickInterval, execute: work)
         } else {
             super.mouseUp(with: event)
         }
@@ -182,10 +220,8 @@ public final class MPVMetalContainerView: MPVMetalNSView {
             return
         }
         if event.keyCode == 53 {
-            if FullScreenMediaWindowController.shared.isPresenting {
-                FullScreenMediaWindowController.shared.dismiss()
-                return
-            }
+            NotificationCenter.default.post(name: NSNotification.Name("TTZipToggleMediaFocusNotification"), object: nil)
+            return
         }
         super.keyDown(with: event)
     }
@@ -226,6 +262,7 @@ public final class MPVMetalContainerView: MPVMetalNSView {
 public struct MPVMetalContainerRepresentableView: NSViewRepresentable {
     public let url: URL
     @ObservedObject public var store: MPVMetalPlayerStore
+    public let isFullScreen: Bool
     public let onDropSubtitle: (URL) -> Void
     public let onTogglePlayPause: () -> Void
     public let onToggleFullScreen: () -> Void
@@ -233,19 +270,22 @@ public struct MPVMetalContainerRepresentableView: NSViewRepresentable {
     public init(
         url: URL,
         store: MPVMetalPlayerStore = .shared,
+        isFullScreen: Bool = false,
         onDropSubtitle: @escaping (URL) -> Void = { _ in },
         onTogglePlayPause: @escaping () -> Void = {},
         onToggleFullScreen: @escaping () -> Void = {}
     ) {
         self.url = url
         self.store = store
+        self.isFullScreen = isFullScreen
         self.onDropSubtitle = onDropSubtitle
         self.onTogglePlayPause = onTogglePlayPause
         self.onToggleFullScreen = onToggleFullScreen
     }
     
     public func makeNSView(context: Context) -> MPVMetalContainerView {
-        let view = MPVMetalContainerView()
+        let view = MPVMetalContainerView(frame: .zero, isFullScreen: isFullScreen)
+        view.isFullScreen = isFullScreen
         view.store = store
         view.onDropSubtitle = onDropSubtitle
         view.onTogglePlayPause = onTogglePlayPause
@@ -254,11 +294,12 @@ public struct MPVMetalContainerRepresentableView: NSViewRepresentable {
     }
     
     public func updateNSView(_ nsView: MPVMetalContainerView, context: Context) {
+        nsView.isFullScreen = isFullScreen
         nsView.store = store
         nsView.onDropSubtitle = onDropSubtitle
         nsView.onTogglePlayPause = onTogglePlayPause
         nsView.onToggleFullScreen = onToggleFullScreen
-        if store.currentURL != url {
+        if store.currentURL == nil {
             store.load(url: url)
         }
     }

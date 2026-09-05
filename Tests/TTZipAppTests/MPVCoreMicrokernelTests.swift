@@ -160,4 +160,110 @@ final class MPVCoreMicrokernelTests: XCTestCase {
         XCTAssertGreaterThanOrEqual(emittedStates.count, 1)
         await engine.terminate()
     }
+
+    // MARK: - Test 5: MPVEventDispatcher Audio Telemetry Metadata Invariants
+
+    func testMPVEventDispatcherAudioTelemetryMetadata() async throws {
+        let engine = MPVCoreEngine()
+        let dispatcher = MPVEventDispatcher(engine: engine)
+
+        let telemetryEvents: [MPVEvent] = [
+            .propertyChange(name: "audio-codec-name", value: .string("flac")),
+            .propertyChange(name: "audio-params/samplerate", value: .int64(96000)),
+            .propertyChange(name: "audio-params/channels", value: .string("stereo")),
+            .propertyChange(name: "video-params/w", value: .int64(1920)),
+            .propertyChange(name: "video-params/h", value: .int64(1080))
+        ]
+
+        await dispatcher.handleBatchEvents(telemetryEvents)
+
+        let meta = await dispatcher.getCurrentMetadata()
+        XCTAssertEqual(meta.audioCodec, "flac")
+        XCTAssertEqual(meta.audioSampleRate, 96000)
+        XCTAssertEqual(meta.audioChannels, 2)
+        XCTAssertEqual(meta.videoWidth, 1920)
+        XCTAssertEqual(meta.videoHeight, 1080)
+
+        await dispatcher.stop()
+        await engine.terminate()
+    }
+
+    // MARK: - Test 6: MPVAudioEngine Reactive State via Event Dispatcher
+
+    @MainActor
+    func testMPVAudioEngineReactiveStateViaDispatcher() async throws {
+        let audioEngine = MPVAudioEngine.shared
+        // Allow initial stream registration
+        try await Task.sleep(nanoseconds: 50_000_000)
+        
+        let testEvents: [MPVEvent] = [
+            .fileLoaded,
+            .propertyChange(name: "time-pos", value: .double(33.0)),
+            .propertyChange(name: "duration", value: .double(240.0)),
+            .pause(isPaused: false),
+            .propertyChange(name: "audio-codec-name", value: .string("alac")),
+            .propertyChange(name: "audio-params/samplerate", value: .double(44100.0)),
+            .propertyChange(name: "audio-params/channels", value: .string("stereo")),
+            .propertyChange(name: "audio-bitrate", value: .double(950000.0))
+        ]
+
+        await MPVEventDispatcher.shared.handleBatchEvents(testEvents)
+
+        // Allow MainActor stream processing
+        try await Task.sleep(nanoseconds: 100_000_000)
+
+        XCTAssertEqual(audioEngine.duration, 240.0, accuracy: 0.01)
+        XCTAssertEqual(audioEngine.currentTime, 33.0, accuracy: 0.01)
+        XCTAssertTrue(audioEngine.isPlaying)
+        XCTAssertEqual(audioEngine.sampleRateFormatted, "44.1 kHz")
+        XCTAssertEqual(audioEngine.channelsFormatted, "Stereo")
+        XCTAssertEqual(audioEngine.bitrateFormatted, "950 kbps")
+    }
+
+    // MARK: - Test 7: MPVCoreEngine Multi-Listener Wakeup Multicast Invariants
+
+    func testMPVCoreEngineMultiListenerWakeupMulticast() async throws {
+        let engine = MPVCoreEngine()
+        try await engine.initialize(mode: .audioOnly)
+        _ = await engine.drainEvents()
+
+        let exp1 = expectation(description: "Listener 1 awakened")
+        exp1.assertForOverFulfill = false
+        let exp2 = expectation(description: "Listener 2 awakened")
+        exp2.assertForOverFulfill = false
+        let expLegacy = expectation(description: "Legacy handler awakened")
+        expLegacy.assertForOverFulfill = false
+
+        let id1 = await engine.addWakeupListener {
+            exp1.fulfill()
+        }
+        let id2 = await engine.addWakeupListener {
+            exp2.fulfill()
+        }
+        await engine.setWakeupHandler {
+            expLegacy.fulfill()
+        }
+
+        // Trigger property change to emit event and fire wakeup
+        try await engine.setProperty(name: "volume", value: 80.0)
+
+        await fulfillment(of: [exp1, exp2, expLegacy], timeout: 2.0)
+
+        await engine.setWakeupHandler(nil)
+        await engine.removeWakeupListener(id: id1)
+        _ = await engine.drainEvents()
+
+        let exp3 = expectation(description: "Listener 3 awakened after removal of 1")
+        exp3.assertForOverFulfill = false
+        let id3 = await engine.addWakeupListener {
+            exp3.fulfill()
+        }
+
+        try await engine.setProperty(name: "volume", value: 85.0)
+        await fulfillment(of: [exp3], timeout: 2.0)
+
+        await engine.removeWakeupListener(id: id2)
+        await engine.removeWakeupListener(id: id3)
+        await engine.terminate()
+    }
 }

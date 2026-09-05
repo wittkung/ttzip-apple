@@ -249,43 +249,83 @@ extension ArchiveExplorerView {
             return
         }
         
-        isExtractingTemp = true
-        let vfsURL = TTZipArchiveVfsProvider.shared.vfsURL(
-            archivePath: archivePath,
-            password: password,
-            entryPath: entry.path
-        )
-        let targetArchiveId = TTZipArchiveVfsProvider.makeArchiveId(from: archivePath)
+        let ext = (entry.name as NSString).pathExtension.lowercased()
+        let isMedia = MediaPreviewFactory.videoExtensions.contains(ext) || MediaPreviewFactory.audioExtensions.contains(ext)
         
-        previewTask = Task {
-            do {
-                if let data = try await ArchiveSelectiveExtractor.shared.extractSingleEntryData(
-                    archivePath: archivePath,
-                    entryPath: entry.path,
-                    password: password
-                ) {
-                    guard !Task.isCancelled else { return }
-                    TTZipArchiveVfsProvider.shared.cacheEntryData(
-                        archiveId: targetArchiveId,
+        isExtractingTemp = true
+        
+        if isMedia {
+            previewTask = Task {
+                do {
+                    let cachedURL: URL
+                    if let url = try? await ArchiveMediaCachePool.shared.getOrExtractMedia(
+                        archivePath: self.archivePath,
                         entryPath: entry.path,
-                        data: data
-                    )
+                        uncompressedSize: entry.uncompressedSize,
+                        password: self.password
+                    ) {
+                        cachedURL = url
+                    } else if let data = try await ArchiveSelectiveExtractor.shared.extractSingleEntryData(
+                        archivePath: self.archivePath,
+                        entryPath: entry.path,
+                        password: self.password
+                    ) {
+                        cachedURL = try ArchiveMediaCachePool.shared.stageData(data, fileName: entry.name)
+                    } else {
+                        throw ArchiveError.fileNotFound
+                    }
+                    
+                    guard !Task.isCancelled else { return }
                     await MainActor.run {
-                        self.previewFileURL = vfsURL
+                        self.previewFileURL = cachedURL
                         self.isExtractingTemp = false
                     }
-                } else {
+                } catch {
                     guard !Task.isCancelled else { return }
                     await MainActor.run {
                         self.previewFileURL = nil
                         self.isExtractingTemp = false
                     }
                 }
-            } catch {
-                guard !Task.isCancelled else { return }
-                await MainActor.run {
-                    self.previewFileURL = nil
-                    self.isExtractingTemp = false
+            }
+        } else {
+            let vfsURL = TTZipArchiveVfsProvider.shared.vfsURL(
+                archivePath: archivePath,
+                password: password,
+                entryPath: entry.path
+            )
+            let targetArchiveId = TTZipArchiveVfsProvider.makeArchiveId(from: archivePath)
+            
+            previewTask = Task {
+                do {
+                    if let data = try await ArchiveSelectiveExtractor.shared.extractSingleEntryData(
+                        archivePath: archivePath,
+                        entryPath: entry.path,
+                        password: password
+                    ) {
+                        guard !Task.isCancelled else { return }
+                        TTZipArchiveVfsProvider.shared.cacheEntryData(
+                            archiveId: targetArchiveId,
+                            entryPath: entry.path,
+                            data: data
+                        )
+                        await MainActor.run {
+                            self.previewFileURL = vfsURL
+                            self.isExtractingTemp = false
+                        }
+                    } else {
+                        guard !Task.isCancelled else { return }
+                        await MainActor.run {
+                            self.previewFileURL = nil
+                            self.isExtractingTemp = false
+                        }
+                    }
+                } catch {
+                    guard !Task.isCancelled else { return }
+                    await MainActor.run {
+                        self.previewFileURL = nil
+                        self.isExtractingTemp = false
+                    }
                 }
             }
         }

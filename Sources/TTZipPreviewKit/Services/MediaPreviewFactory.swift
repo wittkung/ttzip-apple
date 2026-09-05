@@ -28,13 +28,16 @@ public enum MediaPreviewFactory {
     
     /// Image extensions.
     public static let imageExtensions: Set<String> = [
-        "png", "jpg", "jpeg", "gif", "webp", "heic", "bmp", "tiff", "ico"
+        "png", "jpg", "jpeg", "gif", "webp", "heic", "bmp", "tiff", "ico",
+        "arw", "cr3", "nef", "dng"
     ]
     
     /// All video extensions supported for unified in-app zero-kickout playback via MPV Metal viewport.
     public static let videoExtensions: Set<String> = [
         "mp4", "mov", "m4v", "qt", "mkv", "avi", "webm", "ogv", "flv", "3gp",
-        "ts", "wmv", "vob", "rmvb", "divx", "m2ts", "asf", "f4v", "y4m", "rm", "mpg", "mpeg"
+        "3g2", "ts", "mts", "m2ts", "m2t", "wmv", "vob", "rmvb", "rm", "divx",
+        "asf", "f4v", "y4m", "mpg", "mpeg", "mpe", "mpv", "m2v", "vro", "dat",
+        "nut", "dv", "mxf"
     ]
     
     /// Backward-compatible alias for video extensions.
@@ -45,8 +48,10 @@ public enum MediaPreviewFactory {
     
     /// Audio extensions.
     public static let audioExtensions: Set<String> = [
-        "mp3", "wav", "m4a", "aac", "flac", "aifc", "aiff", "m4b", "alac", "caf",
-        "ogg", "opus", "wma", "ape", "dts", "mid", "midi", "mka", "dsf", "dff", "wv"
+        "mp3", "wav", "m4a", "aac", "flac", "aifc", "aiff", "aif", "m4b", "m4r",
+        "alac", "caf", "ogg", "oga", "opus", "wma", "ape", "dts", "ac3", "eac3",
+        "amr", "mid", "midi", "mka", "dsd", "dsf", "dff", "wv", "tta", "mpc",
+        "tak", "spx", "au", "snd", "voc", "ra", "gsm"
     ]
     
     /// Backward-compatible alias for audio extensions.
@@ -336,6 +341,26 @@ public enum MediaPreviewFactory {
         
         let ext = (suggestedName as NSString).pathExtension.lowercased()
         
+        if videoExtensions.contains(ext) || sniff.kind == TTZIP_KIND_VIDEO {
+            if let fileURL = try? ArchiveMediaCachePool.shared.stageData(data, fileName: suggestedName, sourceURL: sourceURL) {
+                return .video(fileURL)
+            } else if let fallbackURL = writeDataToTemporaryFile(data: data, fileName: suggestedName) {
+                return .video(fallbackURL)
+            } else {
+                return .unsupported("Unable to prepare video file for playback: \(suggestedName)")
+            }
+        }
+        
+        if audioExtensions.contains(ext) || sniff.kind == TTZIP_KIND_AUDIO {
+            if let fileURL = try? ArchiveMediaCachePool.shared.stageData(data, fileName: suggestedName, sourceURL: sourceURL) {
+                return .audio(fileURL)
+            } else if let fallbackURL = writeDataToTemporaryFile(data: data, fileName: suggestedName) {
+                return .audio(fallbackURL)
+            } else {
+                return .unsupported("Unable to prepare audio file for playback: \(suggestedName)")
+            }
+        }
+        
         if ext == "pdf" {
             return .pdfData(data, sourceURL)
         }
@@ -408,5 +433,22 @@ public enum MediaPreviewFactory {
         guard let handle = try? FileHandle(forReadingFrom: url) else { return Data() }
         defer { try? handle.close() }
         return (try? handle.read(upToCount: maxBytes)) ?? Data()
+    }
+
+    /// Safely writes in-memory media payload to a sandboxed temporary file with POSIX permissions.
+    nonisolated private static func writeDataToTemporaryFile(data: Data, fileName: String) -> URL? {
+        let tempDir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("TTZipFallbackMedia", isDirectory: true)
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        do {
+            try FileManager.default.createDirectory(at: tempDir, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
+            let sanitized = ArchiveMediaCachePool.sanitizeFileName(fileName)
+            let fileURL = tempDir.appendingPathComponent(sanitized)
+            try data.write(to: fileURL, options: .atomic)
+            try? FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: fileURL.path)
+            return fileURL
+        } catch {
+            return nil
+        }
     }
 }

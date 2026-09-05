@@ -73,7 +73,6 @@ private final class MPVHandleHolder: @unchecked Sendable {
 
     func lockAndInitialize(
         mode: MPVOutputMode,
-        isTesting: Bool,
         onWakeup: @escaping @Sendable () -> Void
     ) throws -> OpaquePointer {
         lock.lock()
@@ -111,18 +110,27 @@ private final class MPVHandleHolder: @unchecked Sendable {
             mpv_set_option_string(newHandle, "vo", "null")
             mpv_set_option_string(newHandle, "vid", "no")
             mpv_set_option_string(newHandle, "hwdec", "no")
-            mpv_set_option_string(newHandle, "ao", isTesting ? "null" : "auto")
+            mpv_set_option_string(newHandle, "ao", "coreaudio,auto")
         } else {
-            mpv_set_option_string(newHandle, "vo", isTesting ? "null" : "libmpv")
-            mpv_set_option_string(newHandle, "hwdec", isTesting ? "no" : "videotoolbox")
-            mpv_set_option_string(newHandle, "ao", isTesting ? "null" : "auto")
+            mpv_set_option_string(newHandle, "vo", "libmpv")
+            mpv_set_option_string(newHandle, "hwdec", "auto-safe")
+            mpv_set_option_string(newHandle, "hwdec-codecs", "all")
+            mpv_set_option_string(newHandle, "ao", "coreaudio,auto")
         }
 
-        mpv_set_option_string(newHandle, "target-colorspace-hint", "yes")
+        mpv_set_option_string(newHandle, "audio-channels", "auto-safe")
+        mpv_set_option_string(newHandle, "audio-exclusive", "no")
+        mpv_set_option_string(newHandle, "audio-pitch-correction", "yes")
+        mpv_set_option_string(newHandle, "volume", "100")
+        mpv_set_option_string(newHandle, "volume-max", "150")
+        mpv_set_option_string(newHandle, "mute", "no")
+        mpv_set_option_string(newHandle, "aid", "auto")
+
+        mpv_set_option_string(newHandle, "target-colorspace-hint", "no")
         mpv_set_option_string(newHandle, "target-trc", "auto")
-        mpv_set_option_string(newHandle, "tone-mapping", "auto")
+        mpv_set_option_string(newHandle, "tone-mapping", "bt.2446a")
         mpv_set_option_string(newHandle, "gamut-mapping-mode", "perceptual")
-        mpv_set_option_string(newHandle, "hdr-compute-peak", "yes")
+        mpv_set_option_string(newHandle, "hdr-compute-peak", "no")
         mpv_set_option_string(newHandle, "sub-auto", "fuzzy")
         mpv_set_option_string(newHandle, "sub-codepage", "auto")
         mpv_set_option_string(newHandle, "sub-font-size", "52")
@@ -151,7 +159,13 @@ private final class MPVHandleHolder: @unchecked Sendable {
             (6, "cache-buffering-state", MPV_FORMAT_INT64),
             (7, "eof-reached", MPV_FORMAT_FLAG),
             (8, "core-idle", MPV_FORMAT_FLAG),
-            (9, "sub-text", MPV_FORMAT_STRING)
+            (9, "sub-text", MPV_FORMAT_STRING),
+            (10, "audio-codec-name", MPV_FORMAT_STRING),
+            (11, "audio-params/samplerate", MPV_FORMAT_DOUBLE),
+            (12, "audio-params/channels", MPV_FORMAT_STRING),
+            (13, "audio-bitrate", MPV_FORMAT_DOUBLE),
+            (14, "video-params/w", MPV_FORMAT_DOUBLE),
+            (15, "video-params/h", MPV_FORMAT_DOUBLE)
         ]
         for (replyId, name, format) in properties {
             mpv_observe_property(newHandle, replyId, name, format)
@@ -187,19 +201,11 @@ public actor MPVCoreEngine {
     private var handle: OpaquePointer? { handleHolder.pointer }
     private var securityScopedURL: URL? = nil
     private var currentOutputMode: MPVOutputMode = .video(renderBackend: "libmpv")
-    private var customWakeupHandler: (@Sendable () -> Void)? = nil
+    private var legacyWakeupHandler: (@Sendable () -> Void)? = nil
+    private var wakeupListeners: [UUID: @Sendable () -> Void] = [:]
 
     /// Native libmpv client handle pointer accessible across concurrency boundaries.
     public nonisolated var rawHandle: OpaquePointer? { handleHolder.pointer }
-
-    private static var isTestEnvironment: Bool {
-        if NSClassFromString("XCTestCase") != nil { return true }
-        if ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil { return true }
-        if Bundle.main.bundlePath.hasSuffix(".xctest") { return true }
-        let proc = ProcessInfo.processInfo.processName.lowercased()
-        if proc.contains("test") || proc.contains("xctest") { return true }
-        return false
-    }
 
     public init() {}
 
@@ -207,15 +213,35 @@ public actor MPVCoreEngine {
         handleHolder.terminateAndClear()
     }
 
-    /// Attaches an asynchronous wakeup handler triggered when libmpv queues new events.
+    /// Registers an asynchronous wakeup listener triggered when libmpv queues new events.
+    ///
+    /// - Parameter listener: Asynchronous callback closure invoked upon event arrival.
+    /// - Returns: Unique identifier used to unregister the listener.
+    @discardableResult
+    public func addWakeupListener(_ listener: @escaping @Sendable () -> Void) -> UUID {
+        let id = UUID()
+        wakeupListeners[id] = listener
+        return id
+    }
+
+    /// Unregisters a previously registered wakeup listener by its identifier.
+    ///
+    /// - Parameter id: Unique listener identifier returned from `addWakeupListener`.
+    public func removeWakeupListener(id: UUID) {
+        wakeupListeners.removeValue(forKey: id)
+    }
+
+    /// Attaches a legacy asynchronous wakeup handler triggered when libmpv queues new events.
+    ///
+    /// - Parameter handler: Optional callback closure. Passing nil unsets the legacy handler.
     public func setWakeupHandler(_ handler: (@Sendable () -> Void)?) {
-        self.customWakeupHandler = handler
+        self.legacyWakeupHandler = handler
     }
 
     /// Synchronously ensures the native libmpv instance is allocated and initialized once.
     @discardableResult
     public nonisolated func ensureInitialized(mode: MPVOutputMode = .video(renderBackend: "libmpv")) throws -> OpaquePointer {
-        try handleHolder.lockAndInitialize(mode: mode, isTesting: Self.isTestEnvironment, onWakeup: { [weak self] in
+        try handleHolder.lockAndInitialize(mode: mode, onWakeup: { [weak self] in
             guard let self else { return }
             Task {
                 await self.handleWakeupNotification()
@@ -332,17 +358,17 @@ public actor MPVCoreEngine {
     public func setOutputMode(_ mode: MPVOutputMode) {
         self.currentOutputMode = mode
         guard let handle else { return }
-        let isTesting = Self.isTestEnvironment
         if mode.isAudioOnly {
             mpv_set_option_string(handle, "vo", "null")
             mpv_set_option_string(handle, "vid", "no")
             mpv_set_option_string(handle, "hwdec", "no")
-            mpv_set_option_string(handle, "ao", isTesting ? "null" : "auto")
+            mpv_set_option_string(handle, "ao", "coreaudio,auto")
         } else {
-            mpv_set_option_string(handle, "vo", isTesting ? "null" : "libmpv")
+            mpv_set_option_string(handle, "vo", "libmpv")
             mpv_set_option_string(handle, "vid", "auto")
-            mpv_set_option_string(handle, "hwdec", isTesting ? "no" : "videotoolbox")
-            mpv_set_option_string(handle, "ao", isTesting ? "null" : "auto")
+            mpv_set_option_string(handle, "hwdec", "auto-safe")
+            mpv_set_option_string(handle, "hwdec-codecs", "all")
+            mpv_set_option_string(handle, "ao", "coreaudio,auto")
         }
     }
 
@@ -358,6 +384,8 @@ public actor MPVCoreEngine {
             securityScopedURL = nil
         }
 
+        legacyWakeupHandler = nil
+        wakeupListeners.removeAll()
         handleHolder.terminateAndClear()
         logger.info("libmpv Core Engine terminated successfully")
     }
@@ -380,7 +408,10 @@ public actor MPVCoreEngine {
     }
 
     private func handleWakeupNotification() {
-        customWakeupHandler?()
+        legacyWakeupHandler?()
+        for listener in wakeupListeners.values {
+            listener()
+        }
     }
 
     private func parseMpvEvent(_ event: mpv_event) -> MPVEvent? {

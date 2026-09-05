@@ -7,6 +7,8 @@
 
 import Foundation
 import CoreFoundation
+import AppKit
+import SwiftUI
 import OpenGL
 import OpenGL.GL3
 import CMPVBridge
@@ -35,13 +37,30 @@ public final class MPVRenderContextManager: @unchecked Sendable {
     
     private var renderContext: OpaquePointer?
     private var fallbackContext: CGLContextObj?
+    private var activeCGLContext: CGLContextObj?
+    private var updateHandlerOwner: ObjectIdentifier?
     private var updateHandler: (@Sendable () -> Void)?
+    
+    /// Returns the owner of the currently registered update handler.
+    public var activeUpdateHandlerOwner: ObjectIdentifier? {
+        lock.lock()
+        defer { lock.unlock() }
+        return updateHandlerOwner
+    }
+    
     
     /// Returns the active native `mpv_render_context` handle.
     public var rawContext: OpaquePointer? {
         lock.lock()
         defer { lock.unlock() }
         return renderContext
+    }
+    
+    /// Returns the currently active `CGLContextObj` bound to the render context.
+    public var activeContext: CGLContextObj? {
+        lock.lock()
+        defer { lock.unlock() }
+        return activeCGLContext
     }
     
     public init() {}
@@ -51,10 +70,29 @@ public final class MPVRenderContextManager: @unchecked Sendable {
     }
     
     /// Registers a thread-safe callback invoked when libmpv produces a new video frame or requests a redraw.
-    public func setUpdateHandler(_ handler: (@Sendable () -> Void)?) {
+    /// When an `owner` is provided, clearing (`handler == nil`) will only succeed if the caller is the current registered owner.
+    public func setUpdateHandler(
+        owner: AnyObject? = nil,
+        isFullScreenOwner: Bool? = nil,
+        _ handler: (@Sendable () -> Void)?
+    ) {
         lock.lock()
         defer { lock.unlock() }
-        self.updateHandler = handler
+        if let owner = owner {
+            let ownerId = ObjectIdentifier(owner)
+            if handler == nil {
+                if updateHandlerOwner == ownerId {
+                    self.updateHandler = nil
+                    self.updateHandlerOwner = nil
+                }
+            } else {
+                self.updateHandlerOwner = ownerId
+                self.updateHandler = handler
+            }
+        } else {
+            self.updateHandler = handler
+            self.updateHandlerOwner = nil
+        }
     }
     
     /// Initializes and attaches the native `mpv_render_context` to the provided `mpv_handle` and OpenGL context.
@@ -63,7 +101,13 @@ public final class MPVRenderContextManager: @unchecked Sendable {
         lock.lock()
         defer { lock.unlock() }
         
-        if renderContext != nil { return true }
+        if renderContext != nil {
+            if let target = cglContext, target != activeCGLContext {
+                detachAndFreeInternal()
+            } else {
+                return true
+            }
+        }
         
         let previousContext = CGLGetCurrentContext()
         var targetContext = cglContext ?? previousContext
@@ -77,143 +121,189 @@ public final class MPVRenderContextManager: @unchecked Sendable {
                 kCGLPFAAllowOfflineRenderers,
                 CGLPixelFormatAttribute(0)
             ]
-            var pix: CGLPixelFormatObj?
-            var npix: GLint = 0
-            CGLChoosePixelFormat(attribs, &pix, &npix)
-            if let validPix = pix {
-                CGLCreateContext(validPix, nil, &self.fallbackContext)
-                targetContext = self.fallbackContext
-            }
-        }
-        
-        guard let activeContext = targetContext else {
-            logger.error("Failed to create mpv_render_context: No valid CGLContext available")
-            return false
-        }
-        
-        CGLSetCurrentContext(activeContext)
-        defer {
-            CGLSetCurrentContext(previousContext)
-        }
-        
-        var initParams = mpv_opengl_init_params(
-            get_proc_address: mpvOpenGLGetProcAddress,
-            get_proc_address_ctx: nil
-        )
-        
-        let apiType = ("opengl" as NSString).utf8String
-        var advancedControl: Int32 = 1
-        
-        var ctx: OpaquePointer?
-        let status = withUnsafeMutablePointer(to: &initParams) { initParamsPtr in
-            withUnsafeMutablePointer(to: &advancedControl) { advPtr in
-                var params: [mpv_render_param] = [
-                    mpv_render_param(type: MPV_RENDER_PARAM_API_TYPE, data: UnsafeMutableRawPointer(mutating: apiType)),
-                    mpv_render_param(type: MPV_RENDER_PARAM_OPENGL_INIT_PARAMS, data: initParamsPtr),
-                    mpv_render_param(type: MPV_RENDER_PARAM_ADVANCED_CONTROL, data: advPtr),
-                    mpv_render_param(type: MPV_RENDER_PARAM_INVALID, data: nil)
-                ]
-                return mpv_render_context_create(&ctx, mpvHandle, &params)
-            }
-        }
-        guard status >= 0, let validCtx = ctx else {
-            let errStr = mpv_error_string(status).map { String(cString: $0) } ?? "Code \(status)"
-            logger.error("Failed to create mpv_render_context: \(errStr, privacy: .public)")
-            return false
-        }
-        
-        self.renderContext = validCtx
-        
-        let selfPtr = Unmanaged.passUnretained(self).toOpaque()
-        mpv_render_context_set_update_callback(validCtx, mpvRenderUpdateCallback, selfPtr)
-        
-        logger.info("mpv_render_context initialized successfully with OpenGL 3.2 backend")
-        return true
-    }
-    
-    /// Queries the render context for pending flags (e.g. `MPV_RENDER_UPDATE_FRAME`).
-    public func update() -> UInt64 {
-        lock.lock()
-        guard let ctx = renderContext else {
-            lock.unlock()
-            return 0
-        }
-        lock.unlock()
-        guard CGLGetCurrentContext() != nil else { return 0 }
-        return mpv_render_context_update(ctx)
-    }
-    
-    /// Rasterizes the current decoded video frame into the specified target OpenGL Framebuffer Object (FBO).
-    public func render(fbo: GLint, width: Int32, height: Int32) {
-        lock.lock()
-        guard let ctx = renderContext else {
-            lock.unlock()
-            return
-        }
-        lock.unlock()
-        
-        guard width > 0, height > 0 else { return }
-        guard CGLGetCurrentContext() != nil else { return }
-        
-        var glFbo = mpv_opengl_fbo(
-            fbo: Int32(fbo),
-            w: width,
-            h: height,
-            internal_format: 0
-        )
-        var flipY: Int32 = 1
-        withUnsafeMutablePointer(to: &glFbo) { fboPtr in
-            withUnsafeMutablePointer(to: &flipY) { flipYPtr in
-                var renderParams: [mpv_render_param] = [
-                    mpv_render_param(type: MPV_RENDER_PARAM_OPENGL_FBO, data: fboPtr),
-                    mpv_render_param(type: MPV_RENDER_PARAM_FLIP_Y, data: flipYPtr),
-                    mpv_render_param(type: MPV_RENDER_PARAM_INVALID, data: nil)
-                ]
-                _ = mpv_render_context_render(ctx, &renderParams)
-            }
+        var pix: CGLPixelFormatObj?
+        var npix: GLint = 0
+        CGLChoosePixelFormat(attribs, &pix, &npix)
+        if let validPix = pix {
+            CGLCreateContext(validPix, nil, &self.fallbackContext)
+            CGLReleasePixelFormat(validPix)
+            targetContext = self.fallbackContext
         }
     }
     
-    /// Informs libmpv that the backbuffer swap occurred to keep audio/video sync locked to display vsync.
-    public func reportSwap() {
-        lock.lock()
-        guard let ctx = renderContext else {
-            lock.unlock()
-            return
-        }
-        lock.unlock()
-        guard CGLGetCurrentContext() != nil else { return }
-        mpv_render_context_report_swap(ctx)
+    guard let activeContext = targetContext else {
+        logger.error("Failed to create mpv_render_context: No valid CGLContext available")
+        return false
     }
+    
+    CGLSetCurrentContext(activeContext)
+    defer {
+        CGLSetCurrentContext(previousContext)
+    }
+    
+    var initParams = mpv_opengl_init_params(
+        get_proc_address: mpvOpenGLGetProcAddress,
+        get_proc_address_ctx: nil
+    )
+    
+    let apiType = ("opengl" as NSString).utf8String
+    var advancedControl: Int32 = 1
+    
+    var ctx: OpaquePointer?
+    let status = withUnsafeMutablePointer(to: &initParams) { initParamsPtr in
+        withUnsafeMutablePointer(to: &advancedControl) { advPtr in
+            var params: [mpv_render_param] = [
+                mpv_render_param(type: MPV_RENDER_PARAM_API_TYPE, data: UnsafeMutableRawPointer(mutating: apiType)),
+                mpv_render_param(type: MPV_RENDER_PARAM_OPENGL_INIT_PARAMS, data: initParamsPtr),
+                mpv_render_param(type: MPV_RENDER_PARAM_ADVANCED_CONTROL, data: advPtr),
+                mpv_render_param(type: MPV_RENDER_PARAM_INVALID, data: nil)
+            ]
+            return mpv_render_context_create(&ctx, mpvHandle, &params)
+        }
+    }
+    guard status >= 0, let validCtx = ctx else {
+        let errStr = mpv_error_string(status).map { String(cString: $0) } ?? "Code \(status)"
+        logger.error("Failed to create mpv_render_context: \(errStr, privacy: .public)")
+        if let fallback = self.fallbackContext {
+            CGLDestroyContext(fallback)
+            self.fallbackContext = nil
+        }
+        return false
+    }
+    
+    self.renderContext = validCtx
+    self.activeCGLContext = activeContext
+    
+    let selfPtr = Unmanaged.passUnretained(self).toOpaque()
+    mpv_render_context_set_update_callback(validCtx, mpvRenderUpdateCallback, selfPtr)
+    
+    logger.info("mpv_render_context initialized successfully with OpenGL 3.2 backend")
+    return true
+}
+
+/// Queries the render context for pending flags (e.g. `MPV_RENDER_UPDATE_FRAME`).
+public func update() -> UInt64 {
+    lock.lock()
+    defer { lock.unlock() }
+    guard let ctx = renderContext else {
+        return 0
+    }
+    let targetCGL = self.activeCGLContext
+    
+    let previousContext = CGLGetCurrentContext()
+    if previousContext == nil, let target = targetCGL {
+        CGLSetCurrentContext(target)
+    }
+    defer {
+        if previousContext == nil && targetCGL != nil {
+            CGLSetCurrentContext(nil)
+        }
+    }
+    
+    return mpv_render_context_update(ctx)
+}
+
+/// Rasterizes the current decoded video frame into the specified target OpenGL Framebuffer Object (FBO).
+public func render(fbo: GLint, width: Int32, height: Int32) {
+    lock.lock()
+    defer { lock.unlock() }
+    guard let ctx = renderContext else {
+        return
+    }
+    let targetCGL = self.activeCGLContext
+    
+    guard width > 0, height > 0 else { return }
+    
+    let previousContext = CGLGetCurrentContext()
+    if previousContext == nil, let target = targetCGL {
+        CGLSetCurrentContext(target)
+    }
+    defer {
+        if previousContext == nil && targetCGL != nil {
+            CGLSetCurrentContext(nil)
+        }
+    }
+    
+    var glFbo = mpv_opengl_fbo(
+        fbo: Int32(fbo),
+        w: width,
+        h: height,
+        internal_format: 0
+    )
+    var flipY: Int32 = 1
+    withUnsafeMutablePointer(to: &glFbo) { fboPtr in
+        withUnsafeMutablePointer(to: &flipY) { flipYPtr in
+            var renderParams: [mpv_render_param] = [
+                mpv_render_param(type: MPV_RENDER_PARAM_OPENGL_FBO, data: fboPtr),
+                mpv_render_param(type: MPV_RENDER_PARAM_FLIP_Y, data: flipYPtr),
+                mpv_render_param(type: MPV_RENDER_PARAM_INVALID, data: nil)
+            ]
+            _ = mpv_render_context_render(ctx, &renderParams)
+        }
+    }
+}
+
+/// Informs libmpv that the backbuffer swap occurred to keep audio/video sync locked to display vsync.
+public func reportSwap() {
+    lock.lock()
+    defer { lock.unlock() }
+    guard let ctx = renderContext else {
+        return
+    }
+    let targetCGL = self.activeCGLContext
+    
+    let previousContext = CGLGetCurrentContext()
+    if previousContext == nil, let target = targetCGL {
+        CGLSetCurrentContext(target)
+    }
+    defer {
+        if previousContext == nil && targetCGL != nil {
+            CGLSetCurrentContext(nil)
+        }
+    }
+    
+    mpv_render_context_report_swap(ctx)
+}
     
     /// Safely detaches update callbacks and destroys the native `mpv_render_context`.
     public func detachAndFree() {
         lock.lock()
+        defer { lock.unlock() }
+        detachAndFreeInternal()
+    }
+    
+    private func detachAndFreeInternal() {
         guard let ctx = renderContext else {
             if let fallback = fallbackContext {
                 CGLDestroyContext(fallback)
                 fallbackContext = nil
             }
-            lock.unlock()
+            activeCGLContext = nil
             return
         }
-        renderContext = nil
-        let fallback = fallbackContext
-        fallbackContext = nil
-        updateHandler = nil
-        lock.unlock()
         
         let previousContext = CGLGetCurrentContext()
-        if let fallback = fallback {
-            CGLSetCurrentContext(fallback)
+        let active = self.activeCGLContext ?? self.fallbackContext
+        if let active = active {
+            CGLSetCurrentContext(active)
         }
         
         mpv_render_context_set_update_callback(ctx, nil, nil)
         mpv_render_context_free(ctx)
+        self.renderContext = nil
+        self.activeCGLContext = nil
+        self.updateHandler = nil
+        self.updateHandlerOwner = nil
         
-        if let fallback = fallback {
+        if let fallback = self.fallbackContext {
             CGLDestroyContext(fallback)
-            CGLSetCurrentContext(previousContext)
+            self.fallbackContext = nil
+        }
+        
+        if let prev = previousContext, prev != active {
+            CGLSetCurrentContext(prev)
+        } else {
+            CGLSetCurrentContext(nil)
         }
         
         logger.info("mpv_render_context detached and released")
@@ -227,3 +317,4 @@ public final class MPVRenderContextManager: @unchecked Sendable {
         handler?()
     }
 }
+

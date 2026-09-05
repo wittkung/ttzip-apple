@@ -29,7 +29,24 @@ public final class MPVOpenGLLayer: CAOpenGLLayer {
     public weak var playerStore: MPVMetalPlayerStore?
     
     private let renderQueue = DispatchQueue(label: "com.metastudyline.ttzip.mpv.renderQueue", qos: .userInteractive)
-    private var isBound: Bool = false
+    private let stateLock = NSRecursiveLock()
+    private var _needsForceRedraw: Bool = false
+    private var _isBound: Bool = false
+    
+    
+    /// Thread-safe binding flag ensuring render loops do not dispatch against detached layers.
+    public var isBound: Bool {
+        get {
+            stateLock.lock()
+            defer { stateLock.unlock() }
+            return _isBound
+        }
+        set {
+            stateLock.lock()
+            defer { stateLock.unlock() }
+            _isBound = newValue
+        }
+    }
     private var proxy: MPVLayerProxy?
     
     public override init() {
@@ -49,10 +66,18 @@ public final class MPVOpenGLLayer: CAOpenGLLayer {
     
     private func configureLayerProperties() {
         self.proxy = MPVLayerProxy(layer: self)
-        self.isAsynchronous = false
+        self.isAsynchronous = true
         self.needsDisplayOnBoundsChange = true
         self.autoresizingMask = [.layerWidthSizable, .layerHeightSizable]
         self.contentsGravity = .resizeAspect
+    }
+    
+    /// Forces an immediate redraw on the next render cycle, useful for viewport resizing and scrubbing while paused.
+    public func forceRedraw() {
+        stateLock.lock()
+        _needsForceRedraw = true
+        stateLock.unlock()
+        requestRender()
     }
     
     /// Binds this layer to the player store and registers its update listener.
@@ -64,15 +89,16 @@ public final class MPVOpenGLLayer: CAOpenGLLayer {
         let localProxy = self.proxy ?? MPVLayerProxy(layer: self)
         self.proxy = localProxy
         
-        store.renderContextManager.setUpdateHandler { [weak localProxy] in
+        store.renderContextManager.setUpdateHandler(owner: self) { [weak localProxy] in
             localProxy?.trigger()
         }
+        forceRedraw()
     }
     
     /// Unbinds this layer and detaches update callbacks.
     public func unbind() {
         self.isBound = false
-        self.renderContextManager?.setUpdateHandler(nil)
+        self.renderContextManager?.setUpdateHandler(owner: self, nil)
         self.renderContextManager = nil
         self.playerStore = nil
     }
@@ -82,11 +108,17 @@ public final class MPVOpenGLLayer: CAOpenGLLayer {
         renderQueue.async { [weak localProxy] in
             guard let layer = localProxy?.layer, layer.isBound else { return }
             layer.setNeedsDisplay()
-            layer.display()
         }
     }
     
     // MARK: - CAOpenGLLayer Virtual Overrides
+    
+    public override func releaseCGLContext(_ glContext: CGLContextObj) {
+        if let manager = renderContextManager, manager.activeContext == glContext {
+            manager.detachAndFree()
+        }
+        super.releaseCGLContext(glContext)
+    }
     
     public override func copyCGLPixelFormat(forDisplayMask mask: UInt32) -> CGLPixelFormatObj {
         let attribs: [CGLPixelFormatAttribute] = [
@@ -120,9 +152,9 @@ public final class MPVOpenGLLayer: CAOpenGLLayer {
         var swapInterval: GLint = 1
         CGLSetParameter(validCtx, kCGLCPSwapInterval, &swapInterval)
         
-        // If the player handle is ready, pre-initialize the render context with this CGLContext
-        if let store = playerStore, let mpvHandle = store.mpv {
-            store.renderContextManager.createRenderContext(mpvHandle: mpvHandle, cglContext: validCtx)
+        // If the player handle is ready, pre-initialize
+        if let store = playerStore, let mpvHandle = store.mpv, let manager = renderContextManager {
+            manager.createRenderContext(mpvHandle: mpvHandle, cglContext: validCtx)
         }
         
         return validCtx
@@ -134,15 +166,41 @@ public final class MPVOpenGLLayer: CAOpenGLLayer {
         forLayerTime time: CFTimeInterval,
         displayTime: UnsafePointer<CVTimeStamp>?
     ) -> Bool {
-        guard let store = playerStore, let mpvHandle = store.mpv else { return false }
-        guard let manager = renderContextManager else { return false }
+        guard isBound else { return false }
         
-        if manager.rawContext == nil {
+        guard let manager = renderContextManager else { return false }
+        guard let store = playerStore, let mpvHandle = store.mpv else { return false }
+        
+        if manager.rawContext == nil || manager.activeContext != glContext {
             manager.createRenderContext(mpvHandle: mpvHandle, cglContext: glContext)
         }
         
+        // Ensure the active layer has its update handler registered with the manager
+        if manager.activeUpdateHandlerOwner != ObjectIdentifier(self) {
+            let localProxy = self.proxy ?? MPVLayerProxy(layer: self)
+            self.proxy = localProxy
+            manager.setUpdateHandler(owner: self) { [weak localProxy] in
+                localProxy?.trigger()
+            }
+        }
+        
+        let previousContext = CGLGetCurrentContext()
+        if previousContext != glContext {
+            CGLSetCurrentContext(glContext)
+        }
+        defer {
+            if previousContext != glContext {
+                CGLSetCurrentContext(previousContext)
+            }
+        }
+        
         let flags = manager.update()
-        return (flags & UInt64(MPV_RENDER_UPDATE_FRAME.rawValue)) != 0
+        stateLock.lock()
+        let force = _needsForceRedraw
+        stateLock.unlock()
+        
+        let hasFrame = (flags & UInt64(MPV_RENDER_UPDATE_FRAME.rawValue)) != 0
+        return hasFrame || force
     }
     
     public override func draw(
@@ -151,19 +209,25 @@ public final class MPVOpenGLLayer: CAOpenGLLayer {
         forLayerTime time: CFTimeInterval,
         displayTime: UnsafePointer<CVTimeStamp>?
     ) {
+        stateLock.lock()
+        _needsForceRedraw = false
+        stateLock.unlock()
+        guard isBound else { return }
+        
         guard let manager = renderContextManager else { return }
+        
+        CGLSetCurrentContext(glContext)
         
         var currentFBO: GLint = 0
         glGetIntegerv(GLenum(GL_DRAW_FRAMEBUFFER_BINDING), &currentFBO)
         
-        var dims: [GLint] = [0, 0, 0, 0]
-        glGetIntegerv(GLenum(GL_VIEWPORT), &dims)
-        
-        let width = dims[2] > 0 ? dims[2] : Int32(bounds.width * contentsScale)
-        let height = dims[3] > 0 ? dims[3] : Int32(bounds.height * contentsScale)
+        let scale = self.contentsScale > 0 ? self.contentsScale : (NSScreen.main?.backingScaleFactor ?? 2.0)
+        let width = Int32(max(1.0, ceil(bounds.width * scale)))
+        let height = Int32(max(1.0, ceil(bounds.height * scale)))
         
         manager.render(fbo: currentFBO, width: width, height: height)
         manager.reportSwap()
+        CGLFlushDrawable(glContext)
         glFlush()
     }
 }

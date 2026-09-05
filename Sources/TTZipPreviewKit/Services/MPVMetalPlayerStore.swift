@@ -54,6 +54,8 @@ public final class MPVMetalPlayerStore: ObservableObject {
     @Published public var videoWidth: Int = 0
     @Published public var videoHeight: Int = 0
     @Published public var videoSize: CGSize = .zero
+    @Published public var isFullScreen: Bool = false
+    @Published public var playbackSpeed: Double = 1.0
     
     @Published public var audioSampleRate: String = "--"
     @Published public var audioChannels: String = "--"
@@ -236,6 +238,10 @@ public final class MPVMetalPlayerStore: ObservableObject {
             do {
                 try await MPVCoreEngine.shared.loadFile(url: url, replace: true, isAudioOnly: isAudioOnly)
                 await MPVEventDispatcher.shared.start()
+                let targetVol = (self.volume > 0.0 ? self.volume : 1.0) * 100.0
+                try? await MPVCoreEngine.shared.setProperty(name: "volume", value: targetVol)
+                try? await MPVCoreEngine.shared.setProperty(name: "mute", value: self.isMuted)
+                try? await MPVCoreEngine.shared.setProperty(name: "aid", value: "auto")
             } catch {
                 self.hasPlaybackError = true
                 self.errorMessage = error.localizedDescription
@@ -332,6 +338,20 @@ public final class MPVMetalPlayerStore: ObservableObject {
         Task {
             try? await MPVCoreEngine.shared.setProperty(name: "mute", value: isMuted)
         }
+    }
+    
+    /// Adjusts active video playback rate (e.g. 0.5x, 1.0x, 1.5x, 2.0x).
+    public func setPlaybackSpeed(_ newSpeed: Double) {
+        let clamped = max(0.25, min(4.0, newSpeed))
+        self.playbackSpeed = clamped
+        Task {
+            try? await MPVCoreEngine.shared.setProperty(name: "speed", value: clamped)
+        }
+    }
+    
+    /// Coordinates full screen routing state across inline and presentation viewports.
+    public func setFullScreen(_ fullScreen: Bool) {
+        self.isFullScreen = fullScreen
     }
     
     // MARK: - Audio & Subtitle Track Scheduling
@@ -494,8 +514,8 @@ public final class MPVMetalPlayerStore: ObservableObject {
         
         if let selAudio = snapshot.selectedAudioTrackId {
             self.selectedAudioTrackId = selAudio
-        } else if self.selectedAudioTrackId == nil, let defAudio = snapshot.audioTracks.first(where: { $0.isDefault })?.id ?? snapshot.audioTracks.first?.id {
-            self.selectedAudioTrackId = defAudio
+        } else if self.selectedAudioTrackId == nil, let defTrack = snapshot.audioTracks.first(where: { $0.isDefault }) ?? snapshot.audioTracks.first {
+            self.selectAudioTrack(defTrack)
         }
         if let selSub = snapshot.selectedSubtitleTrackId { self.selectedSubtitleTrackId = selSub }
         self.updateEDRMetrics(detectedHDR: snapshot.hdrFormat)
@@ -530,6 +550,8 @@ public final class MPVMetalPlayerStore: ObservableObject {
         
         currentURL = nil
         isPlaying = false
+        isFullScreen = false
+        renderContextManager.detachAndFree()
         currentTime = 0
         duration = 0
         hasPlaybackError = false

@@ -27,6 +27,7 @@ public actor MPVEventDispatcher {
     private var debounceTask: Task<Void, Never>? = nil
     private var hasPendingStateFlush: Bool = false
     private var isStarted: Bool = false
+    private var wakeupListenerID: UUID? = nil
 
     /// Initializes the event dispatcher with a dedicated or shared MPVCoreEngine.
     public init(engine: MPVCoreEngine = .shared) {
@@ -43,12 +44,13 @@ public actor MPVEventDispatcher {
     public func start() async {
         guard !isStarted else { return }
         isStarted = true
-        await engine.setWakeupHandler { [weak self] in
+        let id = await engine.addWakeupListener { [weak self] in
             guard let self else { return }
             Task {
                 await self.drainAndDispatch()
             }
         }
+        self.wakeupListenerID = id
         await drainAndDispatch()
         logger.info("MPVEventDispatcher started and hooked to MPVCoreEngine")
     }
@@ -56,7 +58,10 @@ public actor MPVEventDispatcher {
     /// Stops the event dispatcher, cancelling active timers and finishing broadcast streams.
     public func stop() async {
         isStarted = false
-        await engine.setWakeupHandler(nil)
+        if let id = wakeupListenerID {
+            await engine.removeWakeupListener(id: id)
+            wakeupListenerID = nil
+        }
         debounceTask?.cancel()
         debounceTask = nil
         for cont in eventContinuations.values { cont.finish() }
@@ -89,32 +94,35 @@ public actor MPVEventDispatcher {
 
     /// Multicast asynchronous stream emitting discrete engine lifecycle and control events.
     public var eventStream: AsyncStream<MPVEvent> {
-        AsyncStream<MPVEvent> { continuation in
-            let id = UUID()
-            continuation.onTermination = { [weak self] _ in
-                Task { [weak self] in
-                    await self?.removeEventContinuation(id: id)
-                }
-            }
+        let (stream, continuation) = AsyncStream.makeStream(of: MPVEvent.self)
+        let id = UUID()
+        eventContinuations[id] = continuation
+        continuation.onTermination = { [weak self] _ in
             Task { [weak self] in
-                await self?.addEventContinuation(id: id, continuation: continuation)
+                await self?.removeEventContinuation(id: id)
             }
         }
+        if !isStarted {
+            Task { await self.start() }
+        }
+        return stream
     }
 
     /// Multicast asynchronous stream emitting debounced and throttled playback state snapshots.
     public var stateStream: AsyncStream<MPVPlaybackStateSnapshot> {
-        AsyncStream<MPVPlaybackStateSnapshot> { continuation in
-            let id = UUID()
-            continuation.onTermination = { [weak self] _ in
-                Task { [weak self] in
-                    await self?.removeStateContinuation(id: id)
-                }
-            }
+        let (stream, continuation) = AsyncStream.makeStream(of: MPVPlaybackStateSnapshot.self)
+        let id = UUID()
+        stateContinuations[id] = continuation
+        continuation.yield(currentState)
+        continuation.onTermination = { [weak self] _ in
             Task { [weak self] in
-                await self?.addStateContinuation(id: id, continuation: continuation)
+                await self?.removeStateContinuation(id: id)
             }
         }
+        if !isStarted {
+            Task { await self.start() }
+        }
+        return stream
     }
 
     /// Drains all pending events from the underlying core engine and dispatches them.
@@ -335,6 +343,131 @@ public actor MPVEventDispatcher {
                     isBuffering: false
                 )
             }
+        case "audio-codec-name":
+            if case .string(let val) = value {
+                currentMetadata = MPVMediaMetadataSnapshot(
+                    videoCodec: currentMetadata.videoCodec,
+                    audioCodec: val,
+                    videoWidth: currentMetadata.videoWidth,
+                    videoHeight: currentMetadata.videoHeight,
+                    aspectRatio: currentMetadata.aspectRatio,
+                    colorSpace: currentMetadata.colorSpace,
+                    audioSampleRate: currentMetadata.audioSampleRate,
+                    audioChannels: currentMetadata.audioChannels,
+                    audioBitDepth: currentMetadata.audioBitDepth,
+                    audioTracks: currentMetadata.audioTracks,
+                    subtitleTracks: currentMetadata.subtitleTracks,
+                    title: currentMetadata.title,
+                    artist: currentMetadata.artist
+                )
+            }
+        case "audio-params/samplerate":
+            let sr: Int
+            if case .int64(let val) = value {
+                sr = Int(val)
+            } else if case .double(let val) = value {
+                sr = Int(val)
+            } else {
+                sr = currentMetadata.audioSampleRate
+            }
+            currentMetadata = MPVMediaMetadataSnapshot(
+                videoCodec: currentMetadata.videoCodec,
+                audioCodec: currentMetadata.audioCodec,
+                videoWidth: currentMetadata.videoWidth,
+                videoHeight: currentMetadata.videoHeight,
+                aspectRatio: currentMetadata.aspectRatio,
+                colorSpace: currentMetadata.colorSpace,
+                audioSampleRate: sr,
+                audioChannels: currentMetadata.audioChannels,
+                audioBitDepth: currentMetadata.audioBitDepth,
+                audioTracks: currentMetadata.audioTracks,
+                subtitleTracks: currentMetadata.subtitleTracks,
+                title: currentMetadata.title,
+                artist: currentMetadata.artist
+            )
+        case "audio-params/channels":
+            let chCount: Int
+            if case .string(let val) = value {
+                let lower = val.lowercased()
+                if lower == "stereo" {
+                    chCount = 2
+                } else if lower == "mono" {
+                    chCount = 1
+                } else if lower.contains("5.1") {
+                    chCount = 6
+                } else if lower.contains("7.1") {
+                    chCount = 8
+                } else {
+                    chCount = Int(val) ?? currentMetadata.audioChannels
+                }
+            } else if case .int64(let val) = value {
+                chCount = Int(val)
+            } else {
+                chCount = currentMetadata.audioChannels
+            }
+            currentMetadata = MPVMediaMetadataSnapshot(
+                videoCodec: currentMetadata.videoCodec,
+                audioCodec: currentMetadata.audioCodec,
+                videoWidth: currentMetadata.videoWidth,
+                videoHeight: currentMetadata.videoHeight,
+                aspectRatio: currentMetadata.aspectRatio,
+                colorSpace: currentMetadata.colorSpace,
+                audioSampleRate: currentMetadata.audioSampleRate,
+                audioChannels: chCount,
+                audioBitDepth: currentMetadata.audioBitDepth,
+                audioTracks: currentMetadata.audioTracks,
+                subtitleTracks: currentMetadata.subtitleTracks,
+                title: currentMetadata.title,
+                artist: currentMetadata.artist
+            )
+        case "video-params/w":
+            let w: Int
+            if case .int64(let val) = value {
+                w = Int(val)
+            } else if case .double(let val) = value {
+                w = Int(val)
+            } else {
+                w = currentMetadata.videoWidth
+            }
+            currentMetadata = MPVMediaMetadataSnapshot(
+                videoCodec: currentMetadata.videoCodec,
+                audioCodec: currentMetadata.audioCodec,
+                videoWidth: w,
+                videoHeight: currentMetadata.videoHeight,
+                aspectRatio: currentMetadata.aspectRatio,
+                colorSpace: currentMetadata.colorSpace,
+                audioSampleRate: currentMetadata.audioSampleRate,
+                audioChannels: currentMetadata.audioChannels,
+                audioBitDepth: currentMetadata.audioBitDepth,
+                audioTracks: currentMetadata.audioTracks,
+                subtitleTracks: currentMetadata.subtitleTracks,
+                title: currentMetadata.title,
+                artist: currentMetadata.artist
+            )
+        case "video-params/h":
+            let h: Int
+            if case .int64(let val) = value {
+                h = Int(val)
+            } else if case .double(let val) = value {
+                h = Int(val)
+            } else {
+                h = currentMetadata.videoHeight
+            }
+            currentMetadata = MPVMediaMetadataSnapshot(
+                videoCodec: currentMetadata.videoCodec,
+                audioCodec: currentMetadata.audioCodec,
+                videoWidth: currentMetadata.videoWidth,
+                videoHeight: h,
+                aspectRatio: currentMetadata.aspectRatio,
+                colorSpace: currentMetadata.colorSpace,
+                audioSampleRate: currentMetadata.audioSampleRate,
+                audioChannels: currentMetadata.audioChannels,
+                audioBitDepth: currentMetadata.audioBitDepth,
+                audioTracks: currentMetadata.audioTracks,
+                subtitleTracks: currentMetadata.subtitleTracks,
+                title: currentMetadata.title,
+                artist: currentMetadata.artist
+            )
         default:
             break
         }

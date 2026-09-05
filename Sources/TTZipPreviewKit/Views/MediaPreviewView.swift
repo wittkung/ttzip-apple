@@ -40,20 +40,8 @@ public struct MediaPreviewView: View {
     }
     
     private func toggleFullScreen() {
-        if FullScreenMediaWindowController.shared.isPresenting {
-            isFullScreenActive = false
-            FullScreenMediaWindowController.shared.dismiss()
-        } else {
-            isFullScreenActive = true
-            FullScreenMediaWindowController.shared.present(
-                view: AnyView(fullScreenModalView),
-                onDismiss: {
-                    Task { @MainActor in
-                        self.isFullScreenActive = false
-                    }
-                }
-            )
-        }
+        isFullScreenActive.toggle()
+        NotificationCenter.default.post(name: NSNotification.Name("TTZipToggleMediaFocusNotification"), object: nil)
     }
     
     public var body: some View {
@@ -90,71 +78,6 @@ public struct MediaPreviewView: View {
         .task(id: fileURL) {
             loadPreview()
         }
-        .onChange(of: fileURL) { _, _ in
-            if FullScreenMediaWindowController.shared.isPresenting {
-                FullScreenMediaWindowController.shared.update(view: AnyView(fullScreenModalView))
-            }
-        }
-        .onDisappear {
-            if FullScreenMediaWindowController.shared.isPresenting {
-                FullScreenMediaWindowController.shared.dismiss()
-            }
-        }
-    }
-    
-    @ViewBuilder
-    private var fullScreenModalView: some View {
-        ZStack {
-            Color.black.ignoresSafeArea()
-            
-            MediaPreviewFactory.makePreviewView(
-                type: previewType,
-                fileName: fileName,
-                fileURL: fileURL,
-                isFullScreenActive: false
-            )
-            
-            VStack {
-                HStack(alignment: .center) {
-                    HStack(spacing: 8) {
-                        Image(systemName: mediaIconName)
-                            .font(.system(size: 13, weight: .bold))
-                            .foregroundStyle(TTZipTheme.bambooGreen)
-                        Text(fileName)
-                            .font(.system(size: 13, weight: .bold))
-                            .foregroundStyle(.white)
-                            .lineLimit(1)
-                    }
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 8)
-                    .background(.ultraThinMaterial)
-                    .clipShape(Capsule())
-                    
-                    Spacer()
-                    
-                    Button(action: { FullScreenMediaWindowController.shared.dismiss() }) {
-                        HStack(spacing: 5) {
-                            Image(systemName: "xmark")
-                                .font(.system(size: 12, weight: .bold))
-                            Text(l10n.t(L10n.Preview.exitFullScreen) + " (Esc)")
-                                .font(.system(size: 12, weight: .bold))
-                        }
-                        .foregroundStyle(.white)
-                        .padding(.horizontal, 14)
-                        .padding(.vertical, 8)
-                        .background(Capsule().fill(Color.black.opacity(0.65)))
-                        .overlay(Capsule().stroke(Color.white.opacity(0.2), lineWidth: 0.5))
-                    }
-                    .buttonStyle(.plain)
-                    .keyboardShortcut(.escape, modifiers: [])
-                }
-                .padding(.horizontal, 24)
-                .padding(.top, 24)
-                
-                Spacer()
-            }
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
     
     private var mediaIconName: String {

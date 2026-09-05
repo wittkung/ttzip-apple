@@ -14,29 +14,40 @@ import TTZipUI
 /// Plays directly inside the right inspector side panel with hardware acceleration and Zen controls across all 16+ video formats.
 public struct UnifiedVideoPlayerView: View {
     public let url: URL
+    public let isFullScreen: Bool
     
     @State private var isSecurityScoped: Bool = false
     
-    public init(url: URL) {
+    public init(url: URL, isFullScreen: Bool = false) {
         self.url = url
+        self.isFullScreen = isFullScreen
     }
     
     public var body: some View {
         ZStack {
             Color.black.ignoresSafeArea()
             
-            MPVMetalVideoPlayerView(url: url)
+            MPVMetalVideoPlayerView(url: url, isFullScreen: isFullScreen)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
         .onAppear {
-            if url.startAccessingSecurityScopedResource() {
+            if SecurityScopedResourceManager.shared.startAccessing(url: url) {
+                isSecurityScoped = true
+            }
+        }
+        .onChange(of: url) { oldURL, newURL in
+            if isSecurityScoped {
+                SecurityScopedResourceManager.shared.stopAccessing(url: oldURL)
+                isSecurityScoped = false
+            }
+            if SecurityScopedResourceManager.shared.startAccessing(url: newURL) {
                 isSecurityScoped = true
             }
         }
         .onDisappear {
             if isSecurityScoped {
-                url.stopAccessingSecurityScopedResource()
+                SecurityScopedResourceManager.shared.stopAccessing(url: url)
                 isSecurityScoped = false
             }
         }

@@ -48,7 +48,7 @@ final class VideoInlineSelectionSimulationTests: XCTestCase {
         viewModel.currentDirectory = tempDirURL
         viewModel.activeTab = .home
         XCTAssertNil(viewModel.selectedDiskItem, "Initial selection should be nil")
-        XCTAssertFalse(FullScreenMediaWindowController.shared.isPresenting, "Full-screen window must NOT be presenting initially")
+        XCTAssertEqual(viewModel.navigationState.layoutMode, .standard, "Layout mode must remain standard initially")
         
         // 3. Act: Simulate user single-clicking the video file row in the Miller Column explorer
         let videoDiskItem = DiskItemInfo(url: videoURL)
@@ -63,9 +63,10 @@ final class VideoInlineSelectionSimulationTests: XCTestCase {
         XCTAssertTrue(isRightPanelAvailable, "Right inspector side panel must become available when video is selected")
         
         // 5. Assert No Rogue Window: Ensure selecting the video did NOT pop up any standalone window
-        XCTAssertFalse(
-            FullScreenMediaWindowController.shared.isPresenting,
-            "CRITICAL: Selecting a video must NOT open FullScreenMediaWindowController!"
+        XCTAssertEqual(
+            viewModel.navigationState.layoutMode,
+            .standard,
+            "CRITICAL: Selecting a video must keep layout mode standard!"
         )
         
         // 6. Act: Mount the RightInspectorSidePanel in a simulated 320x600 right sidebar viewport
@@ -94,9 +95,10 @@ final class VideoInlineSelectionSimulationTests: XCTestCase {
         XCTAssertNotNil(generatedPreview)
         
         // 9. Re-verify FullScreen window is STILL not presenting after full UI mount
-        XCTAssertFalse(
-            FullScreenMediaWindowController.shared.isPresenting,
-            "CRITICAL: View mounting must keep FullScreenMediaWindowController dismissed!"
+        XCTAssertEqual(
+            viewModel.navigationState.layoutMode,
+            .standard,
+            "CRITICAL: View mounting must keep layout mode standard!"
         )
     }
     
@@ -124,9 +126,7 @@ final class VideoInlineSelectionSimulationTests: XCTestCase {
         
         // 5. Act: Trigger Play/Pause via coordinator
         MediaPlaybackCoordinator.shared.triggerPlayPause()
-        
-        // 6. Verify FullScreen is NOT presenting
-        XCTAssertFalse(FullScreenMediaWindowController.shared.isPresenting)
+        XCTAssertTrue(MediaPlaybackCoordinator.shared.isMediaActive)
     }
     
     // MARK: - Test 3: MKV Extended Container Selection Mounts MPV Viewport Inline Without Popup
@@ -159,8 +159,8 @@ final class VideoInlineSelectionSimulationTests: XCTestCase {
         let mpvViews = hierarchy.allSubviews().compactMap { $0 as? MPVMetalNSView }
         XCTAssertFalse(mpvViews.isEmpty, "MKV video must embed MPVMetalNSView in hierarchy")
         
-        // 5. Assert Zero-Popup invariant
-        XCTAssertFalse(FullScreenMediaWindowController.shared.isPresenting, "MKV mounting must not open FullScreenMediaWindowController")
+        // 5. Assert Standard Layout invariant
+        XCTAssertEqual(viewModel.navigationState.layoutMode, .standard, "MKV mounting must keep layout mode standard")
     }
     
     // MARK: - Test 4: Multiple Video Selections Update Inline Player Smoothly
@@ -181,7 +181,5 @@ final class VideoInlineSelectionSimulationTests: XCTestCase {
         let hierarchy2 = UIHierarchyInspector(rootView: view2, size: CGSize(width: 320, height: 200))
         let playerViews2 = hierarchy2.allSubviews().compactMap { $0 as? MPVMetalNSView }
         XCTAssertFalse(playerViews2.isEmpty)
-        
-        XCTAssertFalse(FullScreenMediaWindowController.shared.isPresenting)
     }
 }

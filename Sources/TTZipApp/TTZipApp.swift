@@ -145,6 +145,7 @@ private final class WindowConfiguratorNSView: NSView {
         window.backgroundColor = .windowBackgroundColor
         window.styleMask.insert(.fullSizeContentView)
         window.hasShadow = true
+        window.collectionBehavior.insert(.fullScreenPrimary)
     }
 }
 

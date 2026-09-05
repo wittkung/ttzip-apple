@@ -21,7 +21,7 @@ extension InspectorColumnView {
         if item.isArchive { return "archivebox.fill" }
         if ["jpg", "jpeg", "png", "gif", "webp", "heic", "svg", "bmp", "tiff"].contains(ext) { return "photo.fill" }
         if MediaPreviewFactory.videoExtensions.contains(ext) { return "film.fill" }
-        if ["mp3", "wav", "flac", "m4a", "aac", "ogg"].contains(ext) { return "music.note" }
+        if MediaPreviewFactory.audioExtensions.contains(ext) { return "music.note" }
         if ext == "pdf" { return "doc.richtext.fill" }
         if ["swift", "js", "ts", "py", "json", "html", "css", "cpp", "c", "h", "rs", "go", "sh", "xml"].contains(ext) { return "doc.text.fill" }
         return "doc.fill"
@@ -50,7 +50,7 @@ extension InspectorColumnView {
         if MediaPreviewFactory.videoExtensions.contains(ext) {
             return LinearGradient(colors: [Color.pink, Color.orange], startPoint: .topLeading, endPoint: .bottomTrailing)
         }
-        if ["mp3", "wav", "flac", "m4a", "aac", "ogg"].contains(ext) {
+        if MediaPreviewFactory.audioExtensions.contains(ext) {
             return LinearGradient(colors: [Color.teal, Color.blue], startPoint: .topLeading, endPoint: .bottomTrailing)
         }
         if ext == "pdf" {
