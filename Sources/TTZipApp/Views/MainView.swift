@@ -30,21 +30,16 @@ public struct MainView: View {
     @ObservedObject var l10n = AppLocalizationState.shared
     @ObservedObject var registry = TTZipPluginRegistry.shared
     @State var viewModel = AppViewState()
-    @State private var isSidebarVisible: Bool = true
-    @State private var isRightSidebarVisible: Bool = true
+    @State var isRightSidebarVisible: Bool = true
+    @State var presentedSecondaryTool: WorkspaceTab? = nil
     @State private var isDropTargeted: Bool = false
     
     public init() {}
     
-    @AppStorage("TTZip_UserLeftSidebarWidth") private var userLeftSidebarWidth: Double = 215.0
     @AppStorage("TTZip_UserRightSidebarWidth") private var userRightSidebarWidth: Double = 280.0
-    @State private var leftSidebarWidth: CGFloat = 215
     @State private var rightSidebarWidth: CGFloat = 280
-    @State private var initialLeftWidth: CGFloat = 215
     @State private var initialRightWidth: CGFloat = 280
     @State private var rightVerticalTopHeight: CGFloat = 300
-    
-    private var isLeftCompact: Bool { leftSidebarWidth < 140 }
     
     @StateObject private var searchService = SpotlightSearchService()
     @State private var searchQuery: String = ""
@@ -56,11 +51,8 @@ public struct MainView: View {
             let totalHeight = geo.size.height
             let tier = WindowLayoutTier.evaluate(width: totalWidth)
             let isMediaFocus = viewModel.navigationState.layoutMode == .mediaFocus
-            let effectiveLeftSidebarWidth: CGFloat = isMediaFocus ? 0 : ((tier == .compact) ? 64 : leftSidebarWidth)
-            let isLeftCompact: Bool = (tier == .compact) || (leftSidebarWidth < 140)
             
             // Fixed Chrome Geometry & Safety Clamping Constants
-            let leftDividerWidth: CGFloat = (tier == .compact || isMediaFocus) ? 0 : ResizableDividerHandle.gutterWidth
             let rightDividerWidth: CGFloat = ResizableDividerHandle.gutterWidth
             let rightPanelPadding: CGFloat = 14.0 // leading: 4 + trailing: 10
             let minSafeWorkspaceWidth: CGFloat = 420.0
@@ -70,7 +62,7 @@ public struct MainView: View {
             let isRightPanelAvailable: Bool = (tier != .compact && viewModel.activeTab == .home)
             let shouldShowRightPanel = !isMediaFocus && isRightSidebarVisible && isRightPanelAvailable
             
-            let totalChrome = effectiveLeftSidebarWidth + leftDividerWidth + (shouldShowRightPanel ? (rightDividerWidth + rightPanelPadding) : 0)
+            let totalChrome = shouldShowRightPanel ? (rightDividerWidth + rightPanelPadding) : 0
             let maxRightAllowedByWorkspace = max(minRightSidebarWidth, totalWidth - totalChrome - minSafeWorkspaceWidth)
             let effectiveMaxRightWidth = min(maxRightSidebarWidth, maxRightAllowedByWorkspace)
             
@@ -85,28 +77,6 @@ public struct MainView: View {
                     .allowsHitTesting(false)
                 
                 HStack(alignment: .top, spacing: 0) {
-                    if !isMediaFocus {
-                        MacEditorialSidebar(
-                            activeTab: $viewModel.activeTab,
-                            currentArchivePath: viewModel.currentArchivePath,
-                            isCompact: isLeftCompact
-                        )
-                        .frame(width: effectiveLeftSidebarWidth, height: totalHeight, alignment: .topLeading)
-                        .transition(.move(edge: .leading).combined(with: .opacity))
-                        
-                        if tier != .compact {
-                            ResizableDividerHandle(
-                                onDragStart: { initialLeftWidth = leftSidebarWidth },
-                                onDragChanged: { translation in
-                                    leftSidebarWidth = min(max(initialLeftWidth + translation, 60), 280)
-                                },
-                                onDragEnd: { userLeftSidebarWidth = Double(leftSidebarWidth) }
-                            )
-                            .frame(height: totalHeight)
-                            .transition(.opacity)
-                        }
-                    }
-                    
                     detailArea
                         .frame(minWidth: isMediaFocus ? 0 : minSafeWorkspaceWidth, maxWidth: .infinity, maxHeight: totalHeight, alignment: .topLeading)
                     
@@ -164,16 +134,38 @@ public struct MainView: View {
             .clipped()
             .simultaneousGesture(TapGesture().onEnded { NSApp.keyWindow?.makeFirstResponder(nil) })
             .onAppear {
-                self.leftSidebarWidth = CGFloat(userLeftSidebarWidth)
                 self.rightSidebarWidth = CGFloat(userRightSidebarWidth)
             }
             .onChange(of: viewModel.selectedDiskItem) { _, _ in NSApp.keyWindow?.makeFirstResponder(nil) }
-            .onChange(of: viewModel.activeTab) { _, _ in NSApp.keyWindow?.makeFirstResponder(nil) }
+            .onChange(of: viewModel.activeTab) { _, newTab in
+                NSApp.keyWindow?.makeFirstResponder(nil)
+                if newTab == .compressWorkspace {
+                    viewModel.showCompressModal = true
+                    viewModel.activeTab = .home
+                } else if newTab != .home {
+                    presentedSecondaryTool = newTab
+                    viewModel.activeTab = .home
+                }
+            }
             .onChange(of: viewModel.currentDirectory) { _, _ in NSApp.keyWindow?.makeFirstResponder(nil) }
         }
         .ignoresSafeArea()
         .toolbar {
             mainToolbarContent
+        }
+        .sheet(item: $presentedSecondaryTool) { tab in
+            SecondaryToolSheetContainer(tab: tab, onDismiss: { presentedSecondaryTool = nil })
+        }
+        .sheet(isPresented: $viewModel.showCompressModal) {
+            CompressModalView(
+                isPresented: $viewModel.showCompressModal,
+                initialInputPaths: viewModel.selectedPathsToCompress,
+                onCompleteOpenArchive: { archivePath in
+                    viewModel.showCompressModal = false
+                    viewModel.openArchiveAsFolder(url: URL(fileURLWithPath: archivePath))
+                }
+            )
+            .frame(minWidth: 720, idealWidth: 840, maxWidth: 960, minHeight: 520, idealHeight: 620, maxHeight: 760)
         }
         .sheet(isPresented: $viewModel.showExtractModal) {
             let targetPath = viewModel.selectedDiskItem?.path ?? viewModel.currentArchivePath ?? ""
@@ -238,6 +230,7 @@ public struct MainView: View {
         .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("TTZipOpenCompressWorkspaceWithPaths"))) { notif in
             if let paths = notif.object as? [String] {
                 viewModel.openCompressWorkspace(paths: paths)
+                viewModel.showCompressModal = true
             }
         }
         .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("TTZipToggleMediaFocusNotification"))) { _ in
@@ -254,14 +247,12 @@ public struct MainView: View {
         .onReceive(NotificationCenter.default.publisher(for: NSWindow.didExitFullScreenNotification)) { _ in
             withAnimation(.easeInOut(duration: 0.25)) {
                 viewModel.navigationState.layoutMode = .standard
-                self.leftSidebarWidth = CGFloat(userLeftSidebarWidth)
             }
         }
         .onChange(of: viewModel.activePreviewFileURL) { _, newURL in
             if newURL == nil && viewModel.navigationState.layoutMode == .mediaFocus {
                 withAnimation(.easeInOut(duration: 0.25)) {
                     viewModel.navigationState.layoutMode = .standard
-                    self.leftSidebarWidth = CGFloat(userLeftSidebarWidth)
                 }
                 if let window = NSApp.keyWindow ?? NSApp.windows.first(where: { $0.isVisible && !$0.isMiniaturized }),
                    window.styleMask.contains(.fullScreen) {
@@ -301,57 +292,7 @@ public struct MainView: View {
                 }
             }
         } else {
-            KeepAliveTabContainer(activeTab: viewModel.activeTab) { tab, isActive in
-                switch tab {
-                case .home:
-                    HomeExplorerContainerView(viewModel: viewModel, isRightSidebarVisible: isRightSidebarVisible, isActive: isActive)
-                case .compressWorkspace:
-                    CompressModalView(
-                        isPresented: Binding(
-                            get: { true },
-                            set: { if !$0 { viewModel.activeTab = .home } }
-                        ),
-                        initialInputPaths: viewModel.selectedPathsToCompress,
-                        onCompleteOpenArchive: { archivePath in
-                            viewModel.activeTab = .home
-                            let u = URL(fileURLWithPath: archivePath)
-                            viewModel.openArchiveAsFolder(url: u)
-                        }
-                    )
-                    .padding(.top, TTZipTheme.Layout.topBarOffset)
-                    .padding(.horizontal, TTZipTheme.Spacing.md)
-                    .padding(.bottom, TTZipTheme.Spacing.md)
-                case .presets:
-                    PresetWorkspaceView()
-                case .benchmark:
-                    BenchmarkView()
-                case .vault:
-                    PasswordVaultView()
-                case .plugins:
-                    PluginsView()
-                case .dynamicExtension(let pluginId, let tabId):
-                    if let plugin = registry.installedPlugins.first(where: { $0.manifest.id == pluginId || $0.sidebarItem?.targetTabIdentifier == tabId }),
-                       let pluginView = plugin.makeWorkspaceView(tabIdentifier: tabId) {
-                        pluginView
-                    } else {
-                        TTZipWorkspaceScaffold(
-                            title: "Extension",
-                            isCardEnclosed: true
-                        ) {
-                            EmptyView()
-                        } content: {
-                            ContentUnavailableView(
-                                l10n.currentLanguage == .zhHans ? "未加载该扩展" : "Extension Not Loaded",
-                                systemImage: "puzzlepiece.extension",
-                                description: Text(l10n.currentLanguage == .zhHans ? "请前往「插件中心」启用或安装对应扩展。" : "Please navigate to Extensions to enable or install the extension.")
-                            )
-                            .frame(maxWidth: .infinity, maxHeight: .infinity)
-                        }
-                    }
-                case .settings:
-                    SettingsView()
-                }
-            }
+            HomeExplorerContainerView(viewModel: viewModel, isRightSidebarVisible: isRightSidebarVisible, isActive: true)
         }
     }
     

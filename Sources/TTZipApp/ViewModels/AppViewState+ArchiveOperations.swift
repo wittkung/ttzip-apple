@@ -243,6 +243,7 @@ extension AppViewState {
             .filter { !$0.isEmpty && FileManager.default.fileExists(atPath: $0) }
         selectedPathsToCompress = flattened
         activeTab = .compressWorkspace
+        showCompressModal = true
     }
     
     public func reset() {
