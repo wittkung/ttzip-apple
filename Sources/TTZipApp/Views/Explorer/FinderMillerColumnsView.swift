@@ -75,17 +75,19 @@ public struct FinderMillerColumnsView: View {
                     }
                     .frame(minWidth: geometry.size.width, maxHeight: .infinity, alignment: .topLeading)
                     .onChange(of: columnPaths.count) { _, newCount in
-                        guard newCount > 0 else { return }
-                        let totalWidth = totalColumnsWidth(count: newCount, availableWidth: geometry.size.width)
-                        if totalWidth > geometry.size.width {
-                            withAnimation(.spring(response: 0.25, dampingFraction: 0.85)) {
-                                proxy.scrollTo(newCount - 1, anchor: .trailing)
-                            }
-                        } else {
-                            withAnimation(.spring(response: 0.25, dampingFraction: 0.85)) {
-                                proxy.scrollTo(0, anchor: .leading)
-                            }
-                        }
+                        updateScrollPosition(proxy: proxy, count: newCount, availableWidth: geometry.size.width)
+                    }
+                    .onChange(of: activeColumnIndex) { _, _ in
+                        updateScrollPosition(proxy: proxy, count: columnPaths.count, availableWidth: geometry.size.width)
+                    }
+                    .onChange(of: selectedPaths) { _, _ in
+                        updateScrollPosition(proxy: proxy, count: columnPaths.count, availableWidth: geometry.size.width)
+                    }
+                    .onChange(of: geometry.size.width) { _, newWidth in
+                        updateScrollPosition(proxy: proxy, count: columnPaths.count, availableWidth: newWidth)
+                    }
+                    .onAppear {
+                        updateScrollPosition(proxy: proxy, count: columnPaths.count, availableWidth: geometry.size.width, animated: false)
                     }
                 }
             }
@@ -285,20 +287,67 @@ public struct FinderMillerColumnsView: View {
             // When only 1 column exists, expand to occupy the full available width (at least defaultColumnWidth)
             return max(availableWidth, defaultColumnWidth)
         } else if count == 2 {
-            // When 2 columns exist, split available width evenly if viewport can comfortably fit them (>= 400pt)
-            if availableWidth >= 400 {
-                return max(availableWidth / 2.0, 200.0)
-            } else {
-                return defaultColumnWidth
-            }
+            // When 2 columns exist, accurately deduct outer padding and dividers (16pt safe margin)
+            // calculating a safe column width ensuring both columns 100% display within the viewport
+            // without right-edge sort menu clipping.
+            let safeWidth = (availableWidth - 16.0) / 2.0
+            return max(180.0, safeWidth)
         } else {
             return defaultColumnWidth
         }
     }
     
     private func totalColumnsWidth(count: Int, availableWidth: CGFloat) -> CGFloat {
-        (0..<count).reduce(0 as CGFloat) { total, idx in
-            total + computeColumnWidth(for: idx, availableWidth: availableWidth)
+        let columnsSum = (0..<count).reduce(0 as CGFloat) { total, idx in
+            let computed = computeColumnWidth(for: idx, availableWidth: availableWidth)
+            return total + max(computed, SingleMillerColumnView.minComfortableWidth)
+        }
+        // Account for 1.5pt vertical divider lines per column (1.0pt hairline + 0.5pt border)
+        let dividersWidth = CGFloat(count) * 1.5
+        return columnsSum + dividersWidth
+    }
+    
+    private func updateScrollPosition(
+        proxy: ScrollViewProxy,
+        count: Int,
+        availableWidth: CGFloat,
+        animated: Bool = true
+    ) {
+        guard count > 0 else { return }
+        let totalWidth = totalColumnsWidth(count: count, availableWidth: availableWidth)
+        
+        let executeScroll = {
+            if totalWidth <= availableWidth {
+                // When all columns comfortably fit within viewport, align to leading edge
+                proxy.scrollTo(0, anchor: .leading)
+            } else {
+                // When viewport overflows, ensure the active column (or the newly opened child column)
+                // is comfortably visible. Anchoring to trailing prevents right-side controls
+                // (e.g. sort dropdown menu) from being cut off by the viewport edge.
+                let targetIndex: Int
+                if activeColumnIndex > 0 {
+                    targetIndex = min(activeColumnIndex, count - 1)
+                } else if count > 1 {
+                    // Child column is open but has no selection yet; keep it fully in view
+                    targetIndex = count - 1
+                } else {
+                    targetIndex = 0
+                }
+                
+                if targetIndex > 0 {
+                    proxy.scrollTo(targetIndex, anchor: .trailing)
+                } else {
+                    proxy.scrollTo(0, anchor: .leading)
+                }
+            }
+        }
+        
+        if animated {
+            withAnimation(.spring(response: 0.25, dampingFraction: 0.85)) {
+                executeScroll()
+            }
+        } else {
+            executeScroll()
         }
     }
     

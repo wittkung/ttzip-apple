@@ -233,6 +233,7 @@ public struct InspectorColumnView: View {
                         .foregroundStyle(.primary)
                         .lineLimit(1)
                         .truncationMode(.tail)
+                        .layoutPriority(1)
                     
                     Button(action: { showDetailedMetadataPopover.toggle() }) {
                         Image(systemName: "info.circle")
@@ -278,13 +279,12 @@ public struct InspectorColumnView: View {
                         .lineLimit(1)
                 }
             }
-            
-            Spacer(minLength: 8)
+            .frame(maxWidth: .infinity, alignment: .leading)
             
             actionButtonsGroup
                 .padding(.trailing, 20)
         }
-        .padding(.leading, 16)
+        .padding(.leading, 20)
         .padding(.vertical, 7)
         .frame(height: 38)
     }
