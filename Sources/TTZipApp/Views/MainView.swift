@@ -46,8 +46,8 @@ public struct MainView: View {
     @State private var initialRightWidth: CGFloat = 280
     @State private var rightVerticalTopHeight: CGFloat = 300
     
-    @StateObject private var searchService = SpotlightSearchService()
-    @State private var searchQuery: String = ""
+    @StateObject var searchService = SpotlightSearchService()
+    @State var searchQuery: String = ""
     
     public var body: some View {
         @Bindable var viewModel = viewModel
@@ -147,27 +147,16 @@ public struct MainView: View {
                 .clipped()
                 
                 if !isMediaFocus && viewModel.activeTab == .home {
-                    let omnibarMaxWidth = min(480.0, max(180.0, totalWidth - 280.0))
-                    HStack(spacing: 0) {
-                        Spacer(minLength: 140)
-                        LiquidGlassOmnibar(
-                            searchQuery: $searchQuery,
-                            searchService: searchService,
-                            viewModel: viewModel,
-                            maxContainerWidth: omnibarMaxWidth
-                        )
-                        .frame(minWidth: 180, idealWidth: 380, maxWidth: omnibarMaxWidth)
-                        Spacer(minLength: 140)
-                    }
-                    .padding(.top, 2)
-                    .padding(.horizontal, 16)
-                    .frame(width: totalWidth, alignment: .top)
-                    .zIndex(998)
-                    
                     if !searchQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                        liquidGlassSearchResultsOverlay(maxWidth: omnibarMaxWidth)
-                            .transition(.move(edge: .top).combined(with: .opacity))
-                            .zIndex(999)
+                        let omnibarMaxWidth = min(480.0, max(220.0, totalWidth - 280.0))
+                        HStack {
+                            Spacer()
+                            liquidGlassSearchResultsOverlay(maxWidth: omnibarMaxWidth)
+                            Spacer()
+                        }
+                        .frame(width: totalWidth, alignment: .top)
+                        .transition(.move(edge: .top).combined(with: .opacity))
+                        .zIndex(999)
                     }
                 }
             }

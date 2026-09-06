@@ -56,7 +56,7 @@ public struct FinderFavoritesSidebarView: View {
             // MARK: - 2. Scrollable Favorites & Locations List
             ScrollView(.vertical, showsIndicators: false) {
                 VStack(alignment: .leading, spacing: 14) {
-                    // Group 1: 个人收藏 / Favorites
+                    // Group 1: Favorites
                     VStack(alignment: .leading, spacing: 2) {
                         sectionHeader(title: l10n.currentLanguage == .zhHans ? "个人收藏" : "FAVORITES")
                         
@@ -82,7 +82,7 @@ public struct FinderFavoritesSidebarView: View {
                         }
                     }
                     
-                    // Group 2: 位置与外接驱动器 / Locations
+                    // Group 2: Locations
                     let volumeItems = dynamicFinderFavorites.filter { isVolumePath($0.path) }
                     if !volumeItems.isEmpty {
                         VStack(alignment: .leading, spacing: 2) {
@@ -106,6 +106,11 @@ public struct FinderFavoritesSidebarView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .background(TTZipTheme.paperWhite.opacity(0.85))
+        .onReceive(NotificationCenter.default.publisher(for: NSWindow.didResignKeyNotification)) { _ in
+            withAnimation(.easeInOut(duration: 0.15)) {
+                hoveredItemPath = nil
+            }
+        }
         .task {
             loadFavorites()
         }
@@ -119,11 +124,13 @@ public struct FinderFavoritesSidebarView: View {
                 .font(.system(size: 13, weight: .semibold))
                 .foregroundStyle(TTZipTheme.bambooGreen)
             
-            Text(l10n.currentLanguage == .zhHans ? "常用目录" : "DIRECTORIES")
+            Text(l10n.currentLanguage == .zhHans ? "常用" : "DIRECTORIES")
                 .font(.system(size: 13, weight: .bold, design: .serif))
-                .tracking(1.2)
+                .tracking(l10n.currentLanguage == .zhHans ? 0 : 1.2)
                 .foregroundStyle(.primary)
                 .lineLimit(1)
+                .layoutPriority(1)
+                .fixedSize(horizontal: true, vertical: false)
             
             Spacer()
             
@@ -141,7 +148,7 @@ public struct FinderFavoritesSidebarView: View {
             .buttonStyle(.plain)
             .help(l10n.currentLanguage == .zhHans ? "添加自定常用文件夹到侧边栏" : "Pin custom folder to sidebar")
         }
-        .padding(.horizontal, 14)
+        .padding(.horizontal, 20)
         .frame(height: TTZipTheme.Layout.headerBarHeight)
         .padding(.top, TTZipTheme.Layout.topBarOffset)
     }
@@ -167,7 +174,7 @@ public struct FinderFavoritesSidebarView: View {
             HStack(spacing: 8) {
                 Image(systemName: icon)
                     .font(.system(size: 12.5, weight: isSelected ? .bold : .medium))
-                    .foregroundStyle(iconColor(icon: icon, isSelected: isSelected))
+                    .foregroundStyle(iconColor(isSelected: isSelected))
                     .frame(width: 18, alignment: .center)
                 
                 Text(title)
@@ -203,7 +210,13 @@ public struct FinderFavoritesSidebarView: View {
         }
         .buttonStyle(.plain)
         .onHover { hovering in
-            hoveredItemPath = hovering ? path : nil
+            withAnimation(.easeInOut(duration: 0.15)) {
+                if hovering {
+                    hoveredItemPath = path
+                } else if hoveredItemPath == path {
+                    hoveredItemPath = nil
+                }
+            }
         }
         .contextMenu {
             Button(l10n.currentLanguage == .zhHans ? "在访达中显示" : "Reveal in Finder") {
@@ -238,39 +251,19 @@ public struct FinderFavoritesSidebarView: View {
         if isSelected {
             return TTZipTheme.bambooGreen.opacity(0.14)
         } else if isHovered {
-            return Color.primary.opacity(0.045)
+            // Delicate hover tint adhering to macOS HIG to prevent double-selection illusion
+            return Color.primary.opacity(0.02)
         } else {
             return Color.clear
         }
     }
     
-    private func iconColor(icon: String, isSelected: Bool) -> Color {
+    private func iconColor(isSelected: Bool) -> Color {
         if isSelected {
             return TTZipTheme.bambooGreen
         }
-        
-        switch icon {
-        case "arrow.down.circle.fill":
-            return .blue
-        case "doc.text.fill":
-            return TTZipTheme.archiveAmber
-        case "desktopcomputer":
-            return .indigo
-        case "house.fill":
-            return TTZipTheme.bambooGreen
-        case "photo.fill":
-            return .teal
-        case "film.fill":
-            return .purple
-        case "music.note":
-            return .red
-        case "app.badge":
-            return .cyan
-        case "internaldrive.fill", "externaldrive.fill":
-            return .secondary
-        default:
-            return .secondary
-        }
+        // Zen minimalist grayscale for unselected items to eliminate rainbow toybox clutter
+        return .secondary.opacity(0.85)
     }
     
     private func loadFavorites() {

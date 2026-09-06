@@ -149,7 +149,7 @@ public struct SingleMillerColumnView: View {
                 
                 Divider()
                 
-                ScrollView(.vertical, showsIndicators: false) {
+                ScrollView(.vertical, showsIndicators: true) {
                     ScrollViewReader { scrollProxy in
                         LazyVStack(spacing: 2) {
                             if let items = items {
@@ -189,7 +189,8 @@ public struct SingleMillerColumnView: View {
                             }
                         }
                         .padding(.horizontal, 8)
-                        .padding(.vertical, 6)
+                        .padding(.top, 6)
+                        .padding(.bottom, 16)
                         .onChange(of: selectedPath) { _, targetPath in
                             if let path = targetPath, isColumnActive {
                                 withAnimation(.easeOut(duration: 0.15)) {

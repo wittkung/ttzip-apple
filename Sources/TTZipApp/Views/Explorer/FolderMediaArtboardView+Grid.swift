@@ -17,9 +17,10 @@ extension FolderMediaArtboardView {
     @ViewBuilder
     var overviewSection: some View {
         VStack(alignment: .leading, spacing: 14) {
-            Text("Overview & File System")
-                .font(.system(size: 12, weight: .bold))
-                .foregroundStyle(.primary)
+            Text("OVERVIEW & FILE SYSTEM")
+                .font(.system(size: 9, weight: .bold, design: .serif))
+                .tracking(2)
+                .foregroundStyle(TTZipTheme.kintsugiGold)
             
             VStack(spacing: 10) {
                 detailRow(label: "Size", value: formattedFolderSize, isHighlight: true)
@@ -38,9 +39,10 @@ extension FolderMediaArtboardView {
             Divider()
             
             VStack(alignment: .leading, spacing: 12) {
-                Text("Content Breakdown")
-                    .font(.system(size: 12, weight: .bold))
-                    .foregroundStyle(.primary)
+                Text("CONTENT BREAKDOWN")
+                    .font(.system(size: 9, weight: .bold, design: .serif))
+                    .tracking(2)
+                    .foregroundStyle(TTZipTheme.kintsugiGold)
                 
                 GeometryReader { barGeo in
                     let total = fileTypeDistribution.reduce(0) { $0 + $1.count }
@@ -59,25 +61,44 @@ extension FolderMediaArtboardView {
                 .clipShape(Capsule())
                 .overlay(Capsule().strokeBorder(Color.primary.opacity(0.06), lineWidth: 0.8))
                 
+                let total = fileTypeDistribution.reduce(0) { $0 + $1.count }
                 VStack(spacing: 7) {
                     ForEach(fileTypeDistribution, id: \.category) { item in
-                        let total = fileTypeDistribution.reduce(0) { $0 + $1.count }
                         let pct = total > 0 ? Int(round(Double(item.count) / Double(total) * 100)) : 0
                         HStack(spacing: 8) {
-                            Circle()
-                                .fill(categoryColor(item.category))
-                                .frame(width: 7.5, height: 7.5)
-                                .shadow(color: categoryColor(item.category).opacity(0.4), radius: 2, x: 0, y: 1)
+                            // Category dot and name
+                            HStack(spacing: 6) {
+                                Circle()
+                                    .fill(categoryColor(item.category))
+                                    .frame(width: 7.5, height: 7.5)
+                                    .shadow(color: categoryColor(item.category).opacity(0.4), radius: 2, x: 0, y: 1)
+                                
+                                Text(item.category)
+                                    .font(.system(size: 11, weight: .medium, design: .monospaced))
+                                    .foregroundStyle(.primary)
+                                    .lineLimit(1)
+                            }
                             
-                            Text(item.category)
-                                .font(.system(size: 11, weight: .medium, design: .monospaced))
-                                .foregroundStyle(.primary)
+                            Spacer(minLength: 4)
                             
-                            Spacer()
-                            
-                            Text("\(item.count) items (\(pct)%)")
+                            // Fixed-width right-aligned item count
+                            Text("\(item.count) items")
                                 .font(.system(size: 11, design: .monospaced))
+                                .monospacedDigit()
                                 .foregroundStyle(.secondary)
+                                .lineLimit(1)
+                                .frame(width: 80, alignment: .trailing)
+                            
+                            // Fixed-width right-aligned percentage badge
+                            Text("\(pct)%")
+                                .font(.system(size: 10, weight: .semibold, design: .monospaced))
+                                .monospacedDigit()
+                                .foregroundStyle(TTZipTheme.kintsugiGold)
+                                .padding(.horizontal, 6)
+                                .padding(.vertical, 2)
+                                .background(TTZipTheme.kintsugiGold.opacity(0.12))
+                                .clipShape(Capsule())
+                                .frame(width: 45, alignment: .trailing)
                         }
                     }
                 }

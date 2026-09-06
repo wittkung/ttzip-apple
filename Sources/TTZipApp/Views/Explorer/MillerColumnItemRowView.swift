@@ -56,11 +56,85 @@ public struct MillerColumnItemRowView: View {
     }
     
     private var iconName: String {
-        isEncryptedLockItem ? "lock.doc.fill" : (item.isDirectory ? "folder.fill" : (item.isArchive ? "archivebox.fill" : "doc.fill"))
+        if isEncryptedLockItem { return "lock.doc.fill" }
+        if item.isDirectory { return "folder.fill" }
+        
+        let ext = (item.name as NSString).pathExtension.lowercased()
+        if ext == "epub" {
+            return "book.fill"
+        }
+        if ext == "dmg" {
+            return "internaldrive.fill"
+        }
+        if ext == "iso" {
+            return "opticaldisc.fill"
+        }
+        if let fmt = ArchiveCompressionFormat.from(extensionOrName: ext) {
+            return fmt.iconName
+        }
+        if ["jpg", "jpeg", "png", "gif", "webp", "heic", "svg", "bmp", "tiff"].contains(ext) {
+            return "photo.fill"
+        }
+        if MediaPreviewFactory.videoExtensions.contains(ext) {
+            return "film.fill"
+        }
+        if MediaPreviewFactory.audioExtensions.contains(ext) {
+            return "music.note"
+        }
+        if ext == "pdf" {
+            return "doc.richtext.fill"
+        }
+        if ["swift", "js", "ts", "py", "json", "html", "css", "cpp", "c", "h", "rs", "go", "sh", "xml", "md", "txt"].contains(ext) {
+            return "doc.text.fill"
+        }
+        if item.isArchive {
+            return "archivebox.fill"
+        }
+        return "doc.fill"
     }
     
     private var iconColor: Color {
-        isEncryptedLockItem ? TTZipTheme.archiveAmber : (item.isDirectory ? TTZipTheme.bambooGreen : (item.isArchive ? TTZipTheme.archiveAmber : Color.secondary))
+        if isEncryptedLockItem { return TTZipTheme.archiveAmber }
+        if item.isDirectory { return TTZipTheme.bambooGreen }
+        
+        let ext = (item.name as NSString).pathExtension.lowercased()
+        if ext == "epub" {
+            return Color.orange
+        }
+        if ext == "dmg" {
+            return Color.indigo
+        }
+        if ext == "iso" {
+            return Color.purple
+        }
+        if let fmt = ArchiveCompressionFormat.from(extensionOrName: ext) {
+            switch fmt.category {
+            case .standard:
+                return TTZipTheme.bambooGreen
+            case .unixPackage:
+                return Color.orange
+            case .diskImage:
+                return Color.indigo
+            case .modernStream:
+                return Color.teal
+            }
+        }
+        if ["jpg", "jpeg", "png", "gif", "webp", "heic", "svg", "bmp", "tiff"].contains(ext) {
+            return Color.purple
+        }
+        if MediaPreviewFactory.videoExtensions.contains(ext) {
+            return Color.pink
+        }
+        if MediaPreviewFactory.audioExtensions.contains(ext) {
+            return Color.teal
+        }
+        if ext == "pdf" {
+            return Color.red
+        }
+        if item.isArchive {
+            return TTZipTheme.bambooGreen
+        }
+        return Color.secondary
     }
     
     public var body: some View {
@@ -74,13 +148,14 @@ public struct MillerColumnItemRowView: View {
                 .font(.system(size: 11, weight: isSelected ? .semibold : .regular))
                 .foregroundStyle(isSelected ? Color.primary : (isEncryptedLockItem ? TTZipTheme.archiveAmber : (item.isArchive ? TTZipTheme.bambooGreen : Color.primary.opacity(0.85))))
                 .lineLimit(1)
+                .truncationMode(.middle)
             
             Spacer()
             
-            if item.isDirectory || item.isArchive {
+            if item.isDirectory {
                 Image(systemName: "chevron.right")
                     .font(.system(size: 9))
-                    .foregroundStyle(item.isArchive ? TTZipTheme.bambooGreen : Color.secondary.opacity(0.6))
+                    .foregroundStyle(Color.secondary.opacity(0.6))
             }
         }
         .padding(.horizontal, 6)

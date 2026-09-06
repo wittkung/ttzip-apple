@@ -16,6 +16,7 @@ public struct BreadcrumbPathBarView: View {
     public let onClickToEdit: () -> Void
     
     @State private var hoveredSegmentID: String? = nil
+    @State private var isEditButtonHovered: Bool = false
     
     public init(
         currentDirectory: URL,
@@ -158,16 +159,30 @@ public struct BreadcrumbPathBarView: View {
             Spacer(minLength: 4)
             
             Button(action: onClickToEdit) {
-                Image(systemName: "pencil")
-                    .font(.system(size: 9.5))
-                    .foregroundStyle(.tertiary)
-                    .padding(3)
-                    .contentShape(Rectangle())
+                HStack(spacing: 3) {
+                    Image(systemName: "pencil")
+                        .font(.system(size: 10.5, weight: .semibold))
+                }
+                .foregroundStyle(isEditButtonHovered ? Color.primary : Color.secondary)
+                .padding(.horizontal, 6)
+                .padding(.vertical, 3)
+                .background(
+                    Capsule()
+                        .fill(isEditButtonHovered ? Color.primary.opacity(0.12) : Color.primary.opacity(0.06))
+                )
+                .overlay(
+                    Capsule()
+                        .strokeBorder(isEditButtonHovered ? TTZipTheme.kintsugiGold.opacity(0.4) : TTZipTheme.hairlineBorder, lineWidth: 0.5)
+                )
             }
             .buttonStyle(.plain)
+            .onHover { hovering in
+                isEditButtonHovered = hovering
+            }
             .fixedSize(horizontal: true, vertical: false)
             .layoutPriority(1)
             .help("Click to edit path or search (⌘L / ⇧⌘G)")
+            .padding(.trailing, 8)
         }
         .contentShape(Rectangle())
         .onTapGesture {

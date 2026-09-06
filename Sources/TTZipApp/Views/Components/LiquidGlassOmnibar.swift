@@ -63,7 +63,8 @@ public struct LiquidGlassOmnibar: View {
                             startEditing()
                         }
                     )
-                    .padding(.horizontal, 12)
+                    .padding(.leading, 12)
+                    .padding(.trailing, 4)
                     .padding(.vertical, 5)
                     .transition(.opacity.combined(with: .scale(scale: 0.98)))
                 } else {

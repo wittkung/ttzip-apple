@@ -18,10 +18,17 @@ public struct HomeExplorerContainerView: View {
     public let isRightSidebarVisible: Bool
     public let isActive: Bool
     
+    @State private var accessRefreshTrigger: Int = 0
+    
     public init(viewModel: AppViewState, isRightSidebarVisible: Bool, isActive: Bool = true) {
         self.viewModel = viewModel
         self.isRightSidebarVisible = isRightSidebarVisible
         self.isActive = isActive
+    }
+    
+    private var hasCurrentDirectoryAccess: Bool {
+        _ = accessRefreshTrigger
+        return RootFolderAccessManager.shared.hasActiveAccess(for: viewModel.currentDirectory)
     }
     
     public var body: some View {
@@ -29,30 +36,35 @@ public struct HomeExplorerContainerView: View {
             title: l10n.t(L10n.Explorer.fileExplorer),
             isCardEnclosed: true
         ) {
-            Button(action: {
-                RootFolderAccessManager.shared.requestRootAccess(for: RootFolderAccessManager.shared.highestRootURL(for: viewModel.currentDirectory))
-            }) {
-                HStack(spacing: 4) {
-                    Image(systemName: "lock.open")
-                        .font(.system(size: 9.5, weight: .medium))
-                    L10nText(L10n.Explorer.rootAccess)
-                        .font(.system(size: 10.5, weight: .medium))
-                        .lineLimit(1)
-                        .fixedSize(horizontal: true, vertical: false)
+            if !hasCurrentDirectoryAccess {
+                Button(action: {
+                    let rootURL = RootFolderAccessManager.shared.highestRootURL(for: viewModel.currentDirectory)
+                    if RootFolderAccessManager.shared.requestRootAccess(for: rootURL) {
+                        accessRefreshTrigger &+= 1
+                    }
+                }) {
+                    HStack(spacing: 4) {
+                        Image(systemName: "lock.open")
+                            .font(.system(size: 9.5, weight: .medium))
+                        L10nText(L10n.Explorer.rootAccess)
+                            .font(.system(size: 10.5, weight: .medium))
+                            .lineLimit(1)
+                            .fixedSize(horizontal: true, vertical: false)
+                    }
+                    .foregroundStyle(.secondary)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 3.5)
+                    .background(Color.primary.opacity(0.04))
+                    .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 6, style: .continuous)
+                            .strokeBorder(Color.primary.opacity(0.08), lineWidth: 0.8)
+                    )
                 }
-                .foregroundStyle(.secondary)
-                .padding(.horizontal, 8)
-                .padding(.vertical, 3.5)
-                .background(Color.primary.opacity(0.04))
-                .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 6, style: .continuous)
-                        .strokeBorder(Color.primary.opacity(0.08), lineWidth: 0.8)
-                )
+                .buttonStyle(.plain)
+                .fixedSize(horizontal: true, vertical: false)
+                .help("Grant root access to parent directory to browse without sandbox prompts")
             }
-            .buttonStyle(.plain)
-            .fixedSize(horizontal: true, vertical: false)
-            .help("Grant root access to parent directory to browse without sandbox prompts")
         } content: {
             DiskDirectoryBrowserView(
                 rootDirectory: viewModel.currentDirectory,
@@ -73,5 +85,12 @@ public struct HomeExplorerContainerView: View {
             )
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         }
+    }
+}
+
+extension RootFolderAccessManager {
+    /// Determines whether active read access is already granted for the target directory.
+    public func hasActiveAccess(for url: URL) -> Bool {
+        ensureAccess(for: url, promptIfMissing: false)
     }
 }
