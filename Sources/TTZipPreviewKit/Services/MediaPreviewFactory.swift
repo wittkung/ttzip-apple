@@ -255,7 +255,8 @@ public enum MediaPreviewFactory {
         if docxExtensions.contains(ext) {
             let officeService = UniFfiOfficeService()
             if let md = try? officeService.convertDocxToMarkdownFromFile(filePath: url.path), !md.isEmpty {
-                return .markdown(md, url)
+                // Converted DOCX is read-only Markdown; do not expose disk URL to prevent destructive plain-text overwrite.
+                return .markdown(md, nil)
             }
             if let attrStr = try? NSAttributedString(url: url, options: [:], documentAttributes: nil) {
                 return .docxDocument(attrStr, url)
@@ -390,7 +391,8 @@ public enum MediaPreviewFactory {
         if docxExtensions.contains(ext) {
             let officeService = UniFfiOfficeService()
             if let md = try? officeService.convertDocxToMarkdown(data: data, fileName: suggestedName), !md.isEmpty {
-                return .markdown(md, sourceURL)
+                // Converted DOCX is read-only Markdown; do not expose disk URL to prevent destructive plain-text overwrite.
+                return .markdown(md, nil)
             }
         }
         

@@ -69,7 +69,7 @@ public struct InspectorColumnView: View {
     }
     
     public var body: some View {
-        HStack(spacing: 0) {
+        Group {
             if item.isDirectory {
                 FolderMediaArtboardView(
                     item: item,
@@ -79,123 +79,7 @@ public struct InspectorColumnView: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
                 VStack(spacing: 0) {
-                    GeometryReader { barGeo in
-                        let width = barGeo.size.width
-                        HStack(alignment: .center, spacing: width >= 280 ? 8 : (width >= 200 ? 6 : 4)) {
-                            if width >= 200 {
-                                ZStack {
-                                    RoundedRectangle(cornerRadius: width >= 280 ? 8 : 6, style: .continuous)
-                                        .fill(itemIconGradient(for: item))
-                                        .frame(width: width >= 280 ? 30 : 24, height: width >= 280 ? 30 : 24)
-                                    Image(systemName: itemIconName(for: item))
-                                        .font(.system(size: width >= 280 ? 14 : 12, weight: .semibold))
-                                        .foregroundStyle(.white)
-                                }
-                            }
-                            
-                            VStack(alignment: .leading, spacing: 1) {
-                                HStack(spacing: 4) {
-                                    Text(item.name)
-                                        .font(.system(size: width >= 280 ? 13 : 12, weight: .semibold))
-                                        .foregroundStyle(.primary)
-                                        .lineLimit(1)
-                                        .truncationMode(.tail)
-                                    
-                                    Button(action: { showDetailedMetadataPopover.toggle() }) {
-                                        Image(systemName: "info.circle")
-                                            .font(.system(size: 11, weight: .medium))
-                                            .foregroundStyle(TTZipTheme.bambooGreen)
-                                    }
-                                    .buttonStyle(.plain)
-                                    .popover(isPresented: $showDetailedMetadataPopover, arrowEdge: .bottom) {
-                                        detailedMetadataPopoverContent
-                                    }
-                                }
-                                
-                                if width >= 320 {
-                                    HStack(spacing: 3) {
-                                        Text(item.kindText).font(.system(size: 10, weight: .medium)).foregroundStyle(.secondary).lineLimit(1)
-                                        Text("·").font(.system(size: 10)).foregroundStyle(.tertiary).lineLimit(1)
-                                        Text(item.sizeText).font(.system(size: 10, weight: .medium, design: .monospaced)).foregroundStyle(.secondary).lineLimit(1)
-                                        if let dims = asyncDimensions {
-                                            Text("·").font(.system(size: 10)).foregroundStyle(.tertiary).lineLimit(1)
-                                            Text(dims).font(.system(size: 10, weight: .medium, design: .monospaced)).foregroundStyle(TTZipTheme.bambooGreen).lineLimit(1)
-                                        }
-                                    }
-                                    .lineLimit(1)
-                                } else if width >= 220 {
-                                    Text(item.sizeText)
-                                        .font(.system(size: 9, weight: .medium, design: .monospaced))
-                                        .foregroundStyle(.secondary)
-                                        .lineLimit(1)
-                                }
-                            }
-                            
-                            Spacer(minLength: 2)
-                            
-                            HStack(spacing: 6) {
-                                Button(action: {
-                                    let targetPath = effectivePreviewURL?.path ?? item.path
-                                    NSWorkspace.shared.selectFile(targetPath, inFileViewerRootedAtPath: "")
-                                }) {
-                                    if width >= 380 {
-                                        HStack(spacing: 3) {
-                                            Image(systemName: "folder").font(.system(size: 10))
-                                            Text("Finder")
-                                                .font(.system(size: 11, weight: .medium))
-                                                .lineLimit(1)
-                                                .fixedSize(horizontal: true, vertical: false)
-                                        }
-                                        .foregroundStyle(TTZipTheme.bambooGreen)
-                                        .padding(.horizontal, 8)
-                                        .padding(.vertical, 4)
-                                        .background(TTZipTheme.bambooGreen.opacity(0.08))
-                                        .clipShape(Capsule())
-                                    } else {
-                                        Image(systemName: "folder")
-                                            .font(.system(size: 11, weight: .medium))
-                                            .foregroundStyle(TTZipTheme.bambooGreen)
-                                            .padding(5.5)
-                                            .background(TTZipTheme.bambooGreen.opacity(0.08))
-                                            .clipShape(Circle())
-                                    }
-                                }
-                                .buttonStyle(.plain)
-                                .help("Reveal in Finder")
-                                
-                                Button(action: {
-                                    if item.isArchive { onSelectArchive(item.path) } else { onCompressPath(item.path) }
-                                }) {
-                                    if width >= 380 {
-                                        HStack(spacing: 3) {
-                                            Image(systemName: item.isArchive ? "arrow.down.doc" : "archivebox").font(.system(size: 10))
-                                            Text(item.isArchive ? "Extract" : "Compress")
-                                                .font(.system(size: 11, weight: .semibold))
-                                                .lineLimit(1)
-                                                .fixedSize(horizontal: true, vertical: false)
-                                        }
-                                        .foregroundStyle(TTZipTheme.bambooGreen)
-                                        .padding(.horizontal, 9)
-                                        .padding(.vertical, 4)
-                                        .background(TTZipTheme.bambooGreen.opacity(0.12))
-                                        .clipShape(Capsule())
-                                    } else {
-                                        Image(systemName: item.isArchive ? "arrow.down.doc" : "archivebox")
-                                            .font(.system(size: 11, weight: .semibold))
-                                            .foregroundStyle(TTZipTheme.bambooGreen)
-                                            .padding(5.5)
-                                            .background(TTZipTheme.bambooGreen.opacity(0.12))
-                                            .clipShape(Circle())
-                                    }
-                                }
-                                .buttonStyle(.plain)
-                                .help(item.isArchive ? "Extract and view contents" : "New archive")
-                            }
-                        }
-                    }
-                    .frame(height: 38)
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 7)
+                    fileHeaderBar
                     
                     Divider()
                     
@@ -206,10 +90,6 @@ public struct InspectorColumnView: View {
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                 }
             }
-            
-            Rectangle()
-                .fill(TTZipTheme.hairlineBorder)
-                .frame(width: 0.5)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .task(id: item.path) {
@@ -329,6 +209,158 @@ public struct InspectorColumnView: View {
                 }
             } else {
                 self.asyncDimensions = nil
+            }
+        }
+    }
+    
+    // MARK: - Header Bar
+    
+    private var fileHeaderBar: some View {
+        HStack(alignment: .center, spacing: 8) {
+            ZStack {
+                RoundedRectangle(cornerRadius: 7, style: .continuous)
+                    .fill(itemIconGradient(for: item))
+                    .frame(width: 28, height: 28)
+                Image(systemName: itemIconName(for: item))
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(.white)
+            }
+            
+            VStack(alignment: .leading, spacing: 1) {
+                HStack(spacing: 4) {
+                    Text(item.name)
+                        .font(.system(size: 12.5, weight: .semibold))
+                        .foregroundStyle(.primary)
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+                    
+                    Button(action: { showDetailedMetadataPopover.toggle() }) {
+                        Image(systemName: "info.circle")
+                            .font(.system(size: 11, weight: .medium))
+                            .foregroundStyle(TTZipTheme.bambooGreen)
+                    }
+                    .buttonStyle(.plain)
+                    .popover(isPresented: $showDetailedMetadataPopover, arrowEdge: .bottom) {
+                        detailedMetadataPopoverContent
+                    }
+                }
+                
+                ViewThatFits(in: .horizontal) {
+                    HStack(spacing: 3) {
+                        Text(item.kindText)
+                            .font(.system(size: 10, weight: .medium))
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                        Text("·")
+                            .font(.system(size: 10))
+                            .foregroundStyle(.tertiary)
+                            .lineLimit(1)
+                        Text(item.sizeText)
+                            .font(.system(size: 10, weight: .medium, design: .monospaced))
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                        if let dims = asyncDimensions {
+                            Text("·")
+                                .font(.system(size: 10))
+                                .foregroundStyle(.tertiary)
+                                .lineLimit(1)
+                            Text(dims)
+                                .font(.system(size: 10, weight: .medium, design: .monospaced))
+                                .foregroundStyle(TTZipTheme.bambooGreen)
+                                .lineLimit(1)
+                        }
+                    }
+                    .lineLimit(1)
+                    
+                    Text(item.sizeText)
+                        .font(.system(size: 9.5, weight: .medium, design: .monospaced))
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
+            }
+            
+            Spacer(minLength: 8)
+            
+            actionButtonsGroup
+                .padding(.trailing, 20)
+        }
+        .padding(.leading, 16)
+        .padding(.vertical, 7)
+        .frame(height: 38)
+    }
+    
+    // MARK: - Action Buttons
+    
+    private var actionButtonsGroup: some View {
+        ViewThatFits(in: .horizontal) {
+            HStack(spacing: 6) {
+                Button(action: {
+                    let targetPath = effectivePreviewURL?.path ?? item.path
+                    NSWorkspace.shared.selectFile(targetPath, inFileViewerRootedAtPath: "")
+                }) {
+                    HStack(spacing: 3) {
+                        Image(systemName: "folder").font(.system(size: 10))
+                        Text("Finder")
+                            .font(.system(size: 11, weight: .medium))
+                            .lineLimit(1)
+                            .fixedSize(horizontal: true, vertical: false)
+                    }
+                    .foregroundStyle(TTZipTheme.bambooGreen)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(TTZipTheme.bambooGreen.opacity(0.08))
+                    .clipShape(Capsule())
+                }
+                .buttonStyle(.plain)
+                .help("Reveal in Finder")
+                
+                Button(action: {
+                    if item.isArchive { onSelectArchive(item.path) } else { onCompressPath(item.path) }
+                }) {
+                    HStack(spacing: 3) {
+                        Image(systemName: item.isArchive ? "arrow.down.doc" : "archivebox").font(.system(size: 10))
+                        Text(item.isArchive ? "Extract" : "Compress")
+                            .font(.system(size: 11, weight: .semibold))
+                            .lineLimit(1)
+                            .fixedSize(horizontal: true, vertical: false)
+                    }
+                    .foregroundStyle(TTZipTheme.bambooGreen)
+                    .padding(.horizontal, 9)
+                    .padding(.vertical, 4)
+                    .background(TTZipTheme.bambooGreen.opacity(0.12))
+                    .clipShape(Capsule())
+                }
+                .buttonStyle(.plain)
+                .help(item.isArchive ? "Extract and view contents" : "New archive")
+            }
+            
+            HStack(spacing: 6) {
+                Button(action: {
+                    let targetPath = effectivePreviewURL?.path ?? item.path
+                    NSWorkspace.shared.selectFile(targetPath, inFileViewerRootedAtPath: "")
+                }) {
+                    Image(systemName: "folder")
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundStyle(TTZipTheme.bambooGreen)
+                        .padding(5.5)
+                        .background(TTZipTheme.bambooGreen.opacity(0.08))
+                        .clipShape(Circle())
+                }
+                .buttonStyle(.plain)
+                .help("Reveal in Finder")
+                
+                Button(action: {
+                    if item.isArchive { onSelectArchive(item.path) } else { onCompressPath(item.path) }
+                }) {
+                    Image(systemName: item.isArchive ? "arrow.down.doc" : "archivebox")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(TTZipTheme.bambooGreen)
+                        .padding(5.5)
+                        .background(TTZipTheme.bambooGreen.opacity(0.12))
+                        .clipShape(Circle())
+                }
+                .buttonStyle(.plain)
+                .help(item.isArchive ? "Extract and view contents" : "New archive")
             }
         }
     }

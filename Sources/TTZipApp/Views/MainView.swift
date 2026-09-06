@@ -60,7 +60,7 @@ public struct MainView: View {
             // Fixed Chrome Geometry & Safety Clamping Constants
             let dividerWidth: CGFloat = ResizableDividerHandle.gutterWidth
             let rightPanelPadding: CGFloat = 14.0 // leading: 4 + trailing: 10
-            let minSafeWorkspaceWidth: CGFloat = 380.0
+            let minSafeWorkspaceWidth: CGFloat = 460.0
             
             let minLeftSidebarWidth: CGFloat = 150.0
             let maxLeftSidebarWidth: CGFloat = 280.0
@@ -73,7 +73,7 @@ public struct MainView: View {
             }()
             
             let minRightSidebarWidth: CGFloat = 200.0
-            let maxRightSidebarWidth: CGFloat = max(850.0, totalWidth * 0.55)
+            let maxRightSidebarWidth: CGFloat = min(380.0, totalWidth * 0.35)
             let isRightPanelAvailable: Bool = (tier != .compact && viewModel.activeTab == .home)
             let shouldShowRightPanel = !isMediaFocus && isRightSidebarVisible && isRightPanelAvailable
             
@@ -165,7 +165,7 @@ public struct MainView: View {
             .simultaneousGesture(TapGesture().onEnded { NSApp.keyWindow?.makeFirstResponder(nil) })
             .onAppear {
                 self.leftSidebarWidth = CGFloat(userLeftSidebarWidth)
-                self.rightSidebarWidth = CGFloat(userRightSidebarWidth)
+                self.rightSidebarWidth = min(max(CGFloat(userRightSidebarWidth), 200.0), 380.0)
             }
             .onChange(of: viewModel.selectedDiskItem) { _, _ in NSApp.keyWindow?.makeFirstResponder(nil) }
             .onChange(of: viewModel.activeTab) { _, newTab in

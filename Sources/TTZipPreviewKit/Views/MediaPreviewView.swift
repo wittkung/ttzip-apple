@@ -32,10 +32,30 @@ public struct MediaPreviewView: View {
         }
     }
     
-    private var isSupportedMedia: Bool {
+    /// Sanitized file URL passed down to child preview views.
+    /// Prevents passing disk file URLs for converted documents (such as DOCX converted to Markdown),
+    /// which would otherwise allow destructive plain-text writeback to binary formats.
+    private var effectiveFileURL: URL? {
+        if let url = fileURL, MediaPreviewFactory.docxExtensions.contains(url.pathExtension.lowercased()) {
+            return nil
+        }
         switch previewType {
-        case .unsupported, .video, .audio: return false
-        default: return true
+        case .markdown(_, let targetURL):
+            return targetURL
+        default:
+            return fileURL
+        }
+    }
+
+    /// Determines whether the outer floating fullscreen capsule button should be displayed.
+    /// Media types with their own dedicated top navigation or control bars (Markdown, code, spreadsheets,
+    /// hex viewer, office presentations, etc.) suppress this outer overlay to prevent occluding their action controls.
+    private var showsFloatingFullScreenButton: Bool {
+        switch previewType {
+        case .image, .pdf, .pdfData:
+            return true
+        default:
+            return false
         }
     }
     
@@ -51,11 +71,11 @@ public struct MediaPreviewView: View {
             MediaPreviewFactory.makePreviewView(
                 type: previewType,
                 fileName: fileName,
-                fileURL: fileURL,
+                fileURL: effectiveFileURL,
                 isFullScreenActive: isFullScreenActive
             )
             
-            if isSupportedMedia {
+            if showsFloatingFullScreenButton {
                 Button(action: { toggleFullScreen() }) {
                     HStack(spacing: 4) {
                         Image(systemName: "arrow.up.left.and.arrow.down.right")

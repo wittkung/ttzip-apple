@@ -31,6 +31,7 @@ public struct MarkdownRichPreviewView: View {
     public let initialMarkdown: String
     public let fileURL: URL?
     public let fileName: String
+    public let isReadOnly: Bool
     
     @State private var mode: MarkdownPreviewMode = .rich
     @State private var markdownContent: String = ""
@@ -38,50 +39,69 @@ public struct MarkdownRichPreviewView: View {
     @State private var isSavedToastPresented: Bool = false
     @State private var saveErrorMessage: String? = nil
     
-    public init(initialMarkdown: String, fileURL: URL? = nil, fileName: String = "") {
+    private static let validMarkdownExtensions: Set<String> = [
+        "md", "markdown", "mdown", "mkd", "mkdn", "mdtxt", "mdtext"
+    ]
+    
+    /// Determines whether the document is a native, genuinely writable Markdown file on the local filesystem.
+    /// Excludes read-only files, non-file URLs, and converted formats such as DOCX or RTF.
+    private var isNativeWritableMarkdown: Bool {
+        guard !isReadOnly else { return false }
+        guard let url = fileURL, url.isFileURL else { return false }
+        let ext = url.pathExtension.lowercased()
+        guard Self.validMarkdownExtensions.contains(ext) else {
+            return false
+        }
+        return FileManager.default.isWritableFile(atPath: url.path)
+    }
+    
+    public init(
+        initialMarkdown: String,
+        fileURL: URL? = nil,
+        fileName: String = "",
+        isReadOnly: Bool = false
+    ) {
         self.initialMarkdown = initialMarkdown
         self.fileURL = fileURL
         self.fileName = fileName.isEmpty ? (fileURL?.lastPathComponent ?? "Markdown Document") : fileName
+        self.isReadOnly = isReadOnly
         self._markdownContent = State(initialValue: initialMarkdown)
     }
     
-    private var characterCount: Int {
-        markdownContent.count
-    }
-    
-    private var wordCount: Int {
-        markdownContent.split { $0.isWhitespace || $0.isPunctuation }.count
-    }
-    
-    private var lineCount: Int {
-        markdownContent.components(separatedBy: "\n").count
-    }
+    private var characterCount: Int { markdownContent.count }
+    private var wordCount: Int { markdownContent.split { $0.isWhitespace || $0.isPunctuation }.count }
+    private var lineCount: Int { markdownContent.components(separatedBy: "\n").count }
     
     public var body: some View {
-        VStack(spacing: 0) {
-            // 1. Top Control & Mode Switcher Bar
-            topControlBar
-            
-            Divider()
-            
-            // 2. Main Content Canvas (Rich Preview vs Source Editor)
-            ZStack {
-                if mode == .rich {
-                    MarkdownNativeWKWebView(markdownText: markdownContent, baseURL: fileURL)
+        GeometryReader { geometry in
+            let isCompact = geometry.size.width <= 480
+            VStack(spacing: 0) {
+                // 1. Top Control & Mode Switcher Bar (Adaptive Compact vs Full)
+                topControlBar(isCompact: isCompact)
+                
+                Divider()
+                
+                // 2. Main Content Canvas (Rich Preview vs Source Editor)
+                ZStack {
+                    if mode == .rich {
+                        MarkdownNativeWKWebView(markdownText: markdownContent, baseURL: fileURL)
+                            .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    } else {
+                        CodeHighlightingEditorNSView(
+                            text: $markdownContent,
+                            fileName: fileName.isEmpty ? "document.md" : fileName,
+                            onTextChange: { newText in
+                                if isNativeWritableMarkdown && newText != initialMarkdown {
+                                    isEdited = true
+                                }
+                            },
+                            onSaveShortcut: isNativeWritableMarkdown ? { saveFile() } : nil
+                        )
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
-                } else {
-                    CodeHighlightingEditorNSView(
-                        text: $markdownContent,
-                        fileName: fileName.isEmpty ? "document.md" : fileName,
-                        onTextChange: { newText in
-                            if newText != initialMarkdown {
-                                isEdited = true
-                            }
-                        }
-                    )
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    }
                 }
             }
+            .frame(width: geometry.size.width, height: geometry.size.height)
         }
         .task(id: initialMarkdown) {
             markdownContent = initialMarkdown
@@ -91,133 +111,212 @@ public struct MarkdownRichPreviewView: View {
     
     // MARK: - Subviews
     
-    private var topControlBar: some View {
-        HStack(spacing: 10) {
-            // Document Type Badge
-            HStack(spacing: 5) {
-                Image(systemName: "doc.text.fill")
-                    .font(.system(size: 11, weight: .bold))
-                    .foregroundStyle(TTZipTheme.bambooGreen)
-                Text("MARKDOWN")
-                    .font(.system(size: 10.5, weight: .bold, design: .monospaced))
-                    .foregroundStyle(.primary)
-            }
-            .padding(.horizontal, 8)
-            .padding(.vertical, 3.5)
-            .background(TTZipTheme.bambooGreen.opacity(0.12))
-            .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
-            
-            // File Name
-            Text(fileName)
-                .font(.system(size: 11.5, weight: .semibold))
-                .lineLimit(1)
-                .truncationMode(.middle)
-            
-            if isEdited {
-                HStack(spacing: 4) {
-                    Circle()
-                        .fill(Color.orange)
-                        .frame(width: 6, height: 6)
-                    Text("Unsaved")
-                        .font(.system(size: 10, weight: .bold))
-                        .foregroundStyle(Color.orange)
+    @ViewBuilder
+    private func topControlBar(isCompact: Bool) -> some View {
+        HStack(spacing: isCompact ? 8 : 10) {
+            if isCompact {
+                // Compact Inspector Mode (<= 480pt):
+                // Eliminates redundant badges, file names, and stats cards that duplicate the inspector header.
+                modeSegmentedSwitcher(isCompact: true)
+                
+                copyButton
+                
+                if isSavedToastPresented {
+                    savedToastView
+                } else if isNativeWritableMarkdown && isEdited {
+                    saveButton(isCompact: true)
                 }
-                .padding(.horizontal, 6)
-                .padding(.vertical, 3)
-                .background(Color.orange.opacity(0.12))
-                .clipShape(Capsule())
-            }
-            
-            Spacer()
-            
-            // Document Stats
-            HStack(spacing: 8) {
-                Text("\(lineCount) lines")
-                Text("•")
-                Text("\(wordCount) words")
-                Text("•")
-                Text("\(characterCount) chars")
-            }
-            .font(.system(size: 10.5, weight: .medium, design: .monospaced))
-            .foregroundStyle(.secondary)
-            .padding(.horizontal, 8)
-            .padding(.vertical, 3)
-            .background(Color.primary.opacity(0.05))
-            .clipShape(RoundedRectangle(cornerRadius: 4))
-            
-            // Mode Segmented Switcher
-            HStack(spacing: 2) {
-                ForEach(MarkdownPreviewMode.allCases) { m in
-                    Button(action: {
-                        withAnimation(.easeInOut(duration: 0.15)) {
-                            mode = m
-                        }
-                    }) {
-                        HStack(spacing: 4) {
-                            Image(systemName: m.icon)
-                                .font(.system(size: 10, weight: .bold))
-                            Text(m.rawValue)
-                                .font(.system(size: 10.5, weight: mode == m ? .bold : .medium))
-                        }
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 4)
-                        .background(mode == m ? TTZipTheme.bambooGreen : Color.clear)
-                        .foregroundStyle(mode == m ? Color.white : Color.primary)
-                        .clipShape(RoundedRectangle(cornerRadius: 5, style: .continuous))
-                    }
-                    .buttonStyle(.plain)
+                
+                Spacer()
+                
+                fullscreenButton
+            } else {
+                // Regular Full-Featured Mode (> 480pt):
+                documentTypeBadge
+                
+                fileNameText
+                
+                if isNativeWritableMarkdown && isEdited {
+                    unsavedBadge
                 }
-            }
-            .padding(2)
-            .background(Color.primary.opacity(0.08))
-            .clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
-            
-            // Copy Markdown Button
-            Button(action: { copyMarkdownToClipboard() }) {
-                Image(systemName: "doc.on.doc")
-                    .font(.system(size: 11))
-                    .padding(.horizontal, 7)
-                    .padding(.vertical, 4)
-                    .background(Color.primary.opacity(0.06))
-                    .clipShape(RoundedRectangle(cornerRadius: 5))
-            }
-            .buttonStyle(.plain)
-            .help("Copy Raw Markdown")
-            
-            // Save Button
-            if isSavedToastPresented {
-                HStack(spacing: 4) {
-                    Image(systemName: "checkmark.circle.fill")
-                        .font(.system(size: 11, weight: .bold))
-                    Text("Saved")
-                        .font(.system(size: 11, weight: .bold))
+                
+                Spacer()
+                
+                documentStatsView
+                modeSegmentedSwitcher(isCompact: false)
+                copyButton
+                
+                if isSavedToastPresented {
+                    savedToastView
                 }
-                .foregroundStyle(TTZipTheme.bambooGreen)
-                .transition(.opacity)
-            }
-            
-            if let url = fileURL, url.isFileURL {
-                Button(action: { saveFile() }) {
-                    HStack(spacing: 4) {
-                        Image(systemName: "square.and.arrow.down.fill")
-                            .font(.system(size: 10.5, weight: .bold))
-                        Text("Save (⌘S)")
-                            .font(.system(size: 10.5, weight: .bold))
-                    }
-                    .foregroundStyle(isEdited ? Color.white : TTZipTheme.bambooGreen)
-                    .padding(.horizontal, 9)
-                    .padding(.vertical, 4)
-                    .background(isEdited ? TTZipTheme.bambooGreen : TTZipTheme.bambooGreen.opacity(0.12))
-                    .clipShape(Capsule())
+                if isNativeWritableMarkdown {
+                    saveButton(isCompact: false)
                 }
-                .buttonStyle(.plain)
-                .keyboardShortcut("s", modifiers: [.command])
-                .help("Save changes to local file (⌘S)")
+                
+                fullscreenButton
             }
         }
-        .padding(.horizontal, 12)
+        .padding(.horizontal, isCompact ? 8 : 12)
         .padding(.vertical, 6)
         .background(Color(NSColor.windowBackgroundColor))
+    }
+    
+    private var documentTypeBadge: some View {
+        HStack(spacing: 5) {
+            Image(systemName: "doc.text.fill")
+                .font(.system(size: 11, weight: .bold))
+                .foregroundStyle(TTZipTheme.bambooGreen)
+            Text("MARKDOWN")
+                .font(.system(size: 10.5, weight: .bold, design: .monospaced))
+                .foregroundStyle(.primary)
+                .lineLimit(1)
+        }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 3.5)
+        .background(TTZipTheme.bambooGreen.opacity(0.12))
+        .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+    }
+    
+    private var fileNameText: some View {
+        Text(fileName)
+            .font(.system(size: 11.5, weight: .semibold))
+            .lineLimit(1)
+            .truncationMode(.middle)
+    }
+    
+    private var unsavedBadge: some View {
+        HStack(spacing: 4) {
+            Circle()
+                .fill(Color.orange)
+                .frame(width: 6, height: 6)
+            Text("Unsaved")
+                .font(.system(size: 10, weight: .bold))
+                .foregroundStyle(Color.orange)
+        }
+        .padding(.horizontal, 6)
+        .padding(.vertical, 3)
+        .background(Color.orange.opacity(0.12))
+        .clipShape(Capsule())
+    }
+    
+    private var documentStatsView: some View {
+        HStack(spacing: 8) {
+            Text("\(lineCount) lines")
+            Text("•")
+            Text("\(wordCount) words")
+            Text("•")
+            Text("\(characterCount) chars")
+        }
+        .font(.system(size: 10.5, weight: .medium, design: .monospaced))
+        .foregroundStyle(.secondary)
+        .lineLimit(1)
+        .padding(.horizontal, 8)
+        .padding(.vertical, 3)
+        .background(Color.primary.opacity(0.05))
+        .clipShape(RoundedRectangle(cornerRadius: 4))
+    }
+    
+    private func modeSegmentedSwitcher(isCompact: Bool) -> some View {
+        HStack(spacing: 2) {
+            ForEach(MarkdownPreviewMode.allCases) { m in
+                Button(action: {
+                    withAnimation(.easeInOut(duration: 0.15)) {
+                        mode = m
+                    }
+                }) {
+                    HStack(spacing: 4) {
+                        Image(systemName: m.icon)
+                            .font(.system(size: 10, weight: .bold))
+                        Text(m.rawValue)
+                            .font(.system(size: 10.5, weight: mode == m ? .bold : .medium))
+                            .lineLimit(1)
+                    }
+                    .padding(.horizontal, isCompact ? 6 : 8)
+                    .padding(.vertical, 4)
+                    .background(mode == m ? TTZipTheme.bambooGreen : Color.clear)
+                    .foregroundStyle(mode == m ? Color.white : Color.primary)
+                    .clipShape(RoundedRectangle(cornerRadius: 5, style: .continuous))
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(2)
+        .background(Color.primary.opacity(0.08))
+        .clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
+    }
+    
+    private var copyButton: some View {
+        Button(action: { copyMarkdownToClipboard() }) {
+            Image(systemName: "doc.on.doc")
+                .font(.system(size: 11))
+                .foregroundStyle(Color.primary)
+                .padding(.horizontal, 7)
+                .padding(.vertical, 4)
+                .background(Color.primary.opacity(0.06))
+                .clipShape(RoundedRectangle(cornerRadius: 5, style: .continuous))
+        }
+        .buttonStyle(.plain)
+        .help("Copy Raw Markdown")
+    }
+    
+    private var fullscreenButton: some View {
+        Button(action: {
+            NotificationCenter.default.post(
+                name: NSNotification.Name("TTZipToggleMediaFocusNotification"),
+                object: nil
+            )
+        }) {
+            Image(systemName: "arrow.up.left.and.arrow.down.right")
+                .font(.system(size: 10.5, weight: .semibold))
+                .foregroundStyle(Color.primary)
+                .padding(.horizontal, 7)
+                .padding(.vertical, 4)
+                .background(Color.primary.opacity(0.06))
+                .clipShape(RoundedRectangle(cornerRadius: 5, style: .continuous))
+        }
+        .buttonStyle(.plain)
+        .help("Toggle Fullscreen Preview")
+    }
+    
+    private var savedToastView: some View {
+        HStack(spacing: 4) {
+            Image(systemName: "checkmark.circle.fill")
+                .font(.system(size: 11, weight: .bold))
+            Text("Saved")
+                .font(.system(size: 11, weight: .bold))
+        }
+        .foregroundStyle(TTZipTheme.bambooGreen)
+        .transition(.opacity)
+    }
+    
+    @ViewBuilder
+    private func saveButton(isCompact: Bool) -> some View {
+        Button(action: { saveFile() }) {
+            if isCompact {
+                Image(systemName: "square.and.arrow.down.fill")
+                    .font(.system(size: 10.5, weight: .bold))
+                    .foregroundStyle(Color.white)
+                    .padding(.horizontal, 7)
+                    .padding(.vertical, 4)
+                    .background(TTZipTheme.bambooGreen)
+                    .clipShape(RoundedRectangle(cornerRadius: 5, style: .continuous))
+            } else {
+                HStack(spacing: 4) {
+                    Image(systemName: "square.and.arrow.down.fill")
+                        .font(.system(size: 10.5, weight: .bold))
+                    Text("Save (⌘S)")
+                        .font(.system(size: 10.5, weight: .bold))
+                }
+                .foregroundStyle(isEdited ? Color.white : TTZipTheme.bambooGreen)
+                .padding(.horizontal, 9)
+                .padding(.vertical, 4)
+                .background(isEdited ? TTZipTheme.bambooGreen : TTZipTheme.bambooGreen.opacity(0.12))
+                .clipShape(Capsule())
+            }
+        }
+        .buttonStyle(.plain)
+        .keyboardShortcut("s", modifiers: [.command])
+        .help("Save changes to local file (⌘S)")
     }
     
     // MARK: - Actions
@@ -229,7 +328,7 @@ public struct MarkdownRichPreviewView: View {
     }
     
     private func saveFile() {
-        guard let url = fileURL, url.isFileURL else { return }
+        guard isNativeWritableMarkdown, let url = fileURL, url.isFileURL else { return }
         do {
             try markdownContent.write(to: url, atomically: true, encoding: .utf8)
             withAnimation {
@@ -268,6 +367,7 @@ public struct MarkdownNativeWKWebView: NSViewRepresentable {
         let webView = WKWebView(frame: .zero, configuration: config)
         webView.navigationDelegate = context.coordinator
         webView.underPageBackgroundColor = .clear
+        webView.setValue(false, forKey: "drawsBackground")
         loadRenderedHTML(in: webView)
         return webView
     }
@@ -287,7 +387,6 @@ public struct MarkdownNativeWKWebView: NSViewRepresentable {
             <style>
                 :root {
                     color-scheme: light dark;
-                    --bg-color: #ffffff;
                     --text-color: #1d1d1f;
                     --heading-color: #111111;
                     --accent-color: #2ecc71;
@@ -299,7 +398,6 @@ public struct MarkdownNativeWKWebView: NSViewRepresentable {
                 }
                 @media (prefers-color-scheme: dark) {
                     :root {
-                        --bg-color: #1e1e20;
                         --text-color: #e5e5ea;
                         --heading-color: #ffffff;
                         --accent-color: #30d158;
@@ -310,8 +408,10 @@ public struct MarkdownNativeWKWebView: NSViewRepresentable {
                         --link-color: #0a84ff;
                     }
                 }
+                html, body {
+                    background-color: transparent !important;
+                }
                 body {
-                    background-color: var(--bg-color);
                     color: var(--text-color);
                     font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang SC", "Hiragino Sans GB", "Segoe UI", sans-serif;
                     font-size: 14px;
@@ -337,12 +437,7 @@ public struct MarkdownNativeWKWebView: NSViewRepresentable {
                 a:hover { text-decoration: underline; }
                 strong { font-weight: 700; color: var(--heading-color); }
                 em { font-style: italic; }
-                hr {
-                    border: 0;
-                    height: 1px;
-                    background-color: var(--border-color);
-                    margin: 24px 0;
-                }
+                hr { border: 0; height: 1px; background-color: var(--border-color); margin: 24px 0; }
                 blockquote {
                     margin: 1em 0;
                     padding: 8px 16px;
@@ -365,22 +460,10 @@ public struct MarkdownNativeWKWebView: NSViewRepresentable {
                     overflow-x: auto;
                     border: 1px solid var(--border-color);
                 }
-                pre code {
-                    background-color: transparent;
-                    padding: 0;
-                    font-size: 12.5px;
-                    line-height: 1.5;
-                }
-                ul, ol {
-                    padding-left: 24px;
-                    margin-top: 0;
-                    margin-bottom: 1em;
-                }
+                pre code { background-color: transparent; padding: 0; font-size: 12.5px; line-height: 1.5; }
+                ul, ol { padding-left: 24px; margin-top: 0; margin-bottom: 1em; }
                 li { margin-bottom: 0.3em; }
-                li.task-item {
-                    list-style: none;
-                    margin-left: -18px;
-                }
+                li.task-item { list-style: none; margin-left: -18px; }
                 table {
                     border-collapse: collapse;
                     width: 100%;
@@ -389,25 +472,21 @@ public struct MarkdownNativeWKWebView: NSViewRepresentable {
                     border-radius: 6px;
                     overflow: hidden;
                 }
-                th, td {
-                    padding: 8px 12px;
-                    border: 1px solid var(--border-color);
-                    text-align: left;
-                    font-size: 13px;
-                }
-                th {
-                    background-color: var(--code-bg);
-                    font-weight: 600;
-                    color: var(--heading-color);
-                }
-                tr:nth-child(even) {
-                    background-color: var(--table-stripe);
-                }
-                img {
-                    max-width: 100%;
-                    height: auto;
-                    border-radius: 6px;
-                    margin: 1em 0;
+                th, td { padding: 8px 12px; border: 1px solid var(--border-color); text-align: left; font-size: 13px; }
+                th { background-color: var(--code-bg); font-weight: 600; color: var(--heading-color); }
+                tr:nth-child(even) { background-color: var(--table-stripe); }
+                img { max-width: 100%; height: auto; border-radius: 6px; margin: 1em 0; }
+                @media (max-width: 520px) {
+                    body { padding: 12px 14px; line-height: 1.5; font-size: 13px; }
+                    h1 { font-size: 17px; margin-top: 1.0em; margin-bottom: 0.4em; }
+                    h2 { font-size: 15px; margin-top: 0.9em; margin-bottom: 0.35em; }
+                    h3 { font-size: 13.5px; margin-top: 0.8em; margin-bottom: 0.3em; }
+                    h4 { font-size: 12.5px; }
+                    p { margin-bottom: 0.75em; }
+                    pre { padding: 8px 10px; border-radius: 6px; margin: 0.8em 0; }
+                    blockquote { padding: 6px 10px; margin: 0.8em 0; }
+                    ul, ol { padding-left: 18px; margin-bottom: 0.75em; }
+                    th, td { padding: 6px 8px; font-size: 12px; }
                 }
             </style>
         </head>

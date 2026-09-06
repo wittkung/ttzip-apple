@@ -113,7 +113,7 @@ public struct RightInspectorSidePanel: View {
                             onPreviewFile: { _ in }
                         )
                         .id(item.path)
-                        .frame(maxHeight: .infinity)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
                     }
                 } else {
                     let currentFolderItem = DiskItemInfo(url: viewModel.currentDirectory)
@@ -131,6 +131,7 @@ public struct RightInspectorSidePanel: View {
                     }
                 }
             }
+            .padding(.bottom, TTZipTheme.Spacing.xs)
         }
         .background(Color.primary.opacity(0.025))
         .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))

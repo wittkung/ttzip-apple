@@ -75,9 +75,15 @@ public struct FinderMillerColumnsView: View {
                     }
                     .frame(minWidth: geometry.size.width, maxHeight: .infinity, alignment: .topLeading)
                     .onChange(of: columnPaths.count) { _, newCount in
-                        if newCount > 0 {
+                        guard newCount > 0 else { return }
+                        let totalWidth = totalColumnsWidth(count: newCount, availableWidth: geometry.size.width)
+                        if totalWidth > geometry.size.width {
                             withAnimation(.spring(response: 0.25, dampingFraction: 0.85)) {
                                 proxy.scrollTo(newCount - 1, anchor: .trailing)
+                            }
+                        } else {
+                            withAnimation(.spring(response: 0.25, dampingFraction: 0.85)) {
+                                proxy.scrollTo(0, anchor: .leading)
                             }
                         }
                     }
@@ -279,11 +285,20 @@ public struct FinderMillerColumnsView: View {
             // When only 1 column exists, expand to occupy the full available width (at least defaultColumnWidth)
             return max(availableWidth, defaultColumnWidth)
         } else if count == 2 {
-            // When 2 columns exist, share the viewport comfortably if availableWidth allows
-            let half = availableWidth / 2.0
-            return max(half, defaultColumnWidth)
+            // When 2 columns exist, split available width evenly if viewport can comfortably fit them (>= 400pt)
+            if availableWidth >= 400 {
+                return max(availableWidth / 2.0, 200.0)
+            } else {
+                return defaultColumnWidth
+            }
         } else {
             return defaultColumnWidth
+        }
+    }
+    
+    private func totalColumnsWidth(count: Int, availableWidth: CGFloat) -> CGFloat {
+        (0..<count).reduce(0 as CGFloat) { total, idx in
+            total + computeColumnWidth(for: idx, availableWidth: availableWidth)
         }
     }
     
