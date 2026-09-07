@@ -8,38 +8,55 @@
 import SwiftUI
 import TTZipCore
 
-/// Unified workspace scaffold enforcing 52pt header, Y=90pt Kintsugi Gold Line, and macOS safe area isolation.
-public struct TTZipWorkspaceScaffold<HeaderTrailing: View, Content: View>: View {
+/// Default title view for `TTZipWorkspaceScaffold` displaying a serif bold header.
+public struct TTZipWorkspaceDefaultTitleView: View {
     public let title: String
+    
+    public init(_ title: String) {
+        self.title = title
+    }
+    
+    public var body: some View {
+        Text(title)
+            .font(.system(size: 16, weight: .bold, design: .serif))
+            .foregroundStyle(.primary)
+            .lineLimit(1)
+            .truncationMode(.tail)
+    }
+}
+
+/// Unified workspace scaffold enforcing 52pt header, Y=90pt Kintsugi Gold Line, and macOS safe area isolation.
+public struct TTZipWorkspaceScaffold<HeaderLeading: View, HeaderTrailing: View, Content: View>: View {
+    public let headerLeading: HeaderLeading
     public let headerTrailing: HeaderTrailing
     public let content: Content
     public let isCardEnclosed: Bool
     public let contentPadding: EdgeInsets
     
     public init(
-        title: String,
         isCardEnclosed: Bool = true,
         contentPadding: EdgeInsets = EdgeInsets(top: 0, leading: 0, bottom: 0, trailing: 0),
+        @ViewBuilder headerLeading: () -> HeaderLeading,
         @ViewBuilder headerTrailing: () -> HeaderTrailing,
         @ViewBuilder content: () -> Content
     ) {
-        self.title = title
-        self.isCardEnclosed = isCardEnclosed
-        self.contentPadding = contentPadding
+        self.headerLeading = headerLeading()
         self.headerTrailing = headerTrailing()
         self.content = content()
+        self.isCardEnclosed = isCardEnclosed
+        self.contentPadding = contentPadding
     }
     
     public init(
-        title: String,
         isCardEnclosed: Bool = true,
         contentPadding: EdgeInsets = EdgeInsets(top: 0, leading: 0, bottom: 0, trailing: 0),
+        @ViewBuilder headerLeading: () -> HeaderLeading,
         @ViewBuilder content: () -> Content
     ) where HeaderTrailing == EmptyView {
         self.init(
-            title: title,
             isCardEnclosed: isCardEnclosed,
             contentPadding: contentPadding,
+            headerLeading: headerLeading,
             headerTrailing: { EmptyView() },
             content: content
         )
@@ -49,11 +66,7 @@ public struct TTZipWorkspaceScaffold<HeaderTrailing: View, Content: View>: View 
         VStack(alignment: .leading, spacing: 0) {
             // 1. 52pt Header Bar (Top=38pt + Height=52pt -> Golden line strictly at Y = 90.0pt)
             HStack(alignment: .center, spacing: 12) {
-                Text(title)
-                    .font(.system(size: 16, weight: .bold, design: .serif))
-                    .foregroundStyle(.primary)
-                    .lineLimit(1)
-                    .truncationMode(.tail)
+                headerLeading
                 
                 Spacer()
                 
@@ -87,6 +100,45 @@ public struct TTZipWorkspaceScaffold<HeaderTrailing: View, Content: View>: View 
         .padding(.horizontal, TTZipTheme.Spacing.md)
         .padding(.bottom, TTZipTheme.Spacing.md)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+    }
+}
+
+// MARK: - Backward-Compatible Initializers
+
+extension TTZipWorkspaceScaffold where HeaderLeading == TTZipWorkspaceDefaultTitleView {
+    public var title: String {
+        headerLeading.title
+    }
+    
+    public init(
+        title: String,
+        isCardEnclosed: Bool = true,
+        contentPadding: EdgeInsets = EdgeInsets(top: 0, leading: 0, bottom: 0, trailing: 0),
+        @ViewBuilder headerTrailing: () -> HeaderTrailing,
+        @ViewBuilder content: () -> Content
+    ) {
+        self.init(
+            isCardEnclosed: isCardEnclosed,
+            contentPadding: contentPadding,
+            headerLeading: { TTZipWorkspaceDefaultTitleView(title) },
+            headerTrailing: headerTrailing,
+            content: content
+        )
+    }
+    
+    public init(
+        title: String,
+        isCardEnclosed: Bool = true,
+        contentPadding: EdgeInsets = EdgeInsets(top: 0, leading: 0, bottom: 0, trailing: 0),
+        @ViewBuilder content: () -> Content
+    ) where HeaderTrailing == EmptyView {
+        self.init(
+            title: title,
+            isCardEnclosed: isCardEnclosed,
+            contentPadding: contentPadding,
+            headerTrailing: { EmptyView() },
+            content: content
+        )
     }
 }
 

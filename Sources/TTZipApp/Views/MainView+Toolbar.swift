@@ -164,18 +164,6 @@ extension MainView {
             .help(l10n.currentLanguage == .zhHans ? "工具箱" : "Toolbox")
         }
         
-        ToolbarItem(placement: .principal) {
-            if viewModel.navigationState.layoutMode != .mediaFocus && viewModel.activeTab == .home {
-                LiquidGlassOmnibar(
-                    searchQuery: $searchQuery,
-                    searchService: searchService,
-                    viewModel: viewModel,
-                    maxContainerWidth: 440
-                )
-                .frame(minWidth: 200, idealWidth: 360, maxWidth: 460)
-            }
-        }
-        
         ToolbarItem(placement: .primaryAction) {
             Button {
                 withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
