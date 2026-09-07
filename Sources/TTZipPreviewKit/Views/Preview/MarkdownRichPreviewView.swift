@@ -261,10 +261,22 @@ public struct MarkdownRichPreviewView: View {
     
     private var fullscreenButton: some View {
         Button(action: {
-            NotificationCenter.default.post(
-                name: NSNotification.Name("TTZipToggleMediaFocusNotification"),
-                object: nil
-            )
+            if let fileURL = fileURL {
+                let userInfo: [String: Any] = [
+                    "url": fileURL,
+                    "name": fileName
+                ]
+                NotificationCenter.default.post(
+                    name: NSNotification.Name("TTZipToggleMediaFocusNotification"),
+                    object: fileURL,
+                    userInfo: userInfo
+                )
+            } else {
+                NotificationCenter.default.post(
+                    name: NSNotification.Name("TTZipToggleMediaFocusNotification"),
+                    object: nil
+                )
+            }
         }) {
             Image(systemName: "arrow.up.left.and.arrow.down.right")
                 .font(.system(size: 10.5, weight: .semibold))

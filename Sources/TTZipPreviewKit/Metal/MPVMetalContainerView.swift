@@ -220,7 +220,11 @@ public final class MPVMetalContainerView: MPVMetalNSView {
             return
         }
         if event.keyCode == 53 {
-            NotificationCenter.default.post(name: NSNotification.Name("TTZipToggleMediaFocusNotification"), object: nil)
+            if let onToggleFullScreen = onToggleFullScreen {
+                onToggleFullScreen()
+            } else {
+                NotificationCenter.default.post(name: NSNotification.Name("TTZipToggleMediaFocusNotification"), object: nil)
+            }
             return
         }
         super.keyDown(with: event)

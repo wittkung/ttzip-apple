@@ -257,10 +257,22 @@ public struct HTMLWebRichPreviewView: View {
     
     private var fullscreenButton: some View {
         Button(action: {
-            NotificationCenter.default.post(
-                name: NSNotification.Name("TTZipToggleMediaFocusNotification"),
-                object: nil
-            )
+            if let url = fileURL {
+                let userInfo: [String: Any] = [
+                    "url": url,
+                    "name": fileName
+                ]
+                NotificationCenter.default.post(
+                    name: NSNotification.Name("TTZipToggleMediaFocusNotification"),
+                    object: url,
+                    userInfo: userInfo
+                )
+            } else {
+                NotificationCenter.default.post(
+                    name: NSNotification.Name("TTZipToggleMediaFocusNotification"),
+                    object: nil
+                )
+            }
         }) {
             Image(systemName: "arrow.up.left.and.arrow.down.right")
                 .font(.system(size: 10.5, weight: .semibold))

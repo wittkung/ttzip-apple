@@ -307,6 +307,27 @@ public struct InspectorColumnView: View {
             HStack(spacing: 6) {
                 Button(action: {
                     let targetPath = effectivePreviewURL?.path ?? targetItem.path
+                    onPreviewFile(targetPath)
+                }) {
+                    HStack(spacing: 3) {
+                        Image(systemName: "arrow.up.left.and.arrow.down.right")
+                            .font(.system(size: 10, weight: .semibold))
+                        Text("Preview")
+                            .font(.system(size: 11, weight: .medium))
+                            .lineLimit(1)
+                            .fixedSize(horizontal: true, vertical: false)
+                    }
+                    .foregroundStyle(TTZipTheme.bambooGreen)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(TTZipTheme.bambooGreen.opacity(0.08))
+                    .clipShape(RoundedRectangle(cornerRadius: 5, style: .continuous))
+                }
+                .buttonStyle(.plain)
+                .help("全屏预览媒体 (Space / ⤢)")
+                
+                Button(action: {
+                    let targetPath = effectivePreviewURL?.path ?? targetItem.path
                     NSWorkspace.shared.selectFile(targetPath, inFileViewerRootedAtPath: "")
                 }) {
                     HStack(spacing: 3) {
@@ -347,6 +368,20 @@ public struct InspectorColumnView: View {
             }
             
             HStack(spacing: 6) {
+                Button(action: {
+                    let targetPath = effectivePreviewURL?.path ?? targetItem.path
+                    onPreviewFile(targetPath)
+                }) {
+                    Image(systemName: "arrow.up.left.and.arrow.down.right")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(TTZipTheme.bambooGreen)
+                        .padding(5.5)
+                        .background(TTZipTheme.bambooGreen.opacity(0.08))
+                        .clipShape(Circle())
+                }
+                .buttonStyle(.plain)
+                .help("全屏预览媒体 (Space / ⤢)")
+                
                 Button(action: {
                     let targetPath = effectivePreviewURL?.path ?? targetItem.path
                     NSWorkspace.shared.selectFile(targetPath, inFileViewerRootedAtPath: "")

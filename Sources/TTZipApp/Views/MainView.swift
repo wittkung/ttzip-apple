@@ -58,212 +58,46 @@ public struct MainView: View {
     
     public var body: some View {
         @Bindable var viewModel = viewModel
-        GeometryReader { geo in
-            let totalWidth = geo.size.width
-            let totalHeight = geo.size.height
-            let tier = WindowLayoutTier.evaluate(width: totalWidth)
-            let isMediaFocus = viewModel.navigationState.layoutMode == .mediaFocus
-            
-            // Fixed Chrome Geometry & Safety Clamping Constants
-            let dividerWidth: CGFloat = ResizableDividerHandle.gutterWidth
-            let rightPanelPadding: CGFloat = 14.0 // leading: 4 + trailing: 10
-            let minSafeWorkspaceWidth: CGFloat = 460.0
-            
-            let isLeftPanelAvailable: Bool = (tier != .compact && viewModel.activeTab == .home)
-            let shouldShowLeftPanel = !isMediaFocus && isLeftSidebarVisible && isLeftPanelAvailable
-            
-            let effectiveLeftWidth: CGFloat = {
-                if !shouldShowLeftPanel { return 0 }
-                if leftSidebarWidth <= SidebarGeometry.snapThreshold {
-                    return SidebarGeometry.iconRailWidth
-                } else {
-                    return min(max(leftSidebarWidth, SidebarGeometry.minExpandedWidth), SidebarGeometry.maxExpandedWidth)
-                }
-            }()
-            
-            let isIconRailMode: Bool = effectiveLeftWidth <= 80.0
-            
-            let minRightSidebarWidth: CGFloat = 200.0
-            let maxRightSidebarWidth: CGFloat = min(380.0, totalWidth * 0.35)
-            let isRightPanelAvailable: Bool = (tier != .compact && viewModel.activeTab == .home)
-            let shouldShowRightPanel = !isMediaFocus && isRightSidebarVisible && isRightPanelAvailable
-            
-            let leftChrome = shouldShowLeftPanel ? (effectiveLeftWidth + dividerWidth) : 0
-            let rightChrome = shouldShowRightPanel ? (dividerWidth + rightPanelPadding) : 0
-            let maxRightAllowedByWorkspace = max(minRightSidebarWidth, totalWidth - leftChrome - rightChrome - minSafeWorkspaceWidth)
-            let effectiveMaxRightWidth = min(maxRightSidebarWidth, maxRightAllowedByWorkspace)
-            
-            let effectiveRightWidth: CGFloat = {
-                if !shouldShowRightPanel { return 0 }
-                return min(max(rightSidebarWidth, minRightSidebarWidth), effectiveMaxRightWidth)
-            }()
-            
-            ZStack(alignment: .topLeading) {
-                TTZipFluidBackgroundView(baseColor: TTZipTheme.bambooGreen)
-                    .frame(width: totalWidth, height: totalHeight)
-                    .allowsHitTesting(false)
-                
-                HStack(alignment: .top, spacing: 0) {
-                    if shouldShowLeftPanel {
-                        FinderFavoritesSidebarView(
-                            currentDirectory: viewModel.currentDirectory,
-                            isIconRail: isIconRailMode,
-                            onSelectDirectory: { url in
-                                viewModel.currentDirectory = url
-                                viewModel.selectedDiskItem = nil
-                            }
-                        )
-                        .frame(width: effectiveLeftWidth, height: totalHeight, alignment: .topLeading)
-                        .transition(.move(edge: .leading).combined(with: .opacity))
-                        
-                        if tier != .compact {
-                            ResizableDividerHandle(
-                                onDragStart: { initialLeftWidth = leftSidebarWidth },
-                                onDragChanged: { translation in
-                                    let rawWidth = initialLeftWidth + translation
-                                    if rawWidth < SidebarGeometry.snapThreshold {
-                                        // Provide smooth damping when dragging below snap threshold down to rail width
-                                        let underflow = SidebarGeometry.snapThreshold - rawWidth
-                                        let damped = SidebarGeometry.snapThreshold - (underflow * 0.5)
-                                        leftSidebarWidth = max(SidebarGeometry.iconRailWidth, damped)
-                                    } else {
-                                        leftSidebarWidth = min(SidebarGeometry.maxExpandedWidth, rawWidth)
-                                    }
-                                },
-                                onDragEnd: {
-                                    withAnimation(.spring(response: 0.28, dampingFraction: 0.82)) {
-                                        if leftSidebarWidth <= SidebarGeometry.snapThreshold {
-                                            leftSidebarWidth = SidebarGeometry.iconRailWidth
-                                        } else {
-                                            leftSidebarWidth = min(max(leftSidebarWidth, SidebarGeometry.minExpandedWidth), SidebarGeometry.maxExpandedWidth)
-                                        }
-                                    }
-                                    NSHapticFeedbackManager.defaultPerformer.perform(.alignment, performanceTime: .default)
-                                    userLeftSidebarWidth = Double(leftSidebarWidth)
-                                }
-                            )
-                            .frame(height: totalHeight)
-                            .transition(.opacity)
-                        }
+        mainGeometryLayout
+            .ignoresSafeArea()
+            .toolbar {
+                mainToolbarContent
+            }
+            .sheet(item: $presentedSecondaryTool) { tab in
+                SecondaryToolSheetContainer(tab: tab, onDismiss: { presentedSecondaryTool = nil })
+            }
+            .sheet(isPresented: $viewModel.showCompressModal) {
+                CompressModalView(
+                    isPresented: $viewModel.showCompressModal,
+                    initialInputPaths: viewModel.selectedPathsToCompress,
+                    onCompleteOpenArchive: { archivePath in
+                        viewModel.showCompressModal = false
+                        viewModel.openArchiveAsFolder(url: URL(fileURLWithPath: archivePath))
                     }
-                    
-                    detailArea
-                        .frame(minWidth: isMediaFocus ? 0 : minSafeWorkspaceWidth, maxWidth: .infinity, maxHeight: totalHeight, alignment: .topLeading)
-                    
-                    if shouldShowRightPanel {
-                        ResizableDividerHandle(
-                            onDragStart: { initialRightWidth = rightSidebarWidth },
-                            onDragChanged: { translation in
-                                let newWidth = initialRightWidth - translation
-                                rightSidebarWidth = min(max(newWidth, minRightSidebarWidth), effectiveMaxRightWidth)
-                            },
-                            onDragEnd: { userRightSidebarWidth = Double(rightSidebarWidth) }
-                        )
-                        .frame(height: totalHeight)
-                        .transition(.opacity)
-                        
-                        RightInspectorSidePanel(viewModel: viewModel, rightVerticalTopHeight: $rightVerticalTopHeight)
-                            .frame(width: effectiveRightWidth, alignment: .topLeading)
-                            .padding(.top, TTZipTheme.Layout.topBarOffset)
-                            .padding(.leading, 4)
-                            .padding(.trailing, 10)
-                            .padding(.bottom, TTZipTheme.Spacing.md)
-                            .frame(maxHeight: totalHeight, alignment: .topLeading)
-                            .transition(.move(edge: .trailing).combined(with: .opacity))
-                    }
-                }
-                .frame(width: totalWidth, height: totalHeight, alignment: .topLeading)
-                .clipped()
-                
-                if !isMediaFocus && viewModel.activeTab == .home {
-                    if !searchQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                        let omnibarMaxWidth = min(480.0, max(220.0, totalWidth - 280.0))
-                        HStack {
-                            Spacer()
-                            liquidGlassSearchResultsOverlay(maxWidth: omnibarMaxWidth)
-                            Spacer()
-                        }
-                        .frame(width: totalWidth, alignment: .top)
-                        .transition(.move(edge: .top).combined(with: .opacity))
-                        .zIndex(999)
+                )
+                .frame(minWidth: 720, idealWidth: 840, maxWidth: 960, minHeight: 520, idealHeight: 620, maxHeight: 760)
+            }
+            .sheet(isPresented: $viewModel.showExtractModal) {
+                let targetPath = viewModel.selectedDiskItem?.path ?? viewModel.currentArchivePath ?? ""
+                ExtractModalView(archivePath: targetPath, isPresented: $viewModel.showExtractModal)
+            }
+            .sheet(isPresented: $viewModel.showArchiveInspectorModal) {
+                let targetPath = viewModel.inspectingArchivePath ?? viewModel.selectedDiskItem?.path ?? viewModel.currentArchivePath ?? ""
+                ArchiveInspectorContainerView(archivePath: targetPath)
+            }
+            .sheet(isPresented: Binding(
+                get: { AppErrorReporter.shared.isPresentingError },
+                set: { if !$0 { AppErrorReporter.shared.dismiss() } }
+            )) {
+                if let payload = AppErrorReporter.shared.activeError {
+                    ErrorPresentationSheetView(payload: payload) {
+                        AppErrorReporter.shared.dismiss()
                     }
                 }
             }
-            .frame(width: totalWidth, height: totalHeight, alignment: .topLeading)
-            .clipped()
-            .simultaneousGesture(TapGesture().onEnded { NSApp.keyWindow?.makeFirstResponder(nil) })
-            .onAppear {
-                let savedLeft = CGFloat(userLeftSidebarWidth)
-                if savedLeft <= SidebarGeometry.snapThreshold {
-                    self.leftSidebarWidth = SidebarGeometry.iconRailWidth
-                } else {
-                    self.leftSidebarWidth = min(max(savedLeft, SidebarGeometry.minExpandedWidth), SidebarGeometry.maxExpandedWidth)
-                }
-                self.rightSidebarWidth = min(max(CGFloat(userRightSidebarWidth), 200.0), 380.0)
+            .overlay {
+                rootOverlays
             }
-            .onChange(of: viewModel.selectedDiskItem) { _, _ in NSApp.keyWindow?.makeFirstResponder(nil) }
-            .onChange(of: viewModel.activeTab) { _, newTab in
-                NSApp.keyWindow?.makeFirstResponder(nil)
-                if newTab == .compressWorkspace {
-                    viewModel.showCompressModal = true
-                    viewModel.activeTab = .home
-                } else if newTab != .home {
-                    presentedSecondaryTool = newTab
-                    viewModel.activeTab = .home
-                }
-            }
-            .onChange(of: viewModel.currentDirectory) { _, _ in NSApp.keyWindow?.makeFirstResponder(nil) }
-        }
-        .ignoresSafeArea()
-        .toolbar {
-            mainToolbarContent
-        }
-        .sheet(item: $presentedSecondaryTool) { tab in
-            SecondaryToolSheetContainer(tab: tab, onDismiss: { presentedSecondaryTool = nil })
-        }
-        .sheet(isPresented: $viewModel.showCompressModal) {
-            CompressModalView(
-                isPresented: $viewModel.showCompressModal,
-                initialInputPaths: viewModel.selectedPathsToCompress,
-                onCompleteOpenArchive: { archivePath in
-                    viewModel.showCompressModal = false
-                    viewModel.openArchiveAsFolder(url: URL(fileURLWithPath: archivePath))
-                }
-            )
-            .frame(minWidth: 720, idealWidth: 840, maxWidth: 960, minHeight: 520, idealHeight: 620, maxHeight: 760)
-        }
-        .sheet(isPresented: $viewModel.showExtractModal) {
-            let targetPath = viewModel.selectedDiskItem?.path ?? viewModel.currentArchivePath ?? ""
-            ExtractModalView(archivePath: targetPath, isPresented: $viewModel.showExtractModal)
-        }
-        .sheet(isPresented: $viewModel.showArchiveInspectorModal) {
-            let targetPath = viewModel.inspectingArchivePath ?? viewModel.selectedDiskItem?.path ?? viewModel.currentArchivePath ?? ""
-            ArchiveInspectorContainerView(archivePath: targetPath)
-        }
-        .sheet(isPresented: Binding(
-            get: { AppErrorReporter.shared.isPresentingError },
-            set: { if !$0 { AppErrorReporter.shared.dismiss() } }
-        )) {
-            if let payload = AppErrorReporter.shared.activeError {
-                ErrorPresentationSheetView(payload: payload) {
-                    AppErrorReporter.shared.dismiss()
-                }
-            }
-        }
-        .overlay {
-            if viewModel.showPasswordPrompt, let targetPath = viewModel.pendingEncryptedPath {
-                ZStack {
-                    Color.black.opacity(0.45).ignoresSafeArea().onTapGesture { viewModel.cancelPasswordPrompt() }
-                    PasswordPromptSheetView(
-                        archivePath: targetPath,
-                        onSubmitPassword: { pwd async in await viewModel.loadArchive(path: targetPath, password: pwd) },
-                        onCancel: { viewModel.cancelPasswordPrompt() }
-                    )
-                    .transition(.scale(scale: 0.95).combined(with: .opacity))
-                }
-                .animation(.spring(response: 0.28, dampingFraction: 0.85), value: viewModel.showPasswordPrompt)
-            }
-        }
         .onAppear {
             AppIntentDispatcher.shared.bind(state: viewModel)
             (NSApp.delegate as? AppDelegate)?.registerHandler { url in
@@ -298,12 +132,19 @@ public struct MainView: View {
                 viewModel.showCompressModal = true
             }
         }
-        .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("TTZipToggleMediaFocusNotification"))) { _ in
-            withAnimation(.easeInOut(duration: 0.25)) {
-                viewModel.navigationState.toggleMediaFocusMode()
-            }
-            if let window = NSApp.keyWindow ?? NSApp.windows.first(where: { $0.isVisible && !$0.isMiniaturized }) {
-                window.toggleFullScreen(nil)
+        .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("TTZipToggleMediaFocusNotification"))) { notif in
+            withAnimation(.spring(response: 0.3, dampingFraction: 0.82)) {
+                if let item = notif.object as? ImmersiveMediaItem {
+                    viewModel.openImmersiveMedia(url: item.url, name: item.name, fileSizeBytes: item.fileSizeBytes)
+                } else if let url = notif.object as? URL {
+                    let name = (notif.userInfo?["name"] as? String) ?? url.lastPathComponent
+                    viewModel.openImmersiveMedia(url: url, name: name)
+                } else if let item = viewModel.selectedDiskItem {
+                    let u = URL(fileURLWithPath: item.path)
+                    viewModel.openImmersiveMedia(url: u, name: item.name, fileSizeBytes: item.fileSizeBytes)
+                } else if let url = viewModel.activePreviewFileURL, let name = viewModel.activePreviewFileName {
+                    viewModel.openImmersiveMedia(url: url, name: name)
+                }
             }
         }
         .onReceive(NotificationCenter.default.publisher(for: NSWindow.willEnterFullScreenNotification)) { _ in
@@ -322,10 +163,6 @@ public struct MainView: View {
                     viewModel.navigationState.layoutMode = .standard
                     self.leftSidebarWidth = CGFloat(userLeftSidebarWidth)
                     self.rightSidebarWidth = CGFloat(userRightSidebarWidth)
-                }
-                if let window = NSApp.keyWindow ?? NSApp.windows.first(where: { $0.isVisible && !$0.isMiniaturized }),
-                   window.styleMask.contains(.fullScreen) {
-                    window.toggleFullScreen(nil)
                 }
             }
         }
@@ -412,5 +249,236 @@ public struct MainView: View {
         .clipShape(RoundedRectangle(cornerRadius: 12))
         .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(TTZipTheme.hairlineBorder, lineWidth: 0.5))
         .padding(.top, 42)
+    }
+    
+    // MARK: - Workspace Geometry & Decomposed Layout
+    
+    private var mainGeometryLayout: some View {
+        GeometryReader { geo in
+            let totalWidth = geo.size.width
+            let totalHeight = geo.size.height
+            let tier = WindowLayoutTier.evaluate(width: totalWidth)
+            let isMediaFocus = viewModel.navigationState.layoutMode == .mediaFocus
+            
+            // Fixed Chrome Geometry & Safety Clamping Constants
+            let dividerWidth: CGFloat = ResizableDividerHandle.gutterWidth
+            let rightPanelPadding: CGFloat = 14.0 // leading: 4 + trailing: 10
+            let minSafeWorkspaceWidth: CGFloat = 460.0
+            
+            let isLeftPanelAvailable: Bool = (tier != .compact && viewModel.activeTab == .home)
+            let shouldShowLeftPanel = !isMediaFocus && isLeftSidebarVisible && isLeftPanelAvailable
+            
+            let effectiveLeftWidth: CGFloat = {
+                if !shouldShowLeftPanel { return 0 }
+                if leftSidebarWidth <= SidebarGeometry.snapThreshold {
+                    return SidebarGeometry.iconRailWidth
+                } else {
+                    return min(max(leftSidebarWidth, SidebarGeometry.minExpandedWidth), SidebarGeometry.maxExpandedWidth)
+                }
+            }()
+            
+            let isIconRailMode: Bool = effectiveLeftWidth <= 80.0
+            
+            let minRightSidebarWidth: CGFloat = 200.0
+            let maxRightSidebarWidth: CGFloat = min(380.0, totalWidth * 0.35)
+            let isRightPanelAvailable: Bool = (tier != .compact && viewModel.activeTab == .home)
+            let shouldShowRightPanel = !isMediaFocus && isRightSidebarVisible && isRightPanelAvailable
+            
+            let leftChrome = shouldShowLeftPanel ? (effectiveLeftWidth + dividerWidth) : 0
+            let rightChrome = shouldShowRightPanel ? (dividerWidth + rightPanelPadding) : 0
+            let maxRightAllowedByWorkspace = max(minRightSidebarWidth, totalWidth - leftChrome - rightChrome - minSafeWorkspaceWidth)
+            let effectiveMaxRightWidth = min(maxRightSidebarWidth, maxRightAllowedByWorkspace)
+            
+            let effectiveRightWidth: CGFloat = {
+                if !shouldShowRightPanel { return 0 }
+                return min(max(rightSidebarWidth, minRightSidebarWidth), effectiveMaxRightWidth)
+            }()
+            
+            ZStack(alignment: .topLeading) {
+                TTZipFluidBackgroundView(baseColor: TTZipTheme.bambooGreen)
+                    .frame(width: totalWidth, height: totalHeight)
+                    .allowsHitTesting(false)
+                
+                workspaceColumns(
+                    totalWidth: totalWidth,
+                    totalHeight: totalHeight,
+                    tier: tier,
+                    isMediaFocus: isMediaFocus,
+                    shouldShowLeftPanel: shouldShowLeftPanel,
+                    effectiveLeftWidth: effectiveLeftWidth,
+                    isIconRailMode: isIconRailMode,
+                    shouldShowRightPanel: shouldShowRightPanel,
+                    effectiveRightWidth: effectiveRightWidth,
+                    minSafeWorkspaceWidth: minSafeWorkspaceWidth,
+                    minRightSidebarWidth: minRightSidebarWidth,
+                    effectiveMaxRightWidth: effectiveMaxRightWidth
+                )
+                
+                if !isMediaFocus && viewModel.activeTab == .home {
+                    if !searchQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                        let omnibarMaxWidth = min(480.0, max(220.0, totalWidth - 280.0))
+                        HStack {
+                            Spacer()
+                            liquidGlassSearchResultsOverlay(maxWidth: omnibarMaxWidth)
+                            Spacer()
+                        }
+                        .frame(width: totalWidth, alignment: .top)
+                        .transition(.move(edge: .top).combined(with: .opacity))
+                        .zIndex(999)
+                    }
+                }
+            }
+            .frame(width: totalWidth, height: totalHeight, alignment: .topLeading)
+            .clipped()
+            .simultaneousGesture(TapGesture().onEnded { NSApp.keyWindow?.makeFirstResponder(nil) })
+            .onAppear {
+                let savedLeft = CGFloat(userLeftSidebarWidth)
+                if savedLeft <= SidebarGeometry.snapThreshold {
+                    self.leftSidebarWidth = SidebarGeometry.iconRailWidth
+                } else {
+                    self.leftSidebarWidth = min(max(savedLeft, SidebarGeometry.minExpandedWidth), SidebarGeometry.maxExpandedWidth)
+                }
+                self.rightSidebarWidth = min(max(CGFloat(userRightSidebarWidth), 200.0), 380.0)
+            }
+            .onChange(of: viewModel.selectedDiskItem) { _, _ in NSApp.keyWindow?.makeFirstResponder(nil) }
+            .onChange(of: viewModel.activeTab) { _, newTab in
+                NSApp.keyWindow?.makeFirstResponder(nil)
+                if newTab == .compressWorkspace {
+                    viewModel.showCompressModal = true
+                    viewModel.activeTab = .home
+                } else if newTab != .home {
+                    presentedSecondaryTool = newTab
+                    viewModel.activeTab = .home
+                }
+            }
+            .onChange(of: viewModel.currentDirectory) { _, _ in NSApp.keyWindow?.makeFirstResponder(nil) }
+        }
+    }
+    
+    @ViewBuilder
+    private func workspaceColumns(
+        totalWidth: CGFloat,
+        totalHeight: CGFloat,
+        tier: WindowLayoutTier,
+        isMediaFocus: Bool,
+        shouldShowLeftPanel: Bool,
+        effectiveLeftWidth: CGFloat,
+        isIconRailMode: Bool,
+        shouldShowRightPanel: Bool,
+        effectiveRightWidth: CGFloat,
+        minSafeWorkspaceWidth: CGFloat,
+        minRightSidebarWidth: CGFloat,
+        effectiveMaxRightWidth: CGFloat
+    ) -> some View {
+        HStack(alignment: .top, spacing: 0) {
+            if shouldShowLeftPanel {
+                FinderFavoritesSidebarView(
+                    currentDirectory: viewModel.currentDirectory,
+                    isIconRail: isIconRailMode,
+                    onSelectDirectory: { url in
+                        viewModel.currentDirectory = url
+                        viewModel.selectedDiskItem = nil
+                    }
+                )
+                .frame(width: effectiveLeftWidth, height: totalHeight, alignment: .topLeading)
+                .transition(.move(edge: .leading).combined(with: .opacity))
+                
+                if tier != .compact {
+                    ResizableDividerHandle(
+                        onDragStart: { initialLeftWidth = leftSidebarWidth },
+                        onDragChanged: { translation in
+                            let rawWidth = initialLeftWidth + translation
+                            if rawWidth < SidebarGeometry.snapThreshold {
+                                let underflow = SidebarGeometry.snapThreshold - rawWidth
+                                let damped = SidebarGeometry.snapThreshold - (underflow * 0.5)
+                                leftSidebarWidth = max(SidebarGeometry.iconRailWidth, damped)
+                            } else {
+                                leftSidebarWidth = min(SidebarGeometry.maxExpandedWidth, rawWidth)
+                            }
+                        },
+                        onDragEnd: {
+                            withAnimation(.spring(response: 0.28, dampingFraction: 0.82)) {
+                                if leftSidebarWidth <= SidebarGeometry.snapThreshold {
+                                    leftSidebarWidth = SidebarGeometry.iconRailWidth
+                                } else {
+                                    leftSidebarWidth = min(max(leftSidebarWidth, SidebarGeometry.minExpandedWidth), SidebarGeometry.maxExpandedWidth)
+                                }
+                            }
+                            NSHapticFeedbackManager.defaultPerformer.perform(.alignment, performanceTime: .default)
+                            userLeftSidebarWidth = Double(leftSidebarWidth)
+                        }
+                    )
+                    .frame(height: totalHeight)
+                    .transition(.opacity)
+                }
+            }
+            
+            detailArea
+                .frame(minWidth: isMediaFocus ? 0 : minSafeWorkspaceWidth, maxWidth: .infinity, maxHeight: totalHeight, alignment: .topLeading)
+            
+            if shouldShowRightPanel {
+                ResizableDividerHandle(
+                    onDragStart: { initialRightWidth = rightSidebarWidth },
+                    onDragChanged: { translation in
+                        let newWidth = initialRightWidth - translation
+                        rightSidebarWidth = min(max(newWidth, minRightSidebarWidth), effectiveMaxRightWidth)
+                    },
+                    onDragEnd: { userRightSidebarWidth = Double(rightSidebarWidth) }
+                )
+                .frame(height: totalHeight)
+                .transition(.opacity)
+                
+                RightInspectorSidePanel(viewModel: viewModel, rightVerticalTopHeight: $rightVerticalTopHeight)
+                    .frame(width: effectiveRightWidth, alignment: .topLeading)
+                    .padding(.top, TTZipTheme.Layout.topBarOffset)
+                    .padding(.leading, 4)
+                    .padding(.trailing, 10)
+                    .padding(.bottom, TTZipTheme.Spacing.md)
+                    .frame(maxHeight: totalHeight, alignment: .topLeading)
+                    .transition(.move(edge: .trailing).combined(with: .opacity))
+            }
+        }
+        .frame(width: totalWidth, height: totalHeight, alignment: .topLeading)
+        .clipped()
+    }
+    
+    @ViewBuilder
+    private var rootOverlays: some View {
+        if viewModel.showPasswordPrompt, let targetPath = viewModel.pendingEncryptedPath {
+            ZStack {
+                Color.black.opacity(0.45).ignoresSafeArea().onTapGesture { viewModel.cancelPasswordPrompt() }
+                PasswordPromptSheetView(
+                    archivePath: targetPath,
+                    onSubmitPassword: { pwd async in await viewModel.loadArchive(path: targetPath, password: pwd) },
+                    onCancel: { viewModel.cancelPasswordPrompt() }
+                )
+                .transition(.scale(scale: 0.95).combined(with: .opacity))
+            }
+            .animation(.spring(response: 0.28, dampingFraction: 0.85), value: viewModel.showPasswordPrompt)
+        }
+        
+        if viewModel.overlayState.showImmersiveMediaBrowser,
+           let item = viewModel.overlayState.immersiveMediaItem {
+            ImmersiveMediaBrowserView(
+                item: item,
+                onClose: {
+                    withAnimation(.spring(response: 0.28, dampingFraction: 0.85)) {
+                        viewModel.closeImmersiveMedia()
+                    }
+                },
+                onNavigatePrevious: viewModel.hasPreviousMedia ? {
+                    withAnimation(.easeInOut(duration: 0.2)) {
+                        viewModel.navigatePreviousMedia()
+                    }
+                } : nil,
+                onNavigateNext: viewModel.hasNextMedia ? {
+                    withAnimation(.easeInOut(duration: 0.2)) {
+                        viewModel.navigateNextMedia()
+                    }
+                } : nil
+            )
+            .transition(.opacity.combined(with: .scale(scale: 0.98)))
+            .zIndex(1000)
+        }
     }
 }

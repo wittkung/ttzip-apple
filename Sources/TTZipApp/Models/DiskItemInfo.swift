@@ -19,6 +19,7 @@ public struct DiskItemInfo: Identifiable, Hashable, Equatable, Sendable {
     public let isArchive: Bool
     public let sizeText: String
     public let rawSizeBytes: Int64
+    public var fileSizeBytes: Int64? { isDirectory ? nil : rawSizeBytes }
     public let creationDate: Date?
     public let modificationDate: Date?
     public let kindText: String

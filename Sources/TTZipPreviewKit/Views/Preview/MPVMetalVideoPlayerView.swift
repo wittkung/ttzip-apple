@@ -344,7 +344,16 @@ public struct MPVMetalVideoPlayerView: View {
     }
     
     private func toggleFullScreen() {
-        NotificationCenter.default.post(name: NSNotification.Name("TTZipToggleMediaFocusNotification"), object: nil)
+        let activeURL = store.currentURL ?? url
+        let userInfo: [String: Any] = [
+            "url": activeURL,
+            "name": activeURL.lastPathComponent
+        ]
+        NotificationCenter.default.post(
+            name: NSNotification.Name("TTZipToggleMediaFocusNotification"),
+            object: activeURL,
+            userInfo: userInfo
+        )
     }
     
     private func resetHideTimer() {
@@ -522,7 +531,11 @@ open class MPVMetalNSView: NSView {
         }
         // KeyCode 53 is ESC
         if event.keyCode == 53 {
-            NotificationCenter.default.post(name: NSNotification.Name("TTZipToggleMediaFocusNotification"), object: nil)
+            if let onToggleFullScreen = onToggleFullScreen {
+                onToggleFullScreen()
+            } else {
+                NotificationCenter.default.post(name: NSNotification.Name("TTZipToggleMediaFocusNotification"), object: nil)
+            }
             return
         }
         super.keyDown(with: event)

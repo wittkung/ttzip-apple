@@ -138,6 +138,14 @@ public final class AppViewState {
         get { overlayState.inspectingArchivePath }
         set { overlayState.inspectingArchivePath = newValue }
     }
+    public var showImmersiveMediaBrowser: Bool {
+        get { overlayState.showImmersiveMediaBrowser }
+        set { overlayState.showImmersiveMediaBrowser = newValue }
+    }
+    public var immersiveMediaItem: ImmersiveMediaItem? {
+        get { overlayState.immersiveMediaItem }
+        set { overlayState.immersiveMediaItem = newValue }
+    }
     
     public var recentArchives: [RecentArchiveRecord] = []
     
@@ -211,5 +219,110 @@ public final class AppViewState {
         for token in tokenStore.tokens {
             NotificationCenter.default.removeObserver(token)
         }
+    }
+    
+    // MARK: - Immersive Media Browser State Machine
+    
+    @MainActor
+    public func openImmersiveMedia(url: URL, name: String, fileSizeBytes: Int64? = nil) {
+        let size = fileSizeBytes ?? (try? url.resourceValues(forKeys: [.fileSizeKey]).fileSize).map { Int64($0) }
+        let item = ImmersiveMediaItem(url: url, name: name, fileSizeBytes: size)
+        overlayState.immersiveMediaItem = item
+        overlayState.showImmersiveMediaBrowser = true
+        
+        if url.isFileURL && FileManager.default.fileExists(atPath: url.path) {
+            self.selectedDiskItem = DiskItemInfo(url: url)
+        }
+    }
+    
+    @MainActor
+    public func closeImmersiveMedia() {
+        overlayState.showImmersiveMediaBrowser = false
+        overlayState.immersiveMediaItem = nil
+    }
+    
+    /// Collects previewable sibling items from the directory of the currently active immersive media item.
+    public func activeDirectoryMediaItems() -> [ImmersiveMediaItem] {
+        guard let currentItem = overlayState.immersiveMediaItem else { return [] }
+        
+        // If the URL is in-archive VFS or non-file scheme, query archive explorer entries
+        if !currentItem.url.isFileURL {
+            if !explorerState.currentEntries.isEmpty {
+                return explorerState.currentEntries.compactMap { entry in
+                    if entry.isDirectory { return nil }
+                    let ext = (entry.path as NSString).pathExtension.lowercased()
+                    if MediaPreviewFactory.archiveExtensions.contains(ext) { return nil }
+                    let vfsURL = URL(string: "\(TTZipVfsSchemeHandler.scheme)://entry/\(entry.path)") ?? currentItem.url
+                    return ImmersiveMediaItem(url: vfsURL, name: (entry.path as NSString).lastPathComponent, fileSizeBytes: Int64(entry.uncompressedSize))
+                }
+            }
+            return [currentItem]
+        }
+        
+        let parentDir = currentItem.url.deletingLastPathComponent()
+        guard let contents = try? FileManager.default.contentsOfDirectory(
+            at: parentDir,
+            includingPropertiesForKeys: [.fileSizeKey, .isDirectoryKey],
+            options: [.skipsHiddenFiles]
+        ) else {
+            return [currentItem]
+        }
+        
+        let mediaItems: [ImmersiveMediaItem] = contents.compactMap { url in
+            let res = try? url.resourceValues(forKeys: [.isDirectoryKey, .fileSizeKey])
+            if res?.isDirectory == true { return nil }
+            let ext = url.pathExtension.lowercased()
+            if MediaPreviewFactory.archiveExtensions.contains(ext) { return nil }
+            let size = res?.fileSize.map { Int64($0) }
+            return ImmersiveMediaItem(url: url, name: url.lastPathComponent, fileSizeBytes: size)
+        }.sorted { a, b in
+            NativeMicrokernelBridge.naturalCompare(a.name, b.name) == .orderedAscending
+        }
+        
+        return mediaItems.isEmpty ? [currentItem] : mediaItems
+    }
+    
+    public var hasPreviousMedia: Bool {
+        guard let current = overlayState.immersiveMediaItem else { return false }
+        let items = activeDirectoryMediaItems()
+        let currentCanonical = current.url.resolvingSymlinksInPath()
+        guard let idx = items.firstIndex(where: {
+            $0.url.resolvingSymlinksInPath() == currentCanonical || $0.name == current.name
+        }) else { return false }
+        return idx > 0
+    }
+    
+    public var hasNextMedia: Bool {
+        guard let current = overlayState.immersiveMediaItem else { return false }
+        let items = activeDirectoryMediaItems()
+        let currentCanonical = current.url.resolvingSymlinksInPath()
+        guard let idx = items.firstIndex(where: {
+            $0.url.resolvingSymlinksInPath() == currentCanonical || $0.name == current.name
+        }) else { return false }
+        return idx < items.count - 1
+    }
+    
+    @MainActor
+    public func navigatePreviousMedia() {
+        guard let current = overlayState.immersiveMediaItem else { return }
+        let items = activeDirectoryMediaItems()
+        let currentCanonical = current.url.resolvingSymlinksInPath()
+        guard let idx = items.firstIndex(where: {
+            $0.url.resolvingSymlinksInPath() == currentCanonical || $0.name == current.name
+        }), idx > 0 else { return }
+        let prev = items[idx - 1]
+        openImmersiveMedia(url: prev.url, name: prev.name, fileSizeBytes: prev.fileSizeBytes)
+    }
+    
+    @MainActor
+    public func navigateNextMedia() {
+        guard let current = overlayState.immersiveMediaItem else { return }
+        let items = activeDirectoryMediaItems()
+        let currentCanonical = current.url.resolvingSymlinksInPath()
+        guard let idx = items.firstIndex(where: {
+            $0.url.resolvingSymlinksInPath() == currentCanonical || $0.name == current.name
+        }), idx < items.count - 1 else { return }
+        let next = items[idx + 1]
+        openImmersiveMedia(url: next.url, name: next.name, fileSizeBytes: next.fileSizeBytes)
     }
 }

@@ -110,7 +110,14 @@ public struct RightInspectorSidePanel: View {
                             onCompressPath: { folderPath in
                                 viewModel.openCompressWorkspace(paths: [folderPath])
                             },
-                            onPreviewFile: { _ in }
+                            onPreviewFile: { filePath in
+                                let u = URL(fileURLWithPath: filePath)
+                                viewModel.openImmersiveMedia(
+                                    url: u,
+                                    name: u.lastPathComponent,
+                                    fileSizeBytes: item.fileSizeBytes
+                                )
+                            }
                         )
                         .id(item.path)
                         .frame(maxWidth: .infinity, maxHeight: .infinity)

@@ -50,20 +50,36 @@ public struct MediaPreviewView: View {
     }
 
     /// Determines whether the outer floating fullscreen capsule button should be displayed.
-    /// Media types with their own dedicated top navigation or control bars (Markdown, code, spreadsheets,
-    /// hex viewer, office presentations, etc.) suppress this outer overlay to prevent occluding their action controls.
+    /// Expanded to support images, PDFs, videos, web documents, Markdown, plain/code text,
+    /// spreadsheets, audio, ebooks, and office documents.
     private var showsFloatingFullScreenButton: Bool {
         switch previewType {
-        case .image, .pdf, .pdfData:
+        case .image, .pdf, .pdfData, .video, .htmlWeb, .markdown, .text, .spreadsheetTable, .audio,
+             .epubBook, .ebook, .docxDocument, .officeSpreadsheet, .officePresentation, .hexViewer:
             return true
-        default:
+        case .unsupported, .pluginView:
             return false
         }
     }
     
     private func toggleFullScreen() {
         isFullScreenActive.toggle()
-        NotificationCenter.default.post(name: NSNotification.Name("TTZipToggleMediaFocusNotification"), object: nil)
+        if let targetURL = effectiveFileURL ?? fileURL {
+            let userInfo: [String: Any] = [
+                "url": targetURL,
+                "name": fileName
+            ]
+            NotificationCenter.default.post(
+                name: NSNotification.Name("TTZipToggleMediaFocusNotification"),
+                object: targetURL,
+                userInfo: userInfo
+            )
+        } else {
+            NotificationCenter.default.post(
+                name: NSNotification.Name("TTZipToggleMediaFocusNotification"),
+                object: nil
+            )
+        }
     }
     
     public var body: some View {

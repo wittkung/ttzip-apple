@@ -19,6 +19,19 @@ public enum WindowLayoutMode: Sendable, Hashable {
     case mediaFocus
 }
 
+/// Strongly-typed immutable descriptor for an item displayed in the immersive media browser.
+public struct ImmersiveMediaItem: Sendable, Hashable {
+    public let url: URL
+    public let name: String
+    public let fileSizeBytes: Int64?
+    
+    public init(url: URL, name: String, fileSizeBytes: Int64? = nil) {
+        self.url = url
+        self.name = name
+        self.fileSizeBytes = fileSizeBytes
+    }
+}
+
 extension NSNotification.Name {
     public static let ttzipToggleMediaFocus = NSNotification.Name("TTZipToggleMediaFocusNotification")
 }
@@ -106,6 +119,10 @@ public final class OverlayState {
     // Archive Inspector & Diagnostics
     public var showArchiveInspectorModal: Bool = false
     public var inspectingArchivePath: String? = nil
+    
+    // Immersive Fullscreen Media Browser
+    public var showImmersiveMediaBrowser: Bool = false
+    public var immersiveMediaItem: ImmersiveMediaItem? = nil
     
     public init() {}
 }
