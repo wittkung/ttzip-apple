@@ -293,6 +293,18 @@ public enum TTZipTheme {
     }
 }
 
+// MARK: - Zen Theme Surface Tokens
+
+/// Zen Theme surface tokens and high-precision color standards conforming to WSJ Editorial and Kintsugi Gold specifications.
+public enum TTZipZenTheme {
+    public enum Surface {
+        /// Dynamic Kintsugi Gold leaf accent for floating palettes, keylines, and dividers.
+        public static let goldLeaf = TTZipTheme.kintsugiGold
+        /// Subtle specular hairline border for floating sheets and popovers.
+        public static let specularBorder = Color.primary.opacity(0.12)
+    }
+}
+
 // MARK: - 5. Surface ViewModifier
 
 public struct MUJIPaperCardModifier: ViewModifier {

@@ -26,11 +26,29 @@ public final class OmniSearchEngine: ObservableObject {
         }
     }
 
+    /// Canonical algebraic state representing the single source of truth for the Omnibar.
+    @Published public private(set) var state: OmniEngineState = .idleWithRecommendations(categories: [])
+
     /// Categorized search results grouped by category.
     @Published public private(set) var categorizedResults: [OmniSearchCategory: [OmniSearchItem]] = [:]
 
     /// Flat ordered results list optimized for arrow-key keyboard navigation.
     @Published public private(set) var flatResults: [OmniSearchItem] = []
+
+    /// Public alias for flatResults representing all items currently displayed in the palette.
+    public var items: [OmniSearchItem] { flatResults }
+
+    /// Strongly-typed categorized sections derived from the active state.
+    public var sections: [OmniSection] { state.sections }
+
+    /// Currently selected search item, defaulting to the first item in flat results.
+    @Published public private(set) var selectedItem: OmniSearchItem?
+
+    /// Currently selected index within flatResults with automatic bounds clamping.
+    @Published public private(set) var selectedIndex: Int = 0
+
+    /// Cached default recommendations for fast reset and zero-latency fallback.
+    public private(set) var defaultRecommendations: [OmniSection] = []
 
     /// Active debouncing task for responsive, zero-frame-drop keystroke handling.
     private var debounceTask: Task<Void, Never>?
@@ -58,7 +76,62 @@ public final class OmniSearchEngine: ObservableObject {
     public init() {
         self.builtInCommands = Self.createBuiltInCommands()
         bindSpotlightStream()
+        bindAppCatalogStream()
         executeSearch(query: "", directory: currentDirectory)
+    }
+
+    /// Binds application catalog changes to refresh default recommendations when query is empty.
+    private func bindAppCatalogStream() {
+        AppCatalogService.shared.$apps
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in
+                guard let self = self, self.query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+                self.executeUniversalSearch(query: "", directory: self.currentDirectory)
+            }
+            .store(in: &cancellables)
+    }
+
+    /// Selects the item at the specified index with automatic boundary clamping.
+    public func selectIndex(_ index: Int) {
+        guard !flatResults.isEmpty else {
+            selectedItem = nil
+            selectedIndex = 0
+            return
+        }
+        let clamped = max(0, min(index, flatResults.count - 1))
+        selectedIndex = clamped
+        selectedItem = flatResults[clamped]
+    }
+
+    /// Clamps selectedIndex and selectedItem within valid bounds of flatResults.
+    private func clampSelection() {
+        guard !flatResults.isEmpty else {
+            selectedItem = nil
+            selectedIndex = 0
+            return
+        }
+
+        if let current = selectedItem, let idx = flatResults.firstIndex(where: { $0.id == current.id }) {
+            selectedIndex = idx
+        } else {
+            let clamped = max(0, min(selectedIndex, flatResults.count - 1))
+            selectedIndex = clamped
+            selectedItem = flatResults[clamped]
+        }
+    }
+
+    /// Strips null bytes, limits maximum query length, and normalizes input.
+    private func sanitizeQuery(_ raw: String) -> String {
+        let stripped = raw.replacingOccurrences(of: "\0", with: "")
+        if stripped.count > 1000 {
+            return String(stripped.prefix(1000))
+        }
+        return stripped
+    }
+
+    /// Explicitly transitions the state machine to an unrecoverable failure state.
+    public func reportFailure(description: String) {
+        self.state = .failure(errorDescription: description)
     }
 
     /// Binds asynchronous Spotlight results into the file category when appropriate.
@@ -85,24 +158,38 @@ public final class OmniSearchEngine: ObservableObject {
     private func scheduleDebouncedSearch() {
         debounceTask?.cancel()
 
-        let currentQuery = self.query
+        let sanitized = sanitizeQuery(self.query)
+        let trimmed = sanitized.trimmingCharacters(in: .whitespacesAndNewlines)
         let currentDir = self.currentDirectory
 
-        if currentQuery.isEmpty {
+        if trimmed.isEmpty {
             executeSearch(query: "", directory: currentDir)
             return
         }
 
+        // Enter debouncing state
+        self.state = .typingDebounce(query: sanitized)
+
         debounceTask = Task { [weak self] in
             try? await Task.sleep(nanoseconds: 80_000_000)
             guard !Task.isCancelled else { return }
-            self?.executeSearch(query: currentQuery, directory: currentDir)
+            self?.executeSearch(query: sanitized, directory: currentDir)
         }
     }
 
     /// Executes search across applications, paths, actions, and disk items.
     private func executeSearch(query: String, directory: URL) {
-        let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        let sanitized = sanitizeQuery(query)
+        let trimmed = sanitized.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        if trimmed.isEmpty {
+            populateDefaultRecommendations(directory: directory)
+            spotlightService.cancelSearch()
+            return
+        }
+
+        // Enter searching state
+        self.state = .searching(query: sanitized)
 
         if trimmed.hasPrefix(">") {
             executeCommandSearch(query: trimmed, directory: directory)
@@ -129,8 +216,18 @@ public final class OmniSearchEngine: ObservableObject {
         let commandQuery = String(query.dropFirst()).trimmingCharacters(in: .whitespaces)
         let matchingCommands = filterCommands(query: commandQuery, directory: directory)
 
-        categorizedResults = [.commands: matchingCommands]
-        flatResults = matchingCommands
+        if matchingCommands.isEmpty {
+            categorizedResults = [:]
+            flatResults = []
+            clampSelection()
+            self.state = .noMatches(query: query)
+        } else {
+            let section = OmniSection(category: .commands, items: matchingCommands)
+            categorizedResults = [.commands: matchingCommands]
+            flatResults = matchingCommands
+            clampSelection()
+            self.state = .populated(query: query, results: [section])
+        }
     }
 
     /// Handles filesystem path lookahead and auto-completion.
@@ -140,33 +237,197 @@ public final class OmniSearchEngine: ObservableObject {
         let (dirs, files) = resolvePathCandidates(query: query, baseDirectory: directory)
 
         var dict: [OmniSearchCategory: [OmniSearchItem]] = [:]
-        if !dirs.isEmpty { dict[.directories] = dirs }
-        if !files.isEmpty { dict[.files] = files }
+        var sections: [OmniSection] = []
+
+        if !dirs.isEmpty {
+            dict[.directories] = dirs
+            sections.append(OmniSection(category: .directories, items: dirs))
+        }
+        if !files.isEmpty {
+            dict[.files] = files
+            sections.append(OmniSection(category: .files, items: files))
+        }
 
         categorizedResults = dict
         flatResults = dirs + files
+        clampSelection()
+
+        if sections.isEmpty {
+            self.state = .noMatches(query: query)
+        } else {
+            self.state = .populated(query: query, results: sections)
+        }
     }
 
     /// Handles universal fuzzy aggregation across apps, commands, current directory, and Spotlight.
     private func executeUniversalSearch(query: String, directory: URL) {
+        if query.isEmpty {
+            populateDefaultRecommendations(directory: directory)
+            spotlightService.cancelSearch()
+            return
+        }
+
         let apps = AppCatalogService.shared.searchApps(query: query)
-        let commands = query.isEmpty ? [] : filterCommands(query: query, directory: directory)
+        let commands = filterCommands(query: query, directory: directory)
         let (dirs, files) = searchCurrentDirectory(query: query, directory: directory)
 
         var dict: [OmniSearchCategory: [OmniSearchItem]] = [:]
-        if !apps.isEmpty { dict[.applications] = apps }
-        if !commands.isEmpty { dict[.commands] = commands }
-        if !dirs.isEmpty { dict[.directories] = dirs }
-        if !files.isEmpty { dict[.files] = files }
+        var sections: [OmniSection] = []
+
+        if !apps.isEmpty {
+            dict[.applications] = apps
+            sections.append(OmniSection(category: .applications, items: apps))
+        }
+        if !commands.isEmpty {
+            dict[.commands] = commands
+            sections.append(OmniSection(category: .commands, items: commands))
+        }
+        if !dirs.isEmpty {
+            dict[.directories] = dirs
+            sections.append(OmniSection(category: .directories, items: dirs))
+        }
+        if !files.isEmpty {
+            dict[.files] = files
+            sections.append(OmniSection(category: .files, items: files))
+        }
 
         categorizedResults = dict
         rebuildFlatResults()
 
-        if !query.isEmpty {
-            spotlightService.performSearch(query: query, searchDirectory: directory.path)
+        if sections.isEmpty {
+            self.state = .noMatches(query: query)
         } else {
-            spotlightService.cancelSearch()
+            self.state = .populated(query: query, results: sections)
         }
+
+        spotlightService.performSearch(query: query, searchDirectory: directory.path)
+    }
+
+    /// Populates rich default recommendations across top applications, quick commands, and common directories.
+    private func populateDefaultRecommendations(directory: URL) {
+        var dict: [OmniSearchCategory: [OmniSearchItem]] = [:]
+        var sections: [OmniSection] = []
+
+        let topApps = resolveTopApplications()
+        if !topApps.isEmpty {
+            dict[.applications] = topApps
+            sections.append(OmniSection(category: .applications, items: topApps))
+        }
+
+        let quickCommands = resolveQuickCommands(directory: directory)
+        if !quickCommands.isEmpty {
+            dict[.commands] = quickCommands
+            sections.append(OmniSection(category: .commands, items: quickCommands))
+        }
+
+        let commonDirs = resolveCommonDirectories()
+        if !commonDirs.isEmpty {
+            dict[.directories] = commonDirs
+            sections.append(OmniSection(category: .directories, items: commonDirs))
+        }
+
+        categorizedResults = dict
+        rebuildFlatResults()
+
+        self.defaultRecommendations = sections
+        self.state = .idleWithRecommendations(categories: sections)
+    }
+
+    /// Resolves top applications from the catalog or standard system locations.
+    private func resolveTopApplications() -> [OmniSearchItem] {
+        let catalogApps = AppCatalogService.shared.installedApps
+        if !catalogApps.isEmpty {
+            let prioritizedNames: [String] = ["Safari", "Terminal", "Finder", "Visual Studio Code", "Notes"]
+            var prioritized: [OmniSearchItem] = []
+            var others: [OmniSearchItem] = []
+
+            for app in catalogApps {
+                guard let item = AppCatalogService.shared.searchApps(query: app.displayName).first else { continue }
+                if prioritizedNames.contains(where: { app.displayName.localizedCaseInsensitiveContains($0) }) {
+                    if !prioritized.contains(where: { $0.id == item.id }) {
+                        prioritized.append(item)
+                    }
+                } else {
+                    if !others.contains(where: { $0.id == item.id }) {
+                        others.append(item)
+                    }
+                }
+            }
+
+            let combined = prioritized + others
+            if !combined.isEmpty {
+                return Array(combined.prefix(4))
+            }
+        }
+        return Array(Self.discoverCommonFallbackApps().prefix(4))
+    }
+
+    /// Discovers common fallback applications installed in standard macOS system directories.
+    private static func discoverCommonFallbackApps() -> [OmniSearchItem] {
+        let candidates: [(name: String, path: String)] = [
+            ("Safari", "/System/Applications/Safari.app"),
+            ("Terminal", "/System/Applications/Utilities/Terminal.app"),
+            ("Finder", "/System/Library/CoreServices/Finder.app"),
+            ("Notes", "/System/Applications/Notes.app"),
+            ("Visual Studio Code", "/Applications/Visual Studio Code.app")
+        ]
+
+        var items: [OmniSearchItem] = []
+        for c in candidates {
+            if FileManager.default.fileExists(atPath: c.path) {
+                let url = URL(fileURLWithPath: c.path)
+                let icon = AppCatalogService.shared.icon(forPath: c.path)
+                let prettyPath = c.path.replacingOccurrences(of: NSHomeDirectory(), with: "~")
+                items.append(OmniSearchItem(
+                    id: "app:\(c.path)",
+                    category: .applications,
+                    title: c.name,
+                    subtitle: prettyPath,
+                    systemIcon: "app.fill",
+                    customIcon: icon,
+                    shortcutHint: "⏎ 打开",
+                    payload: .application(url)
+                ))
+            }
+        }
+        return items
+    }
+
+    /// Resolves default quick operational commands for empty query state.
+    private func resolveQuickCommands(directory: URL) -> [OmniSearchItem] {
+        let targetIds: [String] = ["new_archive", "reveal_finder", "open_terminal", "toggle_hidden"]
+        let matched = builtInCommands.filter { targetIds.contains($0.id) }
+        return matched.map { cmd in
+            makeCommandItem(cmd, directory: directory)
+        }
+    }
+
+    /// Resolves common user directories (Downloads, Documents, Home).
+    private func resolveCommonDirectories() -> [OmniSearchItem] {
+        let home = URL(fileURLWithPath: NSHomeDirectory())
+        let candidates: [(name: String, url: URL, icon: String)] = [
+            ("Downloads", home.appendingPathComponent("Downloads"), "arrow.down.circle.fill"),
+            ("Documents", home.appendingPathComponent("Documents"), "doc.fill"),
+            ("Home (~)", home, "house.fill"),
+            ("Desktop", home.appendingPathComponent("Desktop"), "desktopcomputer")
+        ]
+
+        var results: [OmniSearchItem] = []
+        for c in candidates {
+            if FileManager.default.fileExists(atPath: c.url.path) {
+                let prettyPath = c.url.path.replacingOccurrences(of: NSHomeDirectory(), with: "~")
+                results.append(OmniSearchItem(
+                    id: "dir:\(c.url.path)",
+                    category: .directories,
+                    title: c.name,
+                    subtitle: prettyPath,
+                    systemIcon: c.icon,
+                    shortcutHint: "⏎ 进入",
+                    payload: .directory(c.url)
+                ))
+            }
+        }
+        return results
     }
 
     /// Merges asynchronous Spotlight search results into the file list.
@@ -204,6 +465,22 @@ public final class OmniSearchEngine: ObservableObject {
         if !fileItems.isEmpty {
             categorizedResults[.files] = fileItems
             rebuildFlatResults()
+
+            // Synchronize state with updated spotlight results
+            var updatedSections: [OmniSection] = []
+            if let apps = categorizedResults[.applications], !apps.isEmpty {
+                updatedSections.append(OmniSection(category: .applications, items: apps))
+            }
+            if let commands = categorizedResults[.commands], !commands.isEmpty {
+                updatedSections.append(OmniSection(category: .commands, items: commands))
+            }
+            if let dirs = categorizedResults[.directories], !dirs.isEmpty {
+                updatedSections.append(OmniSection(category: .directories, items: dirs))
+            }
+            if !fileItems.isEmpty {
+                updatedSections.append(OmniSection(category: .files, items: fileItems))
+            }
+            self.state = .populated(query: trimmed, results: updatedSections)
         }
     }
 
@@ -211,6 +488,7 @@ public final class OmniSearchEngine: ObservableObject {
     private func rebuildFlatResults() {
         if query.trimmingCharacters(in: .whitespacesAndNewlines).hasPrefix(">") {
             flatResults = categorizedResults[.commands] ?? []
+            clampSelection()
             return
         }
 
@@ -220,6 +498,7 @@ public final class OmniSearchEngine: ObservableObject {
         if let dirs = categorizedResults[.directories] { flat.append(contentsOf: dirs) }
         if let files = categorizedResults[.files] { flat.append(contentsOf: files) }
         self.flatResults = flat
+        clampSelection()
     }
 
     /// Resolves child directories and files along a path prefix.

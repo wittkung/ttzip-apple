@@ -96,6 +96,7 @@ public enum MediaPreviewType {
     case ebook(EBookMetadata)
     case hexViewer(Data, URL?)
     case markdown(String, URL?)
+    case htmlWeb(content: String, fileURL: URL?)
     case spreadsheetTable(String, URL?)
     case officeSpreadsheet(OfficeSpreadsheetWorkbook)
     case officePresentation(OfficePresentationModel)
@@ -109,6 +110,11 @@ public enum MediaPreviewType {
     /// Convenience helper for .markdown
     public static func markdownDoc(_ text: String, _ url: URL? = nil) -> MediaPreviewType {
         .markdown(text, url)
+    }
+    
+    /// Convenience helper for .htmlWeb
+    public static func htmlDoc(_ content: String, _ url: URL? = nil) -> MediaPreviewType {
+        .htmlWeb(content: content, fileURL: url)
     }
     
     /// Convenience helper for .spreadsheetTable

@@ -21,7 +21,8 @@ extension MediaPreviewFactory {
         type: MediaPreviewType,
         fileName: String,
         fileURL: URL?,
-        isFullScreenActive: Bool = false
+        isFullScreenActive: Bool = false,
+        onSave: ((String) -> Void)? = nil
     ) -> some View {
         if let fileURL = fileURL,
            let provider = TTZipPluginRegistry.shared.previewProviders.first(where: { $0.canPreview(fileURL: fileURL) }) {
@@ -74,6 +75,15 @@ extension MediaPreviewFactory {
             case .markdown(let markdownText, let targetURL):
                 MarkdownRichPreviewView(initialMarkdown: markdownText, fileURL: targetURL ?? fileURL, fileName: fileName)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
+                
+            case .htmlWeb(let content, let targetURL):
+                HTMLWebRichPreviewView(
+                    content: content,
+                    fileURL: targetURL ?? fileURL,
+                    fileName: fileName,
+                    onSave: onSave
+                )
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
                 
             case .spreadsheetTable(let csvContent, let targetURL):
                 SpreadsheetTablePreviewView(initialContent: csvContent, fileURL: targetURL ?? fileURL, fileName: fileName)

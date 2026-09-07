@@ -27,11 +27,11 @@ public struct UniversalOmniPaletteView: View {
 
     // MARK: - Constants
 
-    private let minPaletteWidth: CGFloat = 460.0
-    private let maxPaletteWidth: CGFloat = 640.0
-    private let maxPaletteHeight: CGFloat = 380.0
+    private let paletteWidth: CGFloat = 580.0
+    private let minPaletteHeight: CGFloat = 280.0
+    private let maxPaletteHeight: CGFloat = 420.0
     private let rowHeight: CGFloat = 35.0
-    private let footerHeight: CGFloat = 22.0
+    private let footerHeight: CGFloat = 26.0
 
     // MARK: - Initialization
 
@@ -52,15 +52,17 @@ public struct UniversalOmniPaletteView: View {
     public var body: some View {
         VStack(spacing: 0) {
             resultsScrollView
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
             paletteFooter
         }
-        .frame(minWidth: minPaletteWidth, maxWidth: maxPaletteWidth)
-        .frame(maxHeight: maxPaletteHeight)
+        .frame(width: paletteWidth)
+        .frame(minHeight: minPaletteHeight, maxHeight: maxPaletteHeight)
         .background(paletteBackground)
         .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
         .overlay(paletteBorder)
-        .shadow(color: Color.black.opacity(0.22), radius: 24, x: 0, y: 12)
-        .shadow(color: Color.black.opacity(0.08), radius: 6, x: 0, y: 3)
+        .shadow(color: Color.black.opacity(0.3), radius: 24, x: 0, y: 12)
+        .shadow(color: Color.black.opacity(0.08), radius: 6, x: 0, y: 2)
+        .zIndex(999)
     }
 
     // MARK: - Results List
@@ -118,12 +120,12 @@ public struct UniversalOmniPaletteView: View {
     private func sectionHeader(for category: OmniSearchCategory) -> some View {
         HStack(spacing: 6) {
             Text(categoryHeaderBadge(for: category))
-                .font(.system(size: 10))
+                .font(.system(size: 11))
 
-            Text(categoryHeaderTitle(for: category).uppercased())
-                .font(.system(size: 9, weight: .bold, design: .serif))
-                .tracking(1.5)
-                .foregroundStyle(TTZipTheme.kintsugiGold)
+            Text(categoryHeaderTitle(for: category))
+                .font(.system(size: 10, weight: .bold, design: .serif))
+                .tracking(1.0)
+                .foregroundStyle(TTZipZenTheme.Surface.goldLeaf)
 
             Spacer()
         }
@@ -139,11 +141,16 @@ public struct UniversalOmniPaletteView: View {
     }
 
     private func categoryHeaderTitle(for category: OmniSearchCategory) -> String {
+        let isEmptyQuery = engine.query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
         switch category {
-        case .applications: return "Applications"
-        case .commands:     return "Commands"
-        case .directories:  return "Directories"
-        case .files:        return "Files"
+        case .applications:
+            return isEmptyQuery ? "常用应用 (Applications)" : "Applications"
+        case .commands:
+            return isEmptyQuery ? "快速指令 (Commands)" : "Commands"
+        case .directories:
+            return isEmptyQuery ? "快捷目录 (Directories)" : "Directories"
+        case .files:
+            return isEmptyQuery ? "最近文件 (Files)" : "Files"
         }
     }
 
@@ -335,12 +342,12 @@ public struct UniversalOmniPaletteView: View {
             Spacer()
         }
         .font(.system(size: 10, weight: .medium, design: .monospaced))
-        .foregroundStyle(Color.secondary.opacity(0.75))
+        .foregroundStyle(Color.secondary.opacity(0.85))
         .frame(height: footerHeight)
-        .background(Color.primary.opacity(0.02))
+        .background(Color(nsColor: .windowBackgroundColor).opacity(0.75))
         .overlay(
             Rectangle()
-                .fill(Color.primary.opacity(0.08))
+                .fill(TTZipZenTheme.Surface.goldLeaf.opacity(0.18))
                 .frame(height: 0.5),
             alignment: .top
         )
@@ -351,13 +358,13 @@ public struct UniversalOmniPaletteView: View {
     private var paletteBackground: some View {
         ZStack {
             Rectangle().fill(.ultraThinMaterial)
-            Color(nsColor: .windowBackgroundColor).opacity(0.85)
+            Color(nsColor: .windowBackgroundColor).opacity(0.92)
         }
     }
 
     private var paletteBorder: some View {
         RoundedRectangle(cornerRadius: 12, style: .continuous)
-            .stroke(Color.primary.opacity(0.12), lineWidth: 0.5)
+            .stroke(TTZipZenTheme.Surface.goldLeaf.opacity(0.2), lineWidth: 1.0)
     }
 
     // MARK: - Helpers

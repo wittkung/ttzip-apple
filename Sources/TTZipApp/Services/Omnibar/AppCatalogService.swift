@@ -32,6 +32,9 @@ public final class AppCatalogService: ObservableObject {
     /// List of indexed applications.
     @Published public private(set) var apps: [AppEntry] = []
 
+    /// Public alias for indexed applications.
+    public var installedApps: [AppEntry] { apps }
+
     /// High-resolution icon cache keyed by file path.
     private var iconCache: [String: NSImage] = [:]
 

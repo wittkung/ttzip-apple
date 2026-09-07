@@ -14,7 +14,7 @@ import TTZipPreviewKit
 import TTZipBenchmarkKit
 
 public struct InspectorColumnView: View {
-    public let item: DiskItemInfo
+    public let item: DiskItemInfo?
     public let onSelectArchive: (String) -> Void
     public let onCompressPath: (String) -> Void
     public let onPreviewFile: (String) -> Void
@@ -25,7 +25,7 @@ public struct InspectorColumnView: View {
     @State var showDetailedMetadataPopover: Bool = false
     
     public init(
-        item: DiskItemInfo,
+        item: DiskItemInfo? = nil,
         onSelectArchive: @escaping (String) -> Void,
         onCompressPath: @escaping (String) -> Void,
         onPreviewFile: @escaping (String) -> Void
@@ -37,6 +37,7 @@ public struct InspectorColumnView: View {
     }
     
     var isVirtualItem: Bool {
+        guard let item = item else { return false }
         if let u = URL(string: item.path), let q = u.query, q.contains("subpath=") {
             return true
         }
@@ -50,6 +51,7 @@ public struct InspectorColumnView: View {
         if isVirtualItem {
             return nil
         }
+        guard let item = item else { return nil }
         if let url = URL(string: item.path), url.scheme != nil {
             return url
         }
@@ -57,7 +59,7 @@ public struct InspectorColumnView: View {
     }
     
     var effectiveModificationDate: Date? {
-        if let d = item.modificationDate {
+        if let d = item?.modificationDate {
             return d
         }
         guard let targetPath = effectivePreviewURL?.path else { return nil }
@@ -68,31 +70,40 @@ public struct InspectorColumnView: View {
         return nil
     }
     
+    @ViewBuilder
     public var body: some View {
         Group {
-            if item.isDirectory {
-                FolderMediaArtboardView(
-                    item: item,
-                    onCompressPath: onCompressPath
-                )
-                .id(item.path)
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-            } else {
-                VStack(spacing: 0) {
-                    fileHeaderBar
-                    
-                    Divider()
-                    
-                    MediaPreviewView(
-                        fileURL: effectivePreviewURL,
-                        fileName: item.name
+            if let item = item {
+                if item.isDirectory {
+                    FolderMediaArtboardView(
+                        item: item,
+                        onCompressPath: onCompressPath
                     )
+                    .id(item.path)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
+                } else {
+                    VStack(spacing: 0) {
+                        fileHeaderBar(for: item)
+                        
+                        Divider()
+                        
+                        MediaPreviewView(
+                            fileURL: effectivePreviewURL,
+                            fileName: item.name
+                        )
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    }
                 }
+            } else {
+                zenPlaceholderView
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .task(id: item.path) {
+        .task(id: item?.path) {
+            guard item != nil else {
+                self.deepMetadataDict = [:]
+                return
+            }
             if let url = effectivePreviewURL, FileManager.default.fileExists(atPath: url.path) {
                 let targetURL = url
                 let meta = await withTaskGroup(of: [String: String]?.self) { group in
@@ -120,9 +131,10 @@ public struct InspectorColumnView: View {
                 self.deepMetadataDict = [:]
             }
         }
-        .task(id: item.path) {
+        .task(id: item?.path) {
             self.localPreviewURL = nil
             self.asyncDimensions = nil
+            guard let item = item else { return }
             
             var realArchivePath = ""
             var subpath = ""
@@ -215,20 +227,21 @@ public struct InspectorColumnView: View {
     
     // MARK: - Header Bar
     
-    private var fileHeaderBar: some View {
+    @ViewBuilder
+    private func fileHeaderBar(for targetItem: DiskItemInfo) -> some View {
         HStack(alignment: .center, spacing: 8) {
             ZStack {
                 RoundedRectangle(cornerRadius: 7, style: .continuous)
-                    .fill(itemIconGradient(for: item))
+                    .fill(itemIconGradient(for: targetItem))
                     .frame(width: 28, height: 28)
-                Image(systemName: itemIconName(for: item))
+                Image(systemName: itemIconName(for: targetItem))
                     .font(.system(size: 13, weight: .semibold))
                     .foregroundStyle(.white)
             }
             
             VStack(alignment: .leading, spacing: 1) {
                 HStack(spacing: 4) {
-                    Text(item.name)
+                    Text(targetItem.name)
                         .font(.system(size: 12.5, weight: .semibold))
                         .foregroundStyle(.primary)
                         .lineLimit(1)
@@ -242,46 +255,43 @@ public struct InspectorColumnView: View {
                     }
                     .buttonStyle(.plain)
                     .popover(isPresented: $showDetailedMetadataPopover, arrowEdge: .bottom) {
-                        detailedMetadataPopoverContent
+                        detailedMetadataPopoverContent(for: targetItem)
                     }
                 }
                 
-                ViewThatFits(in: .horizontal) {
-                    HStack(spacing: 3) {
-                        Text(item.kindText)
-                            .font(.system(size: 10, weight: .medium))
-                            .foregroundStyle(.secondary)
-                            .lineLimit(1)
-                        Text("·")
-                            .font(.system(size: 10))
-                            .foregroundStyle(.tertiary)
-                            .lineLimit(1)
-                        Text(item.sizeText)
-                            .font(.system(size: 10, weight: .medium, design: .monospaced))
-                            .foregroundStyle(.secondary)
-                            .lineLimit(1)
-                        if let dims = asyncDimensions {
-                            Text("·")
-                                .font(.system(size: 10))
-                                .foregroundStyle(.tertiary)
-                                .lineLimit(1)
-                            Text(dims)
-                                .font(.system(size: 10, weight: .medium, design: .monospaced))
-                                .foregroundStyle(TTZipTheme.bambooGreen)
-                                .lineLimit(1)
-                        }
-                    }
-                    .lineLimit(1)
-                    
-                    Text(item.sizeText)
-                        .font(.system(size: 9.5, weight: .medium, design: .monospaced))
+                HStack(spacing: 6) {
+                    Text(targetItem.sizeText)
+                        .font(.system(size: 10, design: .monospaced))
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
+                    
+                    Text("•")
+                        .font(.system(size: 8))
+                        .foregroundStyle(.tertiary)
+                    
+                    Text(targetItem.kindText)
+                        .font(.system(size: 10))
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                    
+                    if let dims = asyncDimensions {
+                        Text("•")
+                            .font(.system(size: 8))
+                            .foregroundStyle(.tertiary)
+                        
+                        Text(dims)
+                            .font(.system(size: 10, design: .monospaced))
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                    }
                 }
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             
-            actionButtonsGroup
+            actionButtonsGroup(for: targetItem)
+                .layoutPriority(2)
+                .fixedSize(horizontal: true, vertical: false)
                 .padding(.trailing, 20)
         }
         .padding(.leading, 20)
@@ -291,11 +301,12 @@ public struct InspectorColumnView: View {
     
     // MARK: - Action Buttons
     
-    private var actionButtonsGroup: some View {
+    @ViewBuilder
+    private func actionButtonsGroup(for targetItem: DiskItemInfo) -> some View {
         ViewThatFits(in: .horizontal) {
             HStack(spacing: 6) {
                 Button(action: {
-                    let targetPath = effectivePreviewURL?.path ?? item.path
+                    let targetPath = effectivePreviewURL?.path ?? targetItem.path
                     NSWorkspace.shared.selectFile(targetPath, inFileViewerRootedAtPath: "")
                 }) {
                     HStack(spacing: 3) {
@@ -309,34 +320,35 @@ public struct InspectorColumnView: View {
                     .padding(.horizontal, 8)
                     .padding(.vertical, 4)
                     .background(TTZipTheme.bambooGreen.opacity(0.08))
-                    .clipShape(Capsule())
+                    .clipShape(RoundedRectangle(cornerRadius: 5, style: .continuous))
                 }
                 .buttonStyle(.plain)
                 .help("Reveal in Finder")
                 
                 Button(action: {
-                    if item.isArchive { onSelectArchive(item.path) } else { onCompressPath(item.path) }
+                    if targetItem.isArchive { onSelectArchive(targetItem.path) } else { onCompressPath(targetItem.path) }
                 }) {
                     HStack(spacing: 3) {
-                        Image(systemName: item.isArchive ? "arrow.down.doc" : "archivebox").font(.system(size: 10))
-                        Text(item.isArchive ? "Extract" : "Compress")
-                            .font(.system(size: 11, weight: .semibold))
+                        Image(systemName: targetItem.isArchive ? "arrow.down.doc" : "archivebox")
+                            .font(.system(size: 10, weight: .semibold))
+                        Text(targetItem.isArchive ? "Extract" : "Compress")
+                            .font(.system(size: 11, weight: .medium))
                             .lineLimit(1)
                             .fixedSize(horizontal: true, vertical: false)
                     }
                     .foregroundStyle(TTZipTheme.bambooGreen)
-                    .padding(.horizontal, 9)
+                    .padding(.horizontal, 8)
                     .padding(.vertical, 4)
                     .background(TTZipTheme.bambooGreen.opacity(0.12))
-                    .clipShape(Capsule())
+                    .clipShape(RoundedRectangle(cornerRadius: 5, style: .continuous))
                 }
                 .buttonStyle(.plain)
-                .help(item.isArchive ? "Extract and view contents" : "New archive")
+                .help(targetItem.isArchive ? "Extract and view contents" : "New archive")
             }
             
             HStack(spacing: 6) {
                 Button(action: {
-                    let targetPath = effectivePreviewURL?.path ?? item.path
+                    let targetPath = effectivePreviewURL?.path ?? targetItem.path
                     NSWorkspace.shared.selectFile(targetPath, inFileViewerRootedAtPath: "")
                 }) {
                     Image(systemName: "folder")
@@ -350,9 +362,9 @@ public struct InspectorColumnView: View {
                 .help("Reveal in Finder")
                 
                 Button(action: {
-                    if item.isArchive { onSelectArchive(item.path) } else { onCompressPath(item.path) }
+                    if targetItem.isArchive { onSelectArchive(targetItem.path) } else { onCompressPath(targetItem.path) }
                 }) {
-                    Image(systemName: item.isArchive ? "arrow.down.doc" : "archivebox")
+                    Image(systemName: targetItem.isArchive ? "arrow.down.doc" : "archivebox")
                         .font(.system(size: 11, weight: .semibold))
                         .foregroundStyle(TTZipTheme.bambooGreen)
                         .padding(5.5)
@@ -360,8 +372,43 @@ public struct InspectorColumnView: View {
                         .clipShape(Circle())
                 }
                 .buttonStyle(.plain)
-                .help(item.isArchive ? "Extract and view contents" : "New archive")
+                .help(targetItem.isArchive ? "Extract and view contents" : "New archive")
             }
         }
+    }
+    
+    // MARK: - Zen Empty State
+    
+    @ViewBuilder
+    private var zenPlaceholderView: some View {
+        VStack(spacing: 12) {
+            Spacer()
+            
+            ZStack {
+                Circle()
+                    .fill(TTZipTheme.kintsugiGold.opacity(0.06))
+                    .frame(width: 56, height: 56)
+                
+                Image(systemName: "circle.dotted")
+                    .font(.system(size: 28, weight: .light))
+                    .foregroundStyle(TTZipTheme.kintsugiGold.opacity(0.6))
+            }
+            
+            VStack(spacing: 4) {
+                Text("Zen Workspace")
+                    .font(.system(size: 13, weight: .semibold, design: .serif))
+                    .foregroundStyle(Color.primary.opacity(0.8))
+                
+                Text("Select an item in the explorer to inspect")
+                    .font(.system(size: 11, weight: .regular, design: .monospaced))
+                    .foregroundStyle(Color.secondary.opacity(0.8))
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 24)
+            }
+            
+            Spacer()
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(Color.primary.opacity(0.015))
     }
 }

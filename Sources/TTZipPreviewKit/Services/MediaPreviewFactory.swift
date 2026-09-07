@@ -75,6 +75,11 @@ public enum MediaPreviewFactory {
         "md", "markdown", "mdown", "mkd", "mkdn"
     ]
     
+    /// HTML, web, and vector document extensions for rich visual rendering and dual-mode inspection.
+    public static let htmlWebExtensions: Set<String> = [
+        "html", "htm", "xhtml", "mhtml", "svg", "svgz"
+    ]
+    
     /// Spreadsheet extensions.
     public static let spreadsheetExtensions: Set<String> = [
         "xlsx", "xls", "ods", "csv", "tsv", "tab", "psv", "ssv"
@@ -90,7 +95,7 @@ public enum MediaPreviewFactory {
         "txt", "log", "ini", "conf", "cfg", "properties", "env", "plist",
         "swift", "kt", "kts", "java", "rs", "go", "c", "cpp", "h", "hpp", "cs", "m", "mm",
         "js", "jsx", "ts", "tsx", "vue", "svelte", "py", "rb", "php", "sh", "bash", "zsh", "fish",
-        "html", "css", "json", "xml", "yaml", "yml", "sql", "gradle", "srt", "ass", "vtt", "lrc", "sub"
+        "css", "json", "xml", "yaml", "yml", "toml", "ipynb", "sql", "gradle", "srt", "ass", "vtt", "lrc", "sub"
     ]
     
     /// Detects MediaPreviewType synchronously for URL.
@@ -150,6 +155,13 @@ public enum MediaPreviewFactory {
             let sampleData = readInitialSampleData(from: url)
             return .hexViewer(sampleData, url)
         }
+        if htmlWebExtensions.contains(ext) {
+            if let content = MediaPreviewView.readTextContent(from: url) {
+                return .htmlWeb(content: content, fileURL: url)
+            }
+            let sampleData = readInitialSampleData(from: url)
+            return .hexViewer(sampleData, url)
+        }
         if spreadsheetExtensions.contains(ext) {
             if let content = MediaPreviewView.readTextContent(from: url) {
                 return .spreadsheetTable(content, url)
@@ -160,6 +172,16 @@ public enum MediaPreviewFactory {
         if binaryExtensions.contains(ext) {
             let sampleData = readInitialSampleData(from: url)
             return .hexViewer(sampleData, url)
+        }
+        if textExtensions.contains(ext) {
+            if let content = MediaPreviewView.readTextContent(from: url) {
+                return .text(content)
+            }
+            let sampleData = readInitialSampleData(from: url)
+            return .hexViewer(sampleData, url)
+        }
+        if let content = MediaPreviewView.readTextContent(from: url) {
+            return .text(content)
         }
         let sampleData = readInitialSampleData(from: url)
         if !sampleData.isEmpty {
@@ -273,6 +295,14 @@ public enum MediaPreviewFactory {
             return .hexViewer(sampleData, url)
         }
         
+        if htmlWebExtensions.contains(ext) {
+            if let content = MediaPreviewView.readTextContent(from: url) {
+                return .htmlWeb(content: content, fileURL: url)
+            }
+            let sampleData = readInitialSampleData(from: url)
+            return .hexViewer(sampleData, url)
+        }
+        
         if spreadsheetExtensions.contains(ext) {
             if let content = MediaPreviewView.readTextContent(from: url) {
                 return .spreadsheetTable(content, url)
@@ -311,9 +341,22 @@ public enum MediaPreviewFactory {
         return .unsupported("Format: \(ext.uppercased())")
     }
     
+    /// Queries the capabilities for a file or extension via unified PreviewCapabilityMatrix.
+    nonisolated public static func capabilities(for extensionOrFileName: String) -> PreviewCapabilities {
+        PreviewCapabilityMatrix.capabilities(for: extensionOrFileName)
+    }
+    
+    /// Queries the primary preview mode for a file or extension via unified PreviewCapabilityMatrix.
+    nonisolated public static func primaryMode(for extensionOrFileName: String) -> PreviewPrimaryMode? {
+        PreviewCapabilityMatrix.primaryMode(for: extensionOrFileName)
+    }
+
     /// Resolves SF Symbol icon name for file name.
     nonisolated public static func iconName(for fileName: String) -> String {
         let ext = (fileName as NSString).pathExtension.lowercased()
+        if let desc = PreviewCapabilityMatrix.descriptor(for: ext) {
+            return desc.iconName
+        }
         if imageExtensions.contains(ext) { return "photo.fill" }
         if videoExtensions.contains(ext) { return "film.fill" }
         if audioExtensions.contains(ext) { return "music.note" }
@@ -321,6 +364,7 @@ public enum MediaPreviewFactory {
         if ext == "epub" || ebookExtensions.contains(ext) { return "book.closed.fill" }
         if ["srt", "ass", "vtt", "sub", "lrc"].contains(ext) { return "captions.bubble.fill" }
         if markdownExtensions.contains(ext) { return "doc.text.fill" }
+        if htmlWebExtensions.contains(ext) { return (ext == "svg" || ext == "svgz") ? "photo.fill" : "globe" }
         if spreadsheetExtensions.contains(ext) { return "tablecells.fill" }
         if presentationExtensions.contains(ext) { return "rectangle.inset.filled.and.person.filled" }
         if binaryExtensions.contains(ext) { return "memorychip.fill" }
@@ -399,6 +443,12 @@ public enum MediaPreviewFactory {
         if markdownExtensions.contains(ext) {
             if let str = String(data: data.prefix(1024 * 1024), encoding: .utf8) {
                 return .markdown(str, sourceURL)
+            }
+        }
+        
+        if htmlWebExtensions.contains(ext) {
+            if let str = String(data: data.prefix(10 * 1024 * 1024), encoding: .utf8) ?? MediaPreviewView.decodeText(data: data) {
+                return .htmlWeb(content: str, fileURL: sourceURL)
             }
         }
         

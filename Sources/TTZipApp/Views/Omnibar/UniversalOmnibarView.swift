@@ -56,6 +56,14 @@ public struct UniversalOmnibarView: View {
         }
         .overlay(alignment: .top) {
             if isEditing {
+                Color.black.opacity(0.001)
+                    .frame(width: 4000, height: 4000)
+                    .contentShape(Rectangle())
+                    .onTapGesture {
+                        cancelEditing()
+                    }
+                    .zIndex(998)
+
                 UniversalOmniPaletteView(
                     engine: engine,
                     selectedIndex: $selectedIndex,
@@ -66,8 +74,8 @@ public struct UniversalOmnibarView: View {
                         cancelEditing()
                     }
                 )
-                .frame(minWidth: minPaletteWidth, maxWidth: maxPaletteWidth)
-                .offset(y: capsuleHeight + paletteTopGap)
+                .fixedSize(horizontal: false, vertical: true)
+                .offset(y: 42)
                 .zIndex(1000)
                 .transition(.asymmetric(
                     insertion: .opacity.combined(with: .scale(scale: 0.98, anchor: .top)),
@@ -76,6 +84,9 @@ public struct UniversalOmnibarView: View {
             }
         }
         .background(keyboardShortcutTriggers)
+        .onChange(of: selectedIndex) { _, newIndex in
+            engine.selectIndex(newIndex)
+        }
         .onChange(of: viewModel.navigationState.isOmnibarFocused) { _, isFocused in
             if isFocused {
                 beginEditing()
@@ -270,6 +281,7 @@ public struct UniversalOmnibarView: View {
             engine.query = ""
             engine.currentDirectory = viewModel.currentDirectory
             selectedIndex = 0
+            engine.selectIndex(0)
         }
     }
 
@@ -469,6 +481,14 @@ public struct UniversalOmnibarView: View {
                 }
             }
             .keyboardShortcut("l", modifiers: .command)
+            .opacity(0)
+
+            Button("") {
+                if isEditing {
+                    cancelEditing()
+                }
+            }
+            .keyboardShortcut(.escape, modifiers: [])
             .opacity(0)
         }
     }

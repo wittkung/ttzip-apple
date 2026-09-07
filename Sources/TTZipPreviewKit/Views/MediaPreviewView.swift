@@ -42,6 +42,8 @@ public struct MediaPreviewView: View {
         switch previewType {
         case .markdown(_, let targetURL):
             return targetURL
+        case .htmlWeb(_, let targetURL):
+            return targetURL ?? fileURL
         default:
             return fileURL
         }

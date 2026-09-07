@@ -65,7 +65,7 @@ extension InspectorColumnView {
     }
     
     @ViewBuilder
-    var detailedMetadataPopoverContent: some View {
+    func detailedMetadataPopoverContent(for item: DiskItemInfo) -> some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 8) {
                 ZStack {

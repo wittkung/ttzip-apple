@@ -103,6 +103,33 @@ extension FolderMediaArtboardView {
                     }
                 }
             }
+        } else if !isCalculating && fileCount == 0 && subfolderCount == 0 {
+            Divider()
+            
+            VStack(spacing: 8) {
+                HStack(spacing: 6) {
+                    Image(systemName: "folder")
+                        .font(.system(size: 13, weight: .light))
+                        .foregroundStyle(TTZipTheme.kintsugiGold.opacity(0.6))
+                    Text("Empty Directory")
+                        .font(.system(size: 11, weight: .semibold, design: .serif))
+                        .foregroundStyle(Color.primary.opacity(0.75))
+                }
+                
+                Text("This folder contains 0 files and 0 subdirectories.")
+                    .font(.system(size: 10, design: .monospaced))
+                    .foregroundStyle(Color.secondary.opacity(0.8))
+                    .multilineTextAlignment(.center)
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 16)
+            .padding(.horizontal, 12)
+            .background(Color.primary.opacity(0.015))
+            .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .strokeBorder(TTZipTheme.hairlineBorder, lineWidth: 0.8)
+            )
         }
     }
     
@@ -189,10 +216,8 @@ extension FolderMediaArtboardView {
         NotificationCenter.default.post(name: NSNotification.Name("TTZipArchiveUnlockedRefresh"), object: nil)
     }
     
-    func calculateStats() async {
-        isCalculating = true
-        let targetPath = item.path
-        let (size, subfolders, files, dist) = await Task.detached {
+    static func calculateFolderStats(at targetPath: String) async -> (totalSize: Int64, folderCount: Int, fileCount: Int, distribution: [(category: String, count: Int)]) {
+        await Task.detached {
             var totalSize: Int64 = 0
             var folderCount = 0
             var fileCount = 0
@@ -217,7 +242,11 @@ extension FolderMediaArtboardView {
             let distArray: [(category: String, count: Int)] = typeDist.map { (category: $0.key, count: $0.value) }.sorted { $0.count > $1.count }
             return (totalSize, folderCount, fileCount, distArray)
         }.value
-        
+    }
+    
+    func calculateStats() async {
+        isCalculating = true
+        let (size, subfolders, files, dist) = await Self.calculateFolderStats(at: item.path)
         await MainActor.run {
             self.totalSizeBytes = size
             self.subfolderCount = subfolders
