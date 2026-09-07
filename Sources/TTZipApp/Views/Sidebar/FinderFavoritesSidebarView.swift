@@ -13,6 +13,7 @@ import AppKit
 /// Native macOS Finder favorites and locations sidebar adhering to the Zen x WSJ Editorial design system.
 public struct FinderFavoritesSidebarView: View {
     public let currentDirectory: URL
+    public var isIconRail: Bool
     public let onSelectDirectory: (URL) -> Void
     
     @ObservedObject private var l10n = AppLocalizationState.shared
@@ -23,9 +24,11 @@ public struct FinderFavoritesSidebarView: View {
     
     public init(
         currentDirectory: URL,
+        isIconRail: Bool = false,
         onSelectDirectory: @escaping (URL) -> Void
     ) {
         self.currentDirectory = currentDirectory
+        self.isIconRail = isIconRail
         self.onSelectDirectory = onSelectDirectory
     }
     
@@ -45,7 +48,7 @@ public struct FinderFavoritesSidebarView: View {
     }
     
     public var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
+        VStack(alignment: isIconRail ? .center : .leading, spacing: 0) {
             // MARK: - 1. Pinned Header (Height 52pt, Golden Line at Y = 90pt)
             headerSection
             
@@ -55,10 +58,12 @@ public struct FinderFavoritesSidebarView: View {
             
             // MARK: - 2. Scrollable Favorites & Locations List
             ScrollView(.vertical, showsIndicators: false) {
-                VStack(alignment: .leading, spacing: 14) {
+                VStack(alignment: isIconRail ? .center : .leading, spacing: isIconRail ? 6 : 14) {
                     // Group 1: Favorites
-                    VStack(alignment: .leading, spacing: 2) {
-                        sectionHeader(title: l10n.currentLanguage == .zhHans ? "个人收藏" : "FAVORITES")
+                    VStack(alignment: isIconRail ? .center : .leading, spacing: isIconRail ? 4 : 2) {
+                        if !isIconRail {
+                            sectionHeader(title: l10n.currentLanguage == .zhHans ? "个人收藏" : "FAVORITES")
+                        }
                         
                         ForEach(dynamicFinderFavorites.filter { !isVolumePath($0.path) }) { item in
                             sidebarRow(
@@ -85,8 +90,17 @@ public struct FinderFavoritesSidebarView: View {
                     // Group 2: Locations
                     let volumeItems = dynamicFinderFavorites.filter { isVolumePath($0.path) }
                     if !volumeItems.isEmpty {
-                        VStack(alignment: .leading, spacing: 2) {
-                            sectionHeader(title: l10n.currentLanguage == .zhHans ? "位置" : "LOCATIONS")
+                        if isIconRail {
+                            Rectangle()
+                                .fill(Color.primary.opacity(0.08))
+                                .frame(width: 24, height: 0.8)
+                                .padding(.vertical, 4)
+                        }
+                        
+                        VStack(alignment: isIconRail ? .center : .leading, spacing: isIconRail ? 4 : 2) {
+                            if !isIconRail {
+                                sectionHeader(title: l10n.currentLanguage == .zhHans ? "位置" : "LOCATIONS")
+                            }
                             
                             ForEach(volumeItems) { item in
                                 sidebarRow(
@@ -99,10 +113,11 @@ public struct FinderFavoritesSidebarView: View {
                         }
                     }
                 }
-                .padding(.horizontal, 8)
+                .padding(.horizontal, isIconRail ? 4 : 8)
                 .padding(.vertical, 10)
+                .frame(maxWidth: .infinity, alignment: isIconRail ? .center : .leading)
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .background(TTZipTheme.paperWhite.opacity(0.85))
@@ -119,36 +134,60 @@ public struct FinderFavoritesSidebarView: View {
     // MARK: - Subviews
     
     private var headerSection: some View {
-        HStack(alignment: .center, spacing: 8) {
-            Image(systemName: "folder.badge.gearshape")
-                .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(TTZipTheme.bambooGreen)
-            
-            Text(l10n.currentLanguage == .zhHans ? "常用" : "DIRECTORIES")
-                .font(.system(size: 13, weight: .bold, design: .serif))
-                .tracking(l10n.currentLanguage == .zhHans ? 0 : 1.2)
-                .foregroundStyle(.primary)
-                .lineLimit(1)
-                .layoutPriority(1)
-                .fixedSize(horizontal: true, vertical: false)
-            
-            Spacer()
-            
-            Button(action: addCustomPinnedFolder) {
-                Image(systemName: "plus")
-                    .font(.system(size: 11, weight: .bold))
-                    .foregroundStyle(.secondary)
-                    .frame(width: 22, height: 22)
-                    .background(Color.primary.opacity(0.04))
-                    .clipShape(Circle())
-                    .overlay(
-                        Circle().strokeBorder(Color.primary.opacity(0.08), lineWidth: 0.5)
-                    )
+        Group {
+            if isIconRail {
+                HStack {
+                    Spacer(minLength: 0)
+                    Button(action: addCustomPinnedFolder) {
+                        Image(systemName: "folder.badge.plus")
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundStyle(TTZipTheme.bambooGreen)
+                            .frame(width: 32, height: 32)
+                            .background(Color.primary.opacity(0.04))
+                            .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 6, style: .continuous)
+                                    .strokeBorder(Color.primary.opacity(0.08), lineWidth: 0.5)
+                            )
+                    }
+                    .buttonStyle(.plain)
+                    .help(l10n.currentLanguage == .zhHans ? "添加自定常用文件夹到侧边栏" : "Pin custom folder to sidebar")
+                    Spacer(minLength: 0)
+                }
+                .frame(maxWidth: .infinity)
+            } else {
+                HStack(alignment: .center, spacing: 8) {
+                    Image(systemName: "folder.badge.gearshape")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(TTZipTheme.bambooGreen)
+                    
+                    Text(l10n.currentLanguage == .zhHans ? "常用" : "DIRECTORIES")
+                        .font(.system(size: 13, weight: .bold, design: .serif))
+                        .tracking(l10n.currentLanguage == .zhHans ? 0 : 1.2)
+                        .foregroundStyle(.primary)
+                        .lineLimit(1)
+                        .layoutPriority(1)
+                        .fixedSize(horizontal: true, vertical: false)
+                    
+                    Spacer()
+                    
+                    Button(action: addCustomPinnedFolder) {
+                        Image(systemName: "plus")
+                            .font(.system(size: 11, weight: .bold))
+                            .foregroundStyle(.secondary)
+                            .frame(width: 22, height: 22)
+                            .background(Color.primary.opacity(0.04))
+                            .clipShape(Circle())
+                            .overlay(
+                                Circle().strokeBorder(Color.primary.opacity(0.08), lineWidth: 0.5)
+                            )
+                    }
+                    .buttonStyle(.plain)
+                    .help(l10n.currentLanguage == .zhHans ? "添加自定常用文件夹到侧边栏" : "Pin custom folder to sidebar")
+                }
+                .padding(.horizontal, 20)
             }
-            .buttonStyle(.plain)
-            .help(l10n.currentLanguage == .zhHans ? "添加自定常用文件夹到侧边栏" : "Pin custom folder to sidebar")
         }
-        .padding(.horizontal, 20)
         .frame(height: TTZipTheme.Layout.headerBarHeight)
         .padding(.top, TTZipTheme.Layout.topBarOffset)
     }
@@ -171,42 +210,69 @@ public struct FinderFavoritesSidebarView: View {
             let targetURL = URL(fileURLWithPath: path)
             onSelectDirectory(targetURL)
         }) {
-            HStack(spacing: 8) {
-                Image(systemName: icon)
-                    .font(.system(size: 12.5, weight: isSelected ? .bold : .medium))
-                    .foregroundStyle(iconColor(isSelected: isSelected))
-                    .frame(width: 18, alignment: .center)
-                
-                Text(title)
-                    .font(.system(size: 12, weight: isSelected ? .semibold : .regular))
-                    .foregroundStyle(isSelected ? .primary : Color.primary.opacity(0.85))
-                    .lineLimit(1)
-                    .truncationMode(.tail)
-                
-                Spacer(minLength: 0)
-                
-                if isCustom {
-                    Button(action: { removeCustomPinnedFolder(path: path) }) {
-                        Image(systemName: "xmark")
-                            .font(.system(size: 8.5, weight: .bold))
-                            .foregroundStyle(.secondary.opacity(0.6))
+            if isIconRail {
+                ZStack(alignment: .leading) {
+                    Image(systemName: icon)
+                        .font(.system(size: 15, weight: isSelected ? .semibold : .regular))
+                        .foregroundStyle(iconColor(isSelected: isSelected))
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
+                    
+                    if isSelected {
+                        Capsule()
+                            .fill(TTZipTheme.bambooGreen)
+                            .frame(width: 2.5, height: 18)
+                            .padding(.leading, 2)
                     }
-                    .buttonStyle(.plain)
-                    .opacity(isHovered ? 1.0 : 0.0)
-                    .help(l10n.currentLanguage == .zhHans ? "移除此快捷方式" : "Unpin shortcut")
                 }
+                .frame(width: 36, height: 34)
+                .background(
+                    RoundedRectangle(cornerRadius: 6, style: .continuous)
+                        .fill(iconRailRowBackgroundColor(isSelected: isSelected, isHovered: isHovered))
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 6, style: .continuous)
+                        .strokeBorder(isSelected ? TTZipTheme.bambooGreen.opacity(0.3) : Color.clear, lineWidth: 0.8)
+                )
+                .help(title)
+                .contentShape(Rectangle())
+            } else {
+                HStack(spacing: 8) {
+                    Image(systemName: icon)
+                        .font(.system(size: 12.5, weight: isSelected ? .bold : .medium))
+                        .foregroundStyle(iconColor(isSelected: isSelected))
+                        .frame(width: 18, alignment: .center)
+                    
+                    Text(title)
+                        .font(.system(size: 12, weight: isSelected ? .semibold : .regular))
+                        .foregroundStyle(isSelected ? .primary : Color.primary.opacity(0.85))
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+                    
+                    Spacer(minLength: 0)
+                    
+                    if isCustom {
+                        Button(action: { removeCustomPinnedFolder(path: path) }) {
+                            Image(systemName: "xmark")
+                                .font(.system(size: 8.5, weight: .bold))
+                                .foregroundStyle(.secondary.opacity(0.6))
+                        }
+                        .buttonStyle(.plain)
+                        .opacity(isHovered ? 1.0 : 0.0)
+                        .help(l10n.currentLanguage == .zhHans ? "移除此快捷方式" : "Unpin shortcut")
+                    }
+                }
+                .padding(.horizontal, 10)
+                .padding(.vertical, 6)
+                .background(
+                    RoundedRectangle(cornerRadius: 6, style: .continuous)
+                        .fill(rowBackgroundColor(isSelected: isSelected, isHovered: isHovered))
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 6, style: .continuous)
+                        .strokeBorder(isSelected ? TTZipTheme.bambooGreen.opacity(0.3) : Color.clear, lineWidth: 0.8)
+                )
+                .contentShape(Rectangle())
             }
-            .padding(.horizontal, 10)
-            .padding(.vertical, 6)
-            .background(
-                RoundedRectangle(cornerRadius: 6, style: .continuous)
-                    .fill(rowBackgroundColor(isSelected: isSelected, isHovered: isHovered))
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 6, style: .continuous)
-                    .strokeBorder(isSelected ? TTZipTheme.bambooGreen.opacity(0.3) : Color.clear, lineWidth: 0.8)
-            )
-            .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .onHover { hovering in
@@ -253,6 +319,16 @@ public struct FinderFavoritesSidebarView: View {
         } else if isHovered {
             // Delicate hover tint adhering to macOS HIG to prevent double-selection illusion
             return Color.primary.opacity(0.02)
+        } else {
+            return Color.clear
+        }
+    }
+    
+    private func iconRailRowBackgroundColor(isSelected: Bool, isHovered: Bool) -> Color {
+        if isSelected {
+            return TTZipTheme.bambooGreen.opacity(0.16)
+        } else if isHovered {
+            return Color.primary.opacity(0.05)
         } else {
             return Color.clear
         }

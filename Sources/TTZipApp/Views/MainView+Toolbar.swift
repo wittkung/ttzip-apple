@@ -22,8 +22,9 @@ extension MainView {
                 }
             } label: {
                 Image(systemName: "sidebar.left")
-                    .font(.system(size: 13, weight: .medium))
+                    .font(.system(size: 13.5, weight: .medium))
                     .foregroundStyle(isLeftSidebarVisible ? TTZipTheme.bambooGreen : .secondary)
+                    .frame(height: 24)
             }
             .help(l10n.currentLanguage == .zhHans ? "切换常用目录边栏 (⌃⌘S)" : "Toggle Favorites Sidebar (⌃⌘S)")
             .keyboardShortcut("s", modifiers: [.control, .command])
@@ -31,30 +32,23 @@ extension MainView {
         
         ToolbarItemGroup(placement: .automatic) {
             Button { pickAndOpenArchive() } label: {
-                Label(l10n.t(L10n.Menu.openArchive), systemImage: "folder.badge.plus")
+                Image(systemName: "folder.badge.plus")
+                    .font(.system(size: 13.5, weight: .medium))
+                    .foregroundStyle(.secondary)
+                    .frame(height: 24)
             }
             .keyboardShortcut("o", modifiers: [.command])
             .help(l10n.t(L10n.Menu.openArchive) + " (⌘O)")
+            .accessibilityLabel(l10n.t(L10n.Menu.openArchive))
             
-            Button {
+            NewArchiveToolbarButton(
+                title: l10n.currentLanguage == .zhHans ? "新建压缩" : "New Archive"
+            ) {
                 withAnimation {
                     viewModel.openCompressWorkspace()
                     viewModel.showCompressModal = true
                 }
-            } label: {
-                HStack(spacing: 5) {
-                    Image(systemName: "plus")
-                        .font(.system(size: 11, weight: .bold))
-                    Text(l10n.currentLanguage == .zhHans ? "新建压缩" : "New Archive")
-                        .font(.system(size: 12, weight: .semibold))
-                }
-                .foregroundStyle(.white)
-                .padding(.horizontal, 11)
-                .padding(.vertical, 4)
-                .background(TTZipTheme.bambooGreen)
-                .clipShape(Capsule())
             }
-            .buttonStyle(.plain)
             .keyboardShortcut("n", modifiers: [.command])
             .help(l10n.t(L10n.Menu.newArchiveMenu) + " (⌘N)")
             
@@ -66,17 +60,35 @@ extension MainView {
                         } else {
                             viewModel.statusMessage = l10n.t(L10n.Explorer.extractToPrompt)
                         }
-                    } label: { Label(l10n.t(L10n.Extract.action), systemImage: "arrow.down.circle.fill") }
+                    } label: {
+                        Image(systemName: "arrow.down.circle.fill")
+                            .font(.system(size: 13.5, weight: .medium))
+                            .foregroundStyle(.secondary)
+                            .frame(height: 24)
+                    }
                     .keyboardShortcut("e", modifiers: [.command])
                     .help(l10n.t(L10n.Extract.action) + " (⌘E)")
+                    .accessibilityLabel(l10n.t(L10n.Extract.action))
                     
-                    Button { viewModel.showExtractModal = true } label: { Label(l10n.t(L10n.Explorer.extractToPrompt), systemImage: "slider.horizontal.3") }
+                    Button { viewModel.showExtractModal = true } label: {
+                        Image(systemName: "slider.horizontal.3")
+                            .font(.system(size: 13.5, weight: .medium))
+                            .foregroundStyle(.secondary)
+                            .frame(height: 24)
+                    }
                     .keyboardShortcut("e", modifiers: [.option, .command])
                     .help(l10n.t(L10n.Explorer.extractToPrompt) + " (⌥⌘E)")
+                    .accessibilityLabel(l10n.t(L10n.Explorer.extractToPrompt))
                     
-                    Button { withAnimation { viewModel.reset() } } label: { Label(l10n.t(L10n.Common.close), systemImage: "xmark.circle") }
+                    Button { withAnimation { viewModel.reset() } } label: {
+                        Image(systemName: "xmark.circle")
+                            .font(.system(size: 13.5, weight: .medium))
+                            .foregroundStyle(.secondary)
+                            .frame(height: 24)
+                    }
                     .keyboardShortcut("w", modifiers: [.command])
                     .help(l10n.t(L10n.Common.close) + " (⌘W)")
+                    .accessibilityLabel(l10n.t(L10n.Common.close))
                 }
             }
             
@@ -84,13 +96,18 @@ extension MainView {
                 Button {
                     NotificationCenter.default.post(name: NSNotification.Name("TTZipToggleMediaFocusNotification"), object: nil)
                 } label: {
-                    Label(
-                        viewModel.navigationState.layoutMode == .mediaFocus ? "Exit Focus" : "Focus Mode",
-                        systemImage: viewModel.navigationState.layoutMode == .mediaFocus ? "arrow.down.right.and.arrow.up.left" : "arrow.up.left.and.arrow.down.right"
+                    Image(
+                        systemName: viewModel.navigationState.layoutMode == .mediaFocus
+                            ? "arrow.down.right.and.arrow.up.left"
+                            : "arrow.up.left.and.arrow.down.right"
                     )
+                    .font(.system(size: 13.5, weight: .medium))
+                    .foregroundStyle(.secondary)
+                    .frame(height: 24)
                 }
                 .keyboardShortcut("f", modifiers: [.command, .control])
                 .help("Toggle Media Focus Mode (⌃⌘F)")
+                .accessibilityLabel(viewModel.navigationState.layoutMode == .mediaFocus ? "Exit Focus" : "Focus Mode")
             }
             
             Menu {
@@ -139,7 +156,9 @@ extension MainView {
                 .keyboardShortcut(",", modifiers: [.command])
             } label: {
                 Image(systemName: "square.grid.2x2")
-                    .font(.system(size: 13, weight: .medium))
+                    .font(.system(size: 13.5, weight: .medium))
+                    .foregroundStyle(.secondary)
+                    .frame(height: 24)
             }
             .menuIndicator(.hidden)
             .help(l10n.currentLanguage == .zhHans ? "工具箱" : "Toolbox")
@@ -164,8 +183,9 @@ extension MainView {
                 }
             } label: {
                 Image(systemName: "sidebar.right")
-                    .font(.system(size: 13, weight: .medium))
+                    .font(.system(size: 13.5, weight: .medium))
                     .foregroundStyle(isRightSidebarVisible ? TTZipTheme.bambooGreen : .secondary)
+                    .frame(height: 24)
             }
             .help(l10n.currentLanguage == .zhHans ? "切换检视器面板 (⌥⌘I)" : "Toggle Inspector Panel (⌥⌘I)")
             .keyboardShortcut("i", modifiers: [.option, .command])
@@ -190,3 +210,56 @@ extension MainView {
         }
     }
 }
+
+// MARK: - New Archive Toolbar Capsule Button
+
+/// A lightweight translucent capsule button conforming to Zen minimalist design and macOS HIG.
+/// It renders a bamboo green translucent capsule with delicate border and smooth hover/press transitions.
+private struct NewArchiveToolbarButton: View {
+    let title: String
+    let action: () -> Void
+    
+    @State private var isHovered: Bool = false
+    
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 4.5) {
+                Image(systemName: "plus")
+                    .font(.system(size: 10.5, weight: .bold))
+                Text(title)
+                    .font(.system(size: 11.5, weight: .semibold))
+            }
+            .foregroundStyle(TTZipTheme.bambooGreen)
+            .padding(.horizontal, 9.5)
+            .frame(height: 24)
+        }
+        .buttonStyle(NewArchiveCapsuleButtonStyle(isHovered: isHovered))
+        .onHover { hovering in
+            withAnimation(.easeInOut(duration: 0.15)) {
+                isHovered = hovering
+            }
+        }
+    }
+}
+
+/// A specialized ButtonStyle that manages the multi-state translucent fill and border.
+private struct NewArchiveCapsuleButtonStyle: ButtonStyle {
+    let isHovered: Bool
+    
+    func makeBody(configuration: Configuration) -> some View {
+        let fillOpacity: Double = configuration.isPressed ? 0.24 : (isHovered ? 0.14 : 0.08)
+        let strokeOpacity: Double = isHovered ? 0.35 : 0.18
+        
+        configuration.label
+            .background(
+                Capsule()
+                    .fill(TTZipTheme.bambooGreen.opacity(fillOpacity))
+            )
+            .overlay(
+                Capsule()
+                    .strokeBorder(TTZipTheme.bambooGreen.opacity(strokeOpacity), lineWidth: 0.8)
+            )
+            .contentShape(Capsule())
+    }
+}
+

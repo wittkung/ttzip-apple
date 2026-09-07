@@ -37,6 +37,13 @@ public struct MainView: View {
     
     public init() {}
     
+    private enum SidebarGeometry {
+        static let iconRailWidth: CGFloat = 54.0
+        static let minExpandedWidth: CGFloat = 150.0
+        static let maxExpandedWidth: CGFloat = 280.0
+        static let snapThreshold: CGFloat = 105.0
+    }
+    
     @AppStorage("TTZip_UserLeftSidebarWidth") private var userLeftSidebarWidth: Double = 190.0
     @State private var leftSidebarWidth: CGFloat = 190
     @State private var initialLeftWidth: CGFloat = 190
@@ -62,15 +69,19 @@ public struct MainView: View {
             let rightPanelPadding: CGFloat = 14.0 // leading: 4 + trailing: 10
             let minSafeWorkspaceWidth: CGFloat = 460.0
             
-            let minLeftSidebarWidth: CGFloat = 150.0
-            let maxLeftSidebarWidth: CGFloat = 280.0
             let isLeftPanelAvailable: Bool = (tier != .compact && viewModel.activeTab == .home)
             let shouldShowLeftPanel = !isMediaFocus && isLeftSidebarVisible && isLeftPanelAvailable
             
             let effectiveLeftWidth: CGFloat = {
                 if !shouldShowLeftPanel { return 0 }
-                return min(max(leftSidebarWidth, minLeftSidebarWidth), maxLeftSidebarWidth)
+                if leftSidebarWidth <= SidebarGeometry.snapThreshold {
+                    return SidebarGeometry.iconRailWidth
+                } else {
+                    return min(max(leftSidebarWidth, SidebarGeometry.minExpandedWidth), SidebarGeometry.maxExpandedWidth)
+                }
             }()
+            
+            let isIconRailMode: Bool = effectiveLeftWidth <= 80.0
             
             let minRightSidebarWidth: CGFloat = 200.0
             let maxRightSidebarWidth: CGFloat = min(380.0, totalWidth * 0.35)
@@ -96,6 +107,7 @@ public struct MainView: View {
                     if shouldShowLeftPanel {
                         FinderFavoritesSidebarView(
                             currentDirectory: viewModel.currentDirectory,
+                            isIconRail: isIconRailMode,
                             onSelectDirectory: { url in
                                 viewModel.currentDirectory = url
                                 viewModel.selectedDiskItem = nil
@@ -108,10 +120,27 @@ public struct MainView: View {
                             ResizableDividerHandle(
                                 onDragStart: { initialLeftWidth = leftSidebarWidth },
                                 onDragChanged: { translation in
-                                    let newWidth = initialLeftWidth + translation
-                                    leftSidebarWidth = min(max(newWidth, minLeftSidebarWidth), maxLeftSidebarWidth)
+                                    let rawWidth = initialLeftWidth + translation
+                                    if rawWidth < SidebarGeometry.snapThreshold {
+                                        // Provide smooth damping when dragging below snap threshold down to rail width
+                                        let underflow = SidebarGeometry.snapThreshold - rawWidth
+                                        let damped = SidebarGeometry.snapThreshold - (underflow * 0.5)
+                                        leftSidebarWidth = max(SidebarGeometry.iconRailWidth, damped)
+                                    } else {
+                                        leftSidebarWidth = min(SidebarGeometry.maxExpandedWidth, rawWidth)
+                                    }
                                 },
-                                onDragEnd: { userLeftSidebarWidth = Double(leftSidebarWidth) }
+                                onDragEnd: {
+                                    withAnimation(.spring(response: 0.28, dampingFraction: 0.82)) {
+                                        if leftSidebarWidth <= SidebarGeometry.snapThreshold {
+                                            leftSidebarWidth = SidebarGeometry.iconRailWidth
+                                        } else {
+                                            leftSidebarWidth = min(max(leftSidebarWidth, SidebarGeometry.minExpandedWidth), SidebarGeometry.maxExpandedWidth)
+                                        }
+                                    }
+                                    NSHapticFeedbackManager.defaultPerformer.perform(.alignment, performanceTime: .default)
+                                    userLeftSidebarWidth = Double(leftSidebarWidth)
+                                }
                             )
                             .frame(height: totalHeight)
                             .transition(.opacity)
@@ -164,7 +193,12 @@ public struct MainView: View {
             .clipped()
             .simultaneousGesture(TapGesture().onEnded { NSApp.keyWindow?.makeFirstResponder(nil) })
             .onAppear {
-                self.leftSidebarWidth = CGFloat(userLeftSidebarWidth)
+                let savedLeft = CGFloat(userLeftSidebarWidth)
+                if savedLeft <= SidebarGeometry.snapThreshold {
+                    self.leftSidebarWidth = SidebarGeometry.iconRailWidth
+                } else {
+                    self.leftSidebarWidth = min(max(savedLeft, SidebarGeometry.minExpandedWidth), SidebarGeometry.maxExpandedWidth)
+                }
                 self.rightSidebarWidth = min(max(CGFloat(userRightSidebarWidth), 200.0), 380.0)
             }
             .onChange(of: viewModel.selectedDiskItem) { _, _ in NSApp.keyWindow?.makeFirstResponder(nil) }
