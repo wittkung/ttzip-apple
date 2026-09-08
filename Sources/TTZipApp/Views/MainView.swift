@@ -60,8 +60,11 @@ public struct MainView: View {
         @Bindable var viewModel = viewModel
         mainGeometryLayout
             .ignoresSafeArea()
+            .toolbar(viewModel.overlayState.showImmersiveMediaBrowser ? .hidden : .visible, for: .windowToolbar)
             .toolbar {
-                mainToolbarContent
+                if !viewModel.overlayState.showImmersiveMediaBrowser {
+                    mainToolbarContent
+                }
             }
             .sheet(item: $presentedSecondaryTool) { tab in
                 SecondaryToolSheetContainer(tab: tab, onDismiss: { presentedSecondaryTool = nil })
@@ -165,6 +168,9 @@ public struct MainView: View {
                     self.rightSidebarWidth = CGFloat(userRightSidebarWidth)
                 }
             }
+        }
+        .onChange(of: viewModel.overlayState.showImmersiveMediaBrowser) { _, isImmersive in
+            NSApp.keyWindow?.toolbar?.isVisible = !isImmersive
         }
     }
     

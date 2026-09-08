@@ -61,24 +61,15 @@ public struct ImmersiveMediaBrowserView: View {
                 }
             
             // Layer 2: Main Center Media Viewport
-            VStack(spacing: 0) {
-                MediaPreviewView(
-                    fileURL: item.url,
-                    fileName: item.name
-                )
-                .id(item.url)
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 12, style: .continuous)
-                        .strokeBorder(Color.white.opacity(0.12), lineWidth: 0.8)
-                )
-                .shadow(color: .black.opacity(0.5), radius: 24, x: 0, y: 12)
-            }
-            .padding(.horizontal, (onNavigatePrevious != nil || onNavigateNext != nil) ? 80 : 32)
-            .padding(.top, 82)
-            .padding(.bottom, 28)
+            MediaPreviewView(
+                fileURL: item.url,
+                fileName: item.name,
+                isImmersiveFullscreen: true
+            )
+            .environment(\.isImmersiveFullscreen, true)
+            .id(item.url)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .ignoresSafeArea()
             
             // Layer 3: Left & Right Navigation Chevrons
             HStack(spacing: 0) {
@@ -128,11 +119,16 @@ public struct ImmersiveMediaBrowserView: View {
             
             // Layer 4: Top Floating Glassmorphic HUD
             VStack(spacing: 0) {
-                topHUDBar
+                HStack(spacing: 0) {
+                    Spacer(minLength: 76)
+                    topHUDBar
+                        .frame(maxWidth: 720)
+                    Spacer(minLength: 76)
+                }
+                .padding(.top, 16)
                 Spacer()
             }
-            .padding(.horizontal, 24)
-            .padding(.top, 16)
+            .padding(.horizontal, 16)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .onAppear {
@@ -173,6 +169,7 @@ public struct ImmersiveMediaBrowserView: View {
                     .font(.system(size: 13, weight: .bold, design: .serif))
                     .foregroundStyle(.white)
                     .lineLimit(1)
+                    .truncationMode(.middle)
                 
                 if let sizeDesc = fileSizeDescription {
                     Text(sizeDesc)
@@ -181,7 +178,7 @@ public struct ImmersiveMediaBrowserView: View {
                         .lineLimit(1)
                 }
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
+            .frame(minWidth: 100, maxWidth: 340, alignment: .leading)
             
             // Action Buttons
             HStack(spacing: 8) {
@@ -244,13 +241,13 @@ public struct ImmersiveMediaBrowserView: View {
         .padding(.horizontal, 16)
         .frame(height: 48)
         .background(.ultraThinMaterial)
-        .background(Color.black.opacity(0.6))
-        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .background(Color.black.opacity(0.65))
+        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
         .overlay(
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
                 .strokeBorder(Color.white.opacity(0.18), lineWidth: 0.8)
         )
-        .shadow(color: .black.opacity(0.4), radius: 14, x: 0, y: 7)
+        .shadow(color: .black.opacity(0.5), radius: 16, x: 0, y: 8)
     }
     
     // MARK: - Actions & Keyboard

@@ -129,4 +129,21 @@ final class PreviewKitFullscreenNotificationTests: XCTestCase {
         let mdView = MediaPreviewView(fileURL: testMdURL, fileName: "notes.md")
         XCTAssertNotNil(mdView)
     }
+
+    @MainActor
+    func testMediaPreviewViewImmersiveFullscreenConfiguration() {
+        let testImageURL = tempDir.appendingPathComponent("photo.png")
+        let defaultView = MediaPreviewView(fileURL: testImageURL, fileName: "photo.png")
+        XCTAssertNil(defaultView.isImmersiveFullscreen)
+
+        let immersiveView = MediaPreviewView(fileURL: testImageURL, fileName: "photo.png", isImmersiveFullscreen: true)
+        XCTAssertEqual(immersiveView.isImmersiveFullscreen, true)
+
+        let windowedView = MediaPreviewView(fileURL: testImageURL, fileName: "photo.png", isImmersiveFullscreen: false)
+        XCTAssertEqual(windowedView.isImmersiveFullscreen, false)
+
+        // Verify SwiftUI environment modifier compiles and attaches cleanly
+        let envModifiedView = defaultView.environment(\.isImmersiveFullscreen, true)
+        XCTAssertNotNil(envModifiedView)
+    }
 }

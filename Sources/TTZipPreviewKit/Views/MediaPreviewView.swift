@@ -12,9 +12,22 @@ import WebKit
 import TTZipCore
 import TTZipUI
 
+private struct ImmersiveFullscreenKey: EnvironmentKey {
+    static let defaultValue: Bool = false
+}
+
+extension EnvironmentValues {
+    public var isImmersiveFullscreen: Bool {
+        get { self[ImmersiveFullscreenKey.self] }
+        set { self[ImmersiveFullscreenKey.self] = newValue }
+    }
+}
+
 /// Media preview router and container view for native formats.
 public struct MediaPreviewView: View {
+    @Environment(\.isImmersiveFullscreen) private var envIsImmersiveFullscreen: Bool
     @ObservedObject private var l10n = AppLocalizationState.shared
+    public let isImmersiveFullscreen: Bool?
     let fileURL: URL?
     let fileName: String
     
@@ -22,14 +35,19 @@ public struct MediaPreviewView: View {
     @State private var isExtractingTemp = false
     @State private var isFullScreenActive = false
     
-    public init(fileURL: URL?, fileName: String) {
+    public init(fileURL: URL?, fileName: String, isImmersiveFullscreen: Bool? = nil) {
         self.fileURL = fileURL
         self.fileName = fileName
+        self.isImmersiveFullscreen = isImmersiveFullscreen
         if fileURL != nil {
             _previewType = State(initialValue: .unsupported("Loading preview..."))
         } else {
             _previewType = State(initialValue: .unsupported("Select a file from the explorer to preview"))
         }
+    }
+    
+    private var effectiveIsImmersive: Bool {
+        isImmersiveFullscreen ?? envIsImmersiveFullscreen
     }
     
     /// Sanitized file URL passed down to child preview views.
@@ -53,6 +71,7 @@ public struct MediaPreviewView: View {
     /// Expanded to support images, PDFs, videos, web documents, Markdown, plain/code text,
     /// spreadsheets, audio, ebooks, and office documents.
     private var showsFloatingFullScreenButton: Bool {
+        if effectiveIsImmersive { return false }
         switch previewType {
         case .image, .pdf, .pdfData, .video, .htmlWeb, .markdown, .text, .spreadsheetTable, .audio,
              .epubBook, .ebook, .docxDocument, .officeSpreadsheet, .officePresentation, .hexViewer:
@@ -90,7 +109,7 @@ public struct MediaPreviewView: View {
                 type: previewType,
                 fileName: fileName,
                 fileURL: effectiveFileURL,
-                isFullScreenActive: isFullScreenActive
+                isFullScreenActive: effectiveIsImmersive || isFullScreenActive
             )
             
             if showsFloatingFullScreenButton {
