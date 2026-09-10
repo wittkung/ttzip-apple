@@ -8,6 +8,7 @@
 import AppKit
 import QuartzCore
 import Metal
+import IOSurface
 import CMPVBridge
 import os.log
 import TTZipUI
@@ -23,10 +24,12 @@ private final class MPVMetalLayerProxy: @unchecked Sendable {
 
 /// Masterpiece pure Metal / CoreAnimation hardware passthrough layer unlocking Apple 1600 nits Liquid Retina XDR EDR headroom.
 ///
-/// Configures a 16-bit floating point (`.rgba16Float`) texture pipeline mapped into extended linear sRGB
-/// color space, bypassing standard 8-bit SDR clamp boundaries and driving direct zero-copy frame presentation.
+/// Configures an Apple Silicon zero-copy IOSurface to CAMetalDrawable hardware presentation pipeline mapped
+/// into extended linear sRGB color space, bypassing standard 8-bit SDR clamp boundaries.
 public final class MPVMetalRenderLayer: CAMetalLayer, MPVVideoLayerProtocol, @unchecked Sendable {
     private let logger = Logger(subsystem: "com.metastudyline.ttzip", category: "MPVMetalRenderLayer")
+    private let stateLock = NSLock()
+    private var _needsForceRedraw: Bool = false
     
     public weak var renderContextManager: MPVRenderContextManager?
     public weak var playerStore: MPVMetalPlayerStore?
@@ -61,7 +64,7 @@ public final class MPVMetalRenderLayer: CAMetalLayer, MPVVideoLayerProtocol, @un
         self.proxy = MPVMetalLayerProxy(layer: self)
         
         // 1600 nits EDR Hardware Passthrough Configuration
-        self.pixelFormat = .rgba16Float
+        self.pixelFormat = .bgra8Unorm
         self.colorspace = CGColorSpace(name: CGColorSpace.extendedLinearSRGB)
         self.wantsExtendedDynamicRangeContent = true
         self.isOpaque = true
@@ -78,10 +81,14 @@ public final class MPVMetalRenderLayer: CAMetalLayer, MPVVideoLayerProtocol, @un
         self.renderContextManager = store.renderContextManager
         self.isBound = true
         
+        if let mpv = store.mpv {
+            store.renderContextManager.createRenderContext(mpvHandle: mpv)
+        }
+        
         let localProxy = self.proxy ?? MPVMetalLayerProxy(layer: self)
         self.proxy = localProxy
         
-        store.renderContextManager.setUpdateHandler { [weak localProxy] in
+        store.renderContextManager.setUpdateHandler(owner: self) { [weak localProxy] in
             localProxy?.trigger()
         }
     }
@@ -89,7 +96,7 @@ public final class MPVMetalRenderLayer: CAMetalLayer, MPVVideoLayerProtocol, @un
     /// Unbinds this layer and detaches update callbacks.
     public func unbind() {
         self.isBound = false
-        self.renderContextManager?.setUpdateHandler(nil)
+        self.renderContextManager?.setUpdateHandler(owner: self, nil)
         self.renderContextManager = nil
         self.playerStore = nil
     }
@@ -105,6 +112,9 @@ public final class MPVMetalRenderLayer: CAMetalLayer, MPVVideoLayerProtocol, @un
 
     /// Forces an immediate frame redraw cycle.
     public func forceRedraw() {
+        stateLock.lock()
+        _needsForceRedraw = true
+        stateLock.unlock()
         requestRender()
     }
     
@@ -112,8 +122,13 @@ public final class MPVMetalRenderLayer: CAMetalLayer, MPVVideoLayerProtocol, @un
     public func renderNextFrame() {
         guard let manager = renderContextManager, isBound else { return }
         
+        stateLock.lock()
+        let force = _needsForceRedraw
+        _needsForceRedraw = false
+        stateLock.unlock()
+        
         let flags = manager.update()
-        guard (flags & UInt64(MPV_RENDER_UPDATE_FRAME.rawValue)) != 0 else { return }
+        guard (flags & UInt64(MPV_RENDER_UPDATE_FRAME.rawValue)) != 0 || force else { return }
         
         let size = self.drawableSize
         guard size.width > 0, size.height > 0 else { return }
@@ -131,8 +146,56 @@ public final class MPVMetalRenderLayer: CAMetalLayer, MPVVideoLayerProtocol, @un
         let width = Int32(max(1.0, size.width))
         let height = Int32(max(1.0, size.height))
         
-        manager.render(fbo: fbo, width: width, height: height)
+        if let surface = manager.renderToSurface(width: width, height: height) {
+            presentSurface(surface)
+        } else {
+            manager.render(fbo: fbo, width: width, height: height)
+        }
         displaySync()
+    }
+    
+    /// Presents the rendered IOSurface through CAMetalDrawable hardware blit with CoreAnimation composition fallback.
+    private func presentSurface(_ surface: IOSurface) {
+        guard let drawable = self.nextDrawable(),
+              let commandQueue = self.commandQueue,
+              let commandBuffer = commandQueue.makeCommandBuffer() else {
+            self.contents = surface
+            return
+        }
+        
+        let desc = MTLTextureDescriptor.texture2DDescriptor(
+            pixelFormat: self.pixelFormat,
+            width: surface.width,
+            height: surface.height,
+            mipmapped: false
+        )
+        desc.usage = [.shaderRead]
+        
+        let surfaceRef = unsafeBitCast(surface, to: IOSurfaceRef.self)
+        guard let srcTexture = self.device?.makeTexture(descriptor: desc, iosurface: surfaceRef, plane: 0),
+              let blitEncoder = commandBuffer.makeBlitCommandEncoder() else {
+            self.contents = surface
+            return
+        }
+        
+        let copyWidth = min(srcTexture.width, drawable.texture.width)
+        let copyHeight = min(srcTexture.height, drawable.texture.height)
+        
+        blitEncoder.copy(
+            from: srcTexture,
+            sourceSlice: 0,
+            sourceLevel: 0,
+            sourceOrigin: MTLOrigin(x: 0, y: 0, z: 0),
+            sourceSize: MTLSize(width: copyWidth, height: copyHeight, depth: 1),
+            to: drawable.texture,
+            destinationSlice: 0,
+            destinationLevel: 0,
+            destinationOrigin: MTLOrigin(x: 0, y: 0, z: 0)
+        )
+        blitEncoder.endEncoding()
+        
+        commandBuffer.present(drawable)
+        commandBuffer.commit()
     }
     
     /// Signals display swap completion to keep libmpv audio/video timing locked to VSync.

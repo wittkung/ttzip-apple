@@ -41,10 +41,10 @@ public final class MPVMetalContainerView: MPVMetalNSView {
     private var warmupFrameCount: Int = 5
     
     public override func makeBackingLayer() -> CALayer {
-        let glLayer = MPVOpenGLLayer()
+        let metalLayer = MPVMetalRenderLayer()
         let scale = window?.backingScaleFactor ?? NSScreen.main?.backingScaleFactor ?? 2.0
-        glLayer.contentsScale = scale
-        return glLayer
+        metalLayer.contentsScale = scale
+        return metalLayer
     }
     
     public override init(frame frameRect: NSRect, isFullScreen: Bool) {
@@ -130,6 +130,9 @@ public final class MPVMetalContainerView: MPVMetalNSView {
         let scale = window?.backingScaleFactor ?? NSScreen.main?.backingScaleFactor ?? 2.0
         if let videoLayer = layer as? (any MPVVideoLayerProtocol) {
             videoLayer.contentsScale = scale
+            if let metalLayer = videoLayer as? MPVMetalRenderLayer {
+                metalLayer.updateDrawableSize(boundsSize: bounds.size, scaleFactor: scale)
+            }
             videoLayer.forceRedraw()
         }
     }
@@ -139,6 +142,9 @@ public final class MPVMetalContainerView: MPVMetalNSView {
         if let videoLayer = layer as? (any MPVVideoLayerProtocol) {
             let scale = window?.backingScaleFactor ?? NSScreen.main?.backingScaleFactor ?? 2.0
             videoLayer.contentsScale = scale
+            if let metalLayer = videoLayer as? MPVMetalRenderLayer {
+                metalLayer.updateDrawableSize(boundsSize: bounds.size, scaleFactor: scale)
+            }
             videoLayer.bind(store: targetStore)
             warmupFrameCount = 5
         }

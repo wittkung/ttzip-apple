@@ -160,18 +160,16 @@ final class NativeMPVPlaybackTests: XCTestCase {
     // MARK: - Test 3: CAMetalLayer EDR Configuration Verification
     
     @MainActor
-    func testAVPlayerLayerContainerViewConfiguration() {
-        let player = AVPlayer()
-        let nsView = AVPlayerLayerContainerView.PlayerNSView()
-        nsView.playerLayer.player = player
+    func testMPVMetalRenderLayerEDRConfiguration() {
+        let layer = MPVMetalRenderLayer()
+        XCTAssertTrue(layer.wantsExtendedDynamicRangeContent)
+        XCTAssertEqual(layer.pixelFormat, .bgra8Unorm)
+        XCTAssertEqual(layer.colorspace, CGColorSpace(name: CGColorSpace.extendedLinearSRGB))
+        XCTAssertFalse(layer.allowsNextDrawableTimeout)
+        XCTAssertTrue(layer.needsDisplayOnBoundsChange)
         
-        XCTAssertTrue(nsView.wantsLayer)
-        XCTAssertNotNil(nsView.playerLayer)
-        XCTAssertEqual(nsView.playerLayer.videoGravity, AVLayerVideoGravity.resizeAspect)
-        
-        nsView.frame = NSRect(x: 0, y: 0, width: 640, height: 480)
-        nsView.layout()
-        XCTAssertEqual(nsView.playerLayer.frame.size, CGSize(width: 640, height: 480))
+        layer.updateDrawableSize(boundsSize: CGSize(width: 640, height: 480), scaleFactor: 2.0)
+        XCTAssertEqual(layer.drawableSize, CGSize(width: 1280, height: 960))
     }
 
     
@@ -329,7 +327,7 @@ final class NativeMPVPlaybackTests: XCTestCase {
         
         XCTAssertTrue(nsView.wantsLayer, "MPVMetalNSView must set wantsLayer = true")
         XCTAssertNotNil(nsView.layer)
-        XCTAssertTrue(nsView.layer is MPVOpenGLLayer, "Backing layer must be MPVOpenGLLayer")
+        XCTAssertTrue(nsView.layer is MPVMetalRenderLayer, "Backing layer must be MPVMetalRenderLayer")
         XCTAssertTrue(nsView.layer?.wantsExtendedDynamicRangeContent == true, "Layer must request EDR content")
         XCTAssertTrue(nsView.acceptsFirstResponder)
         
@@ -444,7 +442,7 @@ final class NativeMPVPlaybackTests: XCTestCase {
     @MainActor
     func testSingleLayerInPlaceResizingAndContextDefense() {
         let store = MPVMetalPlayerStore()
-        let manager = store.renderContextManager
+        _ = store.renderContextManager
         
         let layer = MPVOpenGLLayer()
         layer.bind(store: store)
@@ -522,13 +520,16 @@ final class NativeMPVPlaybackTests: XCTestCase {
         let store = MPVMetalPlayerStore()
         XCTAssertFalse(store.isFullScreen)
         
-        var notificationFired = false
+        final class StateBox: @unchecked Sendable {
+            var notificationFired = false
+        }
+        let box = StateBox()
         let observer = NotificationCenter.default.addObserver(
             forName: NSNotification.Name("TTZipToggleMediaFocusNotification"),
             object: nil,
             queue: .main
         ) { _ in
-            notificationFired = true
+            box.notificationFired = true
         }
         defer { NotificationCenter.default.removeObserver(observer) }
         
@@ -536,7 +537,7 @@ final class NativeMPVPlaybackTests: XCTestCase {
             name: NSNotification.Name("TTZipToggleMediaFocusNotification"),
             object: nil
         )
-        XCTAssertTrue(notificationFired, "TTZipToggleMediaFocusNotification must be broadcast on toggle")
+        XCTAssertTrue(box.notificationFired, "TTZipToggleMediaFocusNotification must be broadcast on toggle")
         
         store.setFullScreen(true)
         XCTAssertTrue(store.isFullScreen)

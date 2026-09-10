@@ -436,9 +436,9 @@ open class MPVMetalNSView: NSView {
     open var onToggleFullScreen: (() -> Void)?
     
     open override func makeBackingLayer() -> CALayer {
-        let glLayer = MPVOpenGLLayer()
-        glLayer.contentsScale = NSScreen.main?.backingScaleFactor ?? 2.0
-        return glLayer
+        let metalLayer = MPVMetalRenderLayer()
+        metalLayer.contentsScale = NSScreen.main?.backingScaleFactor ?? 2.0
+        return metalLayer
     }
     
     public init(frame frameRect: NSRect, isFullScreen: Bool) {
@@ -541,6 +541,8 @@ open class MPVMetalNSView: NSView {
         super.keyDown(with: event)
     }
     
+    // MARK: - Drag and Drop Subtitle Injection
+    
     open override func draggingEntered(_ sender: NSDraggingInfo) -> NSDragOperation {
         if hasValidSubtitleURL(sender) {
             return .copy
@@ -549,12 +551,14 @@ open class MPVMetalNSView: NSView {
     }
     
     open override func performDragOperation(_ sender: NSDraggingInfo) -> Bool {
-        if let urls = sender.draggingPasteboard.readObjects(forClasses: [NSURL.self], options: nil) as? [URL],
-           let firstURL = urls.first, isSubtitleURL(firstURL) {
-            onDropSubtitle?(firstURL)
-            return true
+        guard let urls = sender.draggingPasteboard.readObjects(forClasses: [NSURL.self], options: nil) as? [URL],
+              let firstURL = urls.first,
+              isSubtitleURL(firstURL) else {
+            return false
         }
-        return false
+        
+        onDropSubtitle?(firstURL)
+        return true
     }
     
     private func hasValidSubtitleURL(_ sender: NSDraggingInfo) -> Bool {
@@ -568,31 +572,5 @@ open class MPVMetalNSView: NSView {
     private func isSubtitleURL(_ url: URL) -> Bool {
         let ext = url.pathExtension.lowercased()
         return ["srt", "ass", "ssa", "vtt", "sub", "lrc"].contains(ext)
-    }
-}
-
-/// Legacy container view shim preserving test suite backward compatibility.
-public struct AVPlayerLayerContainerView {
-    public final class PlayerNSView: NSView {
-        public let playerLayer = AVPlayerLayer()
-        
-        public override init(frame frameRect: NSRect = .zero) {
-            super.init(frame: frameRect)
-            self.wantsLayer = true
-            self.layer?.backgroundColor = NSColor.black.cgColor
-            self.layer?.wantsExtendedDynamicRangeContent = true
-            playerLayer.frame = self.bounds
-            playerLayer.videoGravity = .resizeAspect
-            self.layer?.addSublayer(playerLayer)
-        }
-        
-        public required init?(coder: NSCoder) {
-            fatalError("init(coder:) has not been implemented")
-        }
-        
-        public override func layout() {
-            super.layout()
-            playerLayer.frame = self.bounds
-        }
     }
 }

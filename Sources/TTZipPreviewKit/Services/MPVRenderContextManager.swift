@@ -15,6 +15,9 @@ import CMPVBridge
 import os.log
 import TTZipUI
 
+import CoreVideo
+import IOSurface
+
 /// Dynamic OpenGL function pointer resolver using macOS OpenGL framework bundle symbol lookup.
 private let mpvOpenGLGetProcAddress: @convention(c) (UnsafeMutableRawPointer?, UnsafePointer<CChar>?) -> UnsafeMutableRawPointer? = { _, name in
     guard let name = name else { return nil }
@@ -40,13 +43,26 @@ public final class MPVRenderContextManager: @unchecked Sendable {
     private var updateHandlerOwner: ObjectIdentifier?
     private var updateHandler: (@Sendable () -> Void)?
     
+    // Dedicated IOSurface and OpenGL FBO backing resources for zero-copy Metal presentation
+    private var currentSurface: IOSurface?
+    private var currentTexture: GLuint = 0
+    private var currentFBO: GLuint = 0
+    private var surfaceWidth: Int32 = 0
+    private var surfaceHeight: Int32 = 0
+    
+    /// Returns the active IOSurface backing buffer if available.
+    public var activeIOSurface: IOSurface? {
+        lock.lock()
+        defer { lock.unlock() }
+        return currentSurface
+    }
+    
     /// Returns the owner of the currently registered update handler.
     public var activeUpdateHandlerOwner: ObjectIdentifier? {
         lock.lock()
         defer { lock.unlock() }
         return updateHandlerOwner
     }
-    
     
     /// Returns the active native `mpv_render_context` handle.
     public var rawContext: OpaquePointer? {
@@ -65,7 +81,7 @@ public final class MPVRenderContextManager: @unchecked Sendable {
     public init() {}
     
     deinit {
-        detachAndFree()
+        detachAndFreeInternal()
     }
     
     /// Registers a thread-safe callback invoked when libmpv produces a new video frame or requests a redraw.
@@ -95,27 +111,50 @@ public final class MPVRenderContextManager: @unchecked Sendable {
     }
     
     /// Initializes and attaches the native `mpv_render_context` to the provided `mpv_handle` and OpenGL context.
+    /// If no CGLContext is provided, creates a dedicated immortal off-screen CGLContext.
     @discardableResult
     public func createRenderContext(mpvHandle: OpaquePointer, cglContext: CGLContextObj? = nil) -> Bool {
         lock.lock()
         defer { lock.unlock() }
         
         if renderContext != nil {
-            if let target = cglContext, target != activeCGLContext {
-                self.activeCGLContext = target
-            }
             return true
         }
         
-        let previousContext = CGLGetCurrentContext()
-        guard let activeContext = cglContext ?? previousContext else {
-            logger.debug("Deferred mpv_render_context creation: No active CGLContext available yet")
+        var targetContext = cglContext ?? CGLGetCurrentContext()
+        if targetContext == nil {
+            let attribs: [CGLPixelFormatAttribute] = [
+                kCGLPFAOpenGLProfile,
+                CGLPixelFormatAttribute(kCGLOGLPVersion_3_2_Core.rawValue),
+                kCGLPFAAccelerated,
+                kCGLPFAAllowOfflineRenderers,
+                CGLPixelFormatAttribute(0)
+            ]
+            var pix: CGLPixelFormatObj?
+            var npix: GLint = 0
+            CGLChoosePixelFormat(attribs, &pix, &npix)
+            if let validPix = pix {
+                defer { CGLReleasePixelFormat(validPix) }
+                var dedicatedContext: CGLContextObj?
+                CGLCreateContext(validPix, nil, &dedicatedContext)
+                if let ctx = dedicatedContext {
+                    CGLEnable(ctx, kCGLCEMPEngine)
+                    targetContext = ctx
+                }
+            }
+        }
+        
+        guard let activeContext = targetContext else {
+            logger.error("Deferred mpv_render_context creation: No active CGLContext available")
             return false
         }
         
+        let previousContext = CGLGetCurrentContext()
         CGLSetCurrentContext(activeContext)
         defer {
-            CGLSetCurrentContext(previousContext)
+            if previousContext != activeContext {
+                CGLSetCurrentContext(previousContext)
+            }
         }
         
         var initParams = mpv_opengl_init_params(
@@ -150,7 +189,7 @@ public final class MPVRenderContextManager: @unchecked Sendable {
         let selfPtr = Unmanaged.passUnretained(self).toOpaque()
         mpv_render_context_set_update_callback(validCtx, mpvRenderUpdateCallback, selfPtr)
         
-        logger.info("mpv_render_context initialized successfully with OpenGL 3.2 backend")
+        logger.info("mpv_render_context initialized successfully with dedicated OpenGL 3.2 backend")
         return true
     }
 
@@ -243,6 +282,156 @@ public func reportSwap() {
     mpv_render_context_report_swap(ctx)
 }
     
+    /// Renders the decoded video frame directly into an off-screen IOSurface FBO for zero-copy Metal presentation.
+    public func renderToSurface(width: Int32, height: Int32) -> IOSurface? {
+        lock.lock()
+        defer { lock.unlock() }
+        guard let ctx = renderContext, let cglCtx = self.activeCGLContext else {
+            return nil
+        }
+        guard width > 0, height > 0 else { return nil }
+        
+        let previousContext = CGLGetCurrentContext()
+        if previousContext != cglCtx {
+            CGLSetCurrentContext(cglCtx)
+        }
+        defer {
+            if previousContext != cglCtx {
+                CGLSetCurrentContext(previousContext)
+            }
+        }
+        
+        guard let (surface, fbo) = ensureSurface(width: width, height: height, cglContext: cglCtx) else {
+            return nil
+        }
+        
+        var glFbo = mpv_opengl_fbo(
+            fbo: Int32(fbo),
+            w: width,
+            h: height,
+            internal_format: GLint(GL_RGBA8)
+        )
+        var flipY: Int32 = 1
+        let err: Int32 = withUnsafeMutablePointer(to: &glFbo) { fboPtr in
+            withUnsafeMutablePointer(to: &flipY) { flipYPtr in
+                var renderParams: [mpv_render_param] = [
+                    mpv_render_param(type: MPV_RENDER_PARAM_OPENGL_FBO, data: fboPtr),
+                    mpv_render_param(type: MPV_RENDER_PARAM_FLIP_Y, data: flipYPtr),
+                    mpv_render_param(type: MPV_RENDER_PARAM_INVALID, data: nil)
+                ]
+                return mpv_render_context_render(ctx, &renderParams)
+            }
+        }
+        if err < 0 {
+            logger.warning("mpv_render_context_render to surface returned code: \(err)")
+        }
+        
+        glFlush()
+        return surface
+    }
+    
+    /// Allocates or resizes the backing IOSurface and OpenGL FBO matching the target viewport dimensions.
+    private func ensureSurface(width: Int32, height: Int32, cglContext: CGLContextObj) -> (IOSurface, GLuint)? {
+        if let surface = currentSurface,
+           currentFBO != 0,
+           surfaceWidth == width,
+           surfaceHeight == height {
+            return (surface, currentFBO)
+        }
+        
+        cleanupSurface()
+        
+        let properties: [CFString: Any] = [
+            kIOSurfaceWidth: Int(width),
+            kIOSurfaceHeight: Int(height),
+            kIOSurfaceBytesPerElement: 4,
+            kIOSurfacePixelFormat: Int(kCVPixelFormatType_32BGRA)
+        ]
+        
+        guard let surfaceRef = IOSurfaceCreate(properties as CFDictionary) else {
+            logger.error("Failed to allocate IOSurface of size \(width)x\(height)")
+            return nil
+        }
+        let surface = unsafeBitCast(surfaceRef, to: IOSurface.self)
+        
+        var tex: GLuint = 0
+        glGenTextures(1, &tex)
+        glBindTexture(GLenum(GL_TEXTURE_RECTANGLE), tex)
+        glTexParameteri(GLenum(GL_TEXTURE_RECTANGLE), GLenum(GL_TEXTURE_MIN_FILTER), GL_LINEAR)
+        glTexParameteri(GLenum(GL_TEXTURE_RECTANGLE), GLenum(GL_TEXTURE_MAG_FILTER), GL_LINEAR)
+        glTexParameteri(GLenum(GL_TEXTURE_RECTANGLE), GLenum(GL_TEXTURE_WRAP_S), GL_CLAMP_TO_EDGE)
+        glTexParameteri(GLenum(GL_TEXTURE_RECTANGLE), GLenum(GL_TEXTURE_WRAP_T), GL_CLAMP_TO_EDGE)
+        
+        let err = CGLTexImageIOSurface2D(
+            cglContext,
+            GLenum(GL_TEXTURE_RECTANGLE),
+            GLenum(GL_RGBA),
+            GLsizei(width),
+            GLsizei(height),
+            GLenum(GL_BGRA),
+            GLenum(GL_UNSIGNED_INT_8_8_8_8_REV),
+            surfaceRef,
+            0
+        )
+        guard err == kCGLNoError else {
+            logger.error("CGLTexImageIOSurface2D failed with error: \(err.rawValue)")
+            glDeleteTextures(1, &tex)
+            return nil
+        }
+        
+        var fbo: GLuint = 0
+        glGenFramebuffers(1, &fbo)
+        glBindFramebuffer(GLenum(GL_FRAMEBUFFER), fbo)
+        glFramebufferTexture2D(
+            GLenum(GL_FRAMEBUFFER),
+            GLenum(GL_COLOR_ATTACHMENT0),
+            GLenum(GL_TEXTURE_RECTANGLE),
+            tex,
+            0
+        )
+        
+        let status = glCheckFramebufferStatus(GLenum(GL_FRAMEBUFFER))
+        guard status == GLenum(GL_FRAMEBUFFER_COMPLETE) else {
+            logger.error("OpenGL Framebuffer is incomplete: \(status)")
+            glDeleteFramebuffers(1, &fbo)
+            glDeleteTextures(1, &tex)
+            return nil
+        }
+        
+        self.currentSurface = surface
+        self.currentTexture = tex
+        self.currentFBO = fbo
+        self.surfaceWidth = width
+        self.surfaceHeight = height
+        
+        return (surface, fbo)
+    }
+    
+    private func cleanupSurface() {
+        if let targetCGL = self.activeCGLContext {
+            let prev = CGLGetCurrentContext()
+            if prev != targetCGL {
+                CGLSetCurrentContext(targetCGL)
+            }
+            if currentFBO != 0 {
+                var f = currentFBO
+                glDeleteFramebuffers(1, &f)
+                currentFBO = 0
+            }
+            if currentTexture != 0 {
+                var t = currentTexture
+                glDeleteTextures(1, &t)
+                currentTexture = 0
+            }
+            if prev != targetCGL {
+                CGLSetCurrentContext(prev)
+            }
+        }
+        currentSurface = nil
+        surfaceWidth = 0
+        surfaceHeight = 0
+    }
+
     /// Safely detaches update callbacks and destroys the native `mpv_render_context`.
     public func detachAndFree() {
         lock.lock()
@@ -251,6 +440,8 @@ public func reportSwap() {
     }
     
     private func detachAndFreeInternal() {
+        cleanupSurface()
+        
         guard let ctx = renderContext else {
             activeCGLContext = nil
             return

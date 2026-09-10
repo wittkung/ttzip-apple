@@ -55,13 +55,13 @@ final class MPVAdversarialStressTests: XCTestCase {
         )
         window.contentView = container
 
-        guard let glLayer = container.layer as? MPVOpenGLLayer else {
-            XCTFail("MPVMetalContainerView must have MPVOpenGLLayer as its backing layer")
+        guard let metalLayer = container.layer as? MPVMetalRenderLayer else {
+            XCTFail("MPVMetalContainerView must have MPVMetalRenderLayer as its backing layer")
             return
         }
 
         let store = MPVMetalPlayerStore.shared
-        glLayer.bind(store: store)
+        metalLayer.bind(store: store)
 
         // Stress: 60 rapid resize operations with varying aspect ratios and scale factors
         let testSizes: [CGSize] = [
@@ -82,14 +82,14 @@ final class MPVAdversarialStressTests: XCTestCase {
         for iteration in 1...6 {
             for (idx, size) in testSizes.enumerated() {
                 container.frame = NSRect(origin: .zero, size: size)
-                glLayer.contentsScale = scales[(iteration + idx) % scales.count]
+                metalLayer.contentsScale = scales[(iteration + idx) % scales.count]
                 container.layout()
-                glLayer.forceRedraw()
+                metalLayer.forceRedraw()
             }
         }
 
-        XCTAssertTrue(glLayer.isAsynchronous, "MPVOpenGLLayer must operate asynchronously for hardware display link sync")
-        glLayer.unbind()
+        XCTAssertTrue(metalLayer.isBound, "MPVMetalRenderLayer must be bound")
+        metalLayer.unbind()
     }
 
     func testMPVRenderContextManagerExtremeBoundsAndReattachment() throws {

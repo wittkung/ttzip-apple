@@ -242,8 +242,8 @@ final class NativeMPVFullscreenExclusivityTests: XCTestCase {
     @MainActor
     func testContainerViewInPlaceResizingPreservesBackingLayer() {
         let container = MPVMetalContainerView(frame: NSRect(x: 0, y: 0, width: 320, height: 240))
-        guard let initialLayer = container.layer as? MPVOpenGLLayer else {
-            XCTFail("MPVMetalContainerView must have an MPVOpenGLLayer backing layer")
+        guard let initialLayer = container.layer as? MPVMetalRenderLayer else {
+            XCTFail("MPVMetalContainerView must have an MPVMetalRenderLayer backing layer")
             return
         }
         

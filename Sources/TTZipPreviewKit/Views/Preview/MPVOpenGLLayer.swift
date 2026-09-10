@@ -114,9 +114,6 @@ public final class MPVOpenGLLayer: CAOpenGLLayer, MPVVideoLayerProtocol {
     // MARK: - CAOpenGLLayer Virtual Overrides
     
     public override func releaseCGLContext(_ glContext: CGLContextObj) {
-        if let manager = renderContextManager, manager.activeContext == glContext {
-            manager.detachAndFree()
-        }
         super.releaseCGLContext(glContext)
     }
     
