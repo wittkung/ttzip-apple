@@ -26,6 +26,31 @@ let coreDependency: Package.Dependency = isLocalCoreAvailable
 
 let corePackageName = isLocalCoreAvailable ? "core" : "ttzip-core"
 
+let ttmpvDependencyResolution: (dependency: Package.Dependency, packageName: String) = {
+    // Tier 1: Explicit environment variable override
+    if let envPath = ProcessInfo.processInfo.environment["TTMPV_PATH"],
+       FileManager.default.fileExists(atPath: "\(envPath)/Package.swift") {
+        return (.package(path: envPath), "ttmpv")
+    }
+
+    // Tier 2: Standard peer workspace probe (e.g. products/ttmpv)
+    if ProcessInfo.processInfo.environment["TTZIP_USE_REMOTE_MPV"] != "1" {
+        let peerManifest = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .appendingPathComponent("../../ttmpv/Package.swift")
+            .standardized
+        if FileManager.default.fileExists(atPath: peerManifest.path) {
+            return (.package(path: "../../ttmpv"), "ttmpv")
+        }
+    }
+
+    // Tier 3: Remote GitHub repository fallback for external machines and CI
+    return (.package(url: "https://github.com/wittkung/ttmpv.git", branch: "main"), "ttmpv")
+}()
+
+let mpvDependency = ttmpvDependencyResolution.dependency
+let mpvPackageName = ttmpvDependencyResolution.packageName
+
 let swiftSettings: [SwiftSetting] = [
     .define("GL_SILENCE_DEPRECATION"),
     .unsafeFlags(["-Xcc", "-DGL_SILENCE_DEPRECATION"]),
@@ -50,6 +75,7 @@ let package = Package(
     ],
     dependencies: [
         coreDependency,
+        mpvDependency,
         .package(url: "https://github.com/sparkle-project/Sparkle", exact: "2.6.0")
     ],
     targets: [
@@ -102,6 +128,7 @@ let package = Package(
             name: "TTZipPreviewKit",
             dependencies: [
                 .product(name: "TTZipCore", package: corePackageName),
+                .product(name: "TTMPVKit", package: mpvPackageName),
                 "TTZipUI",
                 "TTZipPluginKit",
                 "CMPVBridge"
