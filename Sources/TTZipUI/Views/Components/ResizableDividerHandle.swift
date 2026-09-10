@@ -12,15 +12,22 @@ public struct ResizableDividerHandle: View {
     public var onDragStart: (() -> Void)? = nil
     public let onDragChanged: (CGFloat) -> Void
     public var onDragEnd: (() -> Void)? = nil
+    public var onDoubleClick: (() -> Void)? = nil
     
     @State private var isHovered = false
     @State private var isDragging = false
     @State private var startMouseX: CGFloat = 0
     
-    public init(onDragStart: (() -> Void)? = nil, onDragChanged: @escaping (CGFloat) -> Void, onDragEnd: (() -> Void)? = nil) {
+    public init(
+        onDragStart: (() -> Void)? = nil,
+        onDragChanged: @escaping (CGFloat) -> Void,
+        onDragEnd: (() -> Void)? = nil,
+        onDoubleClick: (() -> Void)? = nil
+    ) {
         self.onDragStart = onDragStart
         self.onDragChanged = onDragChanged
         self.onDragEnd = onDragEnd
+        self.onDoubleClick = onDoubleClick
     }
     
     public static let gutterWidth: CGFloat = 8.0
@@ -76,8 +83,14 @@ public struct ResizableDividerHandle: View {
                 NSCursor.pop()
             }
         }
+        .simultaneousGesture(
+            TapGesture(count: 2)
+                .onEnded {
+                    onDoubleClick?()
+                }
+        )
         .highPriorityGesture(
-            DragGesture(minimumDistance: 0, coordinateSpace: .global)
+            DragGesture(minimumDistance: 2, coordinateSpace: .global)
                 .onChanged { _ in
                     let currentMouseX = NSEvent.mouseLocation.x
                     if !isDragging {

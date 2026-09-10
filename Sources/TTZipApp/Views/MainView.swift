@@ -49,9 +49,16 @@ public struct MainView: View {
     @State private var initialLeftWidth: CGFloat = 190
     
     @AppStorage("TTZip_UserRightSidebarWidth") private var userRightSidebarWidth: Double = 280.0
+    @AppStorage("TTZip_UserRightSidebarMediaWidth") private var userRightSidebarMediaWidth: Double = 540.0
     @State private var rightSidebarWidth: CGFloat = 280
     @State private var initialRightWidth: CGFloat = 280
     @State private var rightVerticalTopHeight: CGFloat = 300
+    
+    private var isVideoSelected: Bool {
+        guard let item = viewModel.selectedDiskItem, !item.isDirectory else { return false }
+        let ext = (item.name as NSString).pathExtension.lowercased()
+        return MediaPreviewFactory.videoExtensions.contains(ext)
+    }
     
     @StateObject var searchService = SpotlightSearchService()
     @State var searchQuery: String = ""
@@ -157,7 +164,7 @@ public struct MainView: View {
             withAnimation(.easeInOut(duration: 0.25)) {
                 viewModel.navigationState.layoutMode = .standard
                 self.leftSidebarWidth = CGFloat(userLeftSidebarWidth)
-                self.rightSidebarWidth = CGFloat(userRightSidebarWidth)
+                self.rightSidebarWidth = isVideoSelected ? CGFloat(userRightSidebarMediaWidth) : CGFloat(userRightSidebarWidth)
             }
         }
         .onChange(of: viewModel.activePreviewFileURL) { _, newURL in
@@ -165,7 +172,7 @@ public struct MainView: View {
                 withAnimation(.easeInOut(duration: 0.25)) {
                     viewModel.navigationState.layoutMode = .standard
                     self.leftSidebarWidth = CGFloat(userLeftSidebarWidth)
-                    self.rightSidebarWidth = CGFloat(userRightSidebarWidth)
+                    self.rightSidebarWidth = isVideoSelected ? CGFloat(userRightSidebarMediaWidth) : CGFloat(userRightSidebarWidth)
                 }
             }
         }
@@ -285,8 +292,11 @@ public struct MainView: View {
             
             let isIconRailMode: Bool = effectiveLeftWidth <= 80.0
             
+            let isVideo = isVideoSelected
             let minRightSidebarWidth: CGFloat = 200.0
-            let maxRightSidebarWidth: CGFloat = min(380.0, totalWidth * 0.35)
+            let maxRightSidebarWidth: CGFloat = isVideo
+                ? min(850.0, totalWidth * 0.55)
+                : min(380.0, totalWidth * 0.35)
             let isRightPanelAvailable: Bool = (tier != .compact && viewModel.activeTab == .home)
             let shouldShowRightPanel = !isMediaFocus && isRightSidebarVisible && isRightPanelAvailable
             
@@ -344,9 +354,25 @@ public struct MainView: View {
                 } else {
                     self.leftSidebarWidth = min(max(savedLeft, SidebarGeometry.minExpandedWidth), SidebarGeometry.maxExpandedWidth)
                 }
-                self.rightSidebarWidth = min(max(CGFloat(userRightSidebarWidth), 200.0), 380.0)
+                let baseWidth = isVideo ? CGFloat(userRightSidebarMediaWidth) : CGFloat(userRightSidebarWidth)
+                self.rightSidebarWidth = min(max(baseWidth, minRightSidebarWidth), effectiveMaxRightWidth)
             }
-            .onChange(of: viewModel.selectedDiskItem) { _, _ in NSApp.keyWindow?.makeFirstResponder(nil) }
+            .onChange(of: viewModel.selectedDiskItem) { oldItem, newItem in
+                NSApp.keyWindow?.makeFirstResponder(nil)
+                let wasVideo = oldItem.map { !$0.isDirectory && MediaPreviewFactory.videoExtensions.contains(($0.name as NSString).pathExtension.lowercased()) } ?? false
+                let isVideo = newItem.map { !$0.isDirectory && MediaPreviewFactory.videoExtensions.contains(($0.name as NSString).pathExtension.lowercased()) } ?? false
+                if !wasVideo && isVideo {
+                    withAnimation(.spring(response: 0.32, dampingFraction: 0.82)) {
+                        let target = min(max(CGFloat(userRightSidebarMediaWidth), minRightSidebarWidth), effectiveMaxRightWidth)
+                        rightSidebarWidth = target
+                    }
+                } else if wasVideo && !isVideo {
+                    withAnimation(.spring(response: 0.32, dampingFraction: 0.82)) {
+                        let target = min(max(CGFloat(userRightSidebarWidth), minRightSidebarWidth), 380.0)
+                        rightSidebarWidth = target
+                    }
+                }
+            }
             .onChange(of: viewModel.activeTab) { _, newTab in
                 NSApp.keyWindow?.makeFirstResponder(nil)
                 if newTab == .compressWorkspace {
@@ -429,7 +455,25 @@ public struct MainView: View {
                         let newWidth = initialRightWidth - translation
                         rightSidebarWidth = min(max(newWidth, minRightSidebarWidth), effectiveMaxRightWidth)
                     },
-                    onDragEnd: { userRightSidebarWidth = Double(rightSidebarWidth) }
+                    onDragEnd: {
+                        if isVideoSelected {
+                            userRightSidebarMediaWidth = Double(rightSidebarWidth)
+                        } else {
+                            userRightSidebarWidth = Double(rightSidebarWidth)
+                        }
+                    },
+                    onDoubleClick: {
+                        withAnimation(.spring(response: 0.28, dampingFraction: 0.82)) {
+                            let targetWidth: CGFloat = isVideoSelected ? 540.0 : 280.0
+                            rightSidebarWidth = min(targetWidth, effectiveMaxRightWidth)
+                            if isVideoSelected {
+                                userRightSidebarMediaWidth = Double(rightSidebarWidth)
+                            } else {
+                                userRightSidebarWidth = Double(rightSidebarWidth)
+                            }
+                        }
+                        NSHapticFeedbackManager.defaultPerformer.perform(.alignment, performanceTime: .default)
+                    }
                 )
                 .frame(height: totalHeight)
                 .transition(.opacity)
