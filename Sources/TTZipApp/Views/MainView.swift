@@ -54,10 +54,22 @@ public struct MainView: View {
     @State private var initialRightWidth: CGFloat = 280
     @State private var rightVerticalTopHeight: CGFloat = 300
     
-    private var isVideoSelected: Bool {
-        guard let item = viewModel.selectedDiskItem, !item.isDirectory else { return false }
+    private static func isRichPreviewItem(_ item: DiskItemInfo?) -> Bool {
+        guard let item = item, !item.isDirectory else { return false }
         let ext = (item.name as NSString).pathExtension.lowercased()
         return MediaPreviewFactory.videoExtensions.contains(ext)
+            || MediaPreviewFactory.imageExtensions.contains(ext)
+            || ext == "pdf"
+            || MediaPreviewFactory.presentationExtensions.contains(ext)
+            || MediaPreviewFactory.spreadsheetExtensions.contains(ext)
+            || MediaPreviewFactory.docxExtensions.contains(ext)
+            || MediaPreviewFactory.markdownExtensions.contains(ext)
+            || MediaPreviewFactory.htmlWebExtensions.contains(ext)
+            || MediaPreviewFactory.textExtensions.contains(ext)
+    }
+    
+    private var isRichPreviewSelected: Bool {
+        Self.isRichPreviewItem(viewModel.selectedDiskItem)
     }
     
     @StateObject var searchService = SpotlightSearchService()
@@ -164,7 +176,7 @@ public struct MainView: View {
             withAnimation(.easeInOut(duration: 0.25)) {
                 viewModel.navigationState.layoutMode = .standard
                 self.leftSidebarWidth = CGFloat(userLeftSidebarWidth)
-                self.rightSidebarWidth = isVideoSelected ? CGFloat(userRightSidebarMediaWidth) : CGFloat(userRightSidebarWidth)
+                self.rightSidebarWidth = isRichPreviewSelected ? CGFloat(userRightSidebarMediaWidth) : CGFloat(userRightSidebarWidth)
             }
         }
         .onChange(of: viewModel.activePreviewFileURL) { _, newURL in
@@ -172,7 +184,7 @@ public struct MainView: View {
                 withAnimation(.easeInOut(duration: 0.25)) {
                     viewModel.navigationState.layoutMode = .standard
                     self.leftSidebarWidth = CGFloat(userLeftSidebarWidth)
-                    self.rightSidebarWidth = isVideoSelected ? CGFloat(userRightSidebarMediaWidth) : CGFloat(userRightSidebarWidth)
+                    self.rightSidebarWidth = isRichPreviewSelected ? CGFloat(userRightSidebarMediaWidth) : CGFloat(userRightSidebarWidth)
                 }
             }
         }
@@ -292,9 +304,9 @@ public struct MainView: View {
             
             let isIconRailMode: Bool = effectiveLeftWidth <= 80.0
             
-            let isVideo = isVideoSelected
+            let isRichContent = isRichPreviewSelected
             let minRightSidebarWidth: CGFloat = 200.0
-            let maxRightSidebarWidth: CGFloat = isVideo
+            let maxRightSidebarWidth: CGFloat = isRichContent
                 ? min(850.0, totalWidth * 0.55)
                 : min(380.0, totalWidth * 0.35)
             let isRightPanelAvailable: Bool = (tier != .compact && viewModel.activeTab == .home)
@@ -354,19 +366,19 @@ public struct MainView: View {
                 } else {
                     self.leftSidebarWidth = min(max(savedLeft, SidebarGeometry.minExpandedWidth), SidebarGeometry.maxExpandedWidth)
                 }
-                let baseWidth = isVideo ? CGFloat(userRightSidebarMediaWidth) : CGFloat(userRightSidebarWidth)
+                let baseWidth = isRichContent ? CGFloat(userRightSidebarMediaWidth) : CGFloat(userRightSidebarWidth)
                 self.rightSidebarWidth = min(max(baseWidth, minRightSidebarWidth), effectiveMaxRightWidth)
             }
             .onChange(of: viewModel.selectedDiskItem) { oldItem, newItem in
                 NSApp.keyWindow?.makeFirstResponder(nil)
-                let wasVideo = oldItem.map { !$0.isDirectory && MediaPreviewFactory.videoExtensions.contains(($0.name as NSString).pathExtension.lowercased()) } ?? false
-                let isVideo = newItem.map { !$0.isDirectory && MediaPreviewFactory.videoExtensions.contains(($0.name as NSString).pathExtension.lowercased()) } ?? false
-                if !wasVideo && isVideo {
+                let wasRich = Self.isRichPreviewItem(oldItem)
+                let isRich = Self.isRichPreviewItem(newItem)
+                if !wasRich && isRich {
                     withAnimation(.spring(response: 0.32, dampingFraction: 0.82)) {
                         let target = min(max(CGFloat(userRightSidebarMediaWidth), minRightSidebarWidth), effectiveMaxRightWidth)
                         rightSidebarWidth = target
                     }
-                } else if wasVideo && !isVideo {
+                } else if wasRich && !isRich {
                     withAnimation(.spring(response: 0.32, dampingFraction: 0.82)) {
                         let target = min(max(CGFloat(userRightSidebarWidth), minRightSidebarWidth), 380.0)
                         rightSidebarWidth = target
@@ -456,7 +468,7 @@ public struct MainView: View {
                         rightSidebarWidth = min(max(newWidth, minRightSidebarWidth), effectiveMaxRightWidth)
                     },
                     onDragEnd: {
-                        if isVideoSelected {
+                        if isRichPreviewSelected {
                             userRightSidebarMediaWidth = Double(rightSidebarWidth)
                         } else {
                             userRightSidebarWidth = Double(rightSidebarWidth)
@@ -464,9 +476,9 @@ public struct MainView: View {
                     },
                     onDoubleClick: {
                         withAnimation(.spring(response: 0.28, dampingFraction: 0.82)) {
-                            let targetWidth: CGFloat = isVideoSelected ? 540.0 : 280.0
+                            let targetWidth: CGFloat = isRichPreviewSelected ? 540.0 : 280.0
                             rightSidebarWidth = min(targetWidth, effectiveMaxRightWidth)
-                            if isVideoSelected {
+                            if isRichPreviewSelected {
                                 userRightSidebarMediaWidth = Double(rightSidebarWidth)
                             } else {
                                 userRightSidebarWidth = Double(rightSidebarWidth)

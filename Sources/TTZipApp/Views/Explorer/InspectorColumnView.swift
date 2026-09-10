@@ -290,13 +290,13 @@ public struct InspectorColumnView: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             
             actionButtonsGroup(for: targetItem)
-                .layoutPriority(2)
-                .fixedSize(horizontal: true, vertical: false)
-                .padding(.trailing, 20)
+                .layoutPriority(0)
+                .padding(.trailing, 12)
         }
-        .padding(.leading, 20)
+        .padding(.leading, 14)
         .padding(.vertical, 7)
         .frame(height: 38)
+        .frame(maxWidth: .infinity)
     }
     
     // MARK: - Action Buttons
