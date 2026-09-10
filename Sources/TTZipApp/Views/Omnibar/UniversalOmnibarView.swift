@@ -373,7 +373,7 @@ public struct UniversalOmnibarView: View {
         if current.path == "/" {
             items.append(BreadcrumbItem(
                 id: "/",
-                name: "Macintosh HD",
+                name: FileManager.default.displayName(atPath: "/"),
                 iconName: "internaldrive",
                 url: URL(fileURLWithPath: "/"),
                 isCurrent: true
@@ -408,7 +408,7 @@ public struct UniversalOmnibarView: View {
                 let isLast = (idx == segments.count - 1)
                 items.append(BreadcrumbItem(
                     id: cumulative.path,
-                    name: seg,
+                    name: FileManager.default.displayName(atPath: cumulative.path),
                     iconName: nil,
                     url: cumulative,
                     isCurrent: isLast
@@ -417,7 +417,7 @@ public struct UniversalOmnibarView: View {
         } else {
             items.append(BreadcrumbItem(
                 id: "/",
-                name: "/",
+                name: FileManager.default.displayName(atPath: "/"),
                 iconName: "internaldrive",
                 url: URL(fileURLWithPath: "/"),
                 isCurrent: false
@@ -429,7 +429,7 @@ public struct UniversalOmnibarView: View {
                 let isLast = (idx == segments.count - 1)
                 items.append(BreadcrumbItem(
                     id: cumulative.path,
-                    name: seg,
+                    name: FileManager.default.displayName(atPath: cumulative.path),
                     iconName: nil,
                     url: cumulative,
                     isCurrent: isLast

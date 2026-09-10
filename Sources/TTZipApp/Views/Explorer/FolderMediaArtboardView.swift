@@ -15,6 +15,7 @@ import TTZipBenchmarkKit
 public struct FolderMediaArtboardView: View {
     public let item: DiskItemInfo
     public let onCompressPath: (String) -> Void
+    @ObservedObject var l10n = AppLocalizationState.shared
     
     @State var totalSizeBytes: Int64 = 0
     @State var subfolderCount: Int = 0
@@ -32,12 +33,12 @@ public struct FolderMediaArtboardView: View {
     }
     
     var formattedFolderSize: String {
-        if isCalculating { return "Calculating..." }
+        if isCalculating { return l10n.t(L10n.Common.calculating) }
         return ByteCountFormatterFlyweight.shared.string(fromByteCount: totalSizeBytes)
     }
     
     var formattedDate: String {
-        guard let d = item.modificationDate else { return "Unknown" }
+        guard let d = item.modificationDate else { return l10n.t(L10n.Common.unknown) }
         return DateFormatterCache.shared.string(fromShortDateTime: d)
     }
     
@@ -58,23 +59,27 @@ public struct FolderMediaArtboardView: View {
             
             bottomPinnedActionBar
         }
-        .alert("New Folder", isPresented: $showCreateSubfolderAlert) {
-            TextField("Folder Name", text: $newSubfolderName)
-            Button("Cancel", role: .cancel) {
+        .alert(l10n.t(L10n.Explorer.newFolder), isPresented: $showCreateSubfolderAlert) {
+            TextField(l10n.t(L10n.Explorer.folderName), text: $newSubfolderName)
+            Button(l10n.t(L10n.Common.cancel), role: .cancel) {
                 newSubfolderName = "Untitled Folder"
             }
-            Button("Create", action: createNewFolder)
+            Button(l10n.t(L10n.Explorer.create), action: createNewFolder)
         } message: {
-            Text("Creating new folder in:\n\(item.path)")
+            Text(l10n.currentLanguage == .zhHans || l10n.currentLanguage == .zhHant
+                ? "在以下位置创建新文件夹：\n\(item.path)"
+                : "Creating new folder in:\n\(item.path)")
         }
-        .alert("New File", isPresented: $showCreateFileAlert) {
-            TextField("File Name (e.g. text.txt)", text: $newSubfileName)
-            Button("Cancel", role: .cancel) {
+        .alert(l10n.t(L10n.Explorer.newFile), isPresented: $showCreateFileAlert) {
+            TextField(l10n.t(L10n.Explorer.fileName), text: $newSubfileName)
+            Button(l10n.t(L10n.Common.cancel), role: .cancel) {
                 newSubfileName = "Untitled.txt"
             }
-            Button("Create", action: createNewFile)
+            Button(l10n.t(L10n.Explorer.create), action: createNewFile)
         } message: {
-            Text("Creating new empty file in:\n\(item.path)")
+            Text(l10n.currentLanguage == .zhHans || l10n.currentLanguage == .zhHant
+                ? "在以下位置创建新文件：\n\(item.path)"
+                : "Creating new empty file in:\n\(item.path)")
         }
         .task(id: item.path) {
             await calculateStats()
@@ -112,13 +117,14 @@ public struct FolderMediaArtboardView: View {
             
             GeometryReader { btnGeo in
                 let w = btnGeo.size.width
+                let isZh = l10n.currentLanguage == .zhHans || l10n.currentLanguage == .zhHant
                 HStack(spacing: w > 380 ? 8 : 6) {
                     headerActionButton(
                         icon: "folder",
-                        shortTitle: "Reveal",
-                        fullTitle: "Reveal in Finder",
+                        shortTitle: isZh ? "访达" : "Reveal",
+                        fullTitle: l10n.t(L10n.Common.revealInFinder),
                         width: w,
-                        help: "Reveal in Finder",
+                        help: l10n.t(L10n.Common.revealInFinder),
                         action: {
                             NSWorkspace.shared.selectFile(item.path, inFileViewerRootedAtPath: "")
                         }
@@ -126,10 +132,10 @@ public struct FolderMediaArtboardView: View {
                     
                     headerActionButton(
                         icon: "folder.badge.plus",
-                        shortTitle: "Folder",
-                        fullTitle: "New Folder",
+                        shortTitle: isZh ? "文件夹" : "Folder",
+                        fullTitle: l10n.t(L10n.Explorer.newFolder),
                         width: w,
-                        help: "Create new subfolder",
+                        help: l10n.t(L10n.Explorer.newFolder),
                         action: {
                             showCreateSubfolderAlert = true
                         }
@@ -137,10 +143,10 @@ public struct FolderMediaArtboardView: View {
                     
                     headerActionButton(
                         icon: "doc.badge.plus",
-                        shortTitle: "File",
-                        fullTitle: "New File",
+                        shortTitle: isZh ? "文件" : "File",
+                        fullTitle: l10n.t(L10n.Explorer.newFile),
                         width: w,
-                        help: "Create new empty file",
+                        help: l10n.t(L10n.Explorer.newFile),
                         action: {
                             showCreateFileAlert = true
                         }
@@ -148,10 +154,10 @@ public struct FolderMediaArtboardView: View {
                     
                     headerActionButton(
                         icon: "doc.on.doc",
-                        shortTitle: "Copy",
-                        fullTitle: "Copy Path",
+                        shortTitle: l10n.t(L10n.Common.copy),
+                        fullTitle: isZh ? "拷贝路径" : "Copy Path",
                         width: w,
-                        help: "Copy Path",
+                        help: isZh ? "拷贝路径" : "Copy Path",
                         action: {
                             NSPasteboard.general.clearContents()
                             NSPasteboard.general.setString(item.path, forType: .string)
@@ -202,7 +208,7 @@ public struct FolderMediaArtboardView: View {
                     HStack(spacing: 8) {
                         Image(systemName: "archivebox.fill")
                             .font(.system(size: 14, weight: .bold))
-                        Text("New Archive (⌘N)")
+                        Text(l10n.t(L10n.Common.newArchiveShortcut))
                             .font(.system(size: 13, weight: .bold))
                             .lineLimit(1)
                     }
@@ -210,7 +216,7 @@ public struct FolderMediaArtboardView: View {
                     HStack(spacing: 6) {
                         Image(systemName: "archivebox.fill")
                             .font(.system(size: 13, weight: .bold))
-                        Text("New Archive")
+                        Text(l10n.t(L10n.Sidebar.newArchive))
                             .font(.system(size: 12, weight: .bold))
                             .lineLimit(1)
                     }
@@ -218,7 +224,7 @@ public struct FolderMediaArtboardView: View {
                     HStack(spacing: 4) {
                         Image(systemName: "archivebox.fill")
                             .font(.system(size: 12, weight: .bold))
-                        Text("Compress")
+                        Text(l10n.t(L10n.Compress.startAction))
                             .font(.system(size: 12, weight: .bold))
                             .lineLimit(1)
                     }

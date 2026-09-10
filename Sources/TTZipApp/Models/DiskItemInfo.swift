@@ -24,6 +24,15 @@ public struct DiskItemInfo: Identifiable, Hashable, Equatable, Sendable {
     public let modificationDate: Date?
     public let kindText: String
     
+    /// User-visible display name resolved via macOS system localization for local files.
+    /// Falls back to raw `name` for virtual archive entries or custom URL schemes.
+    public var displayName: String {
+        guard !path.isEmpty, !path.hasPrefix("ttzip://"), !path.contains("?subpath=") else {
+            return name
+        }
+        return FileManager.default.displayName(atPath: path)
+    }
+    
     public static func == (lhs: DiskItemInfo, rhs: DiskItemInfo) -> Bool {
         return lhs.path == rhs.path && lhs.rawSizeBytes == rhs.rawSizeBytes && lhs.modificationDate == rhs.modificationDate
     }

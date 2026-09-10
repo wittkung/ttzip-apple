@@ -144,7 +144,7 @@ public struct MillerColumnItemRowView: View {
                 .foregroundStyle(iconColor)
                 .frame(width: 14)
             
-            Text(item.name)
+            Text(item.displayName)
                 .font(.system(size: 11, weight: isSelected ? .semibold : .regular))
                 .foregroundStyle(isSelected ? Color.primary : (isEncryptedLockItem ? TTZipTheme.archiveAmber : (item.isArchive ? TTZipTheme.bambooGreen : Color.primary.opacity(0.85))))
                 .lineLimit(1)

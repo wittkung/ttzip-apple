@@ -65,7 +65,7 @@ public struct HomeExplorerContainerView: View {
                     }
                     .buttonStyle(.plain)
                     .fixedSize(horizontal: true, vertical: false)
-                    .help("Grant root access to parent directory to browse without sandbox prompts")
+                    .l10nHelp(L10n.Explorer.rootAccessHelp)
                 }
             },
             content: {

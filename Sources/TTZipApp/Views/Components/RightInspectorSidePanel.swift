@@ -15,6 +15,7 @@ import TTZipBenchmarkKit
 public struct RightInspectorSidePanel: View {
     public var viewModel: AppViewState
     @Binding public var rightVerticalTopHeight: CGFloat
+    @ObservedObject private var l10n = AppLocalizationState.shared
     
     public init(viewModel: AppViewState, rightVerticalTopHeight: Binding<CGFloat> = .constant(300)) {
         self.viewModel = viewModel
@@ -23,17 +24,16 @@ public struct RightInspectorSidePanel: View {
     
     private var headerSectionTitle: String {
         if let item = viewModel.selectedDiskItem {
-            return item.isDirectory ? "DIRECTORY CANVAS" : "INSPECTOR"
+            return item.isDirectory ? l10n.t(L10n.Inspector.directoryCanvas) : l10n.t(L10n.Inspector.title)
         }
-        return "CURRENT DIRECTORY"
+        return l10n.t(L10n.Inspector.currentDirectory)
     }
     
     private var headerItemName: String {
         if let item = viewModel.selectedDiskItem {
-            return item.name
+            return item.displayName
         }
-        let folderName = viewModel.currentDirectory.lastPathComponent
-        return folderName.isEmpty ? "Macintosh HD" : folderName
+        return FileManager.default.displayName(atPath: viewModel.currentDirectory.path)
     }
     
     public var body: some View {
@@ -64,7 +64,7 @@ public struct RightInspectorSidePanel: View {
                             .foregroundStyle(TTZipTheme.archiveAmber)
                     }
                     .buttonStyle(.plain)
-                    .help("View archive standards and compliance diagnostics...")
+                    .help(l10n.t(L10n.Diagnostics.title))
                 }
                 
                 if viewModel.selectedDiskItem != nil {
@@ -78,7 +78,7 @@ public struct RightInspectorSidePanel: View {
                             .foregroundStyle(.secondary.opacity(0.8))
                     }
                     .buttonStyle(.plain)
-                    .help("Clear selection and view current directory canvas")
+                    .help(l10n.t(L10n.Inspector.currentDirectory))
                 }
             }
             .padding(.horizontal, 20)
@@ -154,10 +154,10 @@ public struct RightInspectorSidePanel: View {
             Image(systemName: "circle.dotted")
                 .font(.system(size: 32, weight: .light))
                 .foregroundStyle(TTZipTheme.kintsugiGold.opacity(0.6))
-            Text("Zen Workspace")
+            Text(l10n.t(L10n.Inspector.emptyDirectory))
                 .font(.system(size: 13, weight: .medium, design: .serif))
                 .foregroundStyle(.primary.opacity(0.8))
-            Text("Select an item in the explorer to inspect")
+            Text(l10n.t(L10n.Inspector.emptyDirectoryDesc))
                 .font(.system(size: 11))
                 .foregroundStyle(.secondary)
             Spacer()

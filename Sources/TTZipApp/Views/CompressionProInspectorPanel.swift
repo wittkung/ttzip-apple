@@ -103,11 +103,11 @@ public struct CompressionProInspectorPanel: View {
                 
                 Toggle("Enable Solid Archive", isOn: $enableSolidArchive)
                     .disabled(selectedFormat != .sevenZip)
-                    .help("Solid archiving packs multiple files into a continuous stream to improve ratio")
+                    .l10nHelp(L10n.Compress.solidArchiveDesc)
                 
                 Toggle("Encrypt File Names and Headers", isOn: $encryptFileNames)
                     .disabled(!enableEncryption || selectedFormat != .sevenZip)
-                    .help("Encrypts the archive directory index and filenames")
+                    .l10nHelp(L10n.Compress.encryptFileNames7z)
                 
                 Toggle("AES-256 Bit Encryption", isOn: $enableEncryption)
                 

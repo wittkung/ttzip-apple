@@ -96,4 +96,14 @@ public final class AppLocalizationState: ObservableObject {
         let template = t(key)
         return String(format: template, locale: Locale(identifier: currentLanguage.bcp47), count)
     }
+    
+    /// Formats file and directory counts with grammatical pluralization across supported languages.
+    public func formatFilesAndDirectories(files: Int, directories: Int) -> String {
+        if currentLanguage == .en {
+            let fileWord = files == 1 ? "File" : "Files"
+            let dirWord = directories == 1 ? "Directory" : "Directories"
+            return "\(files) \(fileWord) · \(directories) \(dirWord)"
+        }
+        return format(L10n.Units.filesAndDirectories, files, directories)
+    }
 }

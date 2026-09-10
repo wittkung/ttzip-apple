@@ -55,7 +55,7 @@ public struct BreadcrumbPathBarView: View {
                 let isLast = (idx == parts.count - 1)
                 result.append(BreadcrumbSegment(
                     id: accumulated,
-                    title: part,
+                    title: FileManager.default.displayName(atPath: accumulated),
                     fullURL: URL(fileURLWithPath: accumulated),
                     isRoot: false,
                     isLast: isLast
@@ -78,7 +78,7 @@ public struct BreadcrumbPathBarView: View {
                 let isLast = (idx == parts.count - 1)
                 result.append(BreadcrumbSegment(
                     id: accumulated,
-                    title: part,
+                    title: FileManager.default.displayName(atPath: accumulated),
                     fullURL: URL(fileURLWithPath: accumulated),
                     isRoot: false,
                     isLast: isLast

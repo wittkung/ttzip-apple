@@ -80,6 +80,25 @@ public struct SingleMillerColumnView: View {
         self.onWidthChanged = onWidthChanged
     }
     
+    private var columnTitle: String {
+        let absString = dirURL.absoluteString
+        if absString.hasPrefix("ttzip://") || absString.contains("?subpath=") {
+            let (_, subpath) = MillerColumnItemRowView.parseVirtualURL(absString)
+            if !subpath.isEmpty {
+                return (subpath as NSString).lastPathComponent
+            }
+            if !dirURL.path.isEmpty {
+                return FileManager.default.displayName(atPath: dirURL.path)
+            }
+            return dirURL.lastPathComponent.isEmpty ? "/" : dirURL.lastPathComponent
+        }
+        let path = dirURL.path
+        if path.isEmpty || path == "/" {
+            return FileManager.default.displayName(atPath: "/")
+        }
+        return FileManager.default.displayName(atPath: path)
+    }
+
     public var body: some View {
         HStack(spacing: 0) {
             VStack(alignment: .leading, spacing: 0) {
@@ -105,7 +124,7 @@ public struct SingleMillerColumnView: View {
                     .frame(width: 16, height: 16)
                     .fixedSize(horizontal: true, vertical: false)
                     
-                    Text(dirURL.lastPathComponent.isEmpty ? "/" : dirURL.lastPathComponent)
+                    Text(columnTitle)
                         .font(.system(size: 11, weight: .semibold, design: .serif))
                         .tracking(0.3)
                         .foregroundStyle(Color.primary.opacity(0.85))

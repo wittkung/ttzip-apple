@@ -17,18 +17,29 @@ extension FolderMediaArtboardView {
     @ViewBuilder
     var overviewSection: some View {
         VStack(alignment: .leading, spacing: 14) {
-            Text("OVERVIEW & FILE SYSTEM")
+            Text(l10n.t(L10n.Inspector.overviewFs))
                 .font(.system(size: 9, weight: .bold, design: .serif))
                 .tracking(2)
                 .foregroundStyle(TTZipTheme.kintsugiGold)
             
+            let itemsValue: String = {
+                if isCalculating {
+                    return l10n.t(L10n.Common.calculating)
+                }
+                return l10n.formatFilesAndDirectories(files: fileCount, directories: subfolderCount)
+            }()
+            
+            let fsValue = (l10n.currentLanguage == .zhHans || l10n.currentLanguage == .zhHant)
+                ? "APFS (Apple 文件系统)"
+                : "APFS (Apple File System)"
+            
             VStack(spacing: 10) {
-                detailRow(label: "Size", value: formattedFolderSize, isHighlight: true)
-                detailRow(label: "Items", value: isCalculating ? "Calculating..." : "\(fileCount) Files · \(subfolderCount) Directories")
-                detailRow(label: "Modified", value: formattedDate)
-                detailRow(label: "File System", value: "APFS (Apple File System)")
-                detailRow(label: "POSIX Permissions", value: "0755 (drwxr-xr-x)")
-                detailRow(label: "Owner / Group", value: ownerGroupString)
+                detailRow(label: l10n.t(L10n.Inspector.size), value: formattedFolderSize, isHighlight: true)
+                detailRow(label: l10n.t(L10n.Inspector.items), value: itemsValue)
+                detailRow(label: l10n.t(L10n.Inspector.modified), value: formattedDate)
+                detailRow(label: l10n.t(L10n.Inspector.fileSystem), value: fsValue)
+                detailRow(label: l10n.t(L10n.Inspector.permissions), value: "0755 (drwxr-xr-x)")
+                detailRow(label: l10n.t(L10n.Inspector.ownerGroup), value: ownerGroupString)
             }
         }
     }
@@ -39,7 +50,7 @@ extension FolderMediaArtboardView {
             Divider()
             
             VStack(alignment: .leading, spacing: 12) {
-                Text("CONTENT BREAKDOWN")
+                Text(l10n.t(L10n.Inspector.contentBreakdown))
                     .font(.system(size: 9, weight: .bold, design: .serif))
                     .tracking(2)
                     .foregroundStyle(TTZipTheme.kintsugiGold)
@@ -82,7 +93,7 @@ extension FolderMediaArtboardView {
                             Spacer(minLength: 4)
                             
                             // Fixed-width right-aligned item count
-                            Text("\(item.count) items")
+                            Text(l10n.plural(key: L10n.Units.itemsCount, count: item.count))
                                 .font(.system(size: 11, design: .monospaced))
                                 .monospacedDigit()
                                 .foregroundStyle(.secondary)
@@ -111,12 +122,12 @@ extension FolderMediaArtboardView {
                     Image(systemName: "folder")
                         .font(.system(size: 13, weight: .light))
                         .foregroundStyle(TTZipTheme.kintsugiGold.opacity(0.6))
-                    Text("Empty Directory")
+                    Text(l10n.t(L10n.Inspector.emptyDirectory))
                         .font(.system(size: 11, weight: .semibold, design: .serif))
                         .foregroundStyle(Color.primary.opacity(0.75))
                 }
                 
-                Text("This folder contains 0 files and 0 subdirectories.")
+                Text(l10n.t(L10n.Inspector.emptyDirectoryDesc))
                     .font(.system(size: 10, design: .monospaced))
                     .foregroundStyle(Color.secondary.opacity(0.8))
                     .multilineTextAlignment(.center)

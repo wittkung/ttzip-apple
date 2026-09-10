@@ -20,23 +20,27 @@ echo "======================================================================"
 cd "${REPO_ROOT}"
 
 # Stage 1: LOC Gate
-echo ">>> [Stage 1/4] LOC Defense Gate..."
+echo ">>> [Stage 1/6] LOC Defense Gate..."
 "${REPO_ROOT}/scripts/lint_loc_gate.sh"
 
 # Stage 2: Architecture & Decoupling Gate
-echo ">>> [Stage 2/4] Architecture & Decoupling Defense Gate..."
+echo ">>> [Stage 2/6] Architecture & Decoupling Defense Gate..."
 python3 "${REPO_ROOT}/scripts/lint_architecture_gate.py"
 
-# Stage 3: Swift UI & Extensions Test Suite
-echo ">>> [Stage 3/5] Running macOS Swift App Tests..."
+# Stage 3: i18n & Localization Defense Gate
+echo ">>> [Stage 3/6] i18n & Localization Defense Gate..."
+"${REPO_ROOT}/scripts/lint_i18n_gate.sh"
+
+# Stage 4: Swift UI & Extensions Test Suite
+echo ">>> [Stage 4/6] Running macOS Swift App Tests..."
 swift test --quiet
 
-# Stage 4: Release Mode Zero-Warning Compilation Gate
-echo ">>> [Stage 4/5] Running Release Mode Zero-Warning Compilation Gate..."
+# Stage 5: Release Mode Zero-Warning Compilation Gate
+echo ">>> [Stage 5/6] Running Release Mode Zero-Warning Compilation Gate..."
 swift build -c release -Xswiftc -warnings-as-errors
 
-# Stage 5: Multi-Channel Packaging & Sandbox Gate
-echo ">>> [Stage 5/5] Running Multi-Channel Packaging & Sandbox Gate..."
+# Stage 6: Multi-Channel Packaging & Sandbox Gate
+echo ">>> [Stage 6/6] Running Multi-Channel Packaging & Sandbox Gate..."
 "${REPO_ROOT}/scripts/verify_channel_distribution_gate.sh"
 
 echo "======================================================================"

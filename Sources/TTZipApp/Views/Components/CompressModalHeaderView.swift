@@ -13,6 +13,7 @@ import TTZipBenchmarkKit
 
 /// Editorial style compression modal header component.
 public struct CompressModalHeaderView: View {
+    @ObservedObject private var l10n = AppLocalizationState.shared
     @Binding public var selectedPresetID: UUID?
     public let onOpenGuide: () -> Void
     public let onClose: () -> Void
@@ -37,7 +38,7 @@ public struct CompressModalHeaderView: View {
                         .foregroundStyle(TTZipTheme.kintsugiGold)
                     
                     HStack(spacing: 8) {
-                        Text("New Archive")
+                        Text(l10n.t(L10n.Compress.title))
                             .font(.system(size: 16, weight: .bold, design: .serif))
                             .foregroundStyle(.primary)
                         
@@ -45,7 +46,7 @@ public struct CompressModalHeaderView: View {
                             HStack(spacing: 4) {
                                 Image(systemName: "book.pages.fill")
                                     .font(.system(size: 10, weight: .bold))
-                                Text("📖 Format Guide")
+                                Text("📖 \(l10n.t(L10n.Compress.formatGuide))")
                                     .font(.system(size: 11, weight: .bold))
                             }
                             .foregroundStyle(TTZipTheme.kintsugiGold)
@@ -55,7 +56,7 @@ public struct CompressModalHeaderView: View {
                             .clipShape(Capsule())
                         }
                         .buttonStyle(.plain)
-                        .help("Open algorithm and format guide")
+                        .l10nHelp(L10n.Compress.formatGuide)
                     }
                 }
                 
