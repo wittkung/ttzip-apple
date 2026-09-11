@@ -74,17 +74,17 @@ public struct FinderMillerColumnsView: View {
                         }
                     }
                     .frame(minWidth: geometry.size.width, maxHeight: .infinity, alignment: .topLeading)
-                    .onChange(of: columnPaths.count) { _, newCount in
-                        updateScrollPosition(proxy: proxy, count: newCount, availableWidth: geometry.size.width)
-                    }
-                    .onChange(of: activeColumnIndex) { _, _ in
-                        updateScrollPosition(proxy: proxy, count: columnPaths.count, availableWidth: geometry.size.width)
+                    .onChange(of: columnPaths) { _, newPaths in
+                        updateScrollPosition(proxy: proxy, count: newPaths.count, availableWidth: geometry.size.width)
                     }
                     .onChange(of: selectedPaths) { _, _ in
                         updateScrollPosition(proxy: proxy, count: columnPaths.count, availableWidth: geometry.size.width)
                     }
                     .onChange(of: geometry.size.width) { _, newWidth in
-                        updateScrollPosition(proxy: proxy, count: columnPaths.count, availableWidth: newWidth)
+                        let totalWidth = totalColumnsWidth(count: columnPaths.count, availableWidth: newWidth)
+                        if totalWidth <= newWidth {
+                            updateScrollPosition(proxy: proxy, count: columnPaths.count, availableWidth: newWidth, animated: false)
+                        }
                     }
                     .onAppear {
                         updateScrollPosition(proxy: proxy, count: columnPaths.count, availableWidth: geometry.size.width, animated: false)
@@ -314,40 +314,28 @@ public struct FinderMillerColumnsView: View {
         animated: Bool = true
     ) {
         guard count > 0 else { return }
-        let totalWidth = totalColumnsWidth(count: count, availableWidth: availableWidth)
-        
-        let executeScroll = {
-            if totalWidth <= availableWidth {
-                // When all columns comfortably fit within viewport, align to leading edge
-                proxy.scrollTo(0, anchor: .leading)
-            } else {
-                // When viewport overflows, ensure the active column (or the newly opened child column)
-                // is comfortably visible. Anchoring to trailing prevents right-side controls
-                // (e.g. sort dropdown menu) from being cut off by the viewport edge.
-                let targetIndex: Int
-                if activeColumnIndex > 0 {
-                    targetIndex = min(activeColumnIndex, count - 1)
-                } else if count > 1 {
-                    // Child column is open but has no selection yet; keep it fully in view
-                    targetIndex = count - 1
-                } else {
-                    targetIndex = 0
-                }
-                
-                if targetIndex > 0 {
-                    proxy.scrollTo(targetIndex, anchor: .trailing)
-                } else {
+        DispatchQueue.main.async {
+            let totalWidth = self.totalColumnsWidth(count: count, availableWidth: availableWidth)
+            let targetIndex = max(0, count - 1)
+            
+            let executeScroll = {
+                if totalWidth <= availableWidth || targetIndex == 0 {
+                    // When all columns comfortably fit within viewport, align to leading edge
                     proxy.scrollTo(0, anchor: .leading)
+                } else {
+                    // When viewport overflows, anchor the rightmost column to trailing
+                    // to ensure newly expanded child columns or active selections are fully visible.
+                    proxy.scrollTo(targetIndex, anchor: .trailing)
                 }
             }
-        }
-        
-        if animated {
-            withAnimation(.spring(response: 0.25, dampingFraction: 0.85)) {
+            
+            if animated {
+                withAnimation(.spring(response: 0.25, dampingFraction: 0.85)) {
+                    executeScroll()
+                }
+            } else {
                 executeScroll()
             }
-        } else {
-            executeScroll()
         }
     }
     
