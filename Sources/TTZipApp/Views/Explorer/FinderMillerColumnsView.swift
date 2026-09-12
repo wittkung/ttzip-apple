@@ -82,7 +82,7 @@ public struct FinderMillerColumnsView: View {
                     }
                     .onChange(of: geometry.size.width) { _, newWidth in
                         let totalWidth = totalColumnsWidth(count: columnPaths.count, availableWidth: newWidth)
-                        if totalWidth <= newWidth {
+                        if totalWidth <= newWidth + 0.5 {
                             updateScrollPosition(proxy: proxy, count: columnPaths.count, availableWidth: newWidth, animated: false)
                         }
                     }
@@ -279,21 +279,40 @@ public struct FinderMillerColumnsView: View {
     private let defaultColumnWidth: CGFloat = 260
     
     private func computeColumnWidth(for index: Int, availableWidth: CGFloat) -> CGFloat {
-        if let custom = columnWidths[index] {
-            return custom
-        }
         let count = columnPaths.count
         if count <= 1 {
+            if let custom = columnWidths[index] {
+                return custom
+            }
             // When only 1 column exists, expand to occupy the full available width (at least defaultColumnWidth)
             return max(availableWidth, defaultColumnWidth)
         } else if count == 2 {
+            if let custom = columnWidths[index] {
+                return custom
+            }
             // When 2 columns exist, accurately deduct outer padding and dividers (16pt safe margin)
             // calculating a safe column width ensuring both columns 100% display within the viewport
             // without right-edge sort menu clipping.
             let safeWidth = (availableWidth - 16.0) / 2.0
             return max(180.0, safeWidth)
         } else {
-            return defaultColumnWidth
+            let lastIndex = count - 1
+            if index < lastIndex {
+                // Preceding path columns maintain their explicit dragged width or default baseline width
+                return columnWidths[index] ?? defaultColumnWidth
+            } else {
+                // Active trailing column adapts to consume all surplus viewport width,
+                // completely eliminating the dead zone on the right edge.
+                let dividersWidth = CGFloat(count) * 1.5
+                let precedingTotal = (0..<lastIndex).reduce(0 as CGFloat) { sum, idx in
+                    sum + (columnWidths[idx] ?? defaultColumnWidth)
+                }
+                let remainingWidth = availableWidth - precedingTotal - dividersWidth
+                let baseWidth = columnWidths[index] ?? defaultColumnWidth
+                // If remainingWidth exceeds baseline, stretch to flush-fill availableWidth.
+                // Otherwise retain baseWidth (or dragged width) and rely on horizontal scrolling.
+                return max(baseWidth, remainingWidth)
+            }
         }
     }
     
@@ -319,7 +338,7 @@ public struct FinderMillerColumnsView: View {
             let targetIndex = max(0, count - 1)
             
             let executeScroll = {
-                if totalWidth <= availableWidth || targetIndex == 0 {
+                if totalWidth <= availableWidth + 0.5 || targetIndex == 0 {
                     // When all columns comfortably fit within viewport, align to leading edge
                     proxy.scrollTo(0, anchor: .leading)
                 } else {

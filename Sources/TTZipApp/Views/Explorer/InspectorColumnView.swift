@@ -11,7 +11,6 @@ import CryptoKit
 import TTZipCore
 import TTZipUI
 import TTZipPreviewKit
-import TTZipBenchmarkKit
 
 public struct InspectorColumnView: View {
     public let item: DiskItemInfo?
@@ -22,7 +21,6 @@ public struct InspectorColumnView: View {
     @State var asyncDimensions: String? = nil
     @State var localPreviewURL: URL? = nil
     @State var deepMetadataDict: [String: String] = [:]
-    @State var showDetailedMetadataPopover: Bool = false
     
     public init(
         item: DiskItemInfo? = nil,
@@ -82,17 +80,11 @@ public struct InspectorColumnView: View {
                     .id(item.path)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                 } else {
-                    VStack(spacing: 0) {
-                        fileHeaderBar(for: item)
-                        
-                        Divider()
-                        
-                        MediaPreviewView(
-                            fileURL: effectivePreviewURL,
-                            fileName: item.name
-                        )
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    }
+                    MediaPreviewView(
+                        fileURL: effectivePreviewURL,
+                        fileName: item.name
+                    )
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
                 }
             } else {
                 zenPlaceholderView
@@ -221,193 +213,6 @@ public struct InspectorColumnView: View {
                 }
             } else {
                 self.asyncDimensions = nil
-            }
-        }
-    }
-    
-    // MARK: - Header Bar
-    
-    @ViewBuilder
-    private func fileHeaderBar(for targetItem: DiskItemInfo) -> some View {
-        HStack(alignment: .center, spacing: 8) {
-            ZStack {
-                RoundedRectangle(cornerRadius: 7, style: .continuous)
-                    .fill(itemIconGradient(for: targetItem))
-                    .frame(width: 28, height: 28)
-                Image(systemName: itemIconName(for: targetItem))
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(.white)
-            }
-            
-            VStack(alignment: .leading, spacing: 1) {
-                HStack(spacing: 4) {
-                    Text(targetItem.name)
-                        .font(.system(size: 12.5, weight: .semibold))
-                        .foregroundStyle(.primary)
-                        .lineLimit(1)
-                        .truncationMode(.tail)
-                        .layoutPriority(1)
-                    
-                    Button(action: { showDetailedMetadataPopover.toggle() }) {
-                        Image(systemName: "info.circle")
-                            .font(.system(size: 11, weight: .medium))
-                            .foregroundStyle(TTZipTheme.bambooGreen)
-                    }
-                    .buttonStyle(.plain)
-                    .popover(isPresented: $showDetailedMetadataPopover, arrowEdge: .bottom) {
-                        detailedMetadataPopoverContent(for: targetItem)
-                    }
-                }
-                
-                HStack(spacing: 6) {
-                    Text(targetItem.sizeText)
-                        .font(.system(size: 10, design: .monospaced))
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
-                    
-                    Text("•")
-                        .font(.system(size: 8))
-                        .foregroundStyle(.tertiary)
-                    
-                    Text(targetItem.kindText)
-                        .font(.system(size: 10))
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
-                    
-                    if let dims = asyncDimensions {
-                        Text("•")
-                            .font(.system(size: 8))
-                            .foregroundStyle(.tertiary)
-                        
-                        Text(dims)
-                            .font(.system(size: 10, design: .monospaced))
-                            .foregroundStyle(.secondary)
-                            .lineLimit(1)
-                    }
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            
-            actionButtonsGroup(for: targetItem)
-                .layoutPriority(0)
-                .padding(.trailing, 12)
-        }
-        .padding(.leading, 14)
-        .padding(.vertical, 7)
-        .frame(height: 38)
-        .frame(maxWidth: .infinity)
-    }
-    
-    // MARK: - Action Buttons
-    
-    @ViewBuilder
-    private func actionButtonsGroup(for targetItem: DiskItemInfo) -> some View {
-        ViewThatFits(in: .horizontal) {
-            HStack(spacing: 6) {
-                Button(action: {
-                    let targetPath = effectivePreviewURL?.path ?? targetItem.path
-                    onPreviewFile(targetPath)
-                }) {
-                    HStack(spacing: 3) {
-                        Image(systemName: "arrow.up.left.and.arrow.down.right")
-                            .font(.system(size: 10, weight: .semibold))
-                        Text("Preview")
-                            .font(.system(size: 11, weight: .medium))
-                            .lineLimit(1)
-                            .fixedSize(horizontal: true, vertical: false)
-                    }
-                    .foregroundStyle(TTZipTheme.bambooGreen)
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 4)
-                    .background(TTZipTheme.bambooGreen.opacity(0.08))
-                    .clipShape(RoundedRectangle(cornerRadius: 5, style: .continuous))
-                }
-                .buttonStyle(.plain)
-                .help("全屏预览媒体 (Space / ⤢)")
-                
-                Button(action: {
-                    let targetPath = effectivePreviewURL?.path ?? targetItem.path
-                    NSWorkspace.shared.selectFile(targetPath, inFileViewerRootedAtPath: "")
-                }) {
-                    HStack(spacing: 3) {
-                        Image(systemName: "folder").font(.system(size: 10))
-                        Text("Finder")
-                            .font(.system(size: 11, weight: .medium))
-                            .lineLimit(1)
-                            .fixedSize(horizontal: true, vertical: false)
-                    }
-                    .foregroundStyle(TTZipTheme.bambooGreen)
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 4)
-                    .background(TTZipTheme.bambooGreen.opacity(0.08))
-                    .clipShape(RoundedRectangle(cornerRadius: 5, style: .continuous))
-                }
-                .buttonStyle(.plain)
-                .help("Reveal in Finder")
-                
-                Button(action: {
-                    if targetItem.isArchive { onSelectArchive(targetItem.path) } else { onCompressPath(targetItem.path) }
-                }) {
-                    HStack(spacing: 3) {
-                        Image(systemName: targetItem.isArchive ? "arrow.down.doc" : "archivebox")
-                            .font(.system(size: 10, weight: .semibold))
-                        Text(targetItem.isArchive ? "Extract" : "Compress")
-                            .font(.system(size: 11, weight: .medium))
-                            .lineLimit(1)
-                            .fixedSize(horizontal: true, vertical: false)
-                    }
-                    .foregroundStyle(TTZipTheme.bambooGreen)
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 4)
-                    .background(TTZipTheme.bambooGreen.opacity(0.12))
-                    .clipShape(RoundedRectangle(cornerRadius: 5, style: .continuous))
-                }
-                .buttonStyle(.plain)
-                .help(targetItem.isArchive ? "Extract and view contents" : "New archive")
-            }
-            
-            HStack(spacing: 6) {
-                Button(action: {
-                    let targetPath = effectivePreviewURL?.path ?? targetItem.path
-                    onPreviewFile(targetPath)
-                }) {
-                    Image(systemName: "arrow.up.left.and.arrow.down.right")
-                        .font(.system(size: 11, weight: .semibold))
-                        .foregroundStyle(TTZipTheme.bambooGreen)
-                        .padding(5.5)
-                        .background(TTZipTheme.bambooGreen.opacity(0.08))
-                        .clipShape(Circle())
-                }
-                .buttonStyle(.plain)
-                .help("全屏预览媒体 (Space / ⤢)")
-                
-                Button(action: {
-                    let targetPath = effectivePreviewURL?.path ?? targetItem.path
-                    NSWorkspace.shared.selectFile(targetPath, inFileViewerRootedAtPath: "")
-                }) {
-                    Image(systemName: "folder")
-                        .font(.system(size: 11, weight: .medium))
-                        .foregroundStyle(TTZipTheme.bambooGreen)
-                        .padding(5.5)
-                        .background(TTZipTheme.bambooGreen.opacity(0.08))
-                        .clipShape(Circle())
-                }
-                .buttonStyle(.plain)
-                .help("Reveal in Finder")
-                
-                Button(action: {
-                    if targetItem.isArchive { onSelectArchive(targetItem.path) } else { onCompressPath(targetItem.path) }
-                }) {
-                    Image(systemName: targetItem.isArchive ? "arrow.down.doc" : "archivebox")
-                        .font(.system(size: 11, weight: .semibold))
-                        .foregroundStyle(TTZipTheme.bambooGreen)
-                        .padding(5.5)
-                        .background(TTZipTheme.bambooGreen.opacity(0.12))
-                        .clipShape(Circle())
-                }
-                .buttonStyle(.plain)
-                .help(targetItem.isArchive ? "Extract and view contents" : "New archive")
             }
         }
     }
