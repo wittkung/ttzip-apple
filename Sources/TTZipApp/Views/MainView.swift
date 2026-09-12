@@ -447,10 +447,10 @@ public struct MainView: View {
                 .transition(.opacity)
                 
                 RightInspectorSidePanel(viewModel: viewModel, rightVerticalTopHeight: $rightVerticalTopHeight)
-                    .frame(width: effectiveRightWidth, alignment: .topLeading)
                     .padding(.top, TTZipTheme.Layout.topBarOffset)
-                    .padding(.bottom, TTZipTheme.Spacing.md)
+                    .frame(width: effectiveRightWidth, alignment: .topLeading)
                     .frame(maxHeight: totalHeight, alignment: .topLeading)
+                    .clipped()
                     .transition(.move(edge: .trailing).combined(with: .opacity))
             }
         }

@@ -31,10 +31,12 @@ public struct TTZipWorkspaceScaffold<HeaderLeading: View, HeaderTrailing: View, 
     public let headerTrailing: HeaderTrailing
     public let content: Content
     public let isCardEnclosed: Bool
+    public let isEdgeToEdge: Bool
     public let contentPadding: EdgeInsets
     
     public init(
         isCardEnclosed: Bool = true,
+        isEdgeToEdge: Bool = false,
         contentPadding: EdgeInsets = EdgeInsets(top: 0, leading: 0, bottom: 0, trailing: 0),
         @ViewBuilder headerLeading: () -> HeaderLeading,
         @ViewBuilder headerTrailing: () -> HeaderTrailing,
@@ -44,17 +46,20 @@ public struct TTZipWorkspaceScaffold<HeaderLeading: View, HeaderTrailing: View, 
         self.headerTrailing = headerTrailing()
         self.content = content()
         self.isCardEnclosed = isCardEnclosed
+        self.isEdgeToEdge = isEdgeToEdge
         self.contentPadding = contentPadding
     }
     
     public init(
         isCardEnclosed: Bool = true,
+        isEdgeToEdge: Bool = false,
         contentPadding: EdgeInsets = EdgeInsets(top: 0, leading: 0, bottom: 0, trailing: 0),
         @ViewBuilder headerLeading: () -> HeaderLeading,
         @ViewBuilder content: () -> Content
     ) where HeaderTrailing == EmptyView {
         self.init(
             isCardEnclosed: isCardEnclosed,
+            isEdgeToEdge: isEdgeToEdge,
             contentPadding: contentPadding,
             headerLeading: headerLeading,
             headerTrailing: { EmptyView() },
@@ -87,7 +92,7 @@ public struct TTZipWorkspaceScaffold<HeaderLeading: View, HeaderTrailing: View, 
                 .padding(contentPadding)
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         }
-        .modifyIf(isCardEnclosed) { view in
+        .modifyIf(isCardEnclosed && !isEdgeToEdge) { view in
             view
                 .background(Color.primary.opacity(0.025))
                 .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
@@ -97,8 +102,8 @@ public struct TTZipWorkspaceScaffold<HeaderLeading: View, HeaderTrailing: View, 
                 )
         }
         .padding(.top, TTZipTheme.Layout.topBarOffset)
-        .padding(.horizontal, TTZipTheme.Spacing.md)
-        .padding(.bottom, TTZipTheme.Spacing.md)
+        .padding(.horizontal, isEdgeToEdge ? 0 : TTZipTheme.Spacing.md)
+        .padding(.bottom, isEdgeToEdge ? 0 : TTZipTheme.Spacing.md)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     }
 }
@@ -113,12 +118,14 @@ extension TTZipWorkspaceScaffold where HeaderLeading == TTZipWorkspaceDefaultTit
     public init(
         title: String,
         isCardEnclosed: Bool = true,
+        isEdgeToEdge: Bool = false,
         contentPadding: EdgeInsets = EdgeInsets(top: 0, leading: 0, bottom: 0, trailing: 0),
         @ViewBuilder headerTrailing: () -> HeaderTrailing,
         @ViewBuilder content: () -> Content
     ) {
         self.init(
             isCardEnclosed: isCardEnclosed,
+            isEdgeToEdge: isEdgeToEdge,
             contentPadding: contentPadding,
             headerLeading: { TTZipWorkspaceDefaultTitleView(title) },
             headerTrailing: headerTrailing,
@@ -129,12 +136,14 @@ extension TTZipWorkspaceScaffold where HeaderLeading == TTZipWorkspaceDefaultTit
     public init(
         title: String,
         isCardEnclosed: Bool = true,
+        isEdgeToEdge: Bool = false,
         contentPadding: EdgeInsets = EdgeInsets(top: 0, leading: 0, bottom: 0, trailing: 0),
         @ViewBuilder content: () -> Content
     ) where HeaderTrailing == EmptyView {
         self.init(
             title: title,
             isCardEnclosed: isCardEnclosed,
+            isEdgeToEdge: isEdgeToEdge,
             contentPadding: contentPadding,
             headerTrailing: { EmptyView() },
             content: content
