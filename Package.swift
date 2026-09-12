@@ -71,7 +71,8 @@ let package = Package(
         .library(name: "TTZipBenchmarkKit", targets: ["TTZipBenchmarkKit"]),
         .library(name: "TTZipPluginKit", targets: ["TTZipPluginKit"]),
         .library(name: "TTZipQuickLook", type: .dynamic, targets: ["TTZipQuickLook"]),
-        .library(name: "TTZipFinderSync", type: .dynamic, targets: ["TTZipFinderSync"])
+        .library(name: "TTZipFinderSync", type: .dynamic, targets: ["TTZipFinderSync"]),
+        .library(name: "TTZipFileProvider", type: .dynamic, targets: ["TTZipFileProvider"])
     ],
     dependencies: [
         coreDependency,
@@ -185,6 +186,18 @@ let package = Package(
             exclude: ["Info.plist"],
             swiftSettings: swiftSettings
         ),
+        .target(
+            name: "TTZipFileProvider",
+            dependencies: [
+                .product(name: "TTZipCore", package: corePackageName)
+            ],
+            path: "Sources/TTZipFileProvider",
+            exclude: [
+                "Info.plist",
+                "TTZipFileProvider.entitlements"
+            ],
+            swiftSettings: swiftSettings
+        ),
         .testTarget(
             name: "TTZipAppTests",
             dependencies: [
@@ -195,6 +208,7 @@ let package = Package(
                 "TTZipPluginKit",
                 "TTZipFinderSync",
                 "TTZipQuickLook",
+                "TTZipFileProvider",
                 "CMPVBridge",
                 .product(name: "TTZipCore", package: corePackageName)
             ],
