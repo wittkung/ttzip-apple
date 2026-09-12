@@ -17,6 +17,7 @@ public struct FinderFavoritesSidebarView: View {
     public let onSelectDirectory: (URL) -> Void
     
     @ObservedObject private var l10n = AppLocalizationState.shared
+    @ObservedObject private var licenseManager = AppLicenseManager.shared
     @State private var dynamicFinderFavorites: [FinderFavoriteItem] = []
     @State private var hoveredItemPath: String? = nil
     
@@ -49,7 +50,7 @@ public struct FinderFavoritesSidebarView: View {
     
     public var body: some View {
         VStack(alignment: isIconRail ? .center : .leading, spacing: 0) {
-            // MARK: - 1. Pinned Header (Height 52pt, Golden Line at Y = 90pt)
+            // MARK: - 1. Brand Header (Height 52pt, Golden Line strictly at Y = 90pt)
             headerSection
             
             Rectangle()
@@ -59,6 +60,23 @@ public struct FinderFavoritesSidebarView: View {
             // MARK: - 2. Scrollable Favorites & Locations List
             ScrollView(.vertical, showsIndicators: false) {
                 VStack(alignment: isIconRail ? .center : .leading, spacing: isIconRail ? 6 : 14) {
+                    // Group 0: Custom Pinned Directories (if any)
+                    if !customPinnedPaths.isEmpty && !isIconRail {
+                        VStack(alignment: .leading, spacing: 2) {
+                            sectionHeader(title: l10n.currentLanguage == .zhHans ? "常用" : "PINNED")
+                            
+                            ForEach(customPinnedPaths, id: \.self) { path in
+                                let url = URL(fileURLWithPath: path)
+                                sidebarRow(
+                                    title: url.lastPathComponent,
+                                    icon: "folder.fill",
+                                    path: path,
+                                    isCustom: true
+                                )
+                            }
+                        }
+                    }
+                    
                     // Group 1: Favorites
                     VStack(alignment: isIconRail ? .center : .leading, spacing: isIconRail ? 4 : 2) {
                         if !isIconRail {
@@ -72,18 +90,6 @@ public struct FinderFavoritesSidebarView: View {
                                 path: item.path,
                                 isCustom: false
                             )
-                        }
-                        
-                        ForEach(customPinnedPaths, id: \.self) { path in
-                            if !dynamicFinderFavorites.contains(where: { $0.path == path }) {
-                                let url = URL(fileURLWithPath: path)
-                                sidebarRow(
-                                    title: url.lastPathComponent,
-                                    icon: "folder.fill",
-                                    path: path,
-                                    isCustom: true
-                                )
-                            }
                         }
                     }
                     
@@ -118,6 +124,9 @@ public struct FinderFavoritesSidebarView: View {
                 .frame(maxWidth: .infinity, alignment: isIconRail ? .center : .leading)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+            
+            // MARK: - 3. Apple Silicon Hardware & Engine Footer
+            sidebarHardwareFooter
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .background(TTZipTheme.paperWhite.opacity(0.85))
@@ -138,44 +147,66 @@ public struct FinderFavoritesSidebarView: View {
             if isIconRail {
                 HStack {
                     Spacer(minLength: 0)
-                    Button(action: addCustomPinnedFolder) {
-                        Image(systemName: "folder.badge.plus")
-                            .font(.system(size: 13, weight: .semibold))
+                    if let logo = AppLogoCache.sharedLogoImage {
+                        Image(nsImage: logo)
+                            .resizable()
+                            .aspectRatio(contentMode: .fit)
+                            .frame(width: 22, height: 22)
+                            .clipShape(RoundedRectangle(cornerRadius: 5, style: .continuous))
+                    } else {
+                        Image(systemName: "archivebox.fill")
+                            .font(.system(size: 14, weight: .bold))
                             .foregroundStyle(TTZipTheme.bambooGreen)
-                            .frame(width: 32, height: 32)
-                            .background(Color.primary.opacity(0.04))
-                            .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 6, style: .continuous)
-                                    .strokeBorder(Color.primary.opacity(0.08), lineWidth: 0.5)
-                            )
                     }
-                    .buttonStyle(.plain)
-                    .help(l10n.currentLanguage == .zhHans ? "添加自定常用文件夹到侧边栏" : "Pin custom folder to sidebar")
                     Spacer(minLength: 0)
                 }
                 .frame(maxWidth: .infinity)
+                .help(licenseManager.currentTier.isPro ? "TTZip Pro" : "TTZip")
             } else {
-                HStack(alignment: .center, spacing: 8) {
-                    Image(systemName: "folder.badge.gearshape")
-                        .font(.system(size: 13, weight: .semibold))
-                        .foregroundStyle(TTZipTheme.bambooGreen)
+                HStack(alignment: .center, spacing: 6) {
+                    HStack(alignment: .center, spacing: 7) {
+                        if let logo = AppLogoCache.sharedLogoImage {
+                            Image(nsImage: logo)
+                                .resizable()
+                                .aspectRatio(contentMode: .fit)
+                                .frame(width: 20, height: 20)
+                                .clipShape(RoundedRectangle(cornerRadius: 4.5, style: .continuous))
+                                .shadow(color: .black.opacity(0.12), radius: 1.5, x: 0, y: 1)
+                        } else {
+                            Image(systemName: "archivebox.fill")
+                                .font(.system(size: 14, weight: .bold))
+                                .foregroundStyle(TTZipTheme.bambooGreen)
+                        }
+                        
+                        Text("TTZip")
+                            .font(.system(size: 14.5, weight: .bold, design: .serif))
+                            .tracking(0.5)
+                            .foregroundStyle(.primary)
+                            .lineLimit(1)
+                        
+                        if licenseManager.currentTier.isPro {
+                            Text("PRO")
+                                .font(.system(size: 8, weight: .heavy, design: .rounded))
+                                .foregroundStyle(TTZipTheme.kintsugiGold)
+                                .padding(.horizontal, 4.5)
+                                .padding(.vertical, 1.5)
+                                .background(TTZipTheme.kintsugiGold.opacity(0.12))
+                                .clipShape(Capsule())
+                                .overlay(
+                                    Capsule().strokeBorder(TTZipTheme.kintsugiGold.opacity(0.35), lineWidth: 0.6)
+                                )
+                                .lineLimit(1)
+                        }
+                    }
+                    .fixedSize(horizontal: true, vertical: false)
                     
-                    Text(l10n.currentLanguage == .zhHans ? "常用" : "DIRECTORIES")
-                        .font(.system(size: 13, weight: .bold, design: .serif))
-                        .tracking(l10n.currentLanguage == .zhHans ? 0 : 1.2)
-                        .foregroundStyle(.primary)
-                        .lineLimit(1)
-                        .layoutPriority(1)
-                        .fixedSize(horizontal: true, vertical: false)
-                    
-                    Spacer()
+                    Spacer(minLength: 4)
                     
                     Button(action: addCustomPinnedFolder) {
                         Image(systemName: "plus")
-                            .font(.system(size: 11, weight: .bold))
+                            .font(.system(size: 10.5, weight: .bold))
                             .foregroundStyle(.secondary)
-                            .frame(width: 22, height: 22)
+                            .frame(width: 20, height: 20)
                             .background(Color.primary.opacity(0.04))
                             .clipShape(Circle())
                             .overlay(
@@ -185,11 +216,76 @@ public struct FinderFavoritesSidebarView: View {
                     .buttonStyle(.plain)
                     .help(l10n.currentLanguage == .zhHans ? "添加自定常用文件夹到侧边栏" : "Pin custom folder to sidebar")
                 }
-                .padding(.horizontal, 20)
+                .padding(.horizontal, 12)
             }
         }
         .frame(height: TTZipTheme.Layout.headerBarHeight)
         .padding(.top, TTZipTheme.Layout.topBarOffset)
+    }
+    
+    private var sidebarHardwareFooter: some View {
+        VStack(spacing: 0) {
+            Rectangle()
+                .fill(Color.primary.opacity(0.06))
+                .frame(height: 0.6)
+            
+            Group {
+                if isIconRail {
+                    HStack {
+                        Spacer(minLength: 0)
+                        Image(systemName: "cpu")
+                            .font(.system(size: 11, weight: .medium))
+                            .foregroundStyle(TTZipTheme.bambooGreen.opacity(0.85))
+                            .help(hardwareChipSummary)
+                        Spacer(minLength: 0)
+                    }
+                    .frame(height: 30)
+                } else {
+                    HStack(spacing: 5) {
+                        Image(systemName: "cpu")
+                            .font(.system(size: 9.5, weight: .semibold))
+                            .foregroundStyle(TTZipTheme.bambooGreen)
+                        
+                        Text(hardwareChipSummary)
+                            .font(.system(size: 9.5, weight: .medium, design: .monospaced))
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                            .truncationMode(.middle)
+                        
+                        Text("·")
+                            .font(.system(size: 9, design: .monospaced))
+                            .foregroundStyle(.tertiary)
+                        
+                        Text(currentDateBadge)
+                            .font(.system(size: 9.5, weight: .medium, design: .monospaced))
+                            .foregroundStyle(.secondary.opacity(0.85))
+                            .lineLimit(1)
+                        
+                        Spacer(minLength: 0)
+                        
+                        Circle()
+                            .fill(TTZipTheme.bambooGreen)
+                            .frame(width: 5, height: 5)
+                            .help("Apple Silicon Engine Online")
+                    }
+                    .padding(.horizontal, 14)
+                    .frame(height: 30)
+                }
+            }
+            .background(Color.primary.opacity(0.015))
+        }
+    }
+    
+    private var hardwareChipSummary: String {
+        let raw = AppleSiliconTuner.shared.topology.chipName
+        if raw.hasPrefix("Apple ") {
+            return String(raw.dropFirst(6))
+        }
+        return raw
+    }
+    
+    private var currentDateBadge: String {
+        DateFormatterCache.shared.string(from: Date(), format: "MM/dd")
     }
     
     private func sectionHeader(title: String) -> some View {

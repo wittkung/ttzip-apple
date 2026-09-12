@@ -116,34 +116,37 @@ public struct RightInspectorSidePanel: View {
     @ViewBuilder
     private func selectedItemHeader(for item: DiskItemInfo) -> some View {
         HStack(alignment: .center, spacing: 10) {
-            // Left: 32×32pt File Icon with 8pt Rounded Gradient Background
+            // Left: 28×28pt File Icon with Subtle Rounded Gradient Background
             ZStack {
-                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                RoundedRectangle(cornerRadius: 7, style: .continuous)
                     .fill(itemIconGradient(for: item))
-                    .frame(width: 32, height: 32)
+                    .frame(width: 28, height: 28)
                 Image(systemName: itemIconName(for: item))
-                    .font(.system(size: 15, weight: .semibold))
+                    .font(.system(size: 13.5, weight: .semibold))
                     .foregroundStyle(.white)
             }
-            .frame(width: 32, height: 32)
+            .frame(width: 28, height: 28)
             
-            // Middle: Vertical 2-line Compact Typography
-            VStack(alignment: .leading, spacing: 2) {
+            // Middle: Vertical 2-line Typography with prioritized expansion
+            VStack(alignment: .leading, spacing: 1.5) {
                 Text(item.displayName)
                     .font(.system(size: 13, weight: .bold))
                     .foregroundStyle(.primary)
                     .lineLimit(1)
                     .truncationMode(.middle)
+                    .layoutPriority(1)
                 
                 HStack(spacing: 4) {
-                    Text(item.sizeText)
-                        .font(.system(size: 10))
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
-                    
-                    Text("•")
-                        .font(.system(size: 8))
-                        .foregroundStyle(.tertiary)
+                    if !item.sizeText.isEmpty {
+                        Text(item.sizeText)
+                            .font(.system(size: 10, design: .monospaced))
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                        
+                        Text("•")
+                            .font(.system(size: 7))
+                            .foregroundStyle(.tertiary)
+                    }
                     
                     Text(item.kindText)
                         .font(.system(size: 10))
@@ -153,65 +156,50 @@ public struct RightInspectorSidePanel: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             
-            // Right: 24×24pt Compact Action Button Group
-            HStack(spacing: 2) {
-                // Expand Preview (Space / ⤢)
-                Button(action: {
-                    viewModel.openImmersiveMedia(for: item)
-                }) {
-                    Image(systemName: "arrow.up.left.and.arrow.down.right")
-                        .font(.system(size: 11, weight: .medium))
-                        .foregroundStyle(.secondary)
-                        .frame(width: 24, height: 24)
-                        .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-                .help("Preview (⤢)")
-                
-                // Reveal in Finder
-                Button(action: {
-                    NSWorkspace.shared.selectFile(item.path, inFileViewerRootedAtPath: "")
-                }) {
-                    Image(systemName: "folder")
-                        .font(.system(size: 11, weight: .medium))
-                        .foregroundStyle(.secondary)
-                        .frame(width: 24, height: 24)
-                        .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-                .help("Reveal in Finder")
-                
-                // Move to Trash
-                Button(action: {
-                    try? FileManager.default.trashItem(at: URL(fileURLWithPath: item.path), resultingItemURL: nil)
-                    viewModel.selectedDiskItem = nil
-                }) {
-                    Image(systemName: "trash")
-                        .font(.system(size: 11, weight: .medium))
-                        .foregroundStyle(.secondary)
-                        .frame(width: 24, height: 24)
-                        .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-                .help("Move to Trash")
-                
-                // Archive Diagnostics Modal (if applicable)
-                if item.isArchive {
+            // Right: Compact Action Buttons (Context Menu + Dismiss)
+            HStack(spacing: 4) {
+                // More Actions Menu
+                Menu {
                     Button(action: {
-                        viewModel.overlayState.inspectingArchivePath = item.path
-                        viewModel.overlayState.showArchiveInspectorModal = true
+                        viewModel.openImmersiveMedia(for: item)
                     }) {
-                        Image(systemName: "doc.badge.gearshape")
-                            .font(.system(size: 11.5, weight: .medium))
-                            .foregroundStyle(TTZipTheme.archiveAmber)
-                            .frame(width: 24, height: 24)
-                            .contentShape(Rectangle())
+                        Label(l10n.currentLanguage == .zhHans ? "全屏预览 (空格)" : "Quick Look (Space)", systemImage: "arrow.up.left.and.arrow.down.right")
                     }
-                    .buttonStyle(.plain)
-                    .help(l10n.t(L10n.Diagnostics.title))
+                    
+                    Button(action: {
+                        NSWorkspace.shared.selectFile(item.path, inFileViewerRootedAtPath: "")
+                    }) {
+                        Label(l10n.t(L10n.Common.revealInFinder), systemImage: "folder")
+                    }
+                    
+                    if item.isArchive {
+                        Button(action: {
+                            viewModel.overlayState.inspectingArchivePath = item.path
+                            viewModel.overlayState.showArchiveInspectorModal = true
+                        }) {
+                            Label(l10n.t(L10n.Diagnostics.title), systemImage: "doc.badge.gearshape")
+                        }
+                    }
+                    
+                    Divider()
+                    
+                    Button(role: .destructive, action: {
+                        try? FileManager.default.trashItem(at: URL(fileURLWithPath: item.path), resultingItemURL: nil)
+                        viewModel.selectedDiskItem = nil
+                    }) {
+                        Label(l10n.currentLanguage == .zhHans ? "移到废纸篓" : "Move to Trash", systemImage: "trash")
+                    }
+                } label: {
+                    Image(systemName: "ellipsis.circle")
+                        .font(.system(size: 13.5, weight: .medium))
+                        .foregroundStyle(.secondary)
+                        .frame(width: 22, height: 22)
+                        .contentShape(Rectangle())
                 }
+                .menuStyle(.borderlessButton)
+                .help(l10n.currentLanguage == .zhHans ? "更多操作" : "More Actions")
                 
-                // Close / Deselect Button
+                // Deselect / Close Button
                 Button(action: {
                     withAnimation(.spring(response: 0.28, dampingFraction: 0.86)) {
                         viewModel.selectedDiskItem = nil
@@ -220,12 +208,13 @@ public struct RightInspectorSidePanel: View {
                     Image(systemName: "xmark.circle.fill")
                         .font(.system(size: 13))
                         .foregroundStyle(.secondary.opacity(0.8))
-                        .frame(width: 24, height: 24)
+                        .frame(width: 22, height: 22)
                         .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
                 .help(l10n.t(L10n.Inspector.currentDirectory))
             }
+            .fixedSize(horizontal: true, vertical: false)
         }
     }
     
@@ -267,7 +256,7 @@ public struct RightInspectorSidePanel: View {
     
     private func itemIconGradient(for item: DiskItemInfo) -> LinearGradient {
         if item.isDirectory {
-            return LinearGradient(colors: [Color.blue, Color.cyan], startPoint: .topLeading, endPoint: .bottomTrailing)
+            return LinearGradient(colors: [TTZipTheme.bambooGreen, TTZipTheme.bambooGreen.opacity(0.85)], startPoint: .topLeading, endPoint: .bottomTrailing)
         }
         let ext = (item.name as NSString).pathExtension.lowercased()
         if let fmt = ArchiveCompressionFormat.from(extensionOrName: ext) {
