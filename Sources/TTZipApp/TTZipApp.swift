@@ -35,7 +35,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         return true
     }
     
+    func applicationDidFinishLaunching(_ notification: Notification) {
+        setupMicrokernelLoggingBridge()
+        MainThreadHangWatchdog.shared.start()
+    }
+    
     func applicationWillTerminate(_ notification: Notification) {
+        MainThreadHangWatchdog.shared.stop()
+        TTLogFileWriter.shared.flushSync()
         TempDirectoryCleanUpManager.shared.cleanupAllTemporaryDirectories()
     }
     
@@ -57,10 +64,55 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 }
 
+// MARK: - Rust Microkernel Logging Bridge
+
+private typealias TTZipCLogCallback = @convention(c) (
+    Int32,
+    UnsafePointer<CChar>?,
+    UnsafePointer<CChar>?,
+    UnsafePointer<CChar>?,
+    Int32,
+    UnsafeMutableRawPointer?
+) -> Void
+
+@_silgen_name("ttzip_rust_set_logger")
+private func set_logger_callback(
+    _ callback: TTZipCLogCallback?,
+    _ minLevel: Int32,
+    _ userData: UnsafeMutableRawPointer?
+) -> Int32
+
+private func setupMicrokernelLoggingBridge() {
+    let callback: TTZipCLogCallback = { levelRaw, targetModule, cMessage, cFile, line, _ in
+        let msg = cMessage.map { String(cString: $0) } ?? ""
+        let file = cFile.map { String(cString: $0) } ?? "rust"
+        let target = targetModule.map { String(cString: $0) } ?? "kernel"
+        let level: TTLogger.Level
+        switch levelRaw {
+        case 0: level = .debug
+        case 1: level = .info
+        case 2: level = .warning
+        case 3: level = .error
+        default: level = .info
+        }
+        let formatted = target.isEmpty ? msg : "[\(target)] \(msg)"
+        TTLogger.shared.log(
+            level: level,
+            category: .kernel,
+            message: formatted,
+            file: file,
+            line: UInt(max(0, line))
+        )
+    }
+    _ = set_logger_callback(callback, 0, nil)
+}
+
 struct TTZipApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
     
     init() {
+        setupMicrokernelLoggingBridge()
+        MainThreadHangWatchdog.shared.start()
         TTZipEngineFacade.initializeSubsystems()
         
         TempDirectoryCleanUpManager.shared.cleanupAllTemporaryDirectories()

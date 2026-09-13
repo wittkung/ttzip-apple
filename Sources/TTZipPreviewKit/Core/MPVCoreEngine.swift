@@ -164,7 +164,6 @@ private final class MPVHandleHolder: Sendable {
             (10, "audio-codec-name", MPV_FORMAT_STRING),
             (11, "audio-params/samplerate", MPV_FORMAT_DOUBLE),
             (12, "audio-params/channels", MPV_FORMAT_STRING),
-            (13, "audio-bitrate", MPV_FORMAT_DOUBLE),
             (14, "video-params/w", MPV_FORMAT_DOUBLE),
             (15, "video-params/h", MPV_FORMAT_DOUBLE),
             (16, "track-list", MPV_FORMAT_NONE),

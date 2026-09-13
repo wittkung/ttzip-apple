@@ -353,25 +353,24 @@ public final class OmniSearchEngine {
         let catalogApps = AppCatalogService.shared.installedApps
         if !catalogApps.isEmpty {
             let prioritizedNames: [String] = ["Safari", "Terminal", "Finder", "Visual Studio Code", "Notes"]
-            var prioritized: [OmniSearchItem] = []
-            var others: [OmniSearchItem] = []
+            var results: [OmniSearchItem] = []
 
-            for app in catalogApps {
-                guard let item = AppCatalogService.shared.searchApps(query: app.displayName).first else { continue }
-                if prioritizedNames.contains(where: { app.displayName.localizedCaseInsensitiveContains($0) }) {
-                    if !prioritized.contains(where: { $0.id == item.id }) {
-                        prioritized.append(item)
-                    }
-                } else {
-                    if !others.contains(where: { $0.id == item.id }) {
-                        others.append(item)
-                    }
+            for name in prioritizedNames {
+                if let app = catalogApps.first(where: { $0.displayName.localizedCaseInsensitiveContains(name) }) {
+                    results.append(AppCatalogService.shared.makeSearchItem(from: app))
+                    if results.count >= 4 { break }
                 }
             }
-
-            let combined = prioritized + others
-            if !combined.isEmpty {
-                return Array(combined.prefix(4))
+            if results.count < 4 {
+                for app in catalogApps.prefix(4) {
+                    if !results.contains(where: { $0.title == app.displayName }) {
+                        results.append(AppCatalogService.shared.makeSearchItem(from: app))
+                    }
+                    if results.count >= 4 { break }
+                }
+            }
+            if !results.isEmpty {
+                return Array(results.prefix(4))
             }
         }
         return Array(Self.discoverCommonFallbackApps().prefix(4))
