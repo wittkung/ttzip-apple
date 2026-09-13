@@ -89,18 +89,36 @@ public struct FinderFavoritesSidebarView: View {
                     // Group 1: Favorites
                     VStack(alignment: isIconRail ? .center : .leading, spacing: isIconRail ? 4 : 2) {
                         if !isIconRail {
-                            HStack {
+                            HStack(spacing: 6) {
                                 sectionHeader(title: l10n.currentLanguage == .zhHans ? "个人收藏" : "FAVORITES")
                                 Spacer()
-                                if !hasResolvedCustomFavorites {
-                                    Button(action: authorizeFinderFavorites) {
-                                        Image(systemName: "arrow.triangle.2.circlepath")
-                                            .font(.system(size: 9.5, weight: .semibold))
-                                            .foregroundStyle(.secondary.opacity(0.7))
-                                    }
-                                    .buttonStyle(.plain)
-                                    .help(l10n.currentLanguage == .zhHans ? "同步系统访达全部个人收藏..." : "Sync macOS Finder Favorites...")
+                                
+                                Button(action: addCustomFolder) {
+                                    Image(systemName: "plus")
+                                        .font(.system(size: 9, weight: .bold))
+                                        .foregroundStyle(Color.secondary)
+                                        .frame(width: 16, height: 16)
                                 }
+                                .buttonStyle(.plain)
+                                .help(l10n.currentLanguage == .zhHans ? "选择文件夹添加到左侧边栏..." : "Add folder to sidebar...")
+                                
+                                Button(action: authorizeFinderFavorites) {
+                                    HStack(spacing: 3) {
+                                        Image(systemName: "arrow.triangle.2.circlepath")
+                                            .font(.system(size: 8.5, weight: .bold))
+                                        Text(hasResolvedCustomFavorites
+                                            ? (l10n.currentLanguage == .zhHans ? "已同步" : "Synced")
+                                            : (l10n.currentLanguage == .zhHans ? "同步访达" : "Sync"))
+                                            .font(.system(size: 9, weight: .semibold))
+                                    }
+                                    .foregroundStyle(hasResolvedCustomFavorites ? Color.secondary : TTZipTheme.bambooGreen)
+                                    .padding(.horizontal, 5.5)
+                                    .padding(.vertical, 2)
+                                    .background((hasResolvedCustomFavorites ? Color.secondary : TTZipTheme.bambooGreen).opacity(0.12))
+                                    .clipShape(Capsule())
+                                }
+                                .buttonStyle(.plain)
+                                .help(l10n.currentLanguage == .zhHans ? "同步系统访达全部个人收藏..." : "Sync macOS Finder Favorites...")
                             }
                             .padding(.trailing, 8)
                         }
@@ -541,6 +559,19 @@ public struct FinderFavoritesSidebarView: View {
     }
     
     private func authorizeFinderFavorites() {
+        let alert = NSAlert()
+        alert.messageText = l10n.currentLanguage == .zhHans
+            ? "同步访达个人收藏"
+            : "Sync macOS Finder Favorites"
+        alert.informativeText = l10n.currentLanguage == .zhHans
+            ? "受 macOS 隐私与安全性机制保护，TTZip 需要读取您的访达共享文件列表。\n\n在接下来的系统窗口中已为您预选对应目录，请直接点击右下角「授权同步」即可完成导入。"
+            : "Due to macOS privacy protections, TTZip needs access to your Finder shared file list.\n\nThe folder will be targeted in the dialog—simply click 'Authorize Sync' to import."
+        alert.addButton(withTitle: l10n.currentLanguage == .zhHans ? "前往授权" : "Authorize")
+        alert.addButton(withTitle: l10n.currentLanguage == .zhHans ? "取消" : "Cancel")
+        alert.alertStyle = .informational
+        
+        guard alert.runModal() == .alertFirstButtonReturn else { return }
+        
         let home = NSHomeDirectory()
         let sflPath = (home as NSString).appendingPathComponent("Library/Application Support/com.apple.sharedfilelist")
         let panel = NSOpenPanel()
@@ -551,12 +582,33 @@ public struct FinderFavoritesSidebarView: View {
         panel.directoryURL = URL(fileURLWithPath: sflPath)
         panel.prompt = l10n.currentLanguage == .zhHans ? "授权同步" : "Authorize Sync"
         panel.message = l10n.currentLanguage == .zhHans
-            ? "请选择 com.apple.sharedfilelist 文件夹以同步访达全部个人收藏："
-            : "Select com.apple.sharedfilelist folder to sync macOS Finder favorites:"
+            ? "请直接点击右下角「授权同步」完成访达个人收藏导入："
+            : "Click 'Authorize Sync' to import your macOS Finder favorites:"
         
         if panel.runModal() == .OK, let selectedURL = panel.url {
             FinderFavoritesReader.saveSecurityScopedBookmark(for: selectedURL)
             loadFavorites()
+        }
+    }
+    
+    private func addCustomFolder() {
+        let panel = NSOpenPanel()
+        panel.canChooseDirectories = true
+        panel.canChooseFiles = false
+        panel.allowsMultipleSelection = true
+        panel.prompt = l10n.currentLanguage == .zhHans ? "固定到侧边栏" : "Pin to Sidebar"
+        panel.message = l10n.currentLanguage == .zhHans
+            ? "选择要固定到左侧边栏的常用文件夹："
+            : "Choose folders to pin to sidebar:"
+        if panel.runModal() == .OK {
+            var current = customPinnedPaths
+            for url in panel.urls {
+                let path = url.path
+                if !current.contains(path) {
+                    current.append(path)
+                }
+            }
+            saveCustomPinnedPaths(current)
         }
     }
     
