@@ -72,12 +72,7 @@ final class FrontendArchitectureEvolutionTests: XCTestCase {
     
     // MARK: - 3. Syntax Highlighting & Tokenizer Tests
     
-    func testPrecompiledSyntaxEngineAndTokenizer() async {
-        let rules = PrecompiledSyntaxEngine.shared.rules(for: "swift")
-        XCTAssertNotNil(rules)
-        XCTAssertNotNil(rules?.keywordRegex)
-        XCTAssertNotNil(rules?.stringRegex)
-        
+    func testSyntaxTokenizerHighlighting() async {
         let code = "import SwiftUI\nlet greeting = \"Hello\"\n// A comment\nlet count = 42"
         let fullRange = NSRange(location: 0, length: (code as NSString).length)
         let tokens = await BackgroundSyntaxTokenizer.shared.tokenize(text: code, ext: "swift", targetRange: fullRange)

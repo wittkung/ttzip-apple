@@ -8,6 +8,7 @@
 import SwiftUI
 import AppKit
 import TTZipUI
+import TTZipPreviewKit
 
 /// Workspace Header Universal Omnibar Capsule.
 ///
@@ -335,8 +336,7 @@ public struct UniversalOmnibarView: View {
 
     private func commitFile(url: URL) {
         let ext = url.pathExtension.lowercased()
-        let archiveExtensions: Set<String> = ["zip", "tar", "gz", "tgz", "bz2", "xz", "7z", "rar", "zst"]
-        if archiveExtensions.contains(ext) {
+        if MediaPreviewFactory.archiveExtensions.contains(ext) {
             viewModel.openArchiveAsFolder(url: url)
         } else {
             NSWorkspace.shared.open(url)

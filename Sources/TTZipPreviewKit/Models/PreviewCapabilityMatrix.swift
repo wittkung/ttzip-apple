@@ -80,6 +80,78 @@ public struct PreviewFormatDescriptor: Sendable, Hashable {
 /// High-performance deterministic capability registry and format routing matrix.
 public enum PreviewCapabilityMatrix {
 
+    // MARK: - Centralized Category Extension Sets
+    
+    /// Web and HTML interactive extensions.
+    public static let htmlWebExtensions: Set<String> = [
+        "html", "htm", "xhtml", "mhtml", "svg", "svgz"
+    ]
+    
+    /// Markdown document extensions, strictly unified across the entire suite.
+    public static let markdownExtensions: Set<String> = [
+        "md", "markdown", "mdown", "mkd", "mkdn", "mdtxt", "mdtext"
+    ]
+    
+    /// Tabular and spreadsheet document extensions.
+    public static let spreadsheetExtensions: Set<String> = [
+        "xlsx", "xls", "ods", "csv", "tsv", "tab", "psv", "ssv"
+    ]
+    
+    /// Word processing document extensions.
+    public static let docxExtensions: Set<String> = [
+        "docx", "doc", "rtf", "odt"
+    ]
+    
+    /// Presentation slide extensions.
+    public static let presentationExtensions: Set<String> = [
+        "pptx", "ppt", "odp", "key"
+    ]
+    
+    /// E-book extensions.
+    public static let ebookExtensions: Set<String> = [
+        "mobi", "azw", "azw3", "fb2", "cbz", "cbr", "ibooks"
+    ]
+    
+    /// Raster and bitmap image extensions.
+    public static let imageExtensions: Set<String> = [
+        "png", "jpg", "jpeg", "gif", "webp", "heic", "bmp", "tiff", "ico",
+        "arw", "cr3", "nef", "dng"
+    ]
+    
+    /// All video extensions supported for unified in-app playback via MPV Metal viewport.
+    public static let videoExtensions: Set<String> = [
+        "mp4", "mov", "m4v", "qt", "mkv", "avi", "webm", "ogv", "flv", "3gp",
+        "3g2", "ts", "mts", "m2ts", "m2t", "wmv", "vob", "rmvb", "rm", "divx",
+        "asf", "f4v", "y4m", "mpg", "mpeg", "mpe", "mpv", "m2v", "vro", "dat",
+        "nut", "dv", "mxf"
+    ]
+    
+    /// Audio extensions.
+    public static let audioExtensions: Set<String> = [
+        "mp3", "wav", "m4a", "aac", "flac", "aifc", "aiff", "aif", "m4b", "m4r",
+        "alac", "caf", "ogg", "oga", "opus", "wma", "ape", "dts", "ac3", "eac3",
+        "amr", "mid", "midi", "mka", "dsd", "dsf", "dff", "wv", "tta", "mpc",
+        "tak", "spx", "au", "snd", "voc", "ra", "gsm"
+    ]
+    
+    /// Binary executable and byte stream extensions.
+    public static let binaryExtensions: Set<String> = [
+        "bin", "dat", "so", "dylib", "wasm", "class", "o", "exe", "dll", "obj", "a", "lib", "hex", "rom", "elf", "dex", "pyc"
+    ]
+    
+    /// Text and source code extensions.
+    public static let textExtensions: Set<String> = [
+        "txt", "log", "ini", "conf", "cfg", "properties", "env", "plist",
+        "swift", "kt", "kts", "java", "rs", "go", "c", "cpp", "h", "hpp", "cs", "m", "mm",
+        "js", "jsx", "ts", "tsx", "vue", "svelte", "py", "rb", "php", "sh", "bash", "zsh", "fish",
+        "css", "json", "xml", "yaml", "yml", "toml", "ipynb", "sql", "gradle", "srt", "ass", "vtt", "lrc", "sub"
+    ]
+    
+    /// Archive extensions registered within the preview capability matrix.
+    public static let archiveExtensions: Set<String> = [
+        "7z", "zip", "rar", "tar", "gz", "tgz", "bz2", "xz", "001", "002", "003", "zst", "iso"
+    ]
+
     // MARK: - Registry Storage
 
     private static let descriptors: [String: PreviewFormatDescriptor] = {

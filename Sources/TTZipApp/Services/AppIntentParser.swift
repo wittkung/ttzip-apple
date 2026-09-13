@@ -35,9 +35,29 @@ public enum AppIntentParser {
             return nil
         }
         
-        let actionType = components.queryItems?.first(where: { $0.name == "type" })?.value ?? ""
-        let pathsStr = components.queryItems?.first(where: { $0.name == "paths" })?.value ?? ""
-        let rawPaths = pathsStr.components(separatedBy: "|").filter { !$0.isEmpty }
+        var actionType = components.queryItems?.first(where: { $0.name == "type" })?.value ?? ""
+        var rawPaths: [String] = []
+        
+        // Priority 1: Check for App Group spooled job token (jobId, job_id, token)
+        if let jobIdStr = components.queryItems?.first(where: { $0.name == "jobId" || $0.name == "job_id" || $0.name == "token" })?.value,
+           let jobId = UUID(uuidString: jobIdStr),
+           let spooledJob = AppGroupSpoolManager.shared.consumeJob(id: jobId) {
+            if actionType.isEmpty {
+                actionType = spooledJob.action
+            }
+            if !spooledJob.sourcePaths.isEmpty {
+                rawPaths = spooledJob.sourcePaths
+            } else if !spooledJob.sourceBookmarks.isEmpty {
+                let resolved = AppGroupSpoolManager.shared.resolveBookmarks(spooledJob.sourceBookmarks)
+                rawPaths = resolved.map { $0.path }
+            }
+        }
+        
+        // Priority 2: Fallback to direct query parameter paths for small/legacy batches
+        if rawPaths.isEmpty, let pathsStr = components.queryItems?.first(where: { $0.name == "paths" })?.value {
+            rawPaths = pathsStr.components(separatedBy: "|").filter { !$0.isEmpty }
+        }
+        
         let sanitizedPaths = rawPaths.filter { FileManager.default.fileExists(atPath: $0) }
         
         let intent: AppIntent

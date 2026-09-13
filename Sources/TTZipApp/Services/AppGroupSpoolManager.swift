@@ -16,6 +16,7 @@ public struct TTZipSpoolJob: Codable, Sendable {
     public let createdAt: Date
     public let action: String
     public let targetFormat: String?
+    public let sourcePaths: [String]
     public let sourceBookmarks: [Data]
     public let destinationDirectoryBookmark: Data?
     public let compressionLevel: Int?
@@ -26,7 +27,8 @@ public struct TTZipSpoolJob: Codable, Sendable {
         createdAt: Date = Date(),
         action: String,
         targetFormat: String? = nil,
-        sourceBookmarks: [Data],
+        sourcePaths: [String] = [],
+        sourceBookmarks: [Data] = [],
         destinationDirectoryBookmark: Data? = nil,
         compressionLevel: Int? = nil,
         password: String? = nil
@@ -35,10 +37,24 @@ public struct TTZipSpoolJob: Codable, Sendable {
         self.createdAt = createdAt
         self.action = action
         self.targetFormat = targetFormat
+        self.sourcePaths = sourcePaths
         self.sourceBookmarks = sourceBookmarks
         self.destinationDirectoryBookmark = destinationDirectoryBookmark
         self.compressionLevel = compressionLevel
         self.password = password
+    }
+    
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        jobId = try container.decode(UUID.self, forKey: .jobId)
+        createdAt = try container.decode(Date.self, forKey: .createdAt)
+        action = try container.decode(String.self, forKey: .action)
+        targetFormat = try container.decodeIfPresent(String.self, forKey: .targetFormat)
+        sourcePaths = try container.decodeIfPresent([String].self, forKey: .sourcePaths) ?? []
+        sourceBookmarks = try container.decodeIfPresent([Data].self, forKey: .sourceBookmarks) ?? []
+        destinationDirectoryBookmark = try container.decodeIfPresent(Data.self, forKey: .destinationDirectoryBookmark)
+        compressionLevel = try container.decodeIfPresent(Int.self, forKey: .compressionLevel)
+        password = try container.decodeIfPresent(String.self, forKey: .password)
     }
 }
 
@@ -51,14 +67,24 @@ public final class AppGroupSpoolManager: Sendable {
         FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: Self.appGroupId)
     }
     
-    private var spoolDirectoryURL: URL? {
-        guard let container = containerURL else { return nil }
-        let dir = container.appendingPathComponent("spool", isDirectory: true)
-        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
-        return dir
+    public var spoolDirectoryURL: URL? {
+        if let container = containerURL {
+            let dir = container.appendingPathComponent("spool", isDirectory: true)
+            do {
+                try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+                if FileManager.default.fileExists(atPath: dir.path) {
+                    return dir
+                }
+            } catch {
+                // Group Container is unprovisioned or inaccessible; proceed to disk-backed fallback
+            }
+        }
+        let fallback = FileManager.default.temporaryDirectory.appendingPathComponent("com.metastudyline.ttzip/spool", isDirectory: true)
+        try? FileManager.default.createDirectory(at: fallback, withIntermediateDirectories: true)
+        return fallback
     }
     
-    /// Writes a spool job atomically into the App Group container.
+    /// Writes a spool job atomically into the App Group container or disk fallback.
     @discardableResult
     public func writeJob(_ job: TTZipSpoolJob) throws -> URL {
         guard let spoolDir = spoolDirectoryURL else {
@@ -70,17 +96,27 @@ public final class AppGroupSpoolManager: Sendable {
         return fileURL
     }
     
-    /// Reads and atomically consumes (deletes) a spool job by ID.
+    /// Reads and atomically consumes (deletes) a spool job by ID from App Group or disk fallback.
     public func consumeJob(id: UUID) -> TTZipSpoolJob? {
-        guard let spoolDir = spoolDirectoryURL else { return nil }
-        let fileURL = spoolDir.appendingPathComponent("\(id.uuidString).ttzipjob")
-        guard FileManager.default.fileExists(atPath: fileURL.path),
-              let data = try? Data(contentsOf: fileURL),
-              let job = try? JSONDecoder().decode(TTZipSpoolJob.self, from: data) else {
-            return nil
+        var candidateDirs: [URL] = []
+        if let spoolDir = spoolDirectoryURL {
+            candidateDirs.append(spoolDir)
         }
-        try? FileManager.default.removeItem(at: fileURL)
-        return job
+        let fallback = FileManager.default.temporaryDirectory.appendingPathComponent("com.metastudyline.ttzip/spool", isDirectory: true)
+        if !candidateDirs.contains(fallback) {
+            candidateDirs.append(fallback)
+        }
+        
+        for dir in candidateDirs {
+            let fileURL = dir.appendingPathComponent("\(id.uuidString).ttzipjob")
+            if FileManager.default.fileExists(atPath: fileURL.path),
+               let data = try? Data(contentsOf: fileURL),
+               let job = try? JSONDecoder().decode(TTZipSpoolJob.self, from: data) {
+                try? FileManager.default.removeItem(at: fileURL)
+                return job
+            }
+        }
+        return nil
     }
     
     /// Resolves security-scoped bookmarks into active accessible file URLs.
@@ -122,3 +158,7 @@ public final class AppGroupSpoolManager: Sendable {
         return try await perform(urls)
     }
 }
+
+/// Typealias providing AppGroupSpooler naming parity across targets.
+public typealias AppGroupSpooler = AppGroupSpoolManager
+

@@ -115,16 +115,35 @@ public final class FinderSync: FIFinderSync {
               let paths = payload["urls"] as? [String],
               !paths.isEmpty else { return }
         
-        var components = URLComponents()
-        components.scheme = "ttzip"
-        components.host = "action"
-        components.queryItems = [
-            URLQueryItem(name: "type", value: action),
-            URLQueryItem(name: "paths", value: paths.joined(separator: "|"))
-        ]
+        // Spool job via App Group shared temporary buffer (or disk-backed token) to prevent URL query parameter overflow on 100+ files
+        if let jobId = try? AppGroupSpooler.shared.spoolJob(action: action, paths: paths) {
+            var components = URLComponents()
+            components.scheme = "ttzip"
+            components.host = "action"
+            components.queryItems = [
+                URLQueryItem(name: "type", value: action),
+                URLQueryItem(name: "jobId", value: jobId.uuidString)
+            ]
+            
+            if let url = components.url {
+                NSWorkspace.shared.open(url)
+                return
+            }
+        }
         
-        if let url = components.url {
-            NSWorkspace.shared.open(url)
+        // Direct query fallback for small selections when spooling is unavailable
+        if paths.count <= 32 {
+            var components = URLComponents()
+            components.scheme = "ttzip"
+            components.host = "action"
+            components.queryItems = [
+                URLQueryItem(name: "type", value: action),
+                URLQueryItem(name: "paths", value: paths.joined(separator: "|"))
+            ]
+            
+            if let url = components.url {
+                NSWorkspace.shared.open(url)
+            }
         }
     }
     
