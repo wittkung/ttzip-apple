@@ -65,7 +65,7 @@ public final class MPVMetalRenderLayer: CAMetalLayer, MPVVideoLayerProtocol, @un
         
         // 1600 nits EDR Hardware Passthrough Configuration
         self.pixelFormat = .bgra8Unorm
-        self.colorspace = CGColorSpace(name: CGColorSpace.extendedLinearSRGB)
+        self.colorspace = CGColorSpace(name: CGColorSpace.sRGB)
         self.wantsExtendedDynamicRangeContent = true
         self.isOpaque = true
         self.framebufferOnly = false

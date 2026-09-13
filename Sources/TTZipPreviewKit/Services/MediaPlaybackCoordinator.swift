@@ -56,9 +56,9 @@ public final class MediaPlaybackCoordinator {
             
             let isFullScreen = NSApp.keyWindow?.styleMask.contains(.fullScreen) == true
             
-            // KeyCode 49 is Space Bar (only handled when in full-screen presentation or explicitly focused/hovered)
+            // KeyCode 49 is Space Bar (only handled when in full-screen presentation, explicitly focused/hovered, or actively playing)
             if event.keyCode == 49 {
-                if isFullScreen || self.isFocusedOrHovered {
+                if isFullScreen || self.isFocusedOrHovered || self.isPlaying {
                     self.playPauseHandler?()
                     return nil // Consumed
                 }

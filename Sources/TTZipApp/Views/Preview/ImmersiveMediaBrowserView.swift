@@ -22,6 +22,8 @@ public struct ImmersiveMediaBrowserView: View {
     
     @State private var eventMonitor: Any? = nil
     @State private var isCopiedToastShown: Bool = false
+    @State private var isControlsVisible: Bool = true
+    @State private var autoHideTimer: Timer? = nil
     
     public init(
         item: ImmersiveMediaItem,
@@ -51,203 +53,246 @@ public struct ImmersiveMediaBrowserView: View {
     }
     
     public var body: some View {
-        ZStack {
-            // Layer 1: Frosted Scrim Dismiss Layer
-            Color.black.opacity(0.92)
-                .background(.ultraThinMaterial)
+        GeometryReader { geometry in
+            ZStack {
+                // Layer 1: Frosted Scrim Dismiss Layer
+                Color.black.opacity(0.92)
+                    .background(.ultraThinMaterial)
+                    .ignoresSafeArea()
+                    .onTapGesture {
+                        if !isControlsVisible {
+                            showControlsAndResetTimer()
+                        } else {
+                            onClose()
+                        }
+                    }
+                
+                // Layer 2: Main Center Media Viewport
+                MediaPreviewView(
+                    fileURL: item.url,
+                    fileName: item.name,
+                    isImmersiveFullscreen: true
+                )
+                .environment(\.isImmersiveFullscreen, true)
+                .id(item.url)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .ignoresSafeArea()
-                .onTapGesture {
-                    onClose()
-                }
-            
-            // Layer 2: Main Center Media Viewport
-            MediaPreviewView(
-                fileURL: item.url,
-                fileName: item.name,
-                isImmersiveFullscreen: true
-            )
-            .environment(\.isImmersiveFullscreen, true)
-            .id(item.url)
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .ignoresSafeArea()
-            
-            // Layer 3: Left & Right Navigation Chevrons
-            HStack(spacing: 0) {
-                if let prev = onNavigatePrevious {
-                    Button(action: prev) {
-                        Image(systemName: "chevron.left")
-                            .font(.system(size: 18, weight: .bold))
-                            .foregroundStyle(.white)
-                            .frame(width: 46, height: 46)
-                            .background(.ultraThinMaterial)
-                            .background(Color.black.opacity(0.45))
-                            .clipShape(Circle())
-                            .overlay(Circle().stroke(Color.white.opacity(0.2), lineWidth: 0.8))
-                            .shadow(color: .black.opacity(0.35), radius: 10, x: 0, y: 5)
-                    }
-                    .buttonStyle(.plain)
-                    .padding(.leading, 18)
-                    .help("Previous media (Left arrow)")
-                } else {
-                    Spacer().frame(width: 46)
-                        .padding(.leading, 18)
-                }
                 
-                Spacer()
-                
-                if let next = onNavigateNext {
-                    Button(action: next) {
-                        Image(systemName: "chevron.right")
-                            .font(.system(size: 18, weight: .bold))
-                            .foregroundStyle(.white)
-                            .frame(width: 46, height: 46)
-                            .background(.ultraThinMaterial)
-                            .background(Color.black.opacity(0.45))
-                            .clipShape(Circle())
-                            .overlay(Circle().stroke(Color.white.opacity(0.2), lineWidth: 0.8))
-                            .shadow(color: .black.opacity(0.35), radius: 10, x: 0, y: 5)
-                    }
-                    .buttonStyle(.plain)
-                    .padding(.trailing, 18)
-                    .help("Next media (Right arrow)")
-                } else {
-                    Spacer().frame(width: 46)
-                        .padding(.trailing, 18)
-                }
-            }
-            .allowsHitTesting(true)
-            
-            // Layer 4: Top Floating Glassmorphic HUD
-            VStack(spacing: 0) {
+                // Layer 3: Left & Right Navigation Chevrons
                 HStack(spacing: 0) {
-                    Spacer(minLength: 76)
-                    topHUDBar
-                        .frame(maxWidth: 720)
-                    Spacer(minLength: 76)
+                    if let prev = onNavigatePrevious {
+                        Button(action: prev) {
+                            Image(systemName: "chevron.left")
+                                .font(.system(size: 18, weight: .bold))
+                                .foregroundStyle(.white)
+                                .frame(width: 46, height: 46)
+                                .background(.ultraThinMaterial)
+                                .background(Color.black.opacity(0.45))
+                                .clipShape(Circle())
+                                .overlay(Circle().stroke(Color.white.opacity(0.2), lineWidth: 0.8))
+                                .shadow(color: .black.opacity(0.35), radius: 10, x: 0, y: 5)
+                        }
+                        .buttonStyle(.plain)
+                        .padding(.leading, 18)
+                        .help("Previous media (Left arrow)")
+                    } else {
+                        Spacer().frame(width: 46)
+                            .padding(.leading, 18)
+                    }
+                    
+                    Spacer()
+                    
+                    if let next = onNavigateNext {
+                        Button(action: next) {
+                            Image(systemName: "chevron.right")
+                                .font(.system(size: 18, weight: .bold))
+                                .foregroundStyle(.white)
+                                .frame(width: 46, height: 46)
+                                .background(.ultraThinMaterial)
+                                .background(Color.black.opacity(0.45))
+                                .clipShape(Circle())
+                                .overlay(Circle().stroke(Color.white.opacity(0.2), lineWidth: 0.8))
+                                .shadow(color: .black.opacity(0.35), radius: 10, x: 0, y: 5)
+                        }
+                        .buttonStyle(.plain)
+                        .padding(.trailing, 18)
+                        .help("Next media (Right arrow)")
+                    } else {
+                        Spacer().frame(width: 46)
+                            .padding(.trailing, 18)
+                    }
                 }
-                .padding(.top, 16)
-                Spacer()
+                .opacity(isControlsVisible ? 1.0 : 0.0)
+                .allowsHitTesting(isControlsVisible)
+                
+                // Layer 4: Top Edge-to-Edge Gradient Veil Header
+                VStack(spacing: 0) {
+                    topGradientHeader(geometry: geometry)
+                    Spacer()
+                }
+                .ignoresSafeArea(edges: .top)
+                .opacity(isControlsVisible ? 1.0 : 0.0)
+                .allowsHitTesting(isControlsVisible)
             }
-            .padding(.horizontal, 16)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .onAppear {
-            setupKeyboardMonitor()
-        }
-        .onDisappear {
-            teardownKeyboardMonitor()
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .onContinuousHover { phase in
+                if case .active = phase {
+                    showControlsAndResetTimer()
+                }
+            }
+            .onAppear {
+                setupKeyboardMonitor()
+                showControlsAndResetTimer()
+            }
+            .onDisappear {
+                teardownKeyboardMonitor()
+                autoHideTimer?.invalidate()
+                autoHideTimer = nil
+            }
         }
     }
     
-    // MARK: - Top Floating Glassmorphic HUD
+    // MARK: - Top Gradient Veil Header
     
-    private var topHUDBar: some View {
-        HStack(spacing: 12) {
-            // Zen Kintsugi Gold badge icon with format name
-            HStack(spacing: 5) {
-                Image(systemName: MediaPreviewFactory.iconName(for: item.name))
-                    .font(.system(size: 11, weight: .bold))
-                    .foregroundStyle(TTZipTheme.kintsugiGold)
+    private func topGradientHeader(geometry: GeometryProxy) -> some View {
+        HStack(alignment: .center, spacing: 14) {
+            // Leading: Format Badge + Name & Size
+            HStack(spacing: 12) {
+                // Zen Kintsugi Gold format badge
+                HStack(spacing: 5) {
+                    Image(systemName: MediaPreviewFactory.iconName(for: item.name))
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundStyle(TTZipTheme.kintsugiGold)
+                    
+                    Text(formatExtension)
+                        .font(.system(size: 10, weight: .bold, design: .monospaced))
+                        .tracking(0.8)
+                        .foregroundStyle(TTZipTheme.kintsugiGold)
+                }
+                .padding(.horizontal, 8)
+                .padding(.vertical, 4.5)
+                .background(TTZipTheme.kintsugiGold.opacity(0.14))
+                .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 6, style: .continuous)
+                        .strokeBorder(TTZipTheme.kintsugiGold.opacity(0.4), lineWidth: 0.8)
+                )
                 
-                Text(formatExtension)
-                    .font(.system(size: 10, weight: .bold, design: .monospaced))
-                    .tracking(0.8)
-                    .foregroundStyle(TTZipTheme.kintsugiGold)
-            }
-            .padding(.horizontal, 8)
-            .padding(.vertical, 4.5)
-            .background(TTZipTheme.kintsugiGold.opacity(0.14))
-            .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
-            .overlay(
-                RoundedRectangle(cornerRadius: 6, style: .continuous)
-                    .strokeBorder(TTZipTheme.kintsugiGold.opacity(0.4), lineWidth: 0.8)
-            )
-            
-            // File Name (Headline, Bold Serif) + File Size (Monospaced)
-            VStack(alignment: .leading, spacing: 1) {
-                Text(item.name)
-                    .font(.system(size: 13, weight: .bold, design: .serif))
-                    .foregroundStyle(.white)
-                    .lineLimit(1)
-                    .truncationMode(.middle)
-                
-                if let sizeDesc = fileSizeDescription {
-                    Text(sizeDesc)
-                        .font(.system(size: 10, weight: .regular, design: .monospaced))
-                        .foregroundStyle(Color.white.opacity(0.65))
+                // Item name and file size
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(item.name)
+                        .font(.system(size: 14, weight: .semibold, design: .serif))
+                        .foregroundStyle(.white)
                         .lineLimit(1)
+                        .truncationMode(.middle)
+                        .frame(maxWidth: min(720, max(80, geometry.size.width - 320)), alignment: .leading)
+                    
+                    if let sizeDesc = fileSizeDescription {
+                        Text(sizeDesc)
+                            .font(.system(size: 10, weight: .regular, design: .monospaced))
+                            .foregroundStyle(Color.white.opacity(0.65))
+                            .lineLimit(1)
+                    }
                 }
             }
-            .frame(minWidth: 100, maxWidth: 340, alignment: .leading)
             
-            // Action Buttons
-            HStack(spacing: 8) {
-                // Reveal in Finder
+            Spacer()
+            
+            // Trailing HStack (spacing 10): Actions & Close
+            HStack(spacing: 10) {
+                // "Finder" button with subtle translucent glass style
                 Button(action: {
                     NSWorkspace.shared.activateFileViewerSelecting([item.url])
                 }) {
                     HStack(spacing: 4) {
                         Image(systemName: "folder")
-                            .font(.system(size: 10.5, weight: .medium))
+                            .font(.system(size: 11, weight: .medium))
                         Text("Finder")
                             .font(.system(size: 11, weight: .medium))
                     }
                     .foregroundStyle(.white.opacity(0.9))
-                    .padding(.horizontal, 9)
-                    .padding(.vertical, 4.5)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 5)
+                    .background(.ultraThinMaterial)
                     .background(Color.white.opacity(0.12))
                     .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 6, style: .continuous)
+                            .strokeBorder(Color.white.opacity(0.2), lineWidth: 0.8)
+                    )
                 }
                 .buttonStyle(.plain)
                 .help("Reveal file in Finder (⌘R)")
                 
-                // Copy Path
+                // "Copy Path" button with subtle translucent glass style
                 Button(action: copyFilePath) {
                     HStack(spacing: 4) {
                         Image(systemName: isCopiedToastShown ? "checkmark" : "doc.on.doc")
-                            .font(.system(size: 10.5, weight: .medium))
+                            .font(.system(size: 11, weight: .medium))
                             .foregroundStyle(isCopiedToastShown ? TTZipTheme.bambooGreen : .white.opacity(0.9))
                         Text(isCopiedToastShown ? "Copied" : "Copy Path")
                             .font(.system(size: 11, weight: .medium))
                             .foregroundStyle(isCopiedToastShown ? TTZipTheme.bambooGreen : .white.opacity(0.9))
                     }
-                    .padding(.horizontal, 9)
-                    .padding(.vertical, 4.5)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 5)
+                    .background(.ultraThinMaterial)
                     .background(Color.white.opacity(0.12))
                     .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 6, style: .continuous)
+                            .strokeBorder(Color.white.opacity(0.2), lineWidth: 0.8)
+                    )
                 }
                 .buttonStyle(.plain)
                 .help("Copy full path to clipboard")
                 
-                // Exit Fullscreen Button
+                // Elegant circular translucent close button
                 Button(action: onClose) {
-                    HStack(spacing: 4) {
-                        Image(systemName: "xmark")
-                            .font(.system(size: 10, weight: .bold))
-                        Text("退出全屏 (Esc)")
-                            .font(.system(size: 11, weight: .semibold))
-                    }
-                    .foregroundStyle(.white)
-                    .padding(.horizontal, 11)
-                    .padding(.vertical, 4.5)
-                    .background(TTZipTheme.cinnabarRed.opacity(0.88))
-                    .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+                    Image(systemName: "xmark")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(.white.opacity(0.85))
+                        .frame(width: 32, height: 32)
+                        .background(.ultraThinMaterial)
+                        .background(Color.white.opacity(0.12))
+                        .clipShape(Circle())
+                        .overlay(Circle().stroke(Color.white.opacity(0.2), lineWidth: 0.8))
                 }
                 .buttonStyle(.plain)
                 .keyboardShortcut(.escape, modifiers: [])
-                .help("Dismiss fullscreen browser (Esc)")
+                .help("Dismiss (Esc)")
             }
         }
-        .padding(.horizontal, 16)
-        .frame(height: 48)
-        .background(.ultraThinMaterial)
-        .background(Color.black.opacity(0.65))
-        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .strokeBorder(Color.white.opacity(0.18), lineWidth: 0.8)
+        .padding(.horizontal, 24)
+        .padding(.top, 16)
+        .frame(maxWidth: .infinity)
+        .frame(height: 96, alignment: .top)
+        .background(
+            LinearGradient(
+                colors: [Color.black.opacity(0.75), Color.black.opacity(0.0)],
+                startPoint: .top,
+                endPoint: .bottom
+            )
         )
-        .shadow(color: .black.opacity(0.5), radius: 16, x: 0, y: 8)
+    }
+    
+    // MARK: - Auto-Hide State Machine
+    
+    private func showControlsAndResetTimer() {
+        if !isControlsVisible {
+            withAnimation(.easeInOut(duration: 0.2)) {
+                isControlsVisible = true
+            }
+        }
+        autoHideTimer?.invalidate()
+        autoHideTimer = Timer.scheduledTimer(withTimeInterval: 2.5, repeats: false) { _ in
+            Task { @MainActor in
+                withAnimation(.easeInOut(duration: 0.35)) {
+                    isControlsVisible = false
+                }
+                NSCursor.setHiddenUntilMouseMoves(true)
+            }
+        }
     }
     
     // MARK: - Actions & Keyboard

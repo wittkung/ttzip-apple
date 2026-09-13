@@ -24,14 +24,15 @@ extension AppViewState {
     
     public func previewMediaFile(path: String) {
         let url = URL(fileURLWithPath: path)
-        self.activePreviewFileURL = url
-        self.activePreviewFileName = url.lastPathComponent
-        self.activeTab = .home
+        let item = DiskItemInfo(url: url, isDirectory: false)
+        self.openImmersiveMedia(for: item)
     }
     
     public func closeMediaPreview() {
         self.activePreviewFileURL = nil
         self.activePreviewFileName = nil
+        self.overlayState.showImmersiveMediaBrowser = false
+        self.overlayState.immersiveMediaItem = nil
     }
     
     public func quickExtractArchive(
@@ -258,3 +259,10 @@ extension AppViewState {
         activeTab = .home
     }
 }
+
+extension DiskItemInfo {
+    public init(url: URL, isDirectory: Bool) {
+        self.init(url: url)
+    }
+}
+
