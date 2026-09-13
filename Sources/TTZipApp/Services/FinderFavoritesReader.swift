@@ -16,25 +16,34 @@ public final class FinderFavoritesReader {
     
     private static let bookmarkStorageKey = "TTZipFinderFavoritesBookmarkData"
     
-    /// Indicates whether custom Finder favorites were successfully resolved from system SFL or authorized storage.
-    public private(set) static var hasResolvedCustomFavorites: Bool = false
+    /// Result of fetching favorites including items and custom status.
+    public struct FavoritesResult: Sendable {
+        public let items: [FinderFavoriteItem]
+        public let hasResolvedCustomFavorites: Bool
+        
+        public init(items: [FinderFavoriteItem], hasResolvedCustomFavorites: Bool) {
+            self.items = items
+            self.hasResolvedCustomFavorites = hasResolvedCustomFavorites
+        }
+    }
     
-    /// Fetches user favorites matching the macOS Finder sidebar, with resilient fallback to system standard directories.
-    public static func fetchFavorites() -> [FinderFavoriteItem] {
+    /// Fetches user favorites matching the macOS Finder sidebar, returning both items and custom resolution status.
+    public static func fetchFavoritesResult() -> FavoritesResult {
         var results: [FinderFavoriteItem] = []
         var seenPaths = Set<String>()
         let fm = FileManager.default
+        let hasResolvedCustom: Bool
         
         // 1. Attempt to fetch real macOS Finder favorites (from SFL4/SFL3 or authorized bookmark)
         if let sflFavorites = fetchSFLFavorites(), !sflFavorites.isEmpty {
-            hasResolvedCustomFavorites = true
+            hasResolvedCustom = true
             for item in sflFavorites {
                 if seenPaths.insert(item.path).inserted {
                     results.append(item)
                 }
             }
         } else {
-            hasResolvedCustomFavorites = false
+            hasResolvedCustom = false
             // Fallback: fetch macOS standard user directories
             let home = NSHomeDirectory()
             let standardPaths: [(String, String)] = [
@@ -74,7 +83,12 @@ public final class FinderFavoritesReader {
             }
         }
         
-        return results
+        return FavoritesResult(items: results, hasResolvedCustomFavorites: hasResolvedCustom)
+    }
+    
+    /// Backward-compatible convenience accessor returning just the items list.
+    public static func fetchFavorites() -> [FinderFavoriteItem] {
+        return fetchFavoritesResult().items
     }
     
     /// Persists a security-scoped bookmark for the user-selected sharedfilelist directory or file.

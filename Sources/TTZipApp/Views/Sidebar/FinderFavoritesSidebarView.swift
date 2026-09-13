@@ -24,6 +24,7 @@ public struct FinderFavoritesSidebarView: View {
     @State private var hoveredItemPath: String? = nil
     @State private var showWirelessDiscoverySheet: Bool = false
     @State private var isDropTargeted: Bool = false
+    @State private var hasResolvedCustomFavorites: Bool = false
     
     @AppStorage("TTZipCustomShortcutFolderPaths") private var customPinnedPathsJSON: String = "[]"
     
@@ -91,7 +92,7 @@ public struct FinderFavoritesSidebarView: View {
                             HStack {
                                 sectionHeader(title: l10n.currentLanguage == .zhHans ? "个人收藏" : "FAVORITES")
                                 Spacer()
-                                if !FinderFavoritesReader.hasResolvedCustomFavorites {
+                                if !hasResolvedCustomFavorites {
                                     Button(action: authorizeFinderFavorites) {
                                         Image(systemName: "arrow.triangle.2.circlepath")
                                             .font(.system(size: 9.5, weight: .semibold))
@@ -491,11 +492,12 @@ public struct FinderFavoritesSidebarView: View {
     }
     
     private func loadFavorites() {
-        Task.detached(priority: .userInitiated) {
-            let favs = FinderFavoritesReader.fetchFavorites()
-            await MainActor.run {
-                self.dynamicFinderFavorites = favs
-            }
+        Task { @MainActor in
+            let result = await Task.detached(priority: .userInitiated) {
+                FinderFavoritesReader.fetchFavoritesResult()
+            }.value
+            self.dynamicFinderFavorites = result.items
+            self.hasResolvedCustomFavorites = result.hasResolvedCustomFavorites
         }
     }
     
