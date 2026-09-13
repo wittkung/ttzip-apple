@@ -22,6 +22,7 @@ FAST_MODE=false
 DIST_DIR="${REPO_ROOT}/dist"
 CUSTOM_BUILD_DIR=""
 FORCE_CLEAN=false
+DO_INSTALL=false
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -34,6 +35,7 @@ while [[ $# -gt 0 ]]; do
         --debug|-d) BUILD_CONFIG="debug"; shift ;;
         --fast|-f) FAST_MODE=true; BUILD_CONFIG="debug"; shift ;;
         --clean) FORCE_CLEAN=true; shift ;;
+        --install) DO_INSTALL=true; shift ;;
         --open|-o) OPEN_APP=true; shift ;;
         *) echo "Unknown option: $1"; exit 1 ;;
     esac
@@ -94,8 +96,12 @@ QUICKLOOK_SRC="${BIN_DIR}/libTTZipQuickLook.dylib"
 
 NEED_SWIFT_BUILD=true
 if [ "${FORCE_CLEAN}" = false ] && [ -f "${BIN_PATH}" ]; then
-    # Check if Sources, Package.swift, or Package.resolved are newer than the binary
-    NEWER_FILE="$(find "${REPO_ROOT}/Sources" "${REPO_ROOT}/Package.swift" "${REPO_ROOT}/Package.resolved" -newer "${BIN_PATH}" 2>/dev/null | head -n 1 || true)"
+    # Check if Sources, Package.swift, Package.resolved, or local core dependencies are newer than the binary
+    DEP_TARGETS=("${REPO_ROOT}/Sources" "${REPO_ROOT}/Package.swift" "${REPO_ROOT}/Package.resolved")
+    if [ -d "${REPO_ROOT}/../core" ]; then
+        DEP_TARGETS+=("${REPO_ROOT}/../core/Sources" "${REPO_ROOT}/../core/Package.swift" "${REPO_ROOT}/../core/Frameworks" "${REPO_ROOT}/../core/rust/crates" "${REPO_ROOT}/../core/rust/ttzip-engine")
+    fi
+    NEWER_FILE="$(find "${DEP_TARGETS[@]}" -newer "${BIN_PATH}" 2>/dev/null | head -n 1 || true)"
     if [ -z "${NEWER_FILE}" ]; then
         NEED_SWIFT_BUILD=false
     fi
@@ -576,6 +582,16 @@ fi
 echo "======================================================================"
 echo "✅ Successfully bundled [${CHANNEL} - ${BUILD_CONFIG}]: ${APP_DIR}"
 echo "======================================================================"
+
+if [ "${DO_INSTALL}" = true ]; then
+    echo "--> Installing freshly bundled TTZip.app to /Applications/TTZip.app..."
+    pkill -x TTZip 2>/dev/null || true
+    rm -rf "/Applications/TTZip.app"
+    cp -Rf "${APP_DIR}" "/Applications/TTZip.app"
+    /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/LaunchServices.framework/Versions/A/Support/lsregister -f "/Applications/TTZip.app" 2>/dev/null || true
+    echo "🎉 Successfully installed TTZip.app to /Applications/TTZip.app!"
+    echo "======================================================================"
+fi
 
 if [ "${OPEN_APP}" = true ]; then
     echo "--> Launching freshly built TTZip.app..."
