@@ -60,62 +60,40 @@ extension ArchiveExplorerView {
         }
     }
     
-    final class PathAccumulator: @unchecked Sendable {
-        private var paths: [String] = []
-        private let lock = NSLock()
-        
-        func append(_ path: String) {
-            lock.lock()
-            paths.append(path)
-            lock.unlock()
-        }
-        
-        var allPaths: [String] {
-            lock.lock()
-            defer { lock.unlock() }
-            return paths
-        }
-    }
-    
     func handleDropFiles(providers: [NSItemProvider]) {
-        let accumulator = PathAccumulator()
-        let group = DispatchGroup()
-        
-        for provider in providers {
-            group.enter()
-            _ = provider.loadObject(ofClass: URL.self) { url, _ in
-                if let url = url, url.isFileURL {
-                    accumulator.append(url.path)
+        Task {
+            var paths: [String] = []
+            for provider in providers {
+                let path: String? = await withCheckedContinuation { continuation in
+                    _ = provider.loadObject(ofClass: URL.self) { url, _ in
+                        if let url = url, url.isFileURL {
+                            continuation.resume(returning: url.path)
+                        } else {
+                            continuation.resume(returning: nil)
+                        }
+                    }
                 }
-                group.leave()
+                if let path = path {
+                    paths.append(path)
+                }
             }
-        }
-        
-        group.notify(queue: .main) {
-            let paths = accumulator.allPaths
             guard !paths.isEmpty else { return }
             self.isMutatingArchive = true
             self.syncStatusMessage = "Adding \(paths.count) items into archive..."
             
-            Task {
-                do {
-                    try await InPlaceArchiveMutationEngine.shared.addFilesToArchive(
-                        archivePath: self.archivePath,
-                        sourceFilePaths: paths,
-                        destinationVirtualFolder: nil,
-                        password: self.password
-                    )
-                    await MainActor.run {
-                        self.isMutatingArchive = false
-                        self.syncStatusMessage = "Archive updated successfully"
-                        self.reloadArchiveEntries()
-                    }
-                } catch {
-                    await MainActor.run {
-                        self.isMutatingArchive = false
-                        self.syncStatusMessage = "Failed to add items: \(error.localizedDescription)"
-                    }
-                }
+            do {
+                try await InPlaceArchiveMutationEngine.shared.addFilesToArchive(
+                    archivePath: self.archivePath,
+                    sourceFilePaths: paths,
+                    destinationVirtualFolder: nil,
+                    password: self.password
+                )
+                self.isMutatingArchive = false
+                self.syncStatusMessage = "Archive updated successfully"
+                self.reloadArchiveEntries()
+            } catch {
+                self.isMutatingArchive = false
+                self.syncStatusMessage = "Failed to add items: \(error.localizedDescription)"
             }
         }
     }
@@ -270,7 +248,7 @@ extension ArchiveExplorerView {
                         entryPath: entry.path,
                         password: self.password
                     ) {
-                        cachedURL = try ArchiveMediaCachePool.shared.stageData(data, fileName: entry.name)
+                        cachedURL = try await ArchiveMediaCachePool.shared.stageData(data, fileName: entry.name)
                     } else {
                         throw ArchiveError.fileNotFound
                     }

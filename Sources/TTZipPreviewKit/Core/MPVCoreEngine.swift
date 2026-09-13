@@ -6,34 +6,35 @@
 // TTZip: High-performance native archiving and compression engine.
 
 import Foundation
+import os
 import os.log
 import CMPVBridge
 
 /// C-Safe wakeup trampoline preventing Use-After-Free (UAF) across actor and thread boundaries.
-private final class MPVWakeupTrampoline: @unchecked Sendable {
-    private let lock = NSLock()
-    private var isActive: Bool = true
-    private var onWakeup: (@Sendable () -> Void)?
+private final class MPVWakeupTrampoline: Sendable {
+    private struct State: Sendable {
+        var isActive: Bool = true
+        var onWakeup: (@Sendable () -> Void)?
+    }
+    private let state: OSAllocatedUnfairLock<State>
 
     init(onWakeup: (@Sendable () -> Void)?) {
-        self.onWakeup = onWakeup
+        self.state = OSAllocatedUnfairLock(initialState: State(isActive: true, onWakeup: onWakeup))
     }
 
     func trigger() {
-        lock.lock()
-        let active = isActive
-        let handler = onWakeup
-        lock.unlock()
-        if active {
-            handler?()
+        let handler: (@Sendable () -> Void)? = state.withLock { s in
+            guard s.isActive else { return nil }
+            return s.onWakeup
         }
+        handler?()
     }
 
     func deactivate() {
-        lock.lock()
-        isActive = false
-        onWakeup = nil
-        lock.unlock()
+        state.withLock { s in
+            s.isActive = false
+            s.onWakeup = nil
+        }
     }
 }
 
@@ -50,35 +51,34 @@ private struct UncheckedHandle: @unchecked Sendable {
 }
 
 /// Thread-safe holder managing the resident libmpv client handle lifecycle.
-private final class MPVHandleHolder: @unchecked Sendable {
-    private let lock = NSLock()
-    private var rawPointer: OpaquePointer?
-    private var trampoline: MPVWakeupTrampoline?
+private final class MPVHandleHolder: Sendable {
+    private struct State: Sendable {
+        var handle: UncheckedHandle?
+        var trampoline: MPVWakeupTrampoline?
+    }
+    
+    private let state = OSAllocatedUnfairLock(initialState: State())
 
     init(rawPointer: OpaquePointer? = nil) {
-        self.rawPointer = rawPointer
+        if let rawPointer {
+            let wrapped = UncheckedHandle(pointer: rawPointer)
+            self.state.withLock { s in
+                s.handle = wrapped
+            }
+        }
     }
 
     var pointer: OpaquePointer? {
-        lock.lock()
-        defer { lock.unlock() }
-        return rawPointer
-    }
-
-    func setPointer(_ ptr: OpaquePointer?) {
-        lock.lock()
-        rawPointer = ptr
-        lock.unlock()
+        state.withLock { $0.handle }?.pointer
     }
 
     func lockAndInitialize(
         mode: MPVOutputMode,
         onWakeup: @escaping @Sendable () -> Void
     ) throws -> OpaquePointer {
-        lock.lock()
-        defer { lock.unlock() }
-
-        if let existing = rawPointer { return existing }
+        if let existing = state.withLock({ $0.handle })?.pointer {
+            return existing
+        }
 
         guard let newHandle = mpv_create() else {
             throw MPVError.initializationFailed("Failed to allocate libmpv client handle")
@@ -148,7 +148,6 @@ private final class MPVHandleHolder: @unchecked Sendable {
         }
 
         let tramp = MPVWakeupTrampoline(onWakeup: onWakeup)
-        self.trampoline = tramp
         let rawContext = Unmanaged.passUnretained(tramp).toOpaque()
         mpv_set_wakeup_callback(newHandle, mpvCoreWakeupCallback, rawContext)
 
@@ -179,23 +178,27 @@ private final class MPVHandleHolder: @unchecked Sendable {
             mpv_observe_property(newHandle, replyId, name, format)
         }
 
-        self.rawPointer = newHandle
+        let wrapped = UncheckedHandle(pointer: newHandle)
+        state.withLock { s in
+            s.trampoline = tramp
+            s.handle = wrapped
+        }
         return newHandle
     }
 
     func terminateAndClear() {
-        lock.lock()
-        guard let handle = rawPointer else {
-            lock.unlock()
-            return
+        let (handle, tramp) = state.withLock { s -> (UncheckedHandle?, MPVWakeupTrampoline?) in
+            let h = s.handle
+            let t = s.trampoline
+            s.handle = nil
+            s.trampoline = nil
+            return (h, t)
         }
-        rawPointer = nil
-        trampoline?.deactivate()
-        trampoline = nil
-        lock.unlock()
+        guard let handle else { return }
+        tramp?.deactivate()
 
-        mpv_set_wakeup_callback(handle, nil, nil)
-        mpv_terminate_destroy(handle)
+        mpv_set_wakeup_callback(handle.pointer, nil, nil)
+        mpv_terminate_destroy(handle.pointer)
     }
 }
 

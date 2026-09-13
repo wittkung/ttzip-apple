@@ -13,10 +13,10 @@ import TTZipUI
 import TTZipPreviewKit
 import TTZipBenchmarkKit
 
-final class AppDelegate: NSObject, NSApplicationDelegate, @unchecked Sendable {
+@MainActor
+final class AppDelegate: NSObject, NSApplicationDelegate {
     private var pendingURLs: [URL] = []
-    private var openURLHandler: (@Sendable (URL) -> Void)?
-    private let lock = NSLock()
+    private var openURLHandler: (@Sendable @MainActor (URL) -> Void)?
     
     override init() {
         super.init()
@@ -39,30 +39,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate, @unchecked Sendable {
         TempDirectoryCleanUpManager.shared.cleanupAllTemporaryDirectories()
     }
     
-    func registerHandler(_ handler: @escaping @Sendable (URL) -> Void) {
-        lock.withLock {
-            self.openURLHandler = handler
-            let urlsToProcess = self.pendingURLs
-            self.pendingURLs.removeAll()
-            if !urlsToProcess.isEmpty {
-                DispatchQueue.main.async {
-                    for url in urlsToProcess {
-                        handler(url)
-                    }
-                }
-            }
+    func registerHandler(_ handler: @escaping @Sendable @MainActor (URL) -> Void) {
+        self.openURLHandler = handler
+        let urlsToProcess = self.pendingURLs
+        self.pendingURLs.removeAll()
+        for url in urlsToProcess {
+            handler(url)
         }
     }
     
     private func handleOpenedURL(_ url: URL) {
-        lock.withLock {
-            if let handler = openURLHandler {
-                DispatchQueue.main.async {
-                    handler(url)
-                }
-            } else {
-                pendingURLs.append(url)
-            }
+        if let handler = openURLHandler {
+            handler(url)
+        } else {
+            pendingURLs.append(url)
         }
     }
 }

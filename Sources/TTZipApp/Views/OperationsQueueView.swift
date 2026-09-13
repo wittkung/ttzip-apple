@@ -13,7 +13,7 @@ import TTZipBenchmarkKit
 
 /// Real-time multi-task operations management window with live throughput telemetry and controls.
 public struct OperationsQueueView: View {
-    @ObservedObject private var l10n = AppLocalizationState.shared
+    private var l10n = AppLocalizationState.shared
     @State private var viewModel = OperationsQueueViewModel()
     @Environment(\.dismiss) private var dismiss
     

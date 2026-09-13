@@ -7,10 +7,12 @@
 
 import AppKit
 import Foundation
+import Observation
 
 /// Fast application cataloging and search service for the Universal Omnibar.
+@Observable
 @MainActor
-public final class AppCatalogService: ObservableObject {
+public final class AppCatalogService {
     /// Shared singleton instance.
     public static let shared = AppCatalogService()
 
@@ -30,7 +32,7 @@ public final class AppCatalogService: ObservableObject {
     }
 
     /// List of indexed applications.
-    @Published public private(set) var apps: [AppEntry] = []
+    public private(set) var apps: [AppEntry] = []
 
     /// Public alias for indexed applications.
     public var installedApps: [AppEntry] { apps }
@@ -39,13 +41,33 @@ public final class AppCatalogService: ObservableObject {
     private var iconCache: [String: NSImage] = [:]
 
     /// Indicates whether a catalog refresh is actively in progress.
-    @Published public private(set) var isScanning: Bool = false
+    public private(set) var isScanning: Bool = false
 
     /// Background scanning task.
     private var scanTask: Task<Void, Never>?
 
+    /// Notification posted whenever the application catalog is refreshed.
+    public static let didUpdateAppsNotification = Notification.Name("AppCatalogService.didUpdateAppsNotification")
+
+    /// Active AsyncStream continuations.
+    private var appsContinuations: [UUID: AsyncStream<[AppEntry]>.Continuation] = [:]
+
     public init() {
         refreshCatalog()
+    }
+
+    /// Asynchronous stream yielding catalog application updates.
+    public func makeAppsStream() -> AsyncStream<[AppEntry]> {
+        AsyncStream { continuation in
+            let id = UUID()
+            self.appsContinuations[id] = continuation
+            continuation.onTermination = { [weak self] _ in
+                Task { @MainActor in
+                    self?.appsContinuations.removeValue(forKey: id)
+                }
+            }
+            continuation.yield(self.apps)
+        }
     }
 
     /// Triggers an asynchronous discovery scan across standard application directories.
@@ -62,6 +84,10 @@ public final class AppCatalogService: ObservableObject {
 
             self?.apps = discovered
             self?.isScanning = false
+            if let apps = self?.apps {
+                self?.appsContinuations.values.forEach { $0.yield(apps) }
+                NotificationCenter.default.post(name: Self.didUpdateAppsNotification, object: self)
+            }
         }
     }
 

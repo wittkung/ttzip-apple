@@ -13,8 +13,8 @@ import TTZipBenchmarkKit
 
 /// Subview displaying master password setup and unlock forms when vault is locked.
 public struct PasswordVaultLockedView: View {
-    @ObservedObject public var l10n: AppLocalizationState
-    @ObservedObject public var viewModel: PasswordVaultViewModel
+    public var l10n: AppLocalizationState
+    @Bindable public var viewModel: PasswordVaultViewModel
     @FocusState.Binding public var isMasterPasswordFocused: Bool
     
     public init(

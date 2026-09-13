@@ -8,17 +8,19 @@
 import Foundation
 import SwiftUI
 import AppKit
+import Observation
 import TTZipUI
 import TTZipPreviewKit
 import TTZipBenchmarkKit
 
 /// Global file clipboard dispatcher supporting copy, cut, paste, and automatic filename collision avoidance.
+@Observable
 @MainActor
-public final class FileClipboardStore: ObservableObject {
+public final class FileClipboardStore {
     public static let shared = FileClipboardStore()
     
-    @Published public var copiedURLs: [URL] = []
-    @Published public var isCutOperation: Bool = false
+    public var copiedURLs: [URL] = []
+    public var isCutOperation: Bool = false
     
     private init() {}
     

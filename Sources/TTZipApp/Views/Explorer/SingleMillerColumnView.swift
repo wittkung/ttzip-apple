@@ -13,7 +13,7 @@ import TTZipPreviewKit
 import TTZipBenchmarkKit
 
 public struct SingleMillerColumnView: View {
-    @ObservedObject private var l10n = AppLocalizationState.shared
+    private var l10n = AppLocalizationState.shared
     public let index: Int
     public let dirURL: URL
     public let selectedPath: String?

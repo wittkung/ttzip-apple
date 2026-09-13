@@ -8,20 +8,22 @@
 import Foundation
 import AppKit
 import SwiftUI
+import Observation
 import TTZipUI
 
 /// Coordinates media playback shortcuts (Space to toggle play/pause when focused or in full-screen modal, Left/Right arrow keys to seek)
 /// across video, audio, and full-screen presentation contexts.
+@Observable
 @MainActor
-public final class MediaPlaybackCoordinator: ObservableObject {
+public final class MediaPlaybackCoordinator {
     public static let shared = MediaPlaybackCoordinator()
     
     public typealias PlayPauseHandler = () -> Void
     public typealias SeekHandler = (Double) -> Void
     
-    @Published public private(set) var isMediaActive: Bool = false
-    @Published public private(set) var isPlaying: Bool = false
-    @Published public private(set) var isFocusedOrHovered: Bool = false
+    public private(set) var isMediaActive: Bool = false
+    public private(set) var isPlaying: Bool = false
+    public private(set) var isFocusedOrHovered: Bool = false
     
     private var activeSessionID: String? = nil
     private var playPauseHandler: PlayPauseHandler? = nil

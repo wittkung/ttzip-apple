@@ -14,7 +14,7 @@ import TTZipUI
 public struct AdbEnableGuideSheet: View {
     @Binding public var isPresented: Bool
     
-    @ObservedObject private var l10n = AppLocalizationState.shared
+    private var l10n = AppLocalizationState.shared
     @State private var isChecking: Bool = false
     @State private var checkSuccess: Bool = false
     

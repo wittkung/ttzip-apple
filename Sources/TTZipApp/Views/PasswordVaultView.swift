@@ -14,14 +14,14 @@ import TTZipBenchmarkKit
 
 /// Keychain and password safe vault view.
 public struct PasswordVaultView: View {
-    @ObservedObject private var l10n = AppLocalizationState.shared
-    @StateObject private var viewModel: PasswordVaultViewModel
+    private var l10n = AppLocalizationState.shared
+    @State private var viewModel: PasswordVaultViewModel
     @FocusState private var isMasterPasswordFocused: Bool
     
     var onSelectPassword: ((String) -> Void)? = nil
     
     public init(viewModel: PasswordVaultViewModel = PasswordVaultViewModel(), onSelectPassword: ((String) -> Void)? = nil) {
-        self._viewModel = StateObject(wrappedValue: viewModel)
+        self._viewModel = State(initialValue: viewModel)
         self.onSelectPassword = onSelectPassword
     }
     

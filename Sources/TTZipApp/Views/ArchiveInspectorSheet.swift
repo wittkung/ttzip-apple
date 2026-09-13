@@ -14,8 +14,8 @@ import TTZipBenchmarkKit
 
 /// Archive standards inspection and compliance diagnostics sheet.
 public struct ArchiveInspectorSheet: View {
-    @ObservedObject var viewModel: ArchiveInspectorViewModel
-    @ObservedObject private var l10n = AppLocalizationState.shared
+    var viewModel: ArchiveInspectorViewModel
+    private var l10n = AppLocalizationState.shared
     @Environment(\.dismiss) private var dismiss
     
     @State private var selectedTab: InspectorTab = .standards
@@ -338,7 +338,7 @@ public struct ArchiveInspectorSheet: View {
 
 public struct ArchiveInspectorContainerView: View {
     let archivePath: String
-    @StateObject private var viewModel = ArchiveInspectorViewModel()
+    @State private var viewModel = ArchiveInspectorViewModel()
     
     public init(archivePath: String) {
         self.archivePath = archivePath

@@ -22,7 +22,7 @@ public struct DiskDirectoryBrowserView: View {
     
     @State private var currentDirectory: URL
     @State private var searchQuery: String = ""
-    @StateObject private var searchService = SpotlightSearchService()
+    @State private var searchService = SpotlightSearchService()
     @State private var sortOption: DiskSortOption = .nameAsc
     @State private var targetSelectedPath: String? = nil
     @State private var selectedItem: DiskItemInfo? = nil

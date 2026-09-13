@@ -21,14 +21,14 @@ final class ArchiveInspectorViewTests: XCTestCase {
         try await super.setUp()
         tempDir = FileManager.default.temporaryDirectory.appendingPathComponent("ttzip_inspector_test_\(UUID().uuidString)")
         try FileManager.default.createDirectory(at: tempDir, withIntermediateDirectories: true)
-        ArchiveDiagnosticsCache.shared.clear()
+        await ArchiveDiagnosticsCache.shared.clear()
     }
     
     override func tearDown() async throws {
         if let t = tempDir {
             try? FileManager.default.removeItem(at: t)
         }
-        ArchiveDiagnosticsCache.shared.clear()
+        await ArchiveDiagnosticsCache.shared.clear()
         try await super.tearDown()
     }
     
@@ -86,10 +86,10 @@ final class ArchiveInspectorViewTests: XCTestCase {
         
         // Immediate second inspection with new ViewModel should be instant cache hit
         let vm2 = ArchiveInspectorViewModel()
-        vm2.inspectArchive(atPath: tarURL.path)
+        let state2 = await vm2.inspectArchiveAsync(atPath: tarURL.path)
         
-        XCTAssertFalse(vm2.state.isScanning)
-        XCTAssertEqual(vm2.state.detectedFormat, .tar)
-        XCTAssertEqual(vm2.state.standardSpec?.officialName, "POSIX.1-2001 / IEEE Std 1003.1 ustar/pax Format")
+        XCTAssertFalse(state2.isScanning)
+        XCTAssertEqual(state2.detectedFormat, .tar)
+        XCTAssertEqual(state2.standardSpec?.officialName, "POSIX.1-2001 / IEEE Std 1003.1 ustar/pax Format")
     }
 }

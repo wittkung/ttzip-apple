@@ -14,13 +14,13 @@ import TTZipBenchmarkKit
 
 /// Liquid Glass styled unified Address and Search Omnibar.
 public struct LiquidGlassOmnibar: View {
-    @ObservedObject private var l10n = AppLocalizationState.shared
+    private var l10n = AppLocalizationState.shared
     @Binding public var searchQuery: String
-    @ObservedObject public var searchService: SpotlightSearchService
+    public var searchService: SpotlightSearchService
     public var viewModel: AppViewState
     public var maxContainerWidth: CGFloat
     
-    @StateObject private var autocompletionEngine = AsyncPathAutocompletionEngine()
+    @State private var autocompletionEngine = AsyncPathAutocompletionEngine()
     @State private var isEditing: Bool = false
     @State private var inputText: String = ""
     @State private var selectedSuggestionIndex: Int? = nil

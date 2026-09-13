@@ -29,7 +29,7 @@ public final class InPlaceMutationCoordinator {
         
         // 3. Invalidate preview cache
         await EphemeralPreviewCacheManager.shared.cleanupAll()
-        PreviewLRUCacheManager.shared.purgeAll()
+        await PreviewLRUCacheManager.shared.purgeAll()
         
         // 4. Broadcast notification for all observing views (Miller columns, Explorer, Tabs)
         NotificationCenter.default.post(

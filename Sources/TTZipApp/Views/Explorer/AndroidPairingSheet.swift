@@ -23,7 +23,7 @@ public struct AndroidPairingSheet: View {
     @Binding public var isPresented: Bool
     @Bindable public var viewModel: AndroidDeviceViewModel
     
-    @ObservedObject private var l10n = AppLocalizationState.shared
+    private var l10n = AppLocalizationState.shared
     
     @State private var pinDigits: [String] = Array(repeating: "", count: 6)
     @FocusState private var focusedField: Int?

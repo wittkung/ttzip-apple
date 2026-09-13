@@ -13,7 +13,7 @@ import TTZipPreviewKit
 import TTZipBenchmarkKit
 
 public struct CompressIntegratedConfigSectionView: View {
-    @ObservedObject var l10n = AppLocalizationState.shared
+    var l10n = AppLocalizationState.shared
     
     @Bindable public var session: CompressFormSession
     

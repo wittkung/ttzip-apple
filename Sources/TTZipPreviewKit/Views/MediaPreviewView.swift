@@ -26,7 +26,7 @@ extension EnvironmentValues {
 /// Media preview router and container view for native formats.
 public struct MediaPreviewView: View {
     @Environment(\.isImmersiveFullscreen) private var envIsImmersiveFullscreen: Bool
-    @ObservedObject private var l10n = AppLocalizationState.shared
+    private var l10n = AppLocalizationState.shared
     public let isImmersiveFullscreen: Bool?
     let fileURL: URL?
     let fileName: String

@@ -10,8 +10,8 @@ import TTZipCore
 import TTZipUI
 
 public struct BenchmarkConfigSectionView: View {
-    @ObservedObject var viewModel: BenchmarkViewModel
-    @ObservedObject private var l10n = AppLocalizationState.shared
+    var viewModel: BenchmarkViewModel
+    private var l10n = AppLocalizationState.shared
     
     public init(viewModel: BenchmarkViewModel) {
         self.viewModel = viewModel

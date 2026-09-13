@@ -11,11 +11,11 @@ import TTZipCore
 
 /// Thread-safe in-memory Virtual File System (VFS) resource provider for archive contents.
 /// Resolves `ttzip-vfs://<archiveId>/<entryPath>` URIs without extracting files to disk.
-public final class TTZipArchiveVfsProvider: TTZipVfsResourceProvider, @unchecked Sendable {
+public final class TTZipArchiveVfsProvider: TTZipVfsResourceProvider, Sendable {
     
     public static let shared = TTZipArchiveVfsProvider()
     
-    private struct ArchiveSession {
+    private struct ArchiveSession: Sendable {
         let archivePath: String
         let password: String?
         var inMemoryEntries: [String: Data]

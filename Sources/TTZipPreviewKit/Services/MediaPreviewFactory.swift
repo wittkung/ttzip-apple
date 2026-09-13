@@ -353,20 +353,16 @@ public enum MediaPreviewFactory {
         let ext = (suggestedName as NSString).pathExtension.lowercased()
         
         if videoExtensions.contains(ext) || sniff.kind == TTZIP_KIND_VIDEO {
-            if let fileURL = try? ArchiveMediaCachePool.shared.stageData(data, fileName: suggestedName, sourceURL: sourceURL) {
+            if let fileURL = writeDataToTemporaryFile(data: data, fileName: suggestedName) {
                 return .video(fileURL)
-            } else if let fallbackURL = writeDataToTemporaryFile(data: data, fileName: suggestedName) {
-                return .video(fallbackURL)
             } else {
                 return .unsupported("Unable to prepare video file for playback: \(suggestedName)")
             }
         }
         
         if audioExtensions.contains(ext) || sniff.kind == TTZIP_KIND_AUDIO {
-            if let fileURL = try? ArchiveMediaCachePool.shared.stageData(data, fileName: suggestedName, sourceURL: sourceURL) {
+            if let fileURL = writeDataToTemporaryFile(data: data, fileName: suggestedName) {
                 return .audio(fileURL)
-            } else if let fallbackURL = writeDataToTemporaryFile(data: data, fileName: suggestedName) {
-                return .audio(fallbackURL)
             } else {
                 return .unsupported("Unable to prepare audio file for playback: \(suggestedName)")
             }

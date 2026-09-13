@@ -7,29 +7,25 @@
 
 import Foundation
 import SwiftUI
+import Observation
 import TTZipCore
 import TTZipUI
 import TTZipPreviewKit
 import TTZipBenchmarkKit
 
 /// Thread-safe in-memory cache for archive diagnostics snapshots.
-public final class ArchiveDiagnosticsCache: @unchecked Sendable {
+public actor ArchiveDiagnosticsCache {
     public static let shared = ArchiveDiagnosticsCache()
     
-    private let lock = NSLock()
     private var cache: [ArchiveDiagnosticsCacheKey: ArchiveInspectorState] = [:]
     
     private init() {}
     
     public func get(key: ArchiveDiagnosticsCacheKey) -> ArchiveInspectorState? {
-        lock.lock()
-        defer { lock.unlock() }
         return cache[key]
     }
     
     public func set(key: ArchiveDiagnosticsCacheKey, state: ArchiveInspectorState) {
-        lock.lock()
-        defer { lock.unlock() }
         if cache.count > 256 {
             cache.removeAll(keepingCapacity: true)
         }
@@ -37,16 +33,15 @@ public final class ArchiveDiagnosticsCache: @unchecked Sendable {
     }
     
     public func clear() {
-        lock.lock()
-        defer { lock.unlock() }
         cache.removeAll()
     }
 }
 
 /// Archive inspection and standards compliance diagnostic ViewModel.
+@Observable
 @MainActor
-public final class ArchiveInspectorViewModel: ObservableObject {
-    @Published public var state: ArchiveInspectorState = ArchiveInspectorState(
+public final class ArchiveInspectorViewModel {
+    public var state: ArchiveInspectorState = ArchiveInspectorState(
         filePath: "",
         fileName: "",
         fileByteSize: 0,
@@ -60,6 +55,7 @@ public final class ArchiveInspectorViewModel: ObservableObject {
         errorMessage: nil
     )
     
+    @ObservationIgnored
     private var currentTask: Task<Void, Never>? = nil
     
     public init() {}
@@ -86,11 +82,6 @@ public final class ArchiveInspectorViewModel: ObservableObject {
             modificationTimestamp: mtime
         )
         
-        if let cached = ArchiveDiagnosticsCache.shared.get(key: cacheKey) {
-            self.state = cached
-            return
-        }
-        
         self.state = ArchiveInspectorState(
             filePath: path,
             fileName: fileName,
@@ -106,6 +97,14 @@ public final class ArchiveInspectorViewModel: ObservableObject {
         )
         
         currentTask = Task.detached(priority: .userInitiated) { [weak self] in
+            if let cached = await ArchiveDiagnosticsCache.shared.get(key: cacheKey) {
+                await MainActor.run {
+                    guard let self = self, !Task.isCancelled else { return }
+                    self.state = cached
+                }
+                return
+            }
+            
             let start = DispatchTime.now().uptimeNanoseconds
             
             var detectedFormat: ArchiveCompressionFormat? = nil
@@ -157,7 +156,7 @@ public final class ArchiveInspectorViewModel: ObservableObject {
                 errorMessage: errorMsg
             )
             
-            ArchiveDiagnosticsCache.shared.set(key: cacheKey, state: finalState)
+            await ArchiveDiagnosticsCache.shared.set(key: cacheKey, state: finalState)
             
             await MainActor.run {
                 guard let self = self, !Task.isCancelled else { return }
@@ -169,6 +168,21 @@ public final class ArchiveInspectorViewModel: ObservableObject {
     /// Awaited inspection of archive at path.
     @discardableResult
     public func inspectArchiveAsync(atPath path: String) async -> ArchiveInspectorState {
+        var size: Int64 = 0
+        var mtime: Double = 0.0
+        if let attrs = try? FileManager.default.attributesOfItem(atPath: path) {
+            size = (attrs[.size] as? NSNumber)?.int64Value ?? 0
+            mtime = (attrs[.modificationDate] as? Date)?.timeIntervalSince1970 ?? 0.0
+        }
+        let cacheKey = ArchiveDiagnosticsCacheKey(
+            filePath: path,
+            fileByteSize: size,
+            modificationTimestamp: mtime
+        )
+        if let cached = await ArchiveDiagnosticsCache.shared.get(key: cacheKey) {
+            self.state = cached
+            return cached
+        }
         inspectArchive(atPath: path)
         if let task = currentTask {
             _ = await task.value

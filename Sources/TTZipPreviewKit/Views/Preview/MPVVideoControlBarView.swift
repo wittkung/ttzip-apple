@@ -15,7 +15,7 @@ import TTZipUI
 /// - Tier 1: Dedicated full-width precision timeline scrubber with non-wrapping timestamps.
 /// - Tier 2: Ergonomic playback transport, HDR metrics, hover volume slider, speed menu, and media tools.
 public struct MPVVideoControlBarView: View {
-    @ObservedObject public var store: MPVMetalPlayerStore
+    public var store: MPVMetalPlayerStore
     public var playlistStore: MediaPlaylistStore
     public let isPlaylistOpen: Bool
     public let onTogglePlaylist: () -> Void
@@ -27,7 +27,7 @@ public struct MPVVideoControlBarView: View {
     @State private var isScrubbing: Bool = false
     @State private var scrubTime: Double = 0
     @State private var showRemainingTime: Bool = false
-    @ObservedObject private var l10n = AppLocalizationState.shared
+    private var l10n = AppLocalizationState.shared
     
     private let availablePlaybackSpeeds: [Double] = [0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0]
     

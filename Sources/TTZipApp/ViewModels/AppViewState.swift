@@ -156,7 +156,8 @@ public final class AppViewState {
     let passwordVault: PasswordVaultManaging
     let progressThrottler = ThrottledProgressPublisher(maxFrequencyHz: 60.0)
     let recentArchivesKey = "TTZipRecentArchivesKey"
-    private final class NotificationTokenStore: @unchecked Sendable {
+    @MainActor
+    private final class NotificationTokenStore {
         var tokens: [NSObjectProtocol] = []
     }
     private let tokenStore = NotificationTokenStore()
@@ -213,12 +214,6 @@ public final class AppViewState {
         self.tokenStore.tokens.append(redoToken)
         
         updateUndoRedoState()
-    }
-    
-    deinit {
-        for token in tokenStore.tokens {
-            NotificationCenter.default.removeObserver(token)
-        }
     }
     
     // MARK: - Immersive Media Browser State Machine

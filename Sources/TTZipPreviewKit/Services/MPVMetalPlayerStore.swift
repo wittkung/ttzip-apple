@@ -7,6 +7,7 @@
 
 import SwiftUI
 import AppKit
+import Observation
 import os.log
 import CMPVBridge
 import TTZipCore
@@ -19,50 +20,52 @@ public typealias SharedVideoPlayerStore = MPVMetalPlayerStore
 ///
 /// Bridges Layer 1 `MPVCoreEngine` and `MPVEventDispatcher` with Layer 3 `MPVVideoEngine` and `MPVAudioEngine`,
 /// maintaining 100% backward compatibility for Combine/ObservableObject views, controls, and tests.
+@Observable
 @MainActor
-public final class MPVMetalPlayerStore: ObservableObject {
+public final class MPVMetalPlayerStore {
     /// Shared persistent playback store instance ensuring libmpv engine continuity.
     public static let shared = MPVMetalPlayerStore()
     
     private let logger = Logger(subsystem: "com.metastudyline.ttzip", category: "MPVMetalPlayerStore")
+    @ObservationIgnored
     private nonisolated(unsafe) var securityScopedURL: URL? = nil
     private var isAccessingSecurityScopedResource: Bool = false
     
     /// Flag indicating whether the store is operating in pure audio mode without video rendering pipeline.
     public private(set) var isAudioOnly: Bool = false
     
-    @Published public var currentURL: URL?
-    @Published public var isPlaying: Bool = false
-    @Published public var currentTime: Double = 0
-    @Published public var duration: Double = 0
-    @Published public var volume: Double = 1.0
-    @Published public var isMuted: Bool = false
-    @Published public var isBuffering: Bool = false
-    @Published public var hasPlaybackError: Bool = false
-    @Published public var hasDecoderLimitation: Bool = false
-    @Published public var errorMessage: String? = nil
+    public var currentURL: URL?
+    public var isPlaying: Bool = false
+    public var currentTime: Double = 0
+    public var duration: Double = 0
+    public var volume: Double = 1.0
+    public var isMuted: Bool = false
+    public var isBuffering: Bool = false
+    public var hasPlaybackError: Bool = false
+    public var hasDecoderLimitation: Bool = false
+    public var errorMessage: String? = nil
     
-    @Published public var demuxSummary: UniFfiMediaDemuxSummary? = nil
-    @Published public var audioTracks: [MPVTrackItem] = []
-    @Published public var selectedAudioTrackId: String? = nil
-    @Published public var subtitleTracks: [MPVSubtitleItem] = []
-    @Published public var selectedSubtitleTrackId: String? = nil
-    @Published public var selectedSecondarySubtitleTrackId: String? = nil
-    @Published public var subtitleDelay: Double = 0.0
-    @Published public var edrMetrics: MPVEDRMetrics = MPVEDRMetrics()
-    @Published public var activeSubtitleDialogue: String? = nil
-    @Published public var videoWidth: Int = 0
-    @Published public var videoHeight: Int = 0
-    @Published public var videoSize: CGSize = .zero
-    @Published public var isFullScreen: Bool = false
-    @Published public var playbackSpeed: Double = 1.0
+    public var demuxSummary: UniFfiMediaDemuxSummary? = nil
+    public var audioTracks: [MPVTrackItem] = []
+    public var selectedAudioTrackId: String? = nil
+    public var subtitleTracks: [MPVSubtitleItem] = []
+    public var selectedSubtitleTrackId: String? = nil
+    public var selectedSecondarySubtitleTrackId: String? = nil
+    public var subtitleDelay: Double = 0.0
+    public var edrMetrics: MPVEDRMetrics = MPVEDRMetrics()
+    public var activeSubtitleDialogue: String? = nil
+    public var videoWidth: Int = 0
+    public var videoHeight: Int = 0
+    public var videoSize: CGSize = .zero
+    public var isFullScreen: Bool = false
+    public var playbackSpeed: Double = 1.0
     
-    @Published public var audioSampleRate: String = "--"
-    @Published public var audioChannels: String = "--"
-    @Published public var audioCodecFormatted: String = ""
-    @Published public var audioBitrateFormatted: String = ""
-    @Published public var videoCodec: String = ""
-    @Published public var hwdecCurrent: String = ""
+    public var audioSampleRate: String = "--"
+    public var audioChannels: String = "--"
+    public var audioCodecFormatted: String = ""
+    public var audioBitrateFormatted: String = ""
+    public var videoCodec: String = ""
+    public var hwdecCurrent: String = ""
     
     /// Callback invoked on the MainActor when file playback reaches the end (MPV_EVENT_END_FILE), enabling playlist auto-advance.
     public var onFilePlaybackEnded: (@MainActor (URL?) -> Void)?
@@ -76,9 +79,12 @@ public final class MPVMetalPlayerStore: ObservableObject {
     /// Dedicated render context manager for vo=libmpv OpenGL pipeline.
     public let renderContextManager = MPVRenderContextManager()
     
-    private var pendingParamsRefreshTask: Task<Void, Never>? = nil
-    private var stateObservationTask: Task<Void, Never>? = nil
-    private var eventObservationTask: Task<Void, Never>? = nil
+    @ObservationIgnored
+    private nonisolated(unsafe) var pendingParamsRefreshTask: Task<Void, Never>? = nil
+    @ObservationIgnored
+    private nonisolated(unsafe) var stateObservationTask: Task<Void, Never>? = nil
+    @ObservationIgnored
+    private nonisolated(unsafe) var eventObservationTask: Task<Void, Never>? = nil
     private var hasAttemptedSoftwareFallback = false
     var discoveredCompanionSubtitles: [MPVSubtitleItem] = []
     

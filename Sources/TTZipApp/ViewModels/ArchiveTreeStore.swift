@@ -7,6 +7,7 @@
 
 import Foundation
 import SwiftUI
+import Observation
 import TTZipCore
 import TTZipUI
 import TTZipPreviewKit
@@ -15,13 +16,14 @@ import TTZipBenchmarkKit
 /// Archive tree store and search filtering state container.
 ///
 /// Handles asynchronous hierarchical tree building, tree node memoization, and debounced search matching.
+@Observable
 @MainActor
-public final class ArchiveTreeStore: ObservableObject {
-    @Published public private(set) var rootNodes: [ArchiveTreeNode] = []
-    @Published public private(set) var isBuildingTree: Bool = false
-    @Published public private(set) var filteredEntries: [ArchiveEntry] = []
-    @Published public private(set) var isFiltering: Bool = false
-    @Published public private(set) var currentSearchQuery: String = ""
+public final class ArchiveTreeStore {
+    public private(set) var rootNodes: [ArchiveTreeNode] = []
+    public private(set) var isBuildingTree: Bool = false
+    public private(set) var filteredEntries: [ArchiveEntry] = []
+    public private(set) var isFiltering: Bool = false
+    public private(set) var currentSearchQuery: String = ""
     
     private var cachedSourceEntries: [ArchiveEntry] = []
     private var activeBuildTask: Task<[ArchiveTreeNode], Never>?

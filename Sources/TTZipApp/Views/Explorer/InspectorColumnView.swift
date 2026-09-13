@@ -147,7 +147,7 @@ public struct InspectorColumnView: View {
                 let shaDigest = SHA256.hash(data: Data(fullId.utf8))
                 let hash = shaDigest.map { String(format: "%02x", $0) }.joined()
                 
-                if let cached = PreviewLRUCacheManager.shared.cachedURL(forKey: hash) {
+                if let cached = await PreviewLRUCacheManager.shared.cachedURL(forKey: hash) {
                     self.localPreviewURL = cached
                 } else {
                     let targetFileURL = PreviewLRUCacheManager.shared.targetURL(forKey: hash, filename: filename)
@@ -158,14 +158,14 @@ public struct InspectorColumnView: View {
                     if fm.fileExists(atPath: extractedPath),
                        let attr = try? fm.attributesOfItem(atPath: extractedPath),
                        (attr[.size] as? Int64 ?? 0) > 0 {
-                        PreviewLRUCacheManager.shared.register(key: hash, fileURL: targetFileURL)
+                        await PreviewLRUCacheManager.shared.register(key: hash, fileURL: targetFileURL)
                         self.localPreviewURL = targetFileURL
                     } else if let contents = try? fm.contentsOfDirectory(atPath: tempDir),
                               let first = contents.first(where: { !$0.hasPrefix(".") }),
                               let attr = try? fm.attributesOfItem(atPath: (tempDir as NSString).appendingPathComponent(first)),
                               (attr[.size] as? Int64 ?? 0) > 0 {
                         let matchURL = URL(fileURLWithPath: (tempDir as NSString).appendingPathComponent(first))
-                        PreviewLRUCacheManager.shared.register(key: hash, fileURL: matchURL)
+                        await PreviewLRUCacheManager.shared.register(key: hash, fileURL: matchURL)
                         self.localPreviewURL = matchURL
                     } else {
                         let pwd = ArchivePasswordStore.shared.getPassword(for: realArchivePath)
@@ -183,8 +183,8 @@ public struct InspectorColumnView: View {
                         if fm.fileExists(atPath: extractedPath),
                            let attr = try? fm.attributesOfItem(atPath: extractedPath),
                            (attr[.size] as? Int64 ?? 0) > 0 {
+                            await PreviewLRUCacheManager.shared.register(key: hash, fileURL: targetFileURL)
                             await MainActor.run {
-                                PreviewLRUCacheManager.shared.register(key: hash, fileURL: targetFileURL)
                                 self.localPreviewURL = targetFileURL
                             }
                         } else if let contents = try? fm.contentsOfDirectory(atPath: tempDir),
@@ -192,8 +192,8 @@ public struct InspectorColumnView: View {
                                   let attr = try? fm.attributesOfItem(atPath: (tempDir as NSString).appendingPathComponent(firstFile)),
                                   (attr[.size] as? Int64 ?? 0) > 0 {
                             let matchURL = URL(fileURLWithPath: (tempDir as NSString).appendingPathComponent(firstFile))
+                            await PreviewLRUCacheManager.shared.register(key: hash, fileURL: matchURL)
                             await MainActor.run {
-                                PreviewLRUCacheManager.shared.register(key: hash, fileURL: matchURL)
                                 self.localPreviewURL = matchURL
                             }
                         }

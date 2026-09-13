@@ -6,6 +6,7 @@
 // TTZip: High-performance native archiving and compression engine.
 
 import Foundation
+import Observation
 import TTZipCore
 import AppKit
 import TTZipUI
@@ -13,14 +14,15 @@ import TTZipPreviewKit
 import TTZipBenchmarkKit
 
 /// Observable service providing asynchronous directory item autocompletion with LRU micro-caching.
+@Observable
 @MainActor
-public final class AsyncPathAutocompletionEngine: ObservableObject {
+public final class AsyncPathAutocompletionEngine {
     
-    /// Published list of autocompleted path suggestions.
-    @Published public var suggestions: [AddressBarSuggestionItem] = []
+    /// List of autocompleted path suggestions.
+    public var suggestions: [AddressBarSuggestionItem] = []
     
     /// Indicates whether a directory scan or autocompletion query is actively in progress.
-    @Published public var isLoading: Bool = false
+    public var isLoading: Bool = false
     
     /// In-memory LRU cache storing directory contents keyed by parent POSIX directory path.
     public let cache: ExplorerLRUCache<String, [DiskItemInfo]>

@@ -43,7 +43,8 @@ public struct DiscoveredWirelessEndpoint: Identifiable, Sendable, Hashable {
 }
 
 /// Darwin dns_sd resolver resolving Bonjour instance name to IP address and port.
-final class DarwinDnsSdResolver: @unchecked Sendable {
+@MainActor
+final class DarwinDnsSdResolver {
     private var serviceRef: DNSServiceRef?
     private var readSource: (any DispatchSourceRead)?
     
@@ -52,10 +53,10 @@ final class DarwinDnsSdResolver: @unchecked Sendable {
         type: String,
         domain: String,
         queue: DispatchQueue,
-        completion: @escaping @Sendable (String?, UInt16) -> Void
+        completion: @escaping @Sendable @MainActor (String?, UInt16) -> Void
     ) {
         var localRef: DNSServiceRef?
-        let contextPtr = UnsafeMutablePointer<(@Sendable (String?, UInt16) -> Void)>.allocate(capacity: 1)
+        let contextPtr = UnsafeMutablePointer<(@Sendable @MainActor (String?, UInt16) -> Void)>.allocate(capacity: 1)
         contextPtr.initialize(to: completion)
         
         let err = DNSServiceResolve(
@@ -67,7 +68,7 @@ final class DarwinDnsSdResolver: @unchecked Sendable {
             domain,
             { (sdRef, flags, ifIndex, errCode, fullname, hosttarget, port, txtLen, txtRecord, context) in
                 guard let context else { return }
-                let cb = context.assumingMemoryBound(to: (@Sendable (String?, UInt16) -> Void).self)
+                let cb = context.assumingMemoryBound(to: (@Sendable @MainActor (String?, UInt16) -> Void).self)
                 if errCode == 0, let hosttarget {
                     let hostStr = String(cString: hosttarget)
                     let resolvedPort = UInt16(bigEndian: port)
@@ -84,9 +85,16 @@ final class DarwinDnsSdResolver: @unchecked Sendable {
                         }
                         freeaddrinfo(res)
                     }
-                    cb.pointee(ipStr ?? hostStr, resolvedPort)
+                    let finalHost = ipStr ?? hostStr
+                    let handler = cb.pointee
+                    Task { @MainActor in
+                        handler(finalHost, resolvedPort)
+                    }
                 } else {
-                    cb.pointee(nil, 0)
+                    let handler = cb.pointee
+                    Task { @MainActor in
+                        handler(nil, 0)
+                    }
                 }
             },
             contextPtr
@@ -116,7 +124,8 @@ final class DarwinDnsSdResolver: @unchecked Sendable {
             source.cancel()
             contextPtr.deinitialize(count: 1)
             contextPtr.deallocate()
-            if let self {
+            Task { @MainActor [weak self] in
+                guard let self else { return }
                 if let ref = self.serviceRef {
                     DNSServiceRefDeallocate(ref)
                     self.serviceRef = nil
@@ -126,8 +135,10 @@ final class DarwinDnsSdResolver: @unchecked Sendable {
         
         // Timeout safeguard after 5.0 seconds
         queue.asyncAfter(deadline: .now() + 5.0) { [weak self] in
-            guard let self, self.serviceRef != nil else { return }
-            self.cancel()
+            Task { @MainActor [weak self] in
+                guard let self, self.serviceRef != nil else { return }
+                self.cancel()
+            }
         }
         
         self.readSource = source
@@ -148,7 +159,7 @@ final class DarwinDnsSdResolver: @unchecked Sendable {
 /// and address resolution for Android wireless debugging services.
 @Observable
 @MainActor
-public final class WirelessMdnsCoordinator: @unchecked Sendable {
+public final class WirelessMdnsCoordinator {
     /// Active list of discovered wireless endpoints on the local network.
     public private(set) var discoveredEndpoints: [DiscoveredWirelessEndpoint] = []
     
@@ -298,28 +309,26 @@ public final class WirelessMdnsCoordinator: @unchecked Sendable {
         let model = extractDeviceModel(name: name, txtProperties: txtProperties)
         
         resolver.resolve(name: name, type: type, domain: domain, queue: browserQueue) { [weak self] resolvedHost, resolvedPort in
-            Task { @MainActor [weak self] in
-                guard let self else { return }
-                self.activeResolvers.removeValue(forKey: serviceKey)
-                
-                guard let resolvedHost, resolvedPort > 0 else { return }
-                let endpointId = "\(resolvedHost):\(resolvedPort)"
-                
-                let endpoint = DiscoveredWirelessEndpoint(
-                    id: endpointId,
-                    host: resolvedHost,
-                    port: resolvedPort,
-                    deviceModel: model,
-                    serviceType: type,
-                    isPaired: !isPairingService,
-                    lastSeen: Date()
-                )
-                
-                if let index = self.discoveredEndpoints.firstIndex(where: { $0.id == endpointId }) {
-                    self.discoveredEndpoints[index] = endpoint
-                } else {
-                    self.discoveredEndpoints.append(endpoint)
-                }
+            guard let self else { return }
+            self.activeResolvers.removeValue(forKey: serviceKey)
+            
+            guard let resolvedHost, resolvedPort > 0 else { return }
+            let endpointId = "\(resolvedHost):\(resolvedPort)"
+            
+            let endpoint = DiscoveredWirelessEndpoint(
+                id: endpointId,
+                host: resolvedHost,
+                port: resolvedPort,
+                deviceModel: model,
+                serviceType: type,
+                isPaired: !isPairingService,
+                lastSeen: Date()
+            )
+            
+            if let index = self.discoveredEndpoints.firstIndex(where: { $0.id == endpointId }) {
+                self.discoveredEndpoints[index] = endpoint
+            } else {
+                self.discoveredEndpoints.append(endpoint)
             }
         }
     }
@@ -343,7 +352,7 @@ public struct WirelessDeviceDiscoveryView: View {
     @Bindable public var viewModel: AndroidDeviceViewModel
     @Environment(\.dismiss) private var dismiss
     
-    @ObservedObject private var l10n = AppLocalizationState.shared
+    private var l10n = AppLocalizationState.shared
     
     @State private var coordinator = WirelessMdnsCoordinator()
     @State private var showManualConnect: Bool = false

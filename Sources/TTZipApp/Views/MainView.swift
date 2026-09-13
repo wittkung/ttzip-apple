@@ -27,8 +27,8 @@ public enum AppLogoCache {
 }
 
 public struct MainView: View {
-    @ObservedObject var l10n = AppLocalizationState.shared
-    @ObservedObject var registry = TTZipPluginRegistry.shared
+    var l10n = AppLocalizationState.shared
+    var registry = TTZipPluginRegistry.shared
     @State var viewModel = AppViewState()
     @State var isRightSidebarVisible: Bool = true
     @State var isLeftSidebarVisible: Bool = true
@@ -53,7 +53,7 @@ public struct MainView: View {
     @State private var initialRightWidth: CGFloat = 340
     @State private var rightVerticalTopHeight: CGFloat = 300
     
-    @StateObject var searchService = SpotlightSearchService()
+    @State var searchService = SpotlightSearchService()
     @State var searchQuery: String = ""
     
     public var body: some View {

@@ -10,7 +10,7 @@ import TTZipCore
 import TTZipUI
 
 public struct BenchmarkCompetitorPanel: View {
-    @ObservedObject var viewModel: BenchmarkViewModel
+    var viewModel: BenchmarkViewModel
     
     public init(viewModel: BenchmarkViewModel) {
         self.viewModel = viewModel

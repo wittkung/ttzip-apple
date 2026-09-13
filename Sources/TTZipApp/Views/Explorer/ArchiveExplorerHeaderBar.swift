@@ -20,7 +20,7 @@ public struct ArchiveExplorerHeaderBar: View {
     public let onCloseClicked: () -> Void
     public let onOpenInExternalEditor: (ArchiveEntry) -> Void
     
-    @ObservedObject private var l10n = AppLocalizationState.shared
+    private var l10n = AppLocalizationState.shared
     
     public init(
         archivePath: String,

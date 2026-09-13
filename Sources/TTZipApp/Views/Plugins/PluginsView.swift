@@ -13,7 +13,7 @@ import TTZipPreviewKit
 import TTZipBenchmarkKit
 
 public struct PluginsView: View {
-    @ObservedObject private var l10nState = AppLocalizationState.shared
+    private var l10nState = AppLocalizationState.shared
     
     @State private var selectedTab: Int = 0 // 0: Installed, 1: Marketplace
     @State private var showConfigSheet: Bool = false
@@ -21,8 +21,8 @@ public struct PluginsView: View {
     @State private var marketplacePlugins: [TTZipMarketplacePlugin] = []
     @State private var errorMessage: String?
     
-    @ObservedObject private var registry = TTZipPluginRegistry.shared
-    @ObservedObject private var installer = TTZipPluginInstaller.shared
+    private var registry = TTZipPluginRegistry.shared
+    private var installer = TTZipPluginInstaller.shared
     
     public init() {}
     

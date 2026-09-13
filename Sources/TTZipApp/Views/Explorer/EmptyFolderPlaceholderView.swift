@@ -13,7 +13,7 @@ import TTZipUI
 /// An elegant Zen minimalist placeholder view for empty directories in Miller Columns.
 /// Features WSJ subtle typography, soft gold/bamboo accents, quick actions, and smooth fade-in.
 public struct EmptyFolderPlaceholderView: View {
-    @ObservedObject private var l10n = AppLocalizationState.shared
+    private var l10n = AppLocalizationState.shared
     
     public let dirURL: URL
     public let onTriggerNewFolder: (URL) -> Void

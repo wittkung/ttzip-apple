@@ -16,8 +16,8 @@ public struct SecondaryToolSheetContainer: View {
     public let tab: WorkspaceTab
     public let onDismiss: () -> Void
     
-    @ObservedObject private var l10n = AppLocalizationState.shared
-    @ObservedObject private var registry = TTZipPluginRegistry.shared
+    private var l10n = AppLocalizationState.shared
+    private var registry = TTZipPluginRegistry.shared
     
     public init(tab: WorkspaceTab, onDismiss: @escaping () -> Void) {
         self.tab = tab

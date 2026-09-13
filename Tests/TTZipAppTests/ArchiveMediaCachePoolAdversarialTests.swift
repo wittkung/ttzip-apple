@@ -72,7 +72,7 @@ final class ArchiveMediaCachePoolAdversarialTests: XCTestCase {
             for _ in 0..<concurrentCalls {
                 group.addTask {
                     do {
-                        let url = try pool.stageData(testPayload, fileName: "stampede_track.flac")
+                        let url = try await pool.stageData(testPayload, fileName: "stampede_track.flac")
                         return url
                     } catch {
                         return nil
@@ -102,8 +102,10 @@ final class ArchiveMediaCachePoolAdversarialTests: XCTestCase {
         }
         
         // Total cached item count must be exactly 1
-        XCTAssertEqual(pool.cachedItemCount, 1, "Cache pool must contain exactly 1 entry for deduplicated resource")
-        XCTAssertEqual(pool.totalCacheSizeBytes, Int64(testPayload.count))
+        let finalItemCount = await pool.cachedItemCount
+        let finalSizeBytes = await pool.totalCacheSizeBytes
+        XCTAssertEqual(finalItemCount, 1, "Cache pool must contain exactly 1 entry for deduplicated resource")
+        XCTAssertEqual(finalSizeBytes, Int64(testPayload.count))
     }
     
     // MARK: - Challenge 2: Multi-Threaded Concurrent Extraction of Distinct Items
@@ -123,7 +125,7 @@ final class ArchiveMediaCachePoolAdversarialTests: XCTestCase {
                 group.addTask {
                     let data = Data("payload for media item \(i) with unique content".utf8)
                     let name = "item_\(i).mp4"
-                    let url = try? pool.stageData(data, fileName: name)
+                    let url = try? await pool.stageData(data, fileName: name)
                     return (i, url)
                 }
             }
@@ -137,12 +139,13 @@ final class ArchiveMediaCachePoolAdversarialTests: XCTestCase {
             }
         }
         
-        XCTAssertEqual(pool.cachedItemCount, itemCount)
+        let distinctCount = await pool.cachedItemCount
+        XCTAssertEqual(distinctCount, itemCount)
     }
     
     // MARK: - Challenge 3: Extreme LRU Quota Thrashing & Zero Orphan Leaks
     
-    func testExtremeLRUQuotaThrashingAndZeroOrphanLeaks() throws {
+    func testExtremeLRUQuotaThrashingAndZeroOrphanLeaks() async throws {
         let poolDir = tempDirURL.appendingPathComponent("LRUThrashingPool", isDirectory: true)
         // Set strict budget: 2000 bytes maximum, max 4 items
         let maxQuota: Int64 = 2000
@@ -157,20 +160,20 @@ final class ArchiveMediaCachePoolAdversarialTests: XCTestCase {
         let totalInserts = 40
         let itemSize = 400
         
-        let group = DispatchGroup()
-        for i in 0..<totalInserts {
-            group.enter()
-            DispatchQueue.global(qos: .userInitiated).async {
-                let chunk = Data(repeating: UInt8(i % 250 + 1), count: itemSize)
-                _ = try? pool.stageData(chunk, fileName: "thrash_\(i).mkv")
-                group.leave()
+        await withTaskGroup(of: Void.self) { group in
+            for i in 0..<totalInserts {
+                group.addTask {
+                    let chunk = Data(repeating: UInt8(i % 250 + 1), count: itemSize)
+                    _ = try? await pool.stageData(chunk, fileName: "thrash_\(i).mkv")
+                }
             }
         }
-        group.wait()
         
         // Assert strict invariants after storm of insertions
-        XCTAssertLessThanOrEqual(pool.cachedItemCount, maxItems, "Item count must strictly stay within quota (\(maxItems))")
-        XCTAssertLessThanOrEqual(pool.totalCacheSizeBytes, maxQuota, "Cache size must strictly stay within byte budget (\(maxQuota))")
+        let thrashCount = await pool.cachedItemCount
+        let thrashSize = await pool.totalCacheSizeBytes
+        XCTAssertLessThanOrEqual(thrashCount, maxItems, "Item count must strictly stay within quota (\(maxItems))")
+        XCTAssertLessThanOrEqual(thrashSize, maxQuota, "Cache size must strictly stay within byte budget (\(maxQuota))")
         
         // Verify on-disk directories: all subdirectories must strictly equal active cache entries
         let subdirs = (try? FileManager.default.contentsOfDirectory(
@@ -193,7 +196,7 @@ final class ArchiveMediaCachePoolAdversarialTests: XCTestCase {
     
     // MARK: - Challenge 4: Adversarial Zip-Slip & Path Traversal Matrix
     
-    func testAdversarialZipSlipAndPathTraversalMatrix() throws {
+    func testAdversarialZipSlipAndPathTraversalMatrix() async throws {
         let poolDir = tempDirURL.appendingPathComponent("SecuritySandboxPool", isDirectory: true)
         let pool = ArchiveMediaCachePool(customRootDirectory: poolDir)
         let normalizedRoot = poolDir.standardizedFileURL.path
@@ -229,7 +232,7 @@ final class ArchiveMediaCachePoolAdversarialTests: XCTestCase {
             XCTAssertEqual((sanitized as NSString).pathExtension.lowercased(), expectedExt, "Sanitized name must preserve media extension")
             
             // 2. Concrete staging containment
-            let stagedURL = try pool.stageData(dummyData, fileName: vector)
+            let stagedURL = try await pool.stageData(dummyData, fileName: vector)
             let standardPath = stagedURL.standardizedFileURL.path
             
             XCTAssertTrue(
@@ -242,12 +245,12 @@ final class ArchiveMediaCachePoolAdversarialTests: XCTestCase {
     
     // MARK: - Challenge 5: POSIX Permission Hardening Verification
     
-    func testPOSIXPermissionHardening() throws {
+    func testPOSIXPermissionHardening() async throws {
         let poolDir = tempDirURL.appendingPathComponent("PermissionsPool", isDirectory: true)
         let pool = ArchiveMediaCachePool(customRootDirectory: poolDir)
         
         let testData = Data("strictly confidential media buffer".utf8)
-        let stagedURL = try pool.stageData(testData, fileName: "secure_audio.opus")
+        let stagedURL = try await pool.stageData(testData, fileName: "secure_audio.opus")
         
         // 1. File permissions: 0o600 (read/write owner only)
         let fileAttrs = try FileManager.default.attributesOfItem(atPath: stagedURL.path)
@@ -263,14 +266,15 @@ final class ArchiveMediaCachePoolAdversarialTests: XCTestCase {
     
     // MARK: - Challenge 6: Lifecycle Cleanup & Old Session Eviction
     
-    func testLifecycleCleanupAndOldSessionEviction() throws {
+    func testLifecycleCleanupAndOldSessionEviction() async throws {
         let poolDir = tempDirURL.appendingPathComponent("LifecyclePool", isDirectory: true)
         let pool = ArchiveMediaCachePool(customRootDirectory: poolDir)
         
         // 1. Create a fresh item
-        let freshURL = try pool.stageData(Data("fresh session data".utf8), fileName: "fresh.wav")
+        let freshURL = try await pool.stageData(Data("fresh session data".utf8), fileName: "fresh.wav")
         XCTAssertTrue(FileManager.default.fileExists(atPath: freshURL.path))
-        XCTAssertEqual(pool.cachedItemCount, 1)
+        let count1 = await pool.cachedItemCount
+        XCTAssertEqual(count1, 1)
         
         // 2. Simulate an expired session folder from 48 hours ago
         let oldSessionDir = poolDir.appendingPathComponent("old_session_\(UUID().uuidString)", isDirectory: true)
@@ -289,21 +293,23 @@ final class ArchiveMediaCachePoolAdversarialTests: XCTestCase {
         XCTAssertTrue(FileManager.default.fileExists(atPath: freshURL.path), "Active fresh session file must remain intact")
         
         // 4. Test purgeAll()
-        pool.purgeAll()
-        XCTAssertEqual(pool.cachedItemCount, 0)
-        XCTAssertEqual(pool.totalCacheSizeBytes, 0)
+        await pool.purgeAll()
+        let count0 = await pool.cachedItemCount
+        let size0 = await pool.totalCacheSizeBytes
+        XCTAssertEqual(count0, 0)
+        XCTAssertEqual(size0, 0)
         XCTAssertFalse(FileManager.default.fileExists(atPath: freshURL.path), "PurgeAll must physically remove all cached files")
     }
     
     // MARK: - Challenge 7: Low-Level POSIX File Descriptor Demuxing Compatibility
     
-    func testLowLevelPOSIXFileDescriptorDemuxingCompatibility() throws {
+    func testLowLevelPOSIXFileDescriptorDemuxingCompatibility() async throws {
         let poolDir = tempDirURL.appendingPathComponent("POSIXReadPool", isDirectory: true)
         let pool = ArchiveMediaCachePool(customRootDirectory: poolDir)
         
         let binaryHeader: [UInt8] = [0x1A, 0x45, 0xDF, 0xA3] // Matroska/WebM EBML magic
         let payload = Data(binaryHeader + Array(repeating: UInt8(0x7F), count: 512))
-        let stagedURL = try pool.stageData(payload, fileName: "test_demux.mkv")
+        let stagedURL = try await pool.stageData(payload, fileName: "test_demux.mkv")
         
         // 1. Open with POSIX open(O_RDONLY)
         let fd = open(stagedURL.path, O_RDONLY)

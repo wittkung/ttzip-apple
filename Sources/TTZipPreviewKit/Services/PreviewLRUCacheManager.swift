@@ -10,7 +10,7 @@ import AppKit
 import TTZipUI
 
 /// Smart LRU preview cache manager providing quota-controlled preview recycling.
-public final class PreviewLRUCacheManager: @unchecked Sendable {
+public actor PreviewLRUCacheManager {
     public static let shared = PreviewLRUCacheManager()
     
     private static let quotaDefaultsKey = "PreviewCacheQuotaGB"
@@ -24,9 +24,7 @@ public final class PreviewLRUCacheManager: @unchecked Sendable {
         set {
             let clamped = max(0.5, newValue)
             UserDefaults.standard.set(clamped, forKey: Self.quotaDefaultsKey)
-            cacheLock.lock()
             evictIfNecessary()
-            cacheLock.unlock()
         }
     }
     
@@ -35,10 +33,9 @@ public final class PreviewLRUCacheManager: @unchecked Sendable {
     }
     
     private let fileManager = FileManager.default
-    private let cacheLock = NSLock()
     private let cacheDir: URL
     
-    private struct CacheItem {
+    private struct CacheItem: Sendable {
         let key: String
         let fileURL: URL
         let sizeBytes: Int64
@@ -67,18 +64,18 @@ public final class PreviewLRUCacheManager: @unchecked Sendable {
         }
         
         NotificationCenter.default.addObserver(
-            self,
-            selector: #selector(purgeAll),
-            name: NSApplication.willTerminateNotification,
-            object: nil
-        )
+            forName: NSApplication.willTerminateNotification,
+            object: nil,
+            queue: nil
+        ) { [weak self] _ in
+            Task { [weak self] in
+                await self?.purgeAll()
+            }
+        }
     }
     
     /// Retrieves cached preview URL if valid.
     public func cachedURL(forKey key: String) -> URL? {
-        cacheLock.lock()
-        defer { cacheLock.unlock() }
-        
         guard var item = items[key] else { return nil }
         guard fileManager.fileExists(atPath: item.fileURL.path) else {
             items.removeValue(forKey: key)
@@ -92,9 +89,6 @@ public final class PreviewLRUCacheManager: @unchecked Sendable {
     
     /// Registers newly generated preview file and triggers LRU eviction.
     public func register(key: String, fileURL: URL) {
-        cacheLock.lock()
-        defer { cacheLock.unlock() }
-        
         let size = (try? fileManager.attributesOfItem(atPath: fileURL.path)[.size] as? Int64) ?? 0
         let item = CacheItem(key: key, fileURL: fileURL, sizeBytes: size, lastAccessed: Date())
         items[key] = item
@@ -103,10 +97,16 @@ public final class PreviewLRUCacheManager: @unchecked Sendable {
     }
     
     /// Generates standard reusable cache file URL path.
-    public func targetURL(forKey key: String, filename: String) -> URL {
+    public nonisolated func targetURL(forKey key: String, filename: String) -> URL {
         let hashDir = cacheDir.appendingPathComponent(key, isDirectory: true)
-        try? fileManager.createDirectory(at: hashDir, withIntermediateDirectories: true)
+        try? FileManager.default.createDirectory(at: hashDir, withIntermediateDirectories: true)
         return hashDir.appendingPathComponent(filename)
+    }
+    
+    /// Synchronously checks if a cached preview file exists on disk without actor isolation.
+    public nonisolated func existingCachedURL(forKey key: String, filename: String) -> URL? {
+        let candidate = targetURL(forKey: key, filename: filename)
+        return FileManager.default.fileExists(atPath: candidate.path) ? candidate : nil
     }
     
     /// Evicts oldest files according to LRU order when total size exceeds limit.
@@ -126,10 +126,7 @@ public final class PreviewLRUCacheManager: @unchecked Sendable {
     }
     
     /// Purges all temporary preview cache files.
-    @objc public func purgeAll() {
-        cacheLock.lock()
-        defer { cacheLock.unlock() }
-        
+    public func purgeAll() {
         items.removeAll()
         try? fileManager.removeItem(at: cacheDir)
         try? fileManager.createDirectory(at: cacheDir, withIntermediateDirectories: true)

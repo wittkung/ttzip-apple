@@ -6,6 +6,7 @@
 // TTZip: High-performance native archiving and compression engine.
 
 import Foundation
+import Observation
 import TTZipPluginKit
 import TTZipUI
 import TTZipPreviewKit
@@ -36,12 +37,13 @@ public struct PluginConfigEntry: Identifiable, Sendable, Hashable {
 }
 
 /// Generic plugin configuration state and persistence adapter
+@Observable
 @MainActor
-public final class PluginConfigStore: ObservableObject {
+public final class PluginConfigStore {
     public let pluginId: String
-    @Published public var entries: [PluginConfigEntry] = []
-    @Published public var isLoading: Bool = false
-    @Published public var isSaving: Bool = false
+    public var entries: [PluginConfigEntry] = []
+    public var isLoading: Bool = false
+    public var isSaving: Bool = false
     
     public init(pluginId: String) {
         self.pluginId = pluginId

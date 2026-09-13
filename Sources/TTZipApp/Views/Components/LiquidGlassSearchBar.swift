@@ -14,7 +14,7 @@ import TTZipBenchmarkKit
 /// Liquid Glass styled spotlight search bar component (retained for backward compatibility).
 public struct LiquidGlassSearchBar: View {
     @Binding public var searchQuery: String
-    @ObservedObject public var searchService: SpotlightSearchService
+    public var searchService: SpotlightSearchService
     public var viewModel: AppViewState?
     
     @FocusState private var isFocused: Bool

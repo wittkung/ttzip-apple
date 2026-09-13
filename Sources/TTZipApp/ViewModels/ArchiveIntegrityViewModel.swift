@@ -7,18 +7,20 @@
 
 import Foundation
 import SwiftUI
+import Observation
 import TTZipCore
 import TTZipUI
 import TTZipPreviewKit
 import TTZipBenchmarkKit
 
+@Observable
 @MainActor
-public final class ArchiveIntegrityViewModel: ObservableObject {
-    @Published public var isVerifying: Bool = false
-    @Published public var progressFraction: Double = 0.0
-    @Published public var currentVerifyingEntry: String = ""
-    @Published public var report: ArchiveIntegrityReport?
-    @Published public var errorMessage: String?
+public final class ArchiveIntegrityViewModel {
+    public var isVerifying: Bool = false
+    public var progressFraction: Double = 0.0
+    public var currentVerifyingEntry: String = ""
+    public var report: ArchiveIntegrityReport?
+    public var errorMessage: String?
     
     public init() {}
     

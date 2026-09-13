@@ -16,7 +16,7 @@ import TTZipUI
 public struct UniversalOmniPaletteView: View {
     // MARK: - Dependencies
 
-    @ObservedObject public var engine: OmniSearchEngine
+    public var engine: OmniSearchEngine
     @Binding public var selectedIndex: Int
     public var onCommit: (OmniSearchItem) -> Void
     public var onDismiss: () -> Void

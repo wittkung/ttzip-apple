@@ -7,28 +7,12 @@
 
 import SwiftUI
 import TTZipCore
-import Combine
 import TTZipUI
 import TTZipPreviewKit
 import TTZipBenchmarkKit
 
-@MainActor
-private final class ExtractModalEventObserver: ObservableObject {
-    @Published var vaultUpdateTrigger: Int = 0
-    private var cancellables = Set<AnyCancellable>()
-    
-    init() {
-        NotificationCenter.default.publisher(for: PasswordVaultManager.vaultDidChangeNotification)
-            .receive(on: RunLoop.main)
-            .sink { [weak self] _ in
-                self?.vaultUpdateTrigger += 1
-            }
-            .store(in: &cancellables)
-    }
-}
-
 public struct ExtractModalView: View {
-    @ObservedObject private var l10n = AppLocalizationState.shared
+    private var l10n = AppLocalizationState.shared
     public let archivePath: String
     @Binding public var isPresented: Bool
     
@@ -37,7 +21,7 @@ public struct ExtractModalView: View {
     @State private var password = ""
     @State private var isExtracting = false
     @State private var statusMessage = ""
-    @StateObject private var eventObserver = ExtractModalEventObserver()
+    @State private var vaultUpdateTrigger = 0
     
     public init(archivePath: String, isPresented: Binding<Bool>) {
         self.archivePath = archivePath
@@ -45,7 +29,7 @@ public struct ExtractModalView: View {
     }
     
     private var vaultEntries: [PasswordVaultEntry] {
-        _ = eventObserver.vaultUpdateTrigger
+        _ = vaultUpdateTrigger
         return PasswordVaultManager.shared.getEntries()
     }
     
@@ -222,6 +206,11 @@ public struct ExtractModalView: View {
             RoundedRectangle(cornerRadius: 18, style: .continuous)
                 .strokeBorder(Color.primary.opacity(0.08), lineWidth: 1)
         )
+        .task {
+            for await _ in NotificationCenter.default.notifications(named: PasswordVaultManager.vaultDidChangeNotification) {
+                vaultUpdateTrigger += 1
+            }
+        }
     }
     
     private func pickDirectory() {

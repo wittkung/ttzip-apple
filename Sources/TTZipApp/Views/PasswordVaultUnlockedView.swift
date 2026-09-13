@@ -14,8 +14,8 @@ import TTZipBenchmarkKit
 
 /// Subview displaying saved passwords grid, auto-unlock settings, and action toolbars when vault is unlocked.
 public struct PasswordVaultUnlockedView: View {
-    @ObservedObject public var l10n: AppLocalizationState
-    @ObservedObject public var viewModel: PasswordVaultViewModel
+    public var l10n: AppLocalizationState
+    public var viewModel: PasswordVaultViewModel
     public var onSelectPassword: ((String) -> Void)?
     
     public init(

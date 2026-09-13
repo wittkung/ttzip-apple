@@ -106,12 +106,11 @@ final class MediaPreviewAuditTests: XCTestCase {
     
     // MARK: - Test 2: ImageIOThumbnailCache Hit/Miss Behavior & Thread Safety
     
-    func testImageIOThumbnailCacheHitMissAndThreadSafety() throws {
+    func testImageIOThumbnailCacheHitMissAndThreadSafety() async throws {
         let cache = ImageIOThumbnailCache.shared
-        cache.purgeCache()
-        cache.resetStatistics()
+        await cache.purgeCache()
+        await cache.resetStatistics()
         
-        // 1.
         let testImageURL = tempDirURL.appendingPathComponent("test_cache.png")
         let dummyContext = CGContext(
             data: nil,
@@ -130,34 +129,36 @@ final class MediaPreviewAuditTests: XCTestCase {
         let pngData = rep.representation(using: .png, properties: [:])!
         try pngData.write(to: testImageURL)
         
-        // 2. ： Cache Miss
-        let first = cache.thumbnail(for: testImageURL, maxPixelSize: 512)
+        let first = await cache.thumbnail(for: testImageURL, maxPixelSize: 512)
         XCTAssertNotNil(first)
-        XCTAssertEqual(cache.missCount, 1)
-        XCTAssertEqual(cache.hitCount, 0)
+        let miss1 = await cache.missCount
+        let hit1 = await cache.hitCount
+        XCTAssertEqual(miss1, 1)
+        XCTAssertEqual(hit1, 0)
         
-        // 3. ： Cache Hit
-        let second = cache.thumbnail(for: testImageURL, maxPixelSize: 512)
+        let second = await cache.thumbnail(for: testImageURL, maxPixelSize: 512)
         XCTAssertNotNil(second)
-        XCTAssertEqual(cache.missCount, 1)
-        XCTAssertEqual(cache.hitCount, 1)
+        let miss2 = await cache.missCount
+        let hit2 = await cache.hitCount
+        XCTAssertEqual(miss2, 1)
+        XCTAssertEqual(hit2, 1)
         
-        // 4. (50 )
-        let group = DispatchGroup()
         let iterations = 50
-        
-        for _ in 0..<iterations {
-            group.enter()
-            DispatchQueue.global(qos: .userInitiated).async {
-                let cached = cache.thumbnail(for: testImageURL, maxPixelSize: 512)
+        await withTaskGroup(of: NSImage?.self) { group in
+            for _ in 0..<iterations {
+                group.addTask {
+                    await cache.thumbnail(for: testImageURL, maxPixelSize: 512)
+                }
+            }
+            for await cached in group {
                 XCTAssertNotNil(cached)
-                group.leave()
             }
         }
         
-        group.wait()
-        XCTAssertEqual(cache.missCount, 1)
-        XCTAssertEqual(cache.hitCount, 1 + iterations)
+        let finalMiss = await cache.missCount
+        let finalHit = await cache.hitCount
+        XCTAssertEqual(finalMiss, 1)
+        XCTAssertEqual(finalHit, 1 + iterations)
     }
     
     // MARK: - Test 3: Audio/Video Store Teardown Lifecycle
@@ -198,7 +199,7 @@ final class MediaPreviewAuditTests: XCTestCase {
     // MARK: - Test 4: Drag Provider Virtual Item Metadata
     
     @MainActor
-    func testDragProviderWrapsVirtualItemMetadata() throws {
+    func testDragProviderWrapsVirtualItemMetadata() async throws {
         // 1. Cached virtual item (PreviewLRUCacheManager hit)
         let mockArchivePath = "/Users/test/Documents/archive.zip"
         let mockSubpath = "assets/hero_banner.png"
@@ -213,7 +214,7 @@ final class MediaPreviewAuditTests: XCTestCase {
         // Verify expected invariant
         let dummyData = Data("mock extracted png image".utf8)
         try dummyData.write(to: targetCachedURL)
-        PreviewLRUCacheManager.shared.register(key: hash, fileURL: targetCachedURL)
+        await PreviewLRUCacheManager.shared.register(key: hash, fileURL: targetCachedURL)
         
         let cachedItem = DiskItemInfo(
             virtualName: filename,
@@ -680,7 +681,7 @@ final class MediaPreviewAuditTests: XCTestCase {
     
     // MARK: - Test 14: ArchiveMediaCachePool Staging & LRU Eviction
     
-    func testArchiveMediaCachePoolStagingAndLRUEviction() throws {
+    func testArchiveMediaCachePoolStagingAndLRUEviction() async throws {
         let poolDir = tempDirURL.appendingPathComponent("CustomPool_\(UUID().uuidString)")
         let pool = ArchiveMediaCachePool(maxQuotaBytes: 1000, maxItemCount: 3, customRootDirectory: poolDir)
         
@@ -689,70 +690,62 @@ final class MediaPreviewAuditTests: XCTestCase {
         let dataC = Data(repeating: 0x43, count: 300)
         let dataD = Data(repeating: 0x44, count: 300)
         
-        let urlA = try pool.stageData(dataA, fileName: "trackA.flac")
+        let urlA = try await pool.stageData(dataA, fileName: "trackA.flac")
         XCTAssertTrue(FileManager.default.fileExists(atPath: urlA.path))
-        XCTAssertEqual(pool.cachedItemCount, 1)
+        let count1 = await pool.cachedItemCount
+        XCTAssertEqual(count1, 1)
         
         let filePerms = (try FileManager.default.attributesOfItem(atPath: urlA.path)[.posixPermissions] as? NSNumber)?.intValue
         XCTAssertEqual(filePerms, 0o600)
         let dirPerms = (try FileManager.default.attributesOfItem(atPath: urlA.deletingLastPathComponent().path)[.posixPermissions] as? NSNumber)?.intValue
         XCTAssertEqual(dirPerms, 0o700)
         
-        _ = try pool.stageData(dataB, fileName: "trackB.flac")
-        _ = try pool.stageData(dataC, fileName: "trackC.flac")
-        XCTAssertEqual(pool.cachedItemCount, 3)
-        XCTAssertEqual(pool.totalCacheSizeBytes, 900)
+        _ = try await pool.stageData(dataB, fileName: "trackB.flac")
+        _ = try await pool.stageData(dataC, fileName: "trackC.flac")
+        let count3 = await pool.cachedItemCount
+        let size3 = await pool.totalCacheSizeBytes
+        XCTAssertEqual(count3, 3)
+        XCTAssertEqual(size3, 900)
         
-        _ = try pool.stageData(dataB, fileName: "trackB.flac")
-        let urlD = try pool.stageData(dataD, fileName: "trackD.flac")
+        _ = try await pool.stageData(dataB, fileName: "trackB.flac")
+        let urlD = try await pool.stageData(dataD, fileName: "trackD.flac")
         XCTAssertTrue(FileManager.default.fileExists(atPath: urlD.path))
-        XCTAssertLessThanOrEqual(pool.cachedItemCount, 3)
-        XCTAssertLessThanOrEqual(pool.totalCacheSizeBytes, 1000)
+        let countFinal = await pool.cachedItemCount
+        let sizeFinal = await pool.totalCacheSizeBytes
+        XCTAssertLessThanOrEqual(countFinal, 3)
+        XCTAssertLessThanOrEqual(sizeFinal, 1000)
         XCTAssertFalse(FileManager.default.fileExists(atPath: urlA.path), "Oldest item A should be evicted")
     }
     
     // MARK: - Test 15: ArchiveMediaCachePool Concurrency & Deduplication
     
-    func testArchiveMediaCachePoolConcurrencyAndDeduplication() throws {
-        final class SafeCollector: @unchecked Sendable {
-            private var items = [URL]()
-            private let lock = NSLock()
-            func append(_ url: URL) {
-                lock.lock()
-                items.append(url)
-                lock.unlock()
-            }
-            var count: Int {
-                lock.lock()
-                defer { lock.unlock() }
-                return items.count
-            }
-        }
-        
+    func testArchiveMediaCachePoolConcurrencyAndDeduplication() async throws {
         let poolDir = tempDirURL.appendingPathComponent("PoolDedup_\(UUID().uuidString)")
         let pool = ArchiveMediaCachePool(maxQuotaBytes: 10 * 1024 * 1024, maxItemCount: 20, customRootDirectory: poolDir)
         let testData = Data("concurrent test media stream".utf8)
-        let group = DispatchGroup()
-        let collector = SafeCollector()
         
-        for i in 0..<20 {
-            group.enter()
-            DispatchQueue.global(qos: .userInitiated).async {
-                if let url = try? pool.stageData(testData, fileName: "movie_\(i % 3).mp4") {
+        var collector = [URL]()
+        await withTaskGroup(of: URL?.self) { group in
+            for i in 0..<20 {
+                group.addTask {
+                    try? await pool.stageData(testData, fileName: "movie_\(i % 3).mp4")
+                }
+            }
+            for await url in group {
+                if let url {
                     collector.append(url)
                 }
-                group.leave()
             }
         }
         
-        group.wait()
         XCTAssertEqual(collector.count, 20)
-        XCTAssertLessThanOrEqual(pool.cachedItemCount, 3)
+        let count = await pool.cachedItemCount
+        XCTAssertLessThanOrEqual(count, 3)
     }
     
     // MARK: - Test 16: ArchiveMediaCachePool Key, Sanitization & Purge
     
-    func testArchiveMediaCachePoolKeySanitizationAndPurge() throws {
+    func testArchiveMediaCachePoolKeySanitizationAndPurge() async throws {
         let poolDir = tempDirURL.appendingPathComponent("PoolPurge_\(UUID().uuidString)")
         let pool = ArchiveMediaCachePool(customRootDirectory: poolDir)
         
@@ -766,12 +759,14 @@ final class MediaPreviewAuditTests: XCTestCase {
         XCTAssertEqual(ArchiveMediaCachePool.sanitizeFileName("folder/sub/cool:song?*.flac"), "cool_song__.flac")
         XCTAssertEqual(ArchiveMediaCachePool.sanitizeFileName("../../../escape.mp4"), "escape.mp4")
         
-        let staged = try pool.stageData(Data([1, 2, 3]), fileName: "test.wav")
+        let staged = try await pool.stageData(Data([1, 2, 3]), fileName: "test.wav")
         XCTAssertTrue(FileManager.default.fileExists(atPath: staged.path))
-        XCTAssertEqual(pool.cachedItemCount, 1)
+        let count1 = await pool.cachedItemCount
+        XCTAssertEqual(count1, 1)
         
-        pool.purgeAll()
-        XCTAssertEqual(pool.cachedItemCount, 0)
+        await pool.purgeAll()
+        let count0 = await pool.cachedItemCount
+        XCTAssertEqual(count0, 0)
         XCTAssertFalse(FileManager.default.fileExists(atPath: staged.path))
     }
 }

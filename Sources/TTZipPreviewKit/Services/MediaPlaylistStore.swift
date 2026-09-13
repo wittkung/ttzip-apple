@@ -106,10 +106,11 @@ public struct PlaylistItem: Identifiable, Hashable, Sendable {
 /// Backward-compatible alias for playlist item type.
 public typealias MediaPlaylistItem = PlaylistItem
 
-/// ObservableObject state machine managing media playlist items, natural alphanumeric sorting,
+/// High-performance @Observable state machine managing media playlist items, natural alphanumeric sorting,
 /// sibling file discovery, repeat modes, track navigation, and automatic continuous playback.
+@Observable
 @MainActor
-public final class MediaPlaylistStore: ObservableObject {
+public final class MediaPlaylistStore {
     
     /// Shared singleton instance for coordinated playback across the application.
     public static let shared = MediaPlaylistStore()
@@ -124,16 +125,16 @@ public final class MediaPlaylistStore: ObservableObject {
     ]
     
     /// Array of items currently in the playlist.
-    @Published public private(set) var items: [PlaylistItem] = []
+    public private(set) var items: [PlaylistItem] = []
     
     /// Index of the active item in `items`, or `nil` if the playlist is empty or no item is active.
-    @Published public private(set) var currentIndex: Int? = nil
+    public private(set) var currentIndex: Int? = nil
     
     /// Active playback repeat mode.
-    @Published public var repeatMode: PlaylistRepeatMode = .off
+    public var repeatMode: PlaylistRepeatMode = .off
     
     /// Flag controlling whether the store automatically advances to the next track on playback end.
-    @Published public var isAutoPlayEnabled: Bool = true
+    public var isAutoPlayEnabled: Bool = true
     
     /// Callback triggered whenever a playlist item transition is requested.
     public var onPlayItemRequested: (@MainActor (PlaylistItem) -> Void)? = nil

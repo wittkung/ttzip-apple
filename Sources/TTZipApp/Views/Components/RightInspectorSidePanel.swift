@@ -16,7 +16,7 @@ import TTZipBenchmarkKit
 public struct RightInspectorSidePanel: View {
     public var viewModel: AppViewState
     @Binding public var rightVerticalTopHeight: CGFloat
-    @ObservedObject private var l10n = AppLocalizationState.shared
+    private var l10n = AppLocalizationState.shared
     
     public init(viewModel: AppViewState, rightVerticalTopHeight: Binding<CGFloat> = .constant(300)) {
         self.viewModel = viewModel

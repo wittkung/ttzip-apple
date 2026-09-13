@@ -12,7 +12,7 @@ import TTZipPreviewKit
 import TTZipBenchmarkKit
 
 public struct SettingsView: View {
-    @ObservedObject var l10n = AppLocalizationState.shared
+    @Bindable var l10n = AppLocalizationState.shared
     
     public enum SettingsTab: String, CaseIterable, Identifiable {
         case general

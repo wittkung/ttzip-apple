@@ -12,7 +12,7 @@ import TTZipPreviewKit
 import TTZipBenchmarkKit
 
 public struct PresetEditorCardView: View {
-    @ObservedObject var l10n = AppLocalizationState.shared
+    var l10n = AppLocalizationState.shared
     
     @Binding public var editorFormat: ArchiveCompressionFormat
     @Binding public var editorLevel: ArchiveCompressionLevel

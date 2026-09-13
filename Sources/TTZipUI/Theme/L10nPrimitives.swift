@@ -10,7 +10,7 @@ import TTZipCore
 
 /// Reactive SwiftUI Text primitive that automatically updates upon `AppLocalizationState` language changes.
 public struct L10nText: View {
-    @ObservedObject private var l10n = AppLocalizationState.shared
+    private var l10n = AppLocalizationState.shared
     private let key: any LocaleKeyProtocol
     private let args: [any CVarArg]
     
@@ -32,7 +32,7 @@ public struct L10nText: View {
 
 /// Reactive SwiftUI Label primitive that automatically updates upon `AppLocalizationState` language changes.
 public struct L10nLabel: View {
-    @ObservedObject private var l10n = AppLocalizationState.shared
+    private var l10n = AppLocalizationState.shared
     private let key: any LocaleKeyProtocol
     private let systemImage: String
     private let args: [any CVarArg]

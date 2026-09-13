@@ -15,7 +15,7 @@ import TTZipBenchmarkKit
 public struct FolderMediaArtboardView: View {
     public let item: DiskItemInfo
     public let onCompressPath: (String) -> Void
-    @ObservedObject var l10n = AppLocalizationState.shared
+    var l10n = AppLocalizationState.shared
     
     @State var totalSizeBytes: Int64 = 0
     @State var subfolderCount: Int = 0
