@@ -16,7 +16,7 @@ extension MainView {
     @ToolbarContentBuilder
     var mainToolbarContent: some ToolbarContent {
         if !viewModel.overlayState.showImmersiveMediaBrowser {
-            ToolbarItemGroup(placement: .navigation) {
+            ToolbarItem(placement: .navigation) {
                 Button {
                     withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
                         isLeftSidebarVisible.toggle()
@@ -31,7 +31,7 @@ extension MainView {
                 .keyboardShortcut("s", modifiers: [.control, .command])
             }
             
-            ToolbarItemGroup(placement: .automatic) {
+            ToolbarItem(placement: .automatic) {
                 Button { pickAndOpenArchive() } label: {
                     Image(systemName: "folder.badge.plus")
                         .font(.system(size: 13.5, weight: .medium))
@@ -41,7 +41,9 @@ extension MainView {
                 .keyboardShortcut("o", modifiers: [.command])
                 .help(l10n.t(L10n.Menu.openArchive) + " (⌘O)")
                 .accessibilityLabel(l10n.t(L10n.Menu.openArchive))
-                
+            }
+            
+            ToolbarItem(placement: .automatic) {
                 NewArchiveToolbarButton(
                     title: l10n.currentLanguage == .zhHans ? "新建压缩" : "New Archive"
                 ) {
@@ -52,48 +54,50 @@ extension MainView {
                 }
                 .keyboardShortcut("n", modifiers: [.command])
                 .help(l10n.t(L10n.Menu.newArchiveMenu) + " (⌘N)")
-                
-                if viewModel.currentArchivePath != nil {
-                    if viewModel.activeTab == .home {
-                        Button {
-                            if let targetPath = viewModel.selectedDiskItem?.path ?? viewModel.currentArchivePath {
-                                Task { await viewModel.quickExtractArchive(archivePath: targetPath) }
-                            } else {
-                                viewModel.statusMessage = l10n.t(L10n.Explorer.extractToPrompt)
-                            }
-                        } label: {
-                            Image(systemName: "arrow.down.circle.fill")
-                                .font(.system(size: 13.5, weight: .medium))
-                                .foregroundStyle(.secondary)
-                                .frame(height: 24)
+            }
+            
+            if viewModel.currentArchivePath != nil && viewModel.activeTab == .home {
+                ToolbarItemGroup(placement: .automatic) {
+                    Button {
+                        if let targetPath = viewModel.selectedDiskItem?.path ?? viewModel.currentArchivePath {
+                            Task { await viewModel.quickExtractArchive(archivePath: targetPath) }
+                        } else {
+                            viewModel.statusMessage = l10n.t(L10n.Explorer.extractToPrompt)
                         }
-                        .keyboardShortcut("e", modifiers: [.command])
-                        .help(l10n.t(L10n.Extract.action) + " (⌘E)")
-                        .accessibilityLabel(l10n.t(L10n.Extract.action))
-                        
-                        Button { viewModel.showExtractModal = true } label: {
-                            Image(systemName: "slider.horizontal.3")
-                                .font(.system(size: 13.5, weight: .medium))
-                                .foregroundStyle(.secondary)
-                                .frame(height: 24)
-                        }
-                        .keyboardShortcut("e", modifiers: [.option, .command])
-                        .help(l10n.t(L10n.Explorer.extractToPrompt) + " (⌥⌘E)")
-                        .accessibilityLabel(l10n.t(L10n.Explorer.extractToPrompt))
-                        
-                        Button { withAnimation { viewModel.reset() } } label: {
-                            Image(systemName: "xmark.circle")
-                                .font(.system(size: 13.5, weight: .medium))
-                                .foregroundStyle(.secondary)
+                    } label: {
+                        Image(systemName: "arrow.down.circle.fill")
+                            .font(.system(size: 13.5, weight: .medium))
+                            .foregroundStyle(.secondary)
                             .frame(height: 24)
-                        }
-                        .keyboardShortcut("w", modifiers: [.command])
-                        .help(l10n.t(L10n.Common.close) + " (⌘W)")
-                        .accessibilityLabel(l10n.t(L10n.Common.close))
                     }
+                    .keyboardShortcut("e", modifiers: [.command])
+                    .help(l10n.t(L10n.Extract.action) + " (⌘E)")
+                    .accessibilityLabel(l10n.t(L10n.Extract.action))
+                    
+                    Button { viewModel.showExtractModal = true } label: {
+                        Image(systemName: "slider.horizontal.3")
+                            .font(.system(size: 13.5, weight: .medium))
+                            .foregroundStyle(.secondary)
+                            .frame(height: 24)
+                    }
+                    .keyboardShortcut("e", modifiers: [.option, .command])
+                    .help(l10n.t(L10n.Explorer.extractToPrompt) + " (⌥⌘E)")
+                    .accessibilityLabel(l10n.t(L10n.Explorer.extractToPrompt))
+                    
+                    Button { withAnimation { viewModel.reset() } } label: {
+                        Image(systemName: "xmark.circle")
+                            .font(.system(size: 13.5, weight: .medium))
+                            .foregroundStyle(.secondary)
+                            .frame(height: 24)
+                    }
+                    .keyboardShortcut("w", modifiers: [.command])
+                    .help(l10n.t(L10n.Common.close) + " (⌘W)")
+                    .accessibilityLabel(l10n.t(L10n.Common.close))
                 }
-                
-                if viewModel.activePreviewFileURL != nil {
+            }
+            
+            if viewModel.activePreviewFileURL != nil {
+                ToolbarItem(placement: .automatic) {
                     Button {
                         NotificationCenter.default.post(name: NSNotification.Name("TTZipToggleMediaFocusNotification"), object: nil)
                     } label: {
@@ -110,7 +114,9 @@ extension MainView {
                     .help("Toggle Media Focus Mode (⌃⌘F)")
                     .accessibilityLabel(viewModel.navigationState.layoutMode == .mediaFocus ? "Exit Focus" : "Focus Mode")
                 }
-                
+            }
+            
+            ToolbarItem(placement: .automatic) {
                 Menu {
                     Button {
                         presentedSecondaryTool = .presets
@@ -201,10 +207,10 @@ extension MainView {
     }
 }
 
-// MARK: - New Archive Toolbar Capsule Button
+// MARK: - New Archive Toolbar Prominent Button
 
-/// A lightweight translucent capsule button conforming to Zen minimalist design and macOS HIG.
-/// It renders a bamboo green translucent capsule with delicate border and smooth hover/press transitions.
+/// A lightweight translucent action button conforming to Zen minimalist design and macOS HIG.
+/// Renders an independent bamboo green accent control with delicate border and smooth transitions.
 private struct NewArchiveToolbarButton: View {
     let title: String
     let action: () -> Void
@@ -213,43 +219,31 @@ private struct NewArchiveToolbarButton: View {
     
     var body: some View {
         Button(action: action) {
-            HStack(spacing: 4.5) {
+            HStack(spacing: 5) {
                 Image(systemName: "plus")
-                    .font(.system(size: 10.5, weight: .bold))
+                    .font(.system(size: 11, weight: .bold))
                 Text(title)
                     .font(.system(size: 11.5, weight: .semibold))
             }
             .foregroundStyle(TTZipTheme.bambooGreen)
-            .padding(.horizontal, 9.5)
-            .frame(height: 24)
+            .padding(.horizontal, 9)
+            .frame(height: 22)
+            .background(
+                RoundedRectangle(cornerRadius: 6, style: .continuous)
+                    .fill(TTZipTheme.bambooGreen.opacity(isHovered ? 0.16 : 0.09))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 6, style: .continuous)
+                    .strokeBorder(TTZipTheme.bambooGreen.opacity(isHovered ? 0.32 : 0.18), lineWidth: 0.75)
+            )
+            .contentShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
         }
-        .buttonStyle(NewArchiveCapsuleButtonStyle(isHovered: isHovered))
+        .buttonStyle(.plain)
         .onHover { hovering in
-            withAnimation(.easeInOut(duration: 0.15)) {
+            withAnimation(.easeInOut(duration: 0.12)) {
                 isHovered = hovering
             }
         }
-    }
-}
-
-/// A specialized ButtonStyle that manages the multi-state translucent fill and border.
-private struct NewArchiveCapsuleButtonStyle: ButtonStyle {
-    let isHovered: Bool
-    
-    func makeBody(configuration: Configuration) -> some View {
-        let fillOpacity: Double = configuration.isPressed ? 0.24 : (isHovered ? 0.14 : 0.08)
-        let strokeOpacity: Double = isHovered ? 0.35 : 0.18
-        
-        configuration.label
-            .background(
-                Capsule()
-                    .fill(TTZipTheme.bambooGreen.opacity(fillOpacity))
-            )
-            .overlay(
-                Capsule()
-                    .strokeBorder(TTZipTheme.bambooGreen.opacity(strokeOpacity), lineWidth: 0.8)
-            )
-            .contentShape(Capsule())
     }
 }
 

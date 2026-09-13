@@ -6,16 +6,19 @@
         <description>Most recent changes with links to updates.</description>
         <language>en</language>
         <item>
-            <title>TTZip Version 1.0.0</title>
+            <title>TTZip Version 0.1.0</title>
             <sparkle:releaseNotesLink>https://raw.githubusercontent.com/wittkung/ttzip-apple/main/RELEASE_NOTES.md</sparkle:releaseNotesLink>
-            <pubDate>Mon, 24 Aug 2026 15:55:40 +0000</pubDate>
+            <pubDate>Fri, 11 Sep 2026 23:19:25 +0000</pubDate>
             <enclosure
-                url="https://github.com/wittkung/ttzip-apple/releases/download/v1.0.0/TTZip-1.0.0.dmg"
-                sparkle:version="10000"
-                sparkle:shortVersionString="1.0.0"
-                length="5588147"
+                url="https://github.com/wittkung/ttzip-apple/releases/download/v0.1.0/TTZip-0.1.0.dmg"
+                sparkle:version="1000"
+                sparkle:shortVersionString="0.1.0"
+                sparkle:edSignature="H8XNBcEsvx+aVuF8+loWRZXI8vmNnqN1nQnz1VrlOBqgJVd9amO76vC1KMEc/5IPYeoH4/3MNsdEYcMvu/ssAw=="
+                sparkle:minimumSystemVersion="14.0"
+                length="78783033"
                 type="application/octet-stream"
             />
+
         </item>
     </channel>
 </rss>

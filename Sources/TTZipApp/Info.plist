@@ -21,9 +21,9 @@
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.0.0</string>
+	<string>0.1.0</string>
 	<key>CFBundleVersion</key>
-	<string>10000</string>
+	<string>1000</string>
 	<key>LSMinimumSystemVersion</key>
 	<string>14.0</string>
 	<key>LSApplicationCategoryType</key>
@@ -32,6 +32,10 @@
 	<string>Copyright © 2026 Witt Kung. All rights reserved.</string>
 	<key>SUFeedURL</key>
 	<string>https://raw.githubusercontent.com/wittkung/ttzip-apple/main/appcast.xml</string>
+	<key>SUPublicEDKey</key>
+	<string>1K3ztA3/BEYpXZUJXgkHeq5/ziqwA7eMmcKjy60IaTA=</string>
+	<key>SUEnableAutomaticChecks</key>
+	<true/>
 	<key>NSPrincipalClass</key>
 	<string>NSApplication</string>
 	<key>NSHighResolutionCapable</key>

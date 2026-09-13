@@ -67,55 +67,48 @@ public struct HexDataPreviewView: View {
         min(totalFileSize, currentStartOffset + Int64(currentPageData.count))
     }
     
+    private let minHexTableWidth: CGFloat = 620
+    
     public var body: some View {
         VStack(spacing: 0) {
-            // 1. Top Control Bar
+            // 1. Top Responsive Control Bar
             topControlBar
             
             Divider()
             
-            // 2. Hex Table Column Headers
-            hexColumnHeader
-            
-            Divider()
-            
-            // 3. Main Hex Data Display Canvas
+            // 2. Main Hex Table Canvas with Synchronized Horizontal Scroll
             ZStack {
-                HexEditorNSView(
-                    pageData: currentPageData,
-                    startOffset: currentStartOffset
-                )
+                ScrollView(.horizontal, showsIndicators: true) {
+                    VStack(alignment: .leading, spacing: 0) {
+                        hexColumnHeader
+                            .frame(minWidth: minHexTableWidth, alignment: .leading)
+                        
+                        Divider()
+                        
+                        HexEditorNSView(
+                            pageData: currentPageData,
+                            startOffset: currentStartOffset
+                        )
+                        .frame(minWidth: minHexTableWidth, maxWidth: .infinity, maxHeight: .infinity)
+                    }
+                    .frame(minWidth: minHexTableWidth, maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 
-                // Copy Notification Toast
+                // Copy Notification Toast Overlay
                 if isToastVisible, let msg = copyToastMessage {
-                    VStack {
-                        Spacer()
-                        HStack(spacing: 6) {
-                            Image(systemName: "checkmark.circle.fill")
-                                .font(.system(size: 12, weight: .bold))
-                                .foregroundStyle(TTZipTheme.bambooGreen)
-                            Text(msg)
-                                .font(.system(size: 11, weight: .semibold))
-                                .foregroundStyle(.white)
-                        }
-                        .padding(.horizontal, 14)
-                        .padding(.vertical, 8)
-                        .background(Capsule().fill(Color.black.opacity(0.85)))
-                        .overlay(Capsule().stroke(Color.white.opacity(0.15), lineWidth: 0.5))
-                        .shadow(color: .black.opacity(0.3), radius: 6, x: 0, y: 3)
-                        .transition(.move(edge: .bottom).combined(with: .opacity))
-                        .padding(.bottom, 20)
-                    }
+                    toastOverlay(message: msg)
                 }
             }
             
             Divider()
             
-            // 4. Bottom Status and Pagination Bar
+            // 3. Bottom Responsive Status and Pagination Bar
             bottomStatusBar
         }
+        .frame(minWidth: 200, maxWidth: .infinity, maxHeight: .infinity)
         .background(Color(NSColor.textBackgroundColor))
+        .clipped()
         .task(id: fileURL) {
             loadInitialMetadata()
         }
@@ -131,8 +124,23 @@ public struct HexDataPreviewView: View {
     // MARK: - Subviews
     
     private var topControlBar: some View {
+        ViewThatFits(in: .horizontal) {
+            // Wide layout (>= 420pt)
+            fullTopControlBar
+            
+            // Compact layout (~280pt - 420pt)
+            compactTopControlBar
+            
+            // Minimal layout (200pt - 280pt)
+            minimalTopControlBar
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 7)
+        .background(Color(NSColor.windowBackgroundColor))
+    }
+    
+    private var fullTopControlBar: some View {
         HStack(spacing: 10) {
-            // File Type Badge
             HStack(spacing: 5) {
                 Image(systemName: "memorychip.fill")
                     .font(.system(size: 11, weight: .bold))
@@ -146,13 +154,11 @@ public struct HexDataPreviewView: View {
             .background(TTZipTheme.bambooGreen.opacity(0.12))
             .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
             
-            // File Name
             Text(fileName)
                 .font(.system(size: 11.5, weight: .semibold))
                 .lineLimit(1)
                 .truncationMode(.middle)
             
-            // Total Size Badge
             Text(ByteCountFormatterFlyweight.shared.string(fromByteCount: totalFileSize))
                 .font(.system(size: 10.5, weight: .medium, design: .monospaced))
                 .foregroundStyle(.secondary)
@@ -161,72 +167,122 @@ public struct HexDataPreviewView: View {
                 .background(Color.primary.opacity(0.06))
                 .clipShape(RoundedRectangle(cornerRadius: 4))
             
-            Spacer()
+            Spacer(minLength: 4)
             
-            // Page Size Picker
-            Menu {
-                ForEach(HexPageSizeOption.allCases) { option in
-                    Button(action: { pageSizeOption = option }) {
-                        HStack {
-                            Text(option.displayName)
-                            if pageSizeOption == option {
-                                Image(systemName: "checkmark")
-                            }
+            pageSizeMenu(compact: false)
+            copyMenu(compact: false)
+        }
+    }
+    
+    private var compactTopControlBar: some View {
+        HStack(spacing: 8) {
+            HStack(spacing: 4) {
+                Image(systemName: "memorychip.fill")
+                    .font(.system(size: 11, weight: .bold))
+                    .foregroundStyle(TTZipTheme.bambooGreen)
+                Text("HEX")
+                    .font(.system(size: 10.5, weight: .bold, design: .monospaced))
+                    .foregroundStyle(.primary)
+            }
+            .padding(.horizontal, 6)
+            .padding(.vertical, 3)
+            .background(TTZipTheme.bambooGreen.opacity(0.12))
+            .clipShape(RoundedRectangle(cornerRadius: 5, style: .continuous))
+            
+            Text(fileName)
+                .font(.system(size: 11, weight: .semibold))
+                .lineLimit(1)
+                .truncationMode(.middle)
+            
+            Spacer(minLength: 4)
+            
+            pageSizeMenu(compact: true)
+            copyMenu(compact: false)
+        }
+    }
+    
+    private var minimalTopControlBar: some View {
+        HStack(spacing: 6) {
+            Image(systemName: "memorychip.fill")
+                .font(.system(size: 11, weight: .bold))
+                .foregroundStyle(TTZipTheme.bambooGreen)
+                .padding(4)
+                .background(TTZipTheme.bambooGreen.opacity(0.12))
+                .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
+            
+            Text(fileName)
+                .font(.system(size: 10.5, weight: .semibold))
+                .lineLimit(1)
+                .truncationMode(.middle)
+            
+            Spacer(minLength: 2)
+            
+            pageSizeMenu(compact: true)
+            copyMenu(compact: true)
+        }
+    }
+    
+    private func pageSizeMenu(compact: Bool) -> some View {
+        Menu {
+            ForEach(HexPageSizeOption.allCases) { option in
+                Button(action: { pageSizeOption = option }) {
+                    HStack {
+                        Text(option.displayName)
+                        if pageSizeOption == option {
+                            Image(systemName: "checkmark")
                         }
                     }
                 }
-            } label: {
-                HStack(spacing: 4) {
-                    Image(systemName: "slider.horizontal.3")
-                        .font(.system(size: 10))
-                    Text("Page: \(pageSizeOption.rawValue / 1024) KB")
-                        .font(.system(size: 10.5, weight: .medium))
-                }
-                .padding(.horizontal, 8)
-                .padding(.vertical, 4)
-                .background(Color.primary.opacity(0.06))
-                .clipShape(RoundedRectangle(cornerRadius: 5))
             }
-            .menuStyle(.borderlessButton)
-            .fixedSize()
-            
-            // Copy Actions Menu
-            Menu {
-                Button(action: { copyCurrentPageHex() }) {
-                    Label("Copy Hex Bytes (Space Separated)", systemImage: "doc.on.doc")
-                }
-                Button(action: { copyCurrentPageContinuousHex() }) {
-                    Label("Copy Continuous Hex String", systemImage: "number")
-                }
-                Button(action: { copyCurrentPageASCII() }) {
-                    Label("Copy Decoded ASCII Text", systemImage: "text.alignleft")
-                }
-                Button(action: { copyCurrentPageCArray() }) {
-                    Label("Copy as C Array (0x...)", systemImage: "curlybraces")
-                }
-                Divider()
-                Button(action: { copyFullFormattedDump() }) {
-                    Label("Copy Full Formatted Dump Table", systemImage: "tablecells")
-                }
-            } label: {
-                HStack(spacing: 4) {
-                    Image(systemName: "doc.on.doc.fill")
-                        .font(.system(size: 10.5))
-                        .foregroundStyle(TTZipTheme.bambooGreen)
-                    Text("Copy")
-                        .font(.system(size: 11, weight: .bold))
-                }
-                .padding(.horizontal, 9)
-                .padding(.vertical, 4)
-                .background(TTZipTheme.bambooGreen.opacity(0.12))
-                .clipShape(Capsule())
+        } label: {
+            HStack(spacing: 3) {
+                Image(systemName: "slider.horizontal.3")
+                    .font(.system(size: 9.5))
+                Text(compact ? "\(pageSizeOption.rawValue / 1024)K" : "Page: \(pageSizeOption.rawValue / 1024) KB")
+                    .font(.system(size: 10, weight: .medium))
             }
-            .menuStyle(.borderlessButton)
-            .fixedSize()
+            .padding(.horizontal, compact ? 5 : 8)
+            .padding(.vertical, 3.5)
+            .background(Color.primary.opacity(0.06))
+            .clipShape(RoundedRectangle(cornerRadius: 5))
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 7)
-        .background(Color(NSColor.windowBackgroundColor))
+        .menuStyle(.borderlessButton)
+    }
+    
+    private func copyMenu(compact: Bool) -> some View {
+        Menu {
+            Button(action: { copyCurrentPageHex() }) {
+                Label("Copy Hex Bytes (Space Separated)", systemImage: "doc.on.doc")
+            }
+            Button(action: { copyCurrentPageContinuousHex() }) {
+                Label("Copy Continuous Hex String", systemImage: "number")
+            }
+            Button(action: { copyCurrentPageASCII() }) {
+                Label("Copy Decoded ASCII Text", systemImage: "text.alignleft")
+            }
+            Button(action: { copyCurrentPageCArray() }) {
+                Label("Copy as C Array (0x...)", systemImage: "curlybraces")
+            }
+            Divider()
+            Button(action: { copyFullFormattedDump() }) {
+                Label("Copy Full Formatted Dump Table", systemImage: "tablecells")
+            }
+        } label: {
+            HStack(spacing: 3) {
+                Image(systemName: "doc.on.doc.fill")
+                    .font(.system(size: 10))
+                    .foregroundStyle(TTZipTheme.bambooGreen)
+                if !compact {
+                    Text("Copy")
+                        .font(.system(size: 10.5, weight: .bold))
+                }
+            }
+            .padding(.horizontal, compact ? 6 : 9)
+            .padding(.vertical, 3.5)
+            .background(TTZipTheme.bambooGreen.opacity(0.12))
+            .clipShape(Capsule())
+        }
+        .menuStyle(.borderlessButton)
     }
     
     private var hexColumnHeader: some View {
@@ -265,7 +321,7 @@ public struct HexDataPreviewView: View {
                 .font(.system(size: 11, weight: .bold, design: .monospaced))
                 .foregroundStyle(.secondary)
             
-            Spacer()
+            Spacer(minLength: 0)
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 4.5)
@@ -273,89 +329,174 @@ public struct HexDataPreviewView: View {
     }
     
     private var bottomStatusBar: some View {
-        HStack(spacing: 12) {
-            // Current Offset Range
-            HStack(spacing: 4) {
-                Text("Range:")
-                    .font(.system(size: 10.5, weight: .regular))
-                    .foregroundStyle(.secondary)
-                Text(String(format: "0x%08X – 0x%08X", currentStartOffset, max(0, currentEndOffset - 1)))
-                    .font(.system(size: 10.5, weight: .semibold, design: .monospaced))
-                    .foregroundStyle(TTZipTheme.bambooGreen)
-            }
+        ViewThatFits(in: .horizontal) {
+            // Full status bar: includes full range, jump button, and complete pagination controls
+            fullBottomStatusBar
             
-            Spacer()
+            // Compact status bar: shortened range and pagination for medium widths
+            compactBottomStatusBar
             
-            // Jump To Offset Button
-            Button(action: { isJumpPopoverPresented.toggle() }) {
-                HStack(spacing: 4) {
-                    Image(systemName: "arrow.right.to.line.compact")
-                        .font(.system(size: 10))
-                    Text("Jump (0x...)")
-                        .font(.system(size: 10.5, weight: .medium))
-                }
-                .padding(.horizontal, 6)
-                .padding(.vertical, 3)
-                .background(Color.primary.opacity(0.06))
-                .clipShape(RoundedRectangle(cornerRadius: 4))
-            }
-            .buttonStyle(.plain)
-            .popover(isPresented: $isJumpPopoverPresented, arrowEdge: .bottom) {
-                jumpOffsetPopoverContent
-            }
-            
-            // Pagination Controls
-            HStack(spacing: 4) {
-                // First Page
-                Button(action: { currentPageIndex = 0 }) {
-                    Image(systemName: "backward.end.fill")
-                        .font(.system(size: 9))
-                }
-                .disabled(currentPageIndex <= 0)
-                .buttonStyle(.plain)
-                .padding(4)
-                
-                // Previous Page
-                Button(action: { if currentPageIndex > 0 { currentPageIndex -= 1 } }) {
-                    Image(systemName: "chevron.left")
-                        .font(.system(size: 10, weight: .bold))
-                }
-                .disabled(currentPageIndex <= 0)
-                .buttonStyle(.plain)
-                .padding(4)
-                
-                // Page Indicator
-                Text("Page \(currentPageIndex + 1) of \(totalPages)")
-                    .font(.system(size: 10.5, weight: .semibold, design: .monospaced))
-                    .padding(.horizontal, 6)
-                
-                // Next Page
-                Button(action: { if currentPageIndex < totalPages - 1 { currentPageIndex += 1 } }) {
-                    Image(systemName: "chevron.right")
-                        .font(.system(size: 10, weight: .bold))
-                }
-                .disabled(currentPageIndex >= totalPages - 1)
-                .buttonStyle(.plain)
-                .padding(4)
-                
-                // Last Page
-                Button(action: { currentPageIndex = max(0, totalPages - 1) }) {
-                    Image(systemName: "forward.end.fill")
-                        .font(.system(size: 9))
-                }
-                .disabled(currentPageIndex >= totalPages - 1)
-                .buttonStyle(.plain)
-                .padding(4)
-            }
-            .foregroundStyle(.primary)
-            .padding(.horizontal, 4)
-            .padding(.vertical, 2)
-            .background(Color.primary.opacity(0.05))
-            .clipShape(RoundedRectangle(cornerRadius: 5))
+            // Minimal status bar: minimal jump icon and compact pagination for narrow widths (<= 200pt)
+            minimalBottomStatusBar
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 5)
         .background(Color(NSColor.windowBackgroundColor))
+    }
+    
+    private var fullBottomStatusBar: some View {
+        HStack(spacing: 12) {
+            offsetRangeView(compact: false)
+            Spacer(minLength: 6)
+            jumpButton(compact: false)
+            fullPaginationControls
+        }
+    }
+    
+    private var compactBottomStatusBar: some View {
+        HStack(spacing: 8) {
+            offsetRangeView(compact: true)
+            Spacer(minLength: 4)
+            jumpButton(compact: true)
+            compactPaginationControls
+        }
+    }
+    
+    private var minimalBottomStatusBar: some View {
+        HStack(spacing: 6) {
+            jumpButton(compact: true)
+            Spacer(minLength: 4)
+            compactPaginationControls
+        }
+    }
+    
+    private func offsetRangeView(compact: Bool) -> some View {
+        HStack(spacing: 4) {
+            if !compact {
+                Text("Range:")
+                    .font(.system(size: 10.5, weight: .regular))
+                    .foregroundStyle(.secondary)
+            }
+            Text(compact ? String(format: "0x%06X…", currentStartOffset) : String(format: "0x%08X – 0x%08X", currentStartOffset, max(0, currentEndOffset - 1)))
+                .font(.system(size: 10, weight: .semibold, design: .monospaced))
+                .foregroundStyle(TTZipTheme.bambooGreen)
+        }
+    }
+    
+    private func jumpButton(compact: Bool) -> some View {
+        Button(action: { isJumpPopoverPresented.toggle() }) {
+            HStack(spacing: 3) {
+                Image(systemName: "arrow.right.to.line.compact")
+                    .font(.system(size: 10))
+                if !compact {
+                    Text("Jump (0x...)")
+                        .font(.system(size: 10.5, weight: .medium))
+                }
+            }
+            .padding(.horizontal, compact ? 5 : 6)
+            .padding(.vertical, 3)
+            .background(Color.primary.opacity(0.06))
+            .clipShape(RoundedRectangle(cornerRadius: 4))
+        }
+        .buttonStyle(.plain)
+        .popover(isPresented: $isJumpPopoverPresented, arrowEdge: .bottom) {
+            jumpOffsetPopoverContent
+        }
+    }
+    
+    private var fullPaginationControls: some View {
+        HStack(spacing: 4) {
+            Button(action: { currentPageIndex = 0 }) {
+                Image(systemName: "backward.end.fill")
+                    .font(.system(size: 9))
+            }
+            .disabled(currentPageIndex <= 0)
+            .buttonStyle(.plain)
+            .padding(4)
+            
+            Button(action: { if currentPageIndex > 0 { currentPageIndex -= 1 } }) {
+                Image(systemName: "chevron.left")
+                    .font(.system(size: 10, weight: .bold))
+            }
+            .disabled(currentPageIndex <= 0)
+            .buttonStyle(.plain)
+            .padding(4)
+            
+            Text("Page \(currentPageIndex + 1) of \(totalPages)")
+                .font(.system(size: 10.5, weight: .semibold, design: .monospaced))
+                .padding(.horizontal, 6)
+            
+            Button(action: { if currentPageIndex < totalPages - 1 { currentPageIndex += 1 } }) {
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 10, weight: .bold))
+            }
+            .disabled(currentPageIndex >= totalPages - 1)
+            .buttonStyle(.plain)
+            .padding(4)
+            
+            Button(action: { currentPageIndex = max(0, totalPages - 1) }) {
+                Image(systemName: "forward.end.fill")
+                    .font(.system(size: 9))
+            }
+            .disabled(currentPageIndex >= totalPages - 1)
+            .buttonStyle(.plain)
+            .padding(4)
+        }
+        .foregroundStyle(.primary)
+        .padding(.horizontal, 4)
+        .padding(.vertical, 2)
+        .background(Color.primary.opacity(0.05))
+        .clipShape(RoundedRectangle(cornerRadius: 5))
+    }
+    
+    private var compactPaginationControls: some View {
+        HStack(spacing: 2) {
+            Button(action: { if currentPageIndex > 0 { currentPageIndex -= 1 } }) {
+                Image(systemName: "chevron.left")
+                    .font(.system(size: 9.5, weight: .bold))
+            }
+            .disabled(currentPageIndex <= 0)
+            .buttonStyle(.plain)
+            .padding(3)
+            
+            Text("\(currentPageIndex + 1)/\(totalPages)")
+                .font(.system(size: 10, weight: .semibold, design: .monospaced))
+                .padding(.horizontal, 4)
+            
+            Button(action: { if currentPageIndex < totalPages - 1 { currentPageIndex += 1 } }) {
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 9.5, weight: .bold))
+            }
+            .disabled(currentPageIndex >= totalPages - 1)
+            .buttonStyle(.plain)
+            .padding(3)
+        }
+        .foregroundStyle(.primary)
+        .padding(.horizontal, 3)
+        .padding(.vertical, 2)
+        .background(Color.primary.opacity(0.05))
+        .clipShape(RoundedRectangle(cornerRadius: 4))
+    }
+    
+    private func toastOverlay(message: String) -> some View {
+        VStack {
+            Spacer()
+            HStack(spacing: 6) {
+                Image(systemName: "checkmark.circle.fill")
+                    .font(.system(size: 12, weight: .bold))
+                    .foregroundStyle(TTZipTheme.bambooGreen)
+                Text(message)
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(.white)
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 8)
+            .background(Capsule().fill(Color.black.opacity(0.85)))
+            .overlay(Capsule().stroke(Color.white.opacity(0.15), lineWidth: 0.5))
+            .shadow(color: .black.opacity(0.3), radius: 6, x: 0, y: 3)
+            .transition(.move(edge: .bottom).combined(with: .opacity))
+            .padding(.bottom, 20)
+        }
     }
     
     private var jumpOffsetPopoverContent: some View {
@@ -537,191 +678,5 @@ public struct HexDataPreviewView: View {
             dump += "\(offsetStr)  \(hex1Padded)  \(hex2Padded)  |\(asciiPadded)|\n"
         }
         copyToClipboard(dump, message: "Copied formatted hex dump table")
-    }
-}
-
-// MARK: - Native High-Performance Selectable Hex NSTextView
-
-public struct HexEditorNSView: NSViewRepresentable {
-    public let pageData: Data
-    public let startOffset: Int64
-    
-    public init(pageData: Data, startOffset: Int64) {
-        self.pageData = pageData
-        self.startOffset = startOffset
-    }
-    
-    public func makeCoordinator() -> Coordinator {
-        Coordinator()
-    }
-    
-    public func makeNSView(context: Context) -> NSScrollView {
-        let scrollView = NSScrollView()
-        scrollView.hasVerticalScroller = true
-        scrollView.hasHorizontalScroller = true
-        scrollView.scrollerStyle = .overlay
-        scrollView.autohidesScrollers = true
-        scrollView.borderType = .noBorder
-        scrollView.drawsBackground = false
-        
-        let textView = NSTextView()
-        textView.autoresizingMask = [.width]
-        textView.isEditable = false
-        textView.isSelectable = true
-        textView.font = NSFont.monospacedSystemFont(ofSize: 12, weight: .regular)
-        textView.backgroundColor = NSColor.textBackgroundColor
-        textView.drawsBackground = true
-        textView.textContainerInset = NSSize(width: 14, height: 10)
-        textView.isAutomaticQuoteSubstitutionEnabled = false
-        textView.isAutomaticDashSubstitutionEnabled = false
-        textView.isAutomaticTextReplacementEnabled = false
-        
-        if let container = textView.textContainer {
-            container.widthTracksTextView = false
-            container.containerSize = NSSize(width: 900, height: CGFloat.greatestFiniteMagnitude)
-        }
-        
-        context.coordinator.renderAttributedHexDump(data: pageData, startOffset: startOffset, in: textView)
-        scrollView.documentView = textView
-        return scrollView
-    }
-    
-    public func updateNSView(_ nsView: NSScrollView, context: Context) {
-        guard let textView = nsView.documentView as? NSTextView else { return }
-        context.coordinator.renderAttributedHexDump(data: pageData, startOffset: startOffset, in: textView)
-    }
-    
-    @MainActor
-    public class Coordinator {
-        private var lastRenderedSignature: String = ""
-        
-        public func renderAttributedHexDump(data: Data, startOffset: Int64, in textView: NSTextView) {
-            let signature = "\(startOffset)_\(data.count)_\(data.prefix(32).hashValue)"
-            guard signature != lastRenderedSignature else { return }
-            lastRenderedSignature = signature
-            
-            let attrStr = NSMutableAttributedString()
-            let count = data.count
-            
-            let monoFont = NSFont.monospacedSystemFont(ofSize: 12, weight: .regular)
-            let boldMonoFont = NSFont.monospacedSystemFont(ofSize: 12, weight: .bold)
-            
-            let offsetColor = NSColor(red: 0.20, green: 0.70, blue: 0.50, alpha: 1.0) // BambooGreen tint
-            let separatorColor = NSColor.separatorColor
-            let normalHexColor = NSColor.labelColor
-            let zeroHexColor = NSColor.labelColor.withAlphaComponent(0.32)
-            let highHexColor = NSColor(red: 0.75, green: 0.45, blue: 0.90, alpha: 1.0)
-            let asciiPrintableColor = NSColor.labelColor
-            let asciiDotColor = NSColor.secondaryLabelColor.withAlphaComponent(0.4)
-            
-            for lineStart in stride(from: 0, to: count, by: 16) {
-                let offset = startOffset + Int64(lineStart)
-                let lineEnd = min(lineStart + 16, count)
-                let lineSlice = data.subdata(in: lineStart..<lineEnd)
-                
-                // 1. Offset Column (e.g. 00000000)
-                let offsetString = String(format: "%08X", offset)
-                attrStr.append(NSAttributedString(string: offsetString, attributes: [
-                    .font: boldMonoFont,
-                    .foregroundColor: offsetColor
-                ]))
-                
-                attrStr.append(NSAttributedString(string: "  ", attributes: [
-                    .font: monoFont,
-                    .foregroundColor: separatorColor
-                ]))
-                
-                // 2. Hex Group 1 (8 bytes)
-                var bytesWritten = 0
-                for i in 0..<8 {
-                    if i < lineSlice.count {
-                        let byte = lineSlice[i]
-                        let hexByte = String(format: "%02X", byte)
-                        let color = (byte == 0) ? zeroHexColor : ((byte > 0x7F) ? highHexColor : normalHexColor)
-                        attrStr.append(NSAttributedString(string: hexByte, attributes: [
-                            .font: monoFont,
-                            .foregroundColor: color
-                        ]))
-                    } else {
-                        attrStr.append(NSAttributedString(string: "  ", attributes: [.font: monoFont]))
-                    }
-                    if i < 7 {
-                        attrStr.append(NSAttributedString(string: " ", attributes: [.font: monoFont]))
-                    }
-                    bytesWritten += 1
-                }
-                
-                // Middle gap
-                attrStr.append(NSAttributedString(string: "   ", attributes: [.font: monoFont]))
-                
-                // 3. Hex Group 2 (8 bytes)
-                for i in 8..<16 {
-                    if i < lineSlice.count {
-                        let byte = lineSlice[i]
-                        let hexByte = String(format: "%02X", byte)
-                        let color = (byte == 0) ? zeroHexColor : ((byte > 0x7F) ? highHexColor : normalHexColor)
-                        attrStr.append(NSAttributedString(string: hexByte, attributes: [
-                            .font: monoFont,
-                            .foregroundColor: color
-                        ]))
-                    } else {
-                        attrStr.append(NSAttributedString(string: "  ", attributes: [.font: monoFont]))
-                    }
-                    if i < 15 {
-                        attrStr.append(NSAttributedString(string: " ", attributes: [.font: monoFont]))
-                    }
-                }
-                
-                // Spacer between Hex and ASCII
-                attrStr.append(NSAttributedString(string: "   |", attributes: [
-                    .font: monoFont,
-                    .foregroundColor: separatorColor
-                ]))
-                
-                // 4. ASCII Representation
-                for i in 0..<16 {
-                    if i < lineSlice.count {
-                        let byte = lineSlice[i]
-                        if byte >= 32 && byte <= 126 {
-                            let charStr = String(UnicodeScalar(byte))
-                            attrStr.append(NSAttributedString(string: charStr, attributes: [
-                                .font: monoFont,
-                                .foregroundColor: asciiPrintableColor
-                            ]))
-                        } else {
-                            attrStr.append(NSAttributedString(string: "·", attributes: [
-                                .font: monoFont,
-                                .foregroundColor: asciiDotColor
-                            ]))
-                        }
-                    } else {
-                        attrStr.append(NSAttributedString(string: " ", attributes: [.font: monoFont]))
-                    }
-                }
-                
-                attrStr.append(NSAttributedString(string: "|\n", attributes: [
-                    .font: monoFont,
-                    .foregroundColor: separatorColor
-                ]))
-            }
-            
-            textView.textStorage?.setAttributedString(attrStr)
-        }
-    }
-}
-
-/// Dedicated background actor for asynchronous non-blocking hex page chunk loading.
-public actor HexDataChunkLoaderActor {
-    public static let shared = HexDataChunkLoaderActor()
-    
-    private init() {}
-    
-    public func loadChunk(from url: URL, offset: Int64, length: Int) -> Data {
-        guard let fileHandle = try? FileHandle(forReadingFrom: url) else {
-            return Data()
-        }
-        defer { try? fileHandle.close() }
-        try? fileHandle.seek(toOffset: UInt64(max(0, offset)))
-        return (try? fileHandle.read(upToCount: length)) ?? Data()
     }
 }

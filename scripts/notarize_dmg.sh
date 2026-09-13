@@ -14,7 +14,11 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 
-VERSION="1.0.0"
+INFO_PLIST="${REPO_ROOT}/Sources/TTZipApp/Info.plist"
+VERSION="0.1.0"
+if [ -f "${INFO_PLIST}" ]; then
+    VERSION="$(/usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" "${INFO_PLIST}" 2>/dev/null || echo "0.1.0")"
+fi
 DMG_PATH="${REPO_ROOT}/dist/TTZip-${VERSION}.dmg"
 KEYCHAIN_PROFILE="${NOTARY_KEYCHAIN_PROFILE:-}"
 APPLE_ID="${NOTARY_APPLE_ID:-}"

@@ -236,6 +236,15 @@ public final class AppViewState {
     }
     
     @MainActor
+    public func openImmersiveMedia(for item: DiskItemInfo) {
+        openImmersiveMedia(
+            url: URL(fileURLWithPath: item.path),
+            name: item.displayName,
+            fileSizeBytes: item.fileSizeBytes
+        )
+    }
+    
+    @MainActor
     public func closeImmersiveMedia() {
         overlayState.showImmersiveMediaBrowser = false
         overlayState.immersiveMediaItem = nil

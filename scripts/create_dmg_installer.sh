@@ -15,7 +15,7 @@ WORKSPACE_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 
 APP_PATH="${WORKSPACE_ROOT}/dist/TTZip.app"
 VOL_NAME="TTZip"
-OUTPUT_DMG="${WORKSPACE_ROOT}/dist/TTZip-1.0.0.dmg"
+OUTPUT_DMG=""
 BG_IMAGE="${WORKSPACE_ROOT}/Resources/dmg_background.png"
 
 SIGN_IDENTITY="-"
@@ -36,13 +36,26 @@ if [ ! -d "${APP_PATH}" ]; then
     "${SCRIPT_DIR}/bundle_app.sh"
 fi
 
+if [ -z "${OUTPUT_DMG}" ]; then
+    VERSION="0.1.0"
+    if [ -f "${APP_PATH}/Contents/Info.plist" ]; then
+        VERSION="$(/usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" "${APP_PATH}/Contents/Info.plist" 2>/dev/null || echo "0.1.0")"
+    elif [ -f "${WORKSPACE_ROOT}/Sources/TTZipApp/Info.plist" ]; then
+        VERSION="$(/usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" "${WORKSPACE_ROOT}/Sources/TTZipApp/Info.plist" 2>/dev/null || echo "0.1.0")"
+    fi
+    OUTPUT_DMG="${WORKSPACE_ROOT}/dist/TTZip-${VERSION}.dmg"
+fi
+
 mkdir -p "$(dirname "${OUTPUT_DMG}")"
 
 TEMP_DMG="/tmp/${VOL_NAME}_temp.dmg"
 rm -f "${TEMP_DMG}" "${OUTPUT_DMG}"
 
-echo "==> [DMG] Creating staging DMG image (140MB HFS+)..."
-hdiutil create -size 140m -fs HFS+ -volname "${VOL_NAME}" -ov "${TEMP_DMG}" >/dev/null
+APP_SIZE_MB=$(du -sm "${APP_PATH}" | awk '{print $1}')
+STAGING_SIZE_MB=$((APP_SIZE_MB + 60))
+
+echo "==> [DMG] Creating staging DMG image (${STAGING_SIZE_MB}MB HFS+)..."
+hdiutil create -size "${STAGING_SIZE_MB}m" -fs HFS+ -volname "${VOL_NAME}" -ov "${TEMP_DMG}" >/dev/null
 
 echo "==> [DMG] Attaching staging disk image..."
 MOUNT_INFO="$(hdiutil attach -nobrowse -noverify -noautoopen "${TEMP_DMG}")"

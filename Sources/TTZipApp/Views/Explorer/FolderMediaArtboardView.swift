@@ -45,10 +45,8 @@ public struct FolderMediaArtboardView: View {
     public var body: some View {
         VStack(spacing: 0) {
             ScrollView(.vertical, showsIndicators: true) {
-                VStack(alignment: .leading, spacing: 20) {
-                    headerCardSection
-                    
-                    Divider()
+                VStack(alignment: .leading, spacing: 16) {
+                    quickActionButtonsRow
                     
                     overviewSection
                     
@@ -86,87 +84,59 @@ public struct FolderMediaArtboardView: View {
         }
     }
     
-    private var headerCardSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(spacing: 14) {
-                ZStack {
-                    RoundedRectangle(cornerRadius: 12, style: .continuous)
-                        .fill(LinearGradient(colors: [TTZipTheme.bambooGreen, TTZipTheme.bambooGreen.opacity(0.85)], startPoint: .topLeading, endPoint: .bottomTrailing))
-                        .frame(width: 48, height: 48)
-                    
-                    Image(systemName: "folder.fill")
-                        .font(.system(size: 24, weight: .bold))
-                        .foregroundStyle(.white)
-                }
+    private var quickActionButtonsRow: some View {
+        GeometryReader { btnGeo in
+            let w = btnGeo.size.width
+            let isZh = l10n.currentLanguage == .zhHans || l10n.currentLanguage == .zhHant
+            HStack(spacing: w > 320 ? 8 : 4) {
+                headerActionButton(
+                    icon: "folder",
+                    shortTitle: isZh ? "访达" : "Reveal",
+                    fullTitle: l10n.t(L10n.Common.revealInFinder),
+                    width: w,
+                    help: l10n.t(L10n.Common.revealInFinder),
+                    action: {
+                        NSWorkspace.shared.selectFile(item.path, inFileViewerRootedAtPath: "")
+                    }
+                )
                 
-                VStack(alignment: .leading, spacing: 3) {
-                    Text(item.name)
-                        .font(.system(size: 20, weight: .bold))
-                        .foregroundStyle(.primary)
-                        .lineLimit(1)
-                    
-                    Text(item.path)
-                        .font(.system(size: 11, design: .monospaced))
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
-                        .truncationMode(.middle)
-                }
+                headerActionButton(
+                    icon: "folder.badge.plus",
+                    shortTitle: isZh ? "新建" : "Folder",
+                    fullTitle: l10n.t(L10n.Explorer.newFolder),
+                    width: w,
+                    help: l10n.t(L10n.Explorer.newFolder),
+                    action: {
+                        showCreateSubfolderAlert = true
+                    }
+                )
                 
-                Spacer()
+                headerActionButton(
+                    icon: "doc.badge.plus",
+                    shortTitle: isZh ? "文件" : "File",
+                    fullTitle: l10n.t(L10n.Explorer.newFile),
+                    width: w,
+                    help: l10n.t(L10n.Explorer.newFile),
+                    action: {
+                        showCreateFileAlert = true
+                    }
+                )
+                
+                headerActionButton(
+                    icon: "doc.on.doc",
+                    shortTitle: isZh ? "复制" : "Copy",
+                    fullTitle: isZh ? "拷贝路径" : "Copy Path",
+                    width: w,
+                    help: isZh ? "拷贝路径" : "Copy Path",
+                    action: {
+                        NSPasteboard.general.clearContents()
+                        NSPasteboard.general.setString(item.path, forType: .string)
+                    }
+                )
             }
-            
-            GeometryReader { btnGeo in
-                let w = btnGeo.size.width
-                let isZh = l10n.currentLanguage == .zhHans || l10n.currentLanguage == .zhHant
-                HStack(spacing: w > 380 ? 8 : 6) {
-                    headerActionButton(
-                        icon: "folder",
-                        shortTitle: isZh ? "访达" : "Reveal",
-                        fullTitle: l10n.t(L10n.Common.revealInFinder),
-                        width: w,
-                        help: l10n.t(L10n.Common.revealInFinder),
-                        action: {
-                            NSWorkspace.shared.selectFile(item.path, inFileViewerRootedAtPath: "")
-                        }
-                    )
-                    
-                    headerActionButton(
-                        icon: "folder.badge.plus",
-                        shortTitle: isZh ? "文件夹" : "Folder",
-                        fullTitle: l10n.t(L10n.Explorer.newFolder),
-                        width: w,
-                        help: l10n.t(L10n.Explorer.newFolder),
-                        action: {
-                            showCreateSubfolderAlert = true
-                        }
-                    )
-                    
-                    headerActionButton(
-                        icon: "doc.badge.plus",
-                        shortTitle: isZh ? "文件" : "File",
-                        fullTitle: l10n.t(L10n.Explorer.newFile),
-                        width: w,
-                        help: l10n.t(L10n.Explorer.newFile),
-                        action: {
-                            showCreateFileAlert = true
-                        }
-                    )
-                    
-                    headerActionButton(
-                        icon: "doc.on.doc",
-                        shortTitle: l10n.t(L10n.Common.copy),
-                        fullTitle: isZh ? "拷贝路径" : "Copy Path",
-                        width: w,
-                        help: isZh ? "拷贝路径" : "Copy Path",
-                        action: {
-                            NSPasteboard.general.clearContents()
-                            NSPasteboard.general.setString(item.path, forType: .string)
-                        }
-                    )
-                }
-            }
-            .frame(height: 26)
         }
+        .frame(height: 28)
+        .padding(.bottom, 4)
     }
     
     @ViewBuilder

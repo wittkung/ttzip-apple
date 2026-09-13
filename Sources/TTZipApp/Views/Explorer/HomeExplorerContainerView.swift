@@ -33,7 +33,7 @@ public struct HomeExplorerContainerView: View {
     
     public var body: some View {
         TTZipWorkspaceScaffold(
-            isCardEnclosed: true,
+            isEdgeToEdge: true,
             headerLeading: {
                 UniversalOmnibarView(viewModel: viewModel)
             },

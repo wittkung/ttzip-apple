@@ -168,6 +168,9 @@ public struct UniversalOmnibarView: View {
     private func breadcrumbSegment(for crumb: BreadcrumbItem) -> some View {
         Button {
             viewModel.currentDirectory = crumb.url
+            if viewModel.selectedDiskItem?.path != crumb.url.path {
+                viewModel.selectedDiskItem = nil
+            }
         } label: {
             HStack(spacing: 3.5) {
                 if let icon = crumb.iconName {
@@ -365,10 +368,20 @@ public struct UniversalOmnibarView: View {
 
     // MARK: - Breadcrumb Computation
 
+    private var effectiveActiveDirectory: URL {
+        if let selected = viewModel.selectedDiskItem, selected.isDirectory {
+            if let u = URL(string: selected.path), u.scheme != nil {
+                return u.standardizedFileURL
+            }
+            return URL(fileURLWithPath: selected.path).standardizedFileURL
+        }
+        return viewModel.currentDirectory.standardizedFileURL
+    }
+
     private func buildBreadcrumbs() -> [BreadcrumbItem] {
         var items: [BreadcrumbItem] = []
         let homeURL = URL(fileURLWithPath: NSHomeDirectory()).standardizedFileURL
-        let current = viewModel.currentDirectory.standardizedFileURL
+        let current = effectiveActiveDirectory
 
         if current.path == "/" {
             items.append(BreadcrumbItem(

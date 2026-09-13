@@ -240,6 +240,8 @@ package_extension() {
                 strip -x "${ext_bin}" 2>/dev/null || true
             fi
             chmod +x "${ext_bin}"
+            install_name_tool -add_rpath "@executable_path/../../../../Frameworks" "${ext_bin}" 2>/dev/null || true
+            install_name_tool -add_rpath "@loader_path/../../../../Frameworks" "${ext_bin}" 2>/dev/null || true
             echo -n "${src_stat}" > "${STATE_DIR}/${ext_name}.stamp"
             APP_UPDATED=true
         fi
@@ -248,6 +250,7 @@ package_extension() {
 
 package_extension "TTZipFinderSync" "${REPO_ROOT}/Sources/TTZipFinderSync/Info.plist" "libTTZipFinderSync.dylib"
 package_extension "TTZipQuickLook" "${REPO_ROOT}/Sources/TTZipQuickLook/Info.plist" "libTTZipQuickLook.dylib"
+package_extension "TTZipFileProvider" "${REPO_ROOT}/Sources/TTZipFileProvider/Info.plist" "libTTZipFileProvider.dylib"
 
 # 5. Handle Sparkle Framework (Direct Channel only)
 if [ "${CHANNEL}" = "direct" ]; then
@@ -447,13 +450,13 @@ bundle_and_relocate_mpv_deps() {
 bundle_and_relocate_mpv_deps
 
 # 7. Clean up loose extension dylibs from Frameworks and Copy genuine Auxiliary Dynamic Libraries
-rm -f "${FRAMEWORKS_DIR}/libTTZipFinderSync.dylib" "${FRAMEWORKS_DIR}/libTTZipQuickLook.dylib"
+rm -f "${FRAMEWORKS_DIR}/libTTZipFinderSync.dylib" "${FRAMEWORKS_DIR}/libTTZipQuickLook.dylib" "${FRAMEWORKS_DIR}/libTTZipFileProvider.dylib"
 
 if [ -d "${BIN_DIR}" ]; then
     for dylib_file in "${BIN_DIR}"/*.dylib; do
         if [ -f "${dylib_file}" ]; then
             dylib_name="$(basename "${dylib_file}")"
-            if [ "${dylib_name}" != "libTTZipFinderSync.dylib" ] && [ "${dylib_name}" != "libTTZipQuickLook.dylib" ]; then
+            if [ "${dylib_name}" != "libTTZipFinderSync.dylib" ] && [ "${dylib_name}" != "libTTZipQuickLook.dylib" ] && [ "${dylib_name}" != "libTTZipFileProvider.dylib" ]; then
                 target_dylib="${FRAMEWORKS_DIR}/${dylib_name}"
                 sync_file_if_changed "${dylib_file}" "${target_dylib}" 755 || true
             fi
@@ -473,6 +476,30 @@ fi
 
 # Clean up Frameworks if empty
 rmdir "${FRAMEWORKS_DIR}" 2>/dev/null || true
+
+# 8.5 Strip Dynamic Libraries and Thin Embedded Frameworks
+if [ "${BUILD_CONFIG}" = "release" ]; then
+    echo "--> [2.8/4] Stripping dynamic libraries and thinning embedded frameworks..."
+    if [ -d "${FRAMEWORKS_DIR}/Sparkle.framework" ]; then
+        for bin in $(find "${FRAMEWORKS_DIR}/Sparkle.framework" -type f -perm +111 2>/dev/null); do
+            if file "${bin}" 2>/dev/null | grep -q "Mach-O"; then
+                if lipo -info "${bin}" 2>/dev/null | grep -q "x86_64"; then
+                    lipo -thin arm64 "${bin}" -output "${bin}.thin" 2>/dev/null && mv -f "${bin}.thin" "${bin}"
+                    APP_UPDATED=true
+                fi
+                strip -x "${bin}" 2>/dev/null || true
+            fi
+        done
+    fi
+
+    if [ -d "${FRAMEWORKS_DIR}" ]; then
+        for dylib_file in "${FRAMEWORKS_DIR}"/*.dylib; do
+            if [ -f "${dylib_file}" ]; then
+                strip -x "${dylib_file}" 2>/dev/null || true
+            fi
+        done
+    fi
+fi
 
 # 9. Intelligent Code Signing & Verification (Inside-Out Standard)
 NEEDS_BUNDLE_SIGN=false
@@ -513,8 +540,13 @@ if [ "${NEEDS_BUNDLE_SIGN}" = true ]; then
     if [ -d "${PLUGINS_DIR}" ]; then
         for appex_dir in "${PLUGINS_DIR}"/*.appex; do
             if [ -d "${appex_dir}" ]; then
-                echo "    • Signing extension: $(basename "${appex_dir}")..."
+                ext_name="$(basename "${appex_dir}" .appex)"
+                echo "    • Signing extension: ${ext_name}.appex..."
                 EXT_SIGN_ARGS=(--force --sign "${SIGN_IDENTITY}")
+                ext_entitlements="${REPO_ROOT}/Sources/${ext_name}/${ext_name}.entitlements"
+                if [ -f "${ext_entitlements}" ]; then
+                    EXT_SIGN_ARGS+=(--entitlements "${ext_entitlements}")
+                fi
                 if [ "${SIGN_IDENTITY}" != "-" ]; then
                     EXT_SIGN_ARGS+=(--options runtime --timestamp)
                 fi

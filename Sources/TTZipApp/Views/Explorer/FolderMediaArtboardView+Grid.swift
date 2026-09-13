@@ -33,13 +33,13 @@ extension FolderMediaArtboardView {
                 ? "APFS (Apple 文件系统)"
                 : "APFS (Apple File System)"
             
-            VStack(spacing: 10) {
-                detailRow(label: l10n.t(L10n.Inspector.size), value: formattedFolderSize, isHighlight: true)
-                detailRow(label: l10n.t(L10n.Inspector.items), value: itemsValue)
-                detailRow(label: l10n.t(L10n.Inspector.modified), value: formattedDate)
-                detailRow(label: l10n.t(L10n.Inspector.fileSystem), value: fsValue)
-                detailRow(label: l10n.t(L10n.Inspector.permissions), value: "0755 (drwxr-xr-x)")
-                detailRow(label: l10n.t(L10n.Inspector.ownerGroup), value: ownerGroupString)
+            Grid(alignment: .leading, horizontalSpacing: 10, verticalSpacing: 6) {
+                detailGridRow(label: l10n.t(L10n.Inspector.size), value: formattedFolderSize, isHighlight: true)
+                detailGridRow(label: l10n.t(L10n.Inspector.items), value: itemsValue)
+                detailGridRow(label: l10n.t(L10n.Inspector.modified), value: formattedDate)
+                detailGridRow(label: l10n.t(L10n.Inspector.fileSystem), value: fsValue)
+                detailGridRow(label: l10n.t(L10n.Inspector.permissions), value: "0755 (drwxr-xr-x)")
+                detailGridRow(label: l10n.t(L10n.Inspector.ownerGroup), value: compactOwnerGroupString, tooltip: ownerGroupString)
             }
         }
     }
@@ -144,39 +144,32 @@ extension FolderMediaArtboardView {
         }
     }
     
-    func detailRow(label: String, value: String, isHighlight: Bool = false) -> some View {
-        ViewThatFits(in: .horizontal) {
-            // Wide layout: single line
-            HStack(alignment: .firstTextBaseline, spacing: 4) {
-                Text(label)
-                    .font(.system(size: 11, weight: .medium))
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
-                    .fixedSize(horizontal: true, vertical: false)
-                
-                Spacer(minLength: 4)
-                
-                Text(value)
-                    .font(.system(size: isHighlight ? 13 : 11, weight: isHighlight ? .bold : .regular, design: isHighlight ? .default : .monospaced))
-                    .foregroundStyle(isHighlight ? TTZipTheme.bambooGreen : .primary)
-                    .lineLimit(1)
-                    .truncationMode(.tail)
-            }
+    @ViewBuilder
+    func detailGridRow(label: String, value: String, isHighlight: Bool = false, tooltip: String? = nil) -> some View {
+        GridRow(alignment: .firstTextBaseline) {
+            Text(label)
+                .font(.system(size: 11, weight: .medium))
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+                .frame(width: 68, alignment: .leading)
             
-            // Narrow layout: double line stacked
-            VStack(alignment: .leading, spacing: 2) {
-                Text(label)
-                    .font(.system(size: 10, weight: .medium))
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
-                
-                Text(value)
-                    .font(.system(size: isHighlight ? 12 : 11, weight: isHighlight ? .bold : .regular, design: isHighlight ? .default : .monospaced))
-                    .foregroundStyle(isHighlight ? TTZipTheme.bambooGreen : .primary)
-                    .lineLimit(1)
-                    .truncationMode(.tail)
-            }
+            Text(value)
+                .font(.system(size: isHighlight ? 12.5 : 11, weight: isHighlight ? .bold : .regular, design: isHighlight ? .default : .monospaced))
+                .foregroundStyle(isHighlight ? TTZipTheme.bambooGreen : .primary)
+                .lineLimit(1)
+                .truncationMode(.tail)
+                .frame(maxWidth: .infinity, alignment: .trailing)
+                .help(tooltip ?? value)
         }
+    }
+    
+    private var compactOwnerGroupString: String {
+        if let attrs = try? FileManager.default.attributesOfItem(atPath: item.path) {
+            let owner = attrs[.ownerAccountName] as? String ?? NSUserName()
+            let group = attrs[.groupOwnerAccountName] as? String ?? "staff"
+            return "\(owner) · \(group)"
+        }
+        return "\(NSUserName()) · staff"
     }
     
     private var ownerGroupString: String {

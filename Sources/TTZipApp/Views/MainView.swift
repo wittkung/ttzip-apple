@@ -48,29 +48,10 @@ public struct MainView: View {
     @State private var leftSidebarWidth: CGFloat = 190
     @State private var initialLeftWidth: CGFloat = 190
     
-    @AppStorage("TTZip_UserRightSidebarWidth") private var userRightSidebarWidth: Double = 280.0
-    @AppStorage("TTZip_UserRightSidebarMediaWidth") private var userRightSidebarMediaWidth: Double = 540.0
-    @State private var rightSidebarWidth: CGFloat = 280
-    @State private var initialRightWidth: CGFloat = 280
+    @AppStorage("TTZip_UserRightSidebarWidth") private var userRightSidebarWidth: Double = 340.0
+    @State private var rightSidebarWidth: CGFloat = 340
+    @State private var initialRightWidth: CGFloat = 340
     @State private var rightVerticalTopHeight: CGFloat = 300
-    
-    private static func isRichPreviewItem(_ item: DiskItemInfo?) -> Bool {
-        guard let item = item, !item.isDirectory else { return false }
-        let ext = (item.name as NSString).pathExtension.lowercased()
-        return MediaPreviewFactory.videoExtensions.contains(ext)
-            || MediaPreviewFactory.imageExtensions.contains(ext)
-            || ext == "pdf"
-            || MediaPreviewFactory.presentationExtensions.contains(ext)
-            || MediaPreviewFactory.spreadsheetExtensions.contains(ext)
-            || MediaPreviewFactory.docxExtensions.contains(ext)
-            || MediaPreviewFactory.markdownExtensions.contains(ext)
-            || MediaPreviewFactory.htmlWebExtensions.contains(ext)
-            || MediaPreviewFactory.textExtensions.contains(ext)
-    }
-    
-    private var isRichPreviewSelected: Bool {
-        Self.isRichPreviewItem(viewModel.selectedDiskItem)
-    }
     
     @StateObject var searchService = SpotlightSearchService()
     @State var searchQuery: String = ""
@@ -176,7 +157,7 @@ public struct MainView: View {
             withAnimation(.easeInOut(duration: 0.25)) {
                 viewModel.navigationState.layoutMode = .standard
                 self.leftSidebarWidth = CGFloat(userLeftSidebarWidth)
-                self.rightSidebarWidth = isRichPreviewSelected ? CGFloat(userRightSidebarMediaWidth) : CGFloat(userRightSidebarWidth)
+                self.rightSidebarWidth = CGFloat(userRightSidebarWidth)
             }
         }
         .onChange(of: viewModel.activePreviewFileURL) { _, newURL in
@@ -184,7 +165,7 @@ public struct MainView: View {
                 withAnimation(.easeInOut(duration: 0.25)) {
                     viewModel.navigationState.layoutMode = .standard
                     self.leftSidebarWidth = CGFloat(userLeftSidebarWidth)
-                    self.rightSidebarWidth = isRichPreviewSelected ? CGFloat(userRightSidebarMediaWidth) : CGFloat(userRightSidebarWidth)
+                    self.rightSidebarWidth = CGFloat(userRightSidebarWidth)
                 }
             }
         }
@@ -287,7 +268,6 @@ public struct MainView: View {
             
             // Fixed Chrome Geometry & Safety Clamping Constants
             let dividerWidth: CGFloat = ResizableDividerHandle.gutterWidth
-            let rightPanelPadding: CGFloat = 14.0 // leading: 4 + trailing: 10
             let minSafeWorkspaceWidth: CGFloat = 460.0
             
             let isLeftPanelAvailable: Bool = (tier != .compact && viewModel.activeTab == .home)
@@ -304,18 +284,15 @@ public struct MainView: View {
             
             let isIconRailMode: Bool = effectiveLeftWidth <= 80.0
             
-            let isRichContent = isRichPreviewSelected
-            let minRightSidebarWidth: CGFloat = 200.0
-            let maxRightSidebarWidth: CGFloat = isRichContent
-                ? min(850.0, totalWidth * 0.55)
-                : min(380.0, totalWidth * 0.35)
+            let minRightSidebarWidth: CGFloat = 240.0
+            let maxRightSidebarWidth: CGFloat = totalWidth * 0.5
             let isRightPanelAvailable: Bool = (tier != .compact && viewModel.activeTab == .home)
             let shouldShowRightPanel = !isMediaFocus && isRightSidebarVisible && isRightPanelAvailable
             
             let leftChrome = shouldShowLeftPanel ? (effectiveLeftWidth + dividerWidth) : 0
-            let rightChrome = shouldShowRightPanel ? (dividerWidth + rightPanelPadding) : 0
+            let rightChrome = shouldShowRightPanel ? dividerWidth : 0
             let maxRightAllowedByWorkspace = max(minRightSidebarWidth, totalWidth - leftChrome - rightChrome - minSafeWorkspaceWidth)
-            let effectiveMaxRightWidth = min(maxRightSidebarWidth, maxRightAllowedByWorkspace)
+            let effectiveMaxRightWidth = max(minRightSidebarWidth, min(maxRightSidebarWidth, maxRightAllowedByWorkspace))
             
             let effectiveRightWidth: CGFloat = {
                 if !shouldShowRightPanel { return 0 }
@@ -366,24 +343,11 @@ public struct MainView: View {
                 } else {
                     self.leftSidebarWidth = min(max(savedLeft, SidebarGeometry.minExpandedWidth), SidebarGeometry.maxExpandedWidth)
                 }
-                let baseWidth = isRichContent ? CGFloat(userRightSidebarMediaWidth) : CGFloat(userRightSidebarWidth)
+                let baseWidth = CGFloat(userRightSidebarWidth)
                 self.rightSidebarWidth = min(max(baseWidth, minRightSidebarWidth), effectiveMaxRightWidth)
             }
-            .onChange(of: viewModel.selectedDiskItem) { oldItem, newItem in
+            .onChange(of: viewModel.selectedDiskItem) { _, _ in
                 NSApp.keyWindow?.makeFirstResponder(nil)
-                let wasRich = Self.isRichPreviewItem(oldItem)
-                let isRich = Self.isRichPreviewItem(newItem)
-                if !wasRich && isRich {
-                    withAnimation(.spring(response: 0.32, dampingFraction: 0.82)) {
-                        let target = min(max(CGFloat(userRightSidebarMediaWidth), minRightSidebarWidth), effectiveMaxRightWidth)
-                        rightSidebarWidth = target
-                    }
-                } else if wasRich && !isRich {
-                    withAnimation(.spring(response: 0.32, dampingFraction: 0.82)) {
-                        let target = min(max(CGFloat(userRightSidebarWidth), minRightSidebarWidth), 380.0)
-                        rightSidebarWidth = target
-                    }
-                }
             }
             .onChange(of: viewModel.activeTab) { _, newTab in
                 NSApp.keyWindow?.makeFirstResponder(nil)
@@ -468,21 +432,13 @@ public struct MainView: View {
                         rightSidebarWidth = min(max(newWidth, minRightSidebarWidth), effectiveMaxRightWidth)
                     },
                     onDragEnd: {
-                        if isRichPreviewSelected {
-                            userRightSidebarMediaWidth = Double(rightSidebarWidth)
-                        } else {
-                            userRightSidebarWidth = Double(rightSidebarWidth)
-                        }
+                        userRightSidebarWidth = Double(rightSidebarWidth)
                     },
                     onDoubleClick: {
                         withAnimation(.spring(response: 0.28, dampingFraction: 0.82)) {
-                            let targetWidth: CGFloat = isRichPreviewSelected ? 540.0 : 280.0
+                            let targetWidth: CGFloat = 340.0
                             rightSidebarWidth = min(targetWidth, effectiveMaxRightWidth)
-                            if isRichPreviewSelected {
-                                userRightSidebarMediaWidth = Double(rightSidebarWidth)
-                            } else {
-                                userRightSidebarWidth = Double(rightSidebarWidth)
-                            }
+                            userRightSidebarWidth = Double(rightSidebarWidth)
                         }
                         NSHapticFeedbackManager.defaultPerformer.perform(.alignment, performanceTime: .default)
                     }
@@ -491,12 +447,10 @@ public struct MainView: View {
                 .transition(.opacity)
                 
                 RightInspectorSidePanel(viewModel: viewModel, rightVerticalTopHeight: $rightVerticalTopHeight)
-                    .frame(width: effectiveRightWidth, alignment: .topLeading)
                     .padding(.top, TTZipTheme.Layout.topBarOffset)
-                    .padding(.leading, 4)
-                    .padding(.trailing, 10)
-                    .padding(.bottom, TTZipTheme.Spacing.md)
+                    .frame(width: effectiveRightWidth, alignment: .topLeading)
                     .frame(maxHeight: totalHeight, alignment: .topLeading)
+                    .clipped()
                     .transition(.move(edge: .trailing).combined(with: .opacity))
             }
         }
