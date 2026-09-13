@@ -22,7 +22,7 @@ public struct UniversalOmnibarView: View {
 
     // MARK: - State
 
-    @StateObject private var engine = OmniSearchEngine()
+    @State private var engine = OmniSearchEngine()
     @State private var isEditing: Bool = false
     @State private var inputText: String = ""
     @State private var selectedIndex: Int = 0

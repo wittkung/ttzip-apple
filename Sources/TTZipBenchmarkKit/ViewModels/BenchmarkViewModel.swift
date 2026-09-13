@@ -6,6 +6,7 @@
 // TTZip: High-performance native archiving and compression engine.
 
 import SwiftUI
+import Observation
 import TTZipCore
 import TTZipUI
 
@@ -18,41 +19,42 @@ public enum BenchmarkMode: String, CaseIterable, Identifiable {
 }
 
 /// Benchmark ViewModel coordinating synthetic datasets and custom local files.
+@Observable
 @MainActor
-public final class BenchmarkViewModel: ObservableObject {
-    @Published public var testMode: BenchmarkMode = .synthetic
-    @Published public var selectedSize: BenchmarkDataSize = .medium {
+public final class BenchmarkViewModel {
+    public var testMode: BenchmarkMode = .synthetic
+    public var selectedSize: BenchmarkDataSize = .medium {
         didSet { recalculateBaselineResults() }
     }
-    @Published public var selectedProfile: BenchmarkDatasetProfile = .mediaBinary {
+    public var selectedProfile: BenchmarkDatasetProfile = .mediaBinary {
         didSet { recalculateBaselineResults() }
     }
-    @Published public var selectedFormat: ArchiveCompressionFormat = .sevenZip
-    @Published public var selectedLevel: ArchiveCompressionLevel = .normal
+    public var selectedFormat: ArchiveCompressionFormat = .sevenZip
+    public var selectedLevel: ArchiveCompressionLevel = .normal
     
     // Custom Path Mode
-    @Published public var customPath: String? = nil
-    @Published public var customPathSizeBytes: Int64 = 0
-    @Published public var customPathIsDirectory: Bool = false
+    public var customPath: String? = nil
+    public var customPathSizeBytes: Int64 = 0
+    public var customPathIsDirectory: Bool = false
     
-    @Published public var currentPresetName: String = ""
-    @Published public var isRunning: Bool = false
-    @Published public var isPaused: Bool = false
-    @Published public var currentProgress: BenchmarkProgress = BenchmarkProgress()
-    @Published public var lastResult: BenchmarkResult? = nil
-    @Published public var suiteResults: [BenchmarkResult] = []
-    @Published public var currentSuiteIndex: Int = 0
-    @Published public var totalSuiteCount: Int = 0
-    @Published public var errorMessage: String? = nil
+    public var currentPresetName: String = ""
+    public var isRunning: Bool = false
+    public var isPaused: Bool = false
+    public var currentProgress: BenchmarkProgress = BenchmarkProgress()
+    public var lastResult: BenchmarkResult? = nil
+    public var suiteResults: [BenchmarkResult] = []
+    public var currentSuiteIndex: Int = 0
+    public var totalSuiteCount: Int = 0
+    public var errorMessage: String? = nil
     
     // Frontend Benchmark Report
-    @Published public var frontendReport: FrontendPerformanceReport? = nil
+    public var frontendReport: FrontendPerformanceReport? = nil
     
     // Competitor Toolchain Awareness
-    @Published public var detectedCompetitors: [CompetitorTool] = []
-    @Published public var isInstallingToolchain: Bool = false
-    @Published public var toolchainStatusMessage: String? = nil
-    @Published public var showHomebrewConsentModal: Bool = false
+    public var detectedCompetitors: [CompetitorTool] = []
+    public var isInstallingToolchain: Bool = false
+    public var toolchainStatusMessage: String? = nil
+    public var showHomebrewConsentModal: Bool = false
     
     public init() {
         refreshCompetitors()

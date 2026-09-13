@@ -17,14 +17,14 @@ public struct MPVMetalVideoPlayerView: View {
     public let url: URL
     public let isFullScreen: Bool
     
-    @ObservedObject public var store: MPVMetalPlayerStore
+    public var store: MPVMetalPlayerStore
     public var playlistStore: MediaPlaylistStore
     @State private var isHovering: Bool = false
     @State private var isDropTargeted: Bool = false
     @State private var isPlaylistOpen: Bool = false
     @State private var copySuccessToast: Bool = false
     @State private var hideTimer: Timer? = nil
-    @ObservedObject private var l10n = AppLocalizationState.shared
+    private var l10n = AppLocalizationState.shared
     
     public init(
         url: URL,
@@ -371,7 +371,7 @@ public struct MPVMetalVideoPlayerView: View {
 /// Native NSView hosting container embedding libmpv surface with Extended Dynamic Range (EDR) capability.
 public struct MPVNativeMetalContainerView: NSViewRepresentable {
     public let url: URL
-    @ObservedObject public var store: MPVMetalPlayerStore
+    public var store: MPVMetalPlayerStore
     public let isFullScreen: Bool
     public let onDropSubtitle: (URL) -> Void
     public let onTogglePlayPause: () -> Void

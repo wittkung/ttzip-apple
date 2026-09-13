@@ -13,7 +13,7 @@ import TTZipBenchmarkKit
 
 /// Algorithm characteristics and performance comparison matrix sheet.
 public struct AlgorithmMatrixSheetView: View {
-    @ObservedObject private var l10n = AppLocalizationState.shared
+    private var l10n = AppLocalizationState.shared
     @Binding public var isPresented: Bool
     
     public init(isPresented: Binding<Bool>) {

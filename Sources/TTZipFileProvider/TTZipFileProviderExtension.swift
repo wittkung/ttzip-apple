@@ -43,7 +43,7 @@ private final class UncheckedSendableBox<T>: @unchecked Sendable {
 }
 
 /// Thread-safe synchronization holder for bridging synchronous enumerator creation.
-private final class SyncResultBox<T>: @unchecked Sendable {
+private final class SyncResultBox<T: Sendable>: @unchecked Sendable {
     var result: T?
     var error: Error?
 }

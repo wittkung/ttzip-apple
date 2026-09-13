@@ -7,6 +7,7 @@
 
 import Foundation
 import SwiftUI
+import Observation
 
 /// Distribution and purchase channels for TTZip licensing.
 public enum AppLicenseChannel: String, Sendable, CaseIterable {
@@ -32,12 +33,14 @@ public enum AppLicenseTier: Sendable, Equatable {
 }
 
 /// Central licensing and entitlement state manager.
+@Observable
 @MainActor
-public final class AppLicenseManager: ObservableObject {
+public final class AppLicenseManager {
     public static let shared = AppLicenseManager()
     
+    @ObservationIgnored
     @AppStorage("TTZip_LicenseTierRaw") private var storedTier: String = "pro_licenseKey"
-    @Published public private(set) var currentTier: AppLicenseTier = .community
+    public private(set) var currentTier: AppLicenseTier = .community
     
     private init() {
         loadLicenseState()

@@ -13,11 +13,11 @@ import TTZipBenchmarkKit
 
 /// Preset workspace central configuration view.
 public struct PresetWorkspaceView: View {
-    @ObservedObject private var l10n = AppLocalizationState.shared
-    @StateObject private var viewModel: PresetWorkspaceViewModel
+    private var l10n = AppLocalizationState.shared
+    @State private var viewModel: PresetWorkspaceViewModel
     
     public init(viewModel: PresetWorkspaceViewModel = PresetWorkspaceViewModel()) {
-        self._viewModel = StateObject(wrappedValue: viewModel)
+        self._viewModel = State(initialValue: viewModel)
     }
     
     public var body: some View {

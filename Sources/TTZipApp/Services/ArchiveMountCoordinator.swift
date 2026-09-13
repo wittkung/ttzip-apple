@@ -7,14 +7,16 @@
 
 import FileProvider
 import Foundation
+import Observation
 
 /// Coordinates registration and lifecycle of virtual archive mount domains with the macOS FileProvider daemon.
+@Observable
 @MainActor
-public final class ArchiveMountCoordinator: ObservableObject {
+public final class ArchiveMountCoordinator {
     public static let shared = ArchiveMountCoordinator()
     public static let appGroupId = "group.com.metastudyline.ttzip"
 
-    @Published public private(set) var mountedArchives: [String: URL] = [:]
+    public private(set) var mountedArchives: [String: URL] = [:]
 
     private init() {
         refreshMountedDomains()

@@ -7,6 +7,7 @@
 
 import Foundation
 import SwiftUI
+import Observation
 
 public enum PluginInstallPhase: Sendable, Equatable {
     case idle
@@ -34,18 +35,20 @@ public struct DownloadProgress: Sendable, Equatable {
     }
 }
 
+@Observable
 @MainActor
-public final class TTZipPluginInstaller: NSObject, ObservableObject, URLSessionDownloadDelegate {
+public final class TTZipPluginInstaller: NSObject, URLSessionDownloadDelegate {
     public static let shared = TTZipPluginInstaller()
     
-    @Published public private(set) var currentPhase: PluginInstallPhase = .idle
-    @Published public private(set) var activeInstallingId: String?
+    public private(set) var currentPhase: PluginInstallPhase = .idle
+    public private(set) var activeInstallingId: String?
     
     private var downloadContinuation: CheckedContinuation<URL, Error>?
     private var lastBytesWritten: Int64 = 0
     private var lastSampleTime: Date = Date()
     private var smoothedSpeed: Double = 0.0
     
+    @ObservationIgnored
     private lazy var urlSession: URLSession = {
         let config = URLSessionConfiguration.default
         config.timeoutIntervalForRequest = 30.0

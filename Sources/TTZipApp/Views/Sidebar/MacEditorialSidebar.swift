@@ -14,8 +14,8 @@ import TTZipBenchmarkKit
 
 /// Editorial style sidebar (WSJ Editorial Sidebar).
 public struct MacEditorialSidebar: View {
-    @ObservedObject private var l10n = AppLocalizationState.shared
-    @ObservedObject private var registry = TTZipPluginRegistry.shared
+    private var l10n = AppLocalizationState.shared
+    private var registry = TTZipPluginRegistry.shared
     @Binding public var activeTab: WorkspaceTab
     public let currentArchivePath: String?
     public var isCompact: Bool = false

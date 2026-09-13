@@ -12,7 +12,7 @@ import TTZipPreviewKit
 import TTZipBenchmarkKit
 
 public struct PasswordPromptSheetView: View {
-    @ObservedObject private var l10n = AppLocalizationState.shared
+    private var l10n = AppLocalizationState.shared
     
     let archivePath: String
     let onSubmitPassword: (String) async -> Bool

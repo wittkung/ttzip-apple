@@ -20,8 +20,8 @@ public struct ArchiveExplorerView: View {
     public let onExtractClicked: () -> Void
     public let onCloseClicked: () -> Void
     
-    @ObservedObject var l10n = AppLocalizationState.shared
-    @StateObject var treeStore = ArchiveTreeStore()
+    var l10n = AppLocalizationState.shared
+    @State var treeStore = ArchiveTreeStore()
     @State var selectedEntryID: String?
     @State var previewFileURL: URL?
     @State var showPreviewPanel = true

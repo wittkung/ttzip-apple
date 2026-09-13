@@ -13,7 +13,7 @@ import TTZipBenchmarkKit
 
 public struct ArchiveIntegrityView: View {
     public let archivePath: String
-    @StateObject private var viewModel = ArchiveIntegrityViewModel()
+    @State private var viewModel = ArchiveIntegrityViewModel()
     @Environment(\.dismiss) private var dismiss
     
     public init(archivePath: String) {

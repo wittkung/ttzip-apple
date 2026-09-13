@@ -6,20 +6,22 @@
 // TTZip: High-performance native archiving and compression engine.
 
 import SwiftUI
-import Combine
+import Observation
 
-/// Unified plugin registry and dispatch manager (Swift 6 Strict Concurrency & ObservableObject)
+/// Unified plugin registry and dispatch manager (Swift 6 Strict Concurrency & Swift Observation)
+@Observable
 @MainActor
-public final class TTZipPluginRegistry: ObservableObject {
+public final class TTZipPluginRegistry {
     public static let shared = TTZipPluginRegistry()
     
-    @Published public private(set) var installedPlugins: [TTZipPlugin] = []
-    @Published public private(set) var sidebarItems: [TTZipSidebarContribution] = []
-    @Published public private(set) var omnibarCommands: [TTZipCommandAction] = []
-    @Published public private(set) var previewProviders: [TTZipPreviewProvider] = []
-    @Published public private(set) var archiveSourceProviders: [TTZipArchiveSourceProvider] = []
-    @Published public private(set) var contextMenuActions: [TTZipContextMenuAction] = []
+    public private(set) var installedPlugins: [TTZipPlugin] = []
+    public private(set) var sidebarItems: [TTZipSidebarContribution] = []
+    public private(set) var omnibarCommands: [TTZipCommandAction] = []
+    public private(set) var previewProviders: [TTZipPreviewProvider] = []
+    public private(set) var archiveSourceProviders: [TTZipArchiveSourceProvider] = []
+    public private(set) var contextMenuActions: [TTZipContextMenuAction] = []
     
+    @ObservationIgnored
     private var pluginContexts: [String: TTZipHostContext] = [:]
     
     private init() {}

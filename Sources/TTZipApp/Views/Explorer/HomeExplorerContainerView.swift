@@ -14,7 +14,7 @@ import TTZipBenchmarkKit
 /// Home explorer container holding toolbar header and directory browser.
 public struct HomeExplorerContainerView: View {
     public var viewModel: AppViewState
-    @ObservedObject private var l10n = AppLocalizationState.shared
+    private var l10n = AppLocalizationState.shared
     public let isRightSidebarVisible: Bool
     public let isActive: Bool
     

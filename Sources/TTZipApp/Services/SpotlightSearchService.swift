@@ -6,23 +6,45 @@
 // TTZip: High-performance native archiving and compression engine.
 
 import Foundation
+import Observation
 import TTZipUI
 import TTZipPreviewKit
 import TTZipBenchmarkKit
 
 /// Fast Spotlight file searching service leveraging Apple's native NSMetadataQuery.
+@Observable
 @MainActor
-public final class SpotlightSearchService: ObservableObject {
-    @Published public var searchQuery: String = ""
-    @Published public var searchResults: [DiskItemInfo] = []
-    @Published public var isSearching: Bool = false
+public final class SpotlightSearchService {
+    public var searchQuery: String = ""
+    public var searchResults: [DiskItemInfo] = []
+    public var isSearching: Bool = false
     
+    /// Notification posted whenever search results are updated.
+    public static let searchResultsDidChangeNotification = Notification.Name("SpotlightSearchService.searchResultsDidChangeNotification")
+
+    /// Active AsyncStream continuations.
+    private var resultsContinuations: [UUID: AsyncStream<[DiskItemInfo]>.Continuation] = [:]
+
     private var metadataQuery: NSMetadataQuery?
     
     public init() {}
     
     deinit {
         NotificationCenter.default.removeObserver(self)
+    }
+
+    /// Asynchronous stream yielding Spotlight search results.
+    public func makeResultsStream() -> AsyncStream<[DiskItemInfo]> {
+        AsyncStream { continuation in
+            let id = UUID()
+            self.resultsContinuations[id] = continuation
+            continuation.onTermination = { [weak self] _ in
+                Task { @MainActor in
+                    self?.resultsContinuations.removeValue(forKey: id)
+                }
+            }
+            continuation.yield(self.searchResults)
+        }
     }
     
     public func performSearch(query: String, searchDirectory: String = NSHomeDirectory()) {
@@ -58,6 +80,10 @@ public final class SpotlightSearchService: ObservableObject {
         stopCurrentQuery()
         self.isSearching = false
         self.searchResults = []
+        for continuation in resultsContinuations.values {
+            continuation.yield([])
+        }
+        NotificationCenter.default.post(name: Self.searchResultsDidChangeNotification, object: self)
     }
     
     @objc private func didFinishGathering(_ notification: Notification) {
@@ -84,6 +110,10 @@ public final class SpotlightSearchService: ObservableObject {
             items.append(DiskItemInfo(url: url))
         }
         self.searchResults = items
+        for continuation in resultsContinuations.values {
+            continuation.yield(items)
+        }
+        NotificationCenter.default.post(name: Self.searchResultsDidChangeNotification, object: self)
     }
     
     private func stopCurrentQuery() {

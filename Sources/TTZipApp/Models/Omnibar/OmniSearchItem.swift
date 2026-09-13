@@ -47,16 +47,17 @@ public enum OmniSearchCategory: String, CaseIterable, Hashable, Identifiable, Se
 }
 
 /// Action or resource payload encapsulated within an Omnibar search item.
-public enum OmniItemPayload: @unchecked Sendable {
+public enum OmniItemPayload: Sendable {
     case directory(URL)
     case file(URL)
     case application(URL)
-    case command(id: String, action: @MainActor () -> Void)
+    case command(id: String, action: @Sendable @MainActor () -> Void)
 }
 
 /// Strongly-typed search item displayed within the Universal Omnibar.
-public struct OmniSearchItem: Identifiable, @unchecked Sendable {
-    public let id: String
+@MainActor
+public struct OmniSearchItem: Identifiable {
+    public nonisolated let id: String
     public let category: OmniSearchCategory
     public let title: String
     public let subtitle: String
@@ -87,13 +88,13 @@ public struct OmniSearchItem: Identifiable, @unchecked Sendable {
 }
 
 extension OmniSearchItem: Equatable {
-    public static func == (lhs: OmniSearchItem, rhs: OmniSearchItem) -> Bool {
+    public nonisolated static func == (lhs: OmniSearchItem, rhs: OmniSearchItem) -> Bool {
         lhs.id == rhs.id
     }
 }
 
 extension OmniSearchItem: Hashable {
-    public func hash(into hasher: inout Hasher) {
+    public nonisolated func hash(into hasher: inout Hasher) {
         hasher.combine(id)
     }
 }

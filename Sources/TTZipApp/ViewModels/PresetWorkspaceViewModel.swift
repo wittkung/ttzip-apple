@@ -6,6 +6,7 @@
 // TTZip: High-performance native archiving and compression engine.
 
 import SwiftUI
+import Observation
 import TTZipCore
 import TTZipUI
 import TTZipPreviewKit
@@ -22,24 +23,25 @@ public struct PresetDraftState: Sendable, Equatable {
     public let defaultPassword: String
 }
 
+@Observable
 @MainActor
-public final class PresetWorkspaceViewModel: ObservableObject {
+public final class PresetWorkspaceViewModel {
     public var manager: PresetManager
 
-    @Published public var presets: [CompressionPreset] = []
-    @Published public var selectedPresetID: UUID? = nil
+    public var presets: [CompressionPreset] = []
+    public var selectedPresetID: UUID? = nil
     
     // Preset Editor State
-    @Published public var editorName: String = ""
-    @Published public var editorFormat: ArchiveCompressionFormat = .sevenZip
-    @Published public var editorLevel: ArchiveCompressionLevel = .normal
-    @Published public var editorSplitVolumeOption: Int64? = nil
-    @Published public var editorSkipMacJunk: Bool = true
-    @Published public var editorSkipGitDirectory: Bool = false
-    @Published public var editorDefaultPassword: String = ""
+    public var editorName: String = ""
+    public var editorFormat: ArchiveCompressionFormat = .sevenZip
+    public var editorLevel: ArchiveCompressionLevel = .normal
+    public var editorSplitVolumeOption: Int64? = nil
+    public var editorSkipMacJunk: Bool = true
+    public var editorSkipGitDirectory: Bool = false
+    public var editorDefaultPassword: String = ""
     
-    @Published public var activeEditingPrototype: CompressionPreset? = nil
-    @Published public var statusMessage: String = ""
+    public var activeEditingPrototype: CompressionPreset? = nil
+    public var statusMessage: String = ""
     
     private var undoStack: [PresetDraftState] = []
     private var redoStack: [PresetDraftState] = []

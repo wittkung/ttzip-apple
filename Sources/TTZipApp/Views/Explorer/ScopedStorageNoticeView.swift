@@ -15,7 +15,7 @@ public struct ScopedStorageNoticeView: View {
     public var onEnableAdbRequested: (() -> Void)? = nil
     public var onDismiss: (() -> Void)? = nil
     
-    @ObservedObject private var l10n = AppLocalizationState.shared
+    private var l10n = AppLocalizationState.shared
     
     public init(
         restrictedPath: String = "/Android/data",

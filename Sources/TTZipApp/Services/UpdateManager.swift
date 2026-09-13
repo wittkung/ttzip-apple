@@ -6,15 +6,17 @@
 // TTZip: High-performance native archiving and compression engine.
 
 import Foundation
-import Combine
+import SwiftUI
+import Observation
 
 #if MAS_BUILD
 /// Mac App Store (MAS) sandbox build: updates managed by App Store.
+@Observable
 @MainActor
-public final class UpdateManager: ObservableObject {
+public final class UpdateManager {
     public static let shared = UpdateManager()
     
-    @Published public var canCheckForUpdates: Bool = false
+    public var canCheckForUpdates: Bool = false
     
     private init() {}
     
@@ -29,12 +31,14 @@ import TTZipUI
 import TTZipPreviewKit
 import TTZipBenchmarkKit
 
+@Observable
 @MainActor
-public final class UpdateManager: NSObject, ObservableObject, SPUUpdaterDelegate {
+public final class UpdateManager: NSObject, SPUUpdaterDelegate {
     public static let shared = UpdateManager()
     
-    @Published public var canCheckForUpdates: Bool = false
+    public var canCheckForUpdates: Bool = false
     
+    @ObservationIgnored
     private var updaterController: SPUStandardUpdaterController?
     
     private override init() {

@@ -6,34 +6,36 @@
 // TTZip: High-performance native archiving and compression engine.
 
 import SwiftUI
+import Observation
 import TTZipCore
 import LocalAuthentication
 import TTZipUI
 import TTZipPreviewKit
 import TTZipBenchmarkKit
 
+@Observable
 @MainActor
-public final class PasswordVaultViewModel: ObservableObject {
-    @Published public var isUnlocked: Bool = false
-    @Published public var masterPasswordInput: String = ""
-    @Published public var confirmMasterPasswordInput: String = ""
-    @Published public var unlockErrorMessage: String = ""
+public final class PasswordVaultViewModel {
+    public var isUnlocked: Bool = false
+    public var masterPasswordInput: String = ""
+    public var confirmMasterPasswordInput: String = ""
+    public var unlockErrorMessage: String = ""
     
-    @Published public var isResetSheetPresented: Bool = false
-    @Published public var newMasterPasswordInput: String = ""
+    public var isResetSheetPresented: Bool = false
+    public var newMasterPasswordInput: String = ""
     
-    @Published public var isRecoverSheetPresented: Bool = false
-    @Published public var oldMasterPasswordInput: String = ""
-    @Published public var recoverErrorMessage: String = ""
+    public var isRecoverSheetPresented: Bool = false
+    public var oldMasterPasswordInput: String = ""
+    public var recoverErrorMessage: String = ""
     
-    @Published public var entries: [PasswordVaultEntry] = []
-    @Published public var isAddModalPresented: Bool = false
+    public var entries: [PasswordVaultEntry] = []
+    public var isAddModalPresented: Bool = false
     
-    @Published public var newLabel: String = ""
-    @Published public var newPassword: String = ""
-    @Published public var newCategory: String = "General"
-    @Published public var copiedID: UUID? = nil
-    @Published public var visiblePasswordIDs: Set<UUID> = []
+    public var newLabel: String = ""
+    public var newPassword: String = ""
+    public var newCategory: String = "General"
+    public var copiedID: UUID? = nil
+    public var visiblePasswordIDs: Set<UUID> = []
     
     public var manager: PasswordVaultManager
     
@@ -196,12 +198,12 @@ public final class PasswordVaultViewModel: ObservableObject {
     }
     
     // MARK: - Multi-Core Parallel Password Recovery
-    @Published public var isRecoverySheetPresented: Bool = false
-    @Published public var recoveryArchivePath: String = ""
-    @Published public var customCandidatesInput: String = ""
-    @Published public var isRecoveringPassword: Bool = false
-    @Published public var recoveryResult: PasswordRecoveryResult? = nil
-    @Published public var recoveryStatusMessage: String = ""
+    public var isRecoverySheetPresented: Bool = false
+    public var recoveryArchivePath: String = ""
+    public var customCandidatesInput: String = ""
+    public var isRecoveringPassword: Bool = false
+    public var recoveryResult: PasswordRecoveryResult? = nil
+    public var recoveryStatusMessage: String = ""
     
     public func runParallelPasswordRecovery(archivePath: String, customCandidates: [String] = []) async {
         guard !archivePath.isEmpty else { return }

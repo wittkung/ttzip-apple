@@ -13,7 +13,7 @@ import TTZipBenchmarkKit
 
 /// Reactive SwiftUI Commands struct for macOS native menu bar integration.
 public struct TTZipMenuCommands: Commands {
-    @ObservedObject private var l10n = AppLocalizationState.shared
+    private var l10n = AppLocalizationState.shared
     
     public init() {}
     

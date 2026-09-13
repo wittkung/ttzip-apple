@@ -12,7 +12,7 @@ import TTZipCore
 
 /// Thread-safe sandbox LRU temporary media cache pool for libmpv & CoreAudio playback.
 /// Provides concrete POSIX filesystem URLs for archive media entries with zero disk leak.
-public final class ArchiveMediaCachePool: @unchecked Sendable {
+public actor ArchiveMediaCachePool {
     
     // MARK: - Singleton
     
@@ -38,11 +38,9 @@ public final class ArchiveMediaCachePool: @unchecked Sendable {
     
     // MARK: - Private State
     
-    private let lock = NSLock()
     private let cacheRootDirectory: URL
     private var entries: [String: CacheEntry] = [:]
     private var inflightTasks: [String: Task<URL, Error>] = [:]
-    private var terminateObserver: (any NSObjectProtocol)?
     
     // MARK: - Initialization
     
@@ -60,13 +58,6 @@ public final class ArchiveMediaCachePool: @unchecked Sendable {
         
         setupCacheDirectory()
         cleanupOldSessions()
-        registerLifecycleObservers()
-    }
-    
-    deinit {
-        if let observer = terminateObserver {
-            NotificationCenter.default.removeObserver(observer)
-        }
     }
     
     // MARK: - Public API
@@ -93,79 +84,81 @@ public final class ArchiveMediaCachePool: @unchecked Sendable {
         }
         
         // 2. Concurrency Deduplication: Join existing inflight extraction task
-        if let ongoingTask = getExistingInflightTask(key: key) {
+        if let ongoingTask = inflightTasks[key] {
             return try await ongoingTask.value
         }
         
         // 3. Slow Path: Spawn new extraction task
+        let rootDir = self.cacheRootDirectory
         let task = Task<URL, Error> {
-            do {
-                let sanitizedName = Self.sanitizeFileName(entryPath)
-                let itemDir = self.cacheRootDirectory.appendingPathComponent(key, isDirectory: true)
-                try FileManager.default.createDirectory(
-                    at: itemDir,
-                    withIntermediateDirectories: true,
-                    attributes: [.posixPermissions: 0o700]
-                )
-                
-                let targetFileURL = itemDir.appendingPathComponent(sanitizedName)
-                
-                // Attempt direct selective extraction via TTZipEngineFacade
-                var extracted = false
-                if let _ = try? await TTZipEngineFacade.shared.extractSingleEntry(
+            let sanitizedName = Self.sanitizeFileName(entryPath)
+            let itemDir = rootDir.appendingPathComponent(key, isDirectory: true)
+            try FileManager.default.createDirectory(
+                at: itemDir,
+                withIntermediateDirectories: true,
+                attributes: [.posixPermissions: 0o700]
+            )
+            
+            let targetFileURL = itemDir.appendingPathComponent(sanitizedName)
+            
+            // Attempt direct selective extraction via TTZipEngineFacade
+            var extracted = false
+            if let _ = try? await TTZipEngineFacade.shared.extractSingleEntry(
+                archivePath: archivePath,
+                entryPath: entryPath,
+                destinationDir: itemDir.path,
+                password: password
+            ) {
+                if let foundURL = Self.locateExtractedFile(in: itemDir, expectedName: sanitizedName) {
+                    if foundURL.path != targetFileURL.path {
+                        try? FileManager.default.removeItem(at: targetFileURL)
+                        try? FileManager.default.moveItem(at: foundURL, to: targetFileURL)
+                    }
+                    extracted = FileManager.default.fileExists(atPath: targetFileURL.path)
+                }
+            }
+            
+            // Fallback: in-memory selective extractor into target file
+            if !extracted {
+                if let data = try await ArchiveSelectiveExtractor.shared.extractSingleEntryData(
                     archivePath: archivePath,
                     entryPath: entryPath,
-                    destinationDir: itemDir.path,
                     password: password
                 ) {
-                    if let foundURL = Self.locateExtractedFile(in: itemDir, expectedName: sanitizedName) {
-                        if foundURL.path != targetFileURL.path {
-                            try? FileManager.default.removeItem(at: targetFileURL)
-                            try? FileManager.default.moveItem(at: foundURL, to: targetFileURL)
-                        }
-                        extracted = FileManager.default.fileExists(atPath: targetFileURL.path)
-                    }
+                    try data.write(to: targetFileURL, options: .atomic)
+                    extracted = true
                 }
-                
-                // Fallback: in-memory selective extractor into target file
-                if !extracted {
-                    if let data = try await ArchiveSelectiveExtractor.shared.extractSingleEntryData(
-                        archivePath: archivePath,
-                        entryPath: entryPath,
-                        password: password
-                    ) {
-                        try data.write(to: targetFileURL, options: .atomic)
-                        extracted = true
-                    }
-                }
-                
-                guard extracted && FileManager.default.fileExists(atPath: targetFileURL.path) else {
-                    throw ArchiveError.fileNotFound
-                }
-                
-                // Set restrictive POSIX permissions 0o600
-                try? FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: targetFileURL.path)
-                
-                let fileSize = (try? FileManager.default.attributesOfItem(atPath: targetFileURL.path)[.size] as? Int64) ?? uncompressedSize
-                
-                let newEntry = CacheEntry(
-                    key: key,
-                    fileURL: targetFileURL,
-                    directoryURL: itemDir,
-                    size: fileSize,
-                    lastAccessTime: Date()
-                )
-                self.recordExtractedEntry(key: key, entry: newEntry)
-                
-                return targetFileURL
-            } catch {
-                self.clearInflightTask(key: key)
-                throw error
             }
+            
+            guard extracted && FileManager.default.fileExists(atPath: targetFileURL.path) else {
+                throw ArchiveError.fileNotFound
+            }
+            
+            // Set restrictive POSIX permissions 0o600
+            try? FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: targetFileURL.path)
+            return targetFileURL
         }
         
-        registerInflightTask(key: key, task: task)
-        return try await task.value
+        inflightTasks[key] = task
+        do {
+            let targetFileURL = try await task.value
+            let fileSize = (try? FileManager.default.attributesOfItem(atPath: targetFileURL.path)[.size] as? Int64) ?? uncompressedSize
+            let itemDir = targetFileURL.deletingLastPathComponent()
+            let newEntry = CacheEntry(
+                key: key,
+                fileURL: targetFileURL,
+                directoryURL: itemDir,
+                size: fileSize,
+                lastAccessTime: Date()
+            )
+            entries[key] = newEntry
+            inflightTasks.removeValue(forKey: key)
+            evictIfNeeded()
+            return targetFileURL
+        } catch {
+            inflightTasks.removeValue(forKey: key)
+            throw error
+        }
     }
     
     /// Stages in-memory Data into a sandboxed cache file preserving extension, returning a concrete file URL.
@@ -200,26 +193,22 @@ public final class ArchiveMediaCachePool: @unchecked Sendable {
             lastAccessTime: Date()
         )
         
-        lock.withLock {
-            entries[key] = entry
-            evictIfNeededLocked()
-        }
+        entries[key] = entry
+        evictIfNeeded()
         
         return targetFileURL
     }
     
     /// Purges all cached media files and removes the cache root directory.
     public func purgeAll() {
-        lock.withLock {
-            inflightTasks.removeAll()
-            entries.removeAll()
-        }
+        inflightTasks.removeAll()
+        entries.removeAll()
         try? FileManager.default.removeItem(at: cacheRootDirectory)
         setupCacheDirectory()
     }
     
     /// Cleans up orphaned or outdated cache sessions from previous application launches.
-    public func cleanupOldSessions() {
+    public nonisolated func cleanupOldSessions() {
         guard let subdirs = try? FileManager.default.contentsOfDirectory(
             at: cacheRootDirectory,
             includingPropertiesForKeys: [.contentModificationDateKey, .fileSizeKey],
@@ -239,65 +228,37 @@ public final class ArchiveMediaCachePool: @unchecked Sendable {
     
     /// Total number of active cached media items.
     public var cachedItemCount: Int {
-        lock.withLock { entries.count }
+        entries.count
     }
     
     /// Total cumulative byte size of cached media files.
     public var totalCacheSizeBytes: Int64 {
-        lock.withLock { entries.values.reduce(0) { $0 + $1.size } }
+        entries.values.reduce(0) { $0 + $1.size }
     }
     
     /// Root directory of the media cache.
-    public var cacheDirectoryURL: URL {
+    public nonisolated var cacheDirectoryURL: URL {
         return cacheRootDirectory
     }
     
-    // MARK: - Synchronous Lock Helpers
+    // MARK: - Private State Helpers
     
     private func getCachedURLIfValid(key: String) -> URL? {
-        lock.withLock {
-            if var existing = entries[key] {
-                if FileManager.default.fileExists(atPath: existing.fileURL.path) {
-                    existing.lastAccessTime = Date()
-                    entries[key] = existing
-                    return existing.fileURL
-                } else {
-                    entries.removeValue(forKey: key)
-                }
+        if var existing = entries[key] {
+            if FileManager.default.fileExists(atPath: existing.fileURL.path) {
+                existing.lastAccessTime = Date()
+                entries[key] = existing
+                return existing.fileURL
+            } else {
+                entries.removeValue(forKey: key)
             }
-            return nil
         }
-    }
-    
-    private func getExistingInflightTask(key: String) -> Task<URL, Error>? {
-        lock.withLock {
-            inflightTasks[key]
-        }
-    }
-    
-    private func registerInflightTask(key: String, task: Task<URL, Error>) {
-        lock.withLock {
-            inflightTasks[key] = task
-        }
-    }
-    
-    private func recordExtractedEntry(key: String, entry: CacheEntry) {
-        lock.withLock {
-            entries[key] = entry
-            _ = inflightTasks.removeValue(forKey: key)
-            evictIfNeededLocked()
-        }
-    }
-    
-    private func clearInflightTask(key: String) {
-        lock.withLock {
-            _ = inflightTasks.removeValue(forKey: key)
-        }
+        return nil
     }
     
     // MARK: - Private Helpers
     
-    private func setupCacheDirectory() {
+    private nonisolated func setupCacheDirectory() {
         try? FileManager.default.createDirectory(
             at: cacheRootDirectory,
             withIntermediateDirectories: true,
@@ -305,17 +266,7 @@ public final class ArchiveMediaCachePool: @unchecked Sendable {
         )
     }
     
-    private func registerLifecycleObservers() {
-        terminateObserver = NotificationCenter.default.addObserver(
-            forName: NSApplication.willTerminateNotification,
-            object: nil,
-            queue: nil
-        ) { [weak self] _ in
-            self?.purgeAll()
-        }
-    }
-    
-    private func evictIfNeededLocked() {
+    private func evictIfNeeded() {
         var currentSize = entries.values.reduce(0) { $0 + $1.size }
         var currentCount = entries.count
         
@@ -333,7 +284,7 @@ public final class ArchiveMediaCachePool: @unchecked Sendable {
         }
     }
     
-    public static func computeCacheKey(
+    public nonisolated static func computeCacheKey(
         archivePath: String,
         entryPath: String,
         uncompressedSize: Int64,
@@ -343,12 +294,12 @@ public final class ArchiveMediaCachePool: @unchecked Sendable {
         return sha256Hex(descriptor)
     }
     
-    public static func sha256Hex(_ string: String) -> String {
+    public nonisolated static func sha256Hex(_ string: String) -> String {
         let digest = SHA256.hash(data: Data(string.utf8))
         return digest.map { String(format: "%02x", $0) }.joined()
     }
     
-    public static func sanitizeFileName(_ path: String) -> String {
+    public nonisolated static func sanitizeFileName(_ path: String) -> String {
         let last = (path as NSString).lastPathComponent
         let base = (last as NSString).deletingPathExtension
         let ext = (last as NSString).pathExtension
@@ -364,7 +315,7 @@ public final class ArchiveMediaCachePool: @unchecked Sendable {
         }
     }
     
-    private static func locateExtractedFile(in directory: URL, expectedName: String) -> URL? {
+    private nonisolated static func locateExtractedFile(in directory: URL, expectedName: String) -> URL? {
         let direct = directory.appendingPathComponent(expectedName)
         if FileManager.default.fileExists(atPath: direct.path) {
             return direct

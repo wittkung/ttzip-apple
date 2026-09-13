@@ -7,18 +7,20 @@
 
 import Foundation
 import SwiftUI
+import Observation
 import TTZipCore
 
 /// Reactive state manager bridging TTZipCore's zero-I/O localization catalogs with SwiftUI views.
+@Observable
 @MainActor
-public final class AppLocalizationState: ObservableObject {
+public final class AppLocalizationState {
     
     public static let shared = AppLocalizationState()
     
     /// Optional callback hook for host application menu / UI synchronizers.
     public static var onLanguageChanged: (@MainActor (AppLanguage) -> Void)?
     
-    @Published public private(set) var currentLanguage: AppLanguage {
+    public private(set) var currentLanguage: AppLanguage {
         didSet {
             TTZipLocalizationManager.shared.currentLanguage = currentLanguage
             TTZipPreferencesStore.saveLanguage(currentLanguage)
@@ -27,7 +29,7 @@ public final class AppLocalizationState: ObservableObject {
         }
     }
     
-    @Published public var byteUnitStandard: ByteSizeStandard {
+    public var byteUnitStandard: ByteSizeStandard {
         didSet {
             TTZipPreferencesStore.saveByteStandard(byteUnitStandard)
         }

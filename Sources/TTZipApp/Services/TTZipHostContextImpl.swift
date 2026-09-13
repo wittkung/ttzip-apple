@@ -15,7 +15,7 @@ import TTZipBenchmarkKit
 
 /// Production host capability implementation injected into TTZip plugins.
 @MainActor
-public final class TTZipHostContextImpl: TTZipHostContext, ObservableObject {
+public final class TTZipHostContextImpl: TTZipHostContext {
     public static let shared = TTZipHostContextImpl()
     
     public var pluginIdentifier: String { "com.ttzip.host" }

@@ -114,7 +114,7 @@ public final class PluginScopedHostContext: TTZipHostContext {
 }
 
 /// Tenant namespace isolated Keychain proxy store
-public final class ScopedKeychainStore: TTZipKeychainStore, @unchecked Sendable {
+public final class ScopedKeychainStore: TTZipKeychainStore, Sendable {
     private let pluginPrefix: String
     private let underlyingStore: TTZipKeychainStore
     
@@ -137,7 +137,7 @@ public final class ScopedKeychainStore: TTZipKeychainStore, @unchecked Sendable 
 }
 
 /// Native macOS Keychain storage implementation (Security.framework)
-public final class SystemKeychainStore: TTZipKeychainStore, @unchecked Sendable {
+public final class SystemKeychainStore: TTZipKeychainStore, Sendable {
     public static let shared = SystemKeychainStore()
     private let service = "com.metastudyline.ttzip.plugins"
     

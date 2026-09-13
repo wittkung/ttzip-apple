@@ -11,7 +11,7 @@ import TTZipCore
 import TTZipUI
 
 /// Multi-core hardware stress testing and efficiency benchmarking engine delegating directly to pure native engines.
-public final class BenchmarkEngine: @unchecked Sendable {
+public final class BenchmarkEngine: Sendable {
     public init() {}
 
     /// High-resolution monotonic nanoseconds provider

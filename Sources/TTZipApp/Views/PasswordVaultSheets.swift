@@ -14,7 +14,7 @@ import TTZipBenchmarkKit
 
 /// Reset master password sheet.
 public struct PasswordVaultResetSheet: View {
-    @ObservedObject public var viewModel: PasswordVaultViewModel
+    @Bindable public var viewModel: PasswordVaultViewModel
     
     public init(viewModel: PasswordVaultViewModel) {
         self.viewModel = viewModel
@@ -71,7 +71,7 @@ public struct PasswordVaultResetSheet: View {
 
 /// Recover vault backup sheet.
 public struct PasswordVaultRecoverSheet: View {
-    @ObservedObject public var viewModel: PasswordVaultViewModel
+    @Bindable public var viewModel: PasswordVaultViewModel
     
     public init(viewModel: PasswordVaultViewModel) {
         self.viewModel = viewModel
@@ -134,7 +134,7 @@ public struct PasswordVaultRecoverSheet: View {
 
 /// Multi-core parallel archive password recovery sheet.
 public struct PasswordVaultRecoveryModalSheet: View {
-    @ObservedObject public var viewModel: PasswordVaultViewModel
+    @Bindable public var viewModel: PasswordVaultViewModel
     @State private var customDictionaryText: String = ""
     
     public init(viewModel: PasswordVaultViewModel) {

@@ -17,7 +17,7 @@ public struct PluginConfigSheetView: View {
     public let pluginId: String
     @Binding public var isPresented: Bool
     
-    @StateObject private var store: PluginConfigStore
+    @State private var store: PluginConfigStore
     @State private var newKeyName: String = ""
     @State private var newKeyIsSecure: Bool = true
     @State private var showAddKeySection: Bool = false
@@ -29,7 +29,7 @@ public struct PluginConfigSheetView: View {
     public init(pluginId: String, isPresented: Binding<Bool>) {
         self.pluginId = pluginId
         self._isPresented = isPresented
-        self._store = StateObject(wrappedValue: PluginConfigStore(pluginId: pluginId))
+        self._store = State(initialValue: PluginConfigStore(pluginId: pluginId))
     }
     
     public var body: some View {

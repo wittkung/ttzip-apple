@@ -13,7 +13,7 @@ import TTZipPreviewKit
 import TTZipBenchmarkKit
 
 /// Background task completion and disaster notification dispatcher.
-public final class SystemNotificationManager: @unchecked Sendable {
+public final class SystemNotificationManager: Sendable {
     public static let shared = SystemNotificationManager()
     
     private init() {}

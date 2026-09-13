@@ -11,8 +11,8 @@ import TTZipUI
 
 /// Benchmark command center view.
 public struct BenchmarkView: View {
-    @ObservedObject private var l10n = AppLocalizationState.shared
-    @StateObject private var viewModel = BenchmarkViewModel()
+    private var l10n = AppLocalizationState.shared
+    @State private var viewModel = BenchmarkViewModel()
     
     public init() {}
     

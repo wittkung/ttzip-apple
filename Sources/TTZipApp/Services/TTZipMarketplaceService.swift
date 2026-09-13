@@ -6,18 +6,20 @@
 // TTZip: High-performance native archiving and compression engine.
 
 import Foundation
+import Observation
 import TTZipPluginKit
 import TTZipUI
 import TTZipPreviewKit
 import TTZipBenchmarkKit
 
 /// Service bridge in TTZipApp facilitating marketplace catalog and plugin enablement.
+@Observable
 @MainActor
-public final class TTZipAppMarketplaceService: ObservableObject {
+public final class TTZipAppMarketplaceService {
     public static let shared = TTZipAppMarketplaceService()
     
-    @Published public private(set) var availablePlugins: [TTZipMarketplacePlugin] = TTZipMarketplaceService.officialCatalog
-    @Published public private(set) var isRefreshing: Bool = false
+    public private(set) var availablePlugins: [TTZipMarketplacePlugin] = TTZipMarketplaceService.officialCatalog
+    public private(set) var isRefreshing: Bool = false
     
     private init() {}
     

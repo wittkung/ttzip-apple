@@ -13,7 +13,7 @@ import TTZipBenchmarkKit
 
 /// Editorial style compression modal header component.
 public struct CompressModalHeaderView: View {
-    @ObservedObject private var l10n = AppLocalizationState.shared
+    private var l10n = AppLocalizationState.shared
     @Binding public var selectedPresetID: UUID?
     public let onOpenGuide: () -> Void
     public let onClose: () -> Void

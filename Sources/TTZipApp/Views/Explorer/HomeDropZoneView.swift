@@ -13,7 +13,7 @@ import TTZipBenchmarkKit
 
 /// Home drop zone view for drag-and-drop file processing.
 public struct HomeDropZoneView: View {
-    @ObservedObject private var l10n = AppLocalizationState.shared
+    private var l10n = AppLocalizationState.shared
     public var viewModel: AppViewState
     @Binding public var isDropTargeted: Bool
     let pickAndOpenArchive: () -> Void

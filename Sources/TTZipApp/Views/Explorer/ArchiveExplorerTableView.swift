@@ -19,7 +19,7 @@ public struct ArchiveExplorerTableView: View {
     public var onDeleteEntry: ((ArchiveEntry) -> Void)? = nil
     public var onExtractEntry: ((ArchiveEntry) -> Void)? = nil
     
-    @ObservedObject private var l10n = AppLocalizationState.shared
+    private var l10n = AppLocalizationState.shared
     
     public init(
         filteredEntries: [ArchiveEntry],

@@ -13,7 +13,7 @@ import TTZipPreviewKit
 import TTZipBenchmarkKit
 
 public struct MillerColumnItemContextMenu: View {
-    @ObservedObject private var l10n = AppLocalizationState.shared
+    private var l10n = AppLocalizationState.shared
     
     public let item: DiskItemInfo
     public let columnIndex: Int

@@ -17,7 +17,7 @@ public struct MPVPlaylistDrawerView: View {
     public let onSelectItem: (MediaPlaylistItem) -> Void
     public let onClose: () -> Void
     
-    @ObservedObject private var l10n = AppLocalizationState.shared
+    private var l10n = AppLocalizationState.shared
     @State private var hoveredItemId: String? = nil
     
     public init(

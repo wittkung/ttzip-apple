@@ -17,8 +17,8 @@ public struct FinderFavoritesSidebarView: View {
     public let onSelectDirectory: (URL) -> Void
     public var onSelectAndroidDevice: ((AndroidDevice) -> Void)? = nil
     
-    @ObservedObject private var l10n = AppLocalizationState.shared
-    @ObservedObject private var licenseManager = AppLicenseManager.shared
+    private var l10n = AppLocalizationState.shared
+    private var licenseManager = AppLicenseManager.shared
     @State private var androidViewModel = AndroidDeviceViewModel.shared
     @State private var dynamicFinderFavorites: [FinderFavoriteItem] = []
     @State private var hoveredItemPath: String? = nil

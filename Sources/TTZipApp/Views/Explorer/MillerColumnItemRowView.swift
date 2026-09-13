@@ -263,8 +263,7 @@ public struct MillerColumnItemRowView: View {
         if !subpath.isEmpty {
             let filename = (subpath as NSString).lastPathComponent
             let hash = abs(archivePath.hashValue).description + "_" + abs(filename.hashValue).description
-            if let cached = PreviewLRUCacheManager.shared.cachedURL(forKey: hash),
-               FileManager.default.fileExists(atPath: cached.path) {
+            if let cached = PreviewLRUCacheManager.shared.existingCachedURL(forKey: hash, filename: filename) {
                 let provider = NSItemProvider(object: cached as NSURL)
                 provider.suggestedName = filename
                 return provider

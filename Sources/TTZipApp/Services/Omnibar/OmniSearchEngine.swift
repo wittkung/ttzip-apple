@@ -6,34 +6,35 @@
 // TTZip: High-performance native archiving and compression engine.
 
 import AppKit
-import Combine
 import Foundation
+import Observation
 
 /// Central aggregation and search service powering the Universal Omnibar.
+@Observable
 @MainActor
-public final class OmniSearchEngine: ObservableObject {
+public final class OmniSearchEngine {
     /// Current search query string.
-    @Published public var query: String = "" {
+    public var query: String = "" {
         didSet {
             scheduleDebouncedSearch()
         }
     }
 
     /// Active directory context for relative path resolution and contextual commands.
-    @Published public var currentDirectory: URL = URL(fileURLWithPath: NSHomeDirectory()) {
+    public var currentDirectory: URL = URL(fileURLWithPath: NSHomeDirectory()) {
         didSet {
             scheduleDebouncedSearch()
         }
     }
 
     /// Canonical algebraic state representing the single source of truth for the Omnibar.
-    @Published public private(set) var state: OmniEngineState = .idleWithRecommendations(categories: [])
+    public private(set) var state: OmniEngineState = .idleWithRecommendations(categories: [])
 
     /// Categorized search results grouped by category.
-    @Published public private(set) var categorizedResults: [OmniSearchCategory: [OmniSearchItem]] = [:]
+    public private(set) var categorizedResults: [OmniSearchCategory: [OmniSearchItem]] = [:]
 
     /// Flat ordered results list optimized for arrow-key keyboard navigation.
-    @Published public private(set) var flatResults: [OmniSearchItem] = []
+    public private(set) var flatResults: [OmniSearchItem] = []
 
     /// Public alias for flatResults representing all items currently displayed in the palette.
     public var items: [OmniSearchItem] { flatResults }
@@ -42,22 +43,27 @@ public final class OmniSearchEngine: ObservableObject {
     public var sections: [OmniSection] { state.sections }
 
     /// Currently selected search item, defaulting to the first item in flat results.
-    @Published public private(set) var selectedItem: OmniSearchItem?
+    public private(set) var selectedItem: OmniSearchItem?
 
     /// Currently selected index within flatResults with automatic bounds clamping.
-    @Published public private(set) var selectedIndex: Int = 0
+    public private(set) var selectedIndex: Int = 0
 
     /// Cached default recommendations for fast reset and zero-latency fallback.
     public private(set) var defaultRecommendations: [OmniSection] = []
 
     /// Active debouncing task for responsive, zero-frame-drop keystroke handling.
+    @ObservationIgnored
     private var debounceTask: Task<Void, Never>?
 
     /// Dedicated Spotlight query service.
+    @ObservationIgnored
     private let spotlightService = SpotlightSearchService()
 
-    /// Subscription storage for Combine streams.
-    private var cancellables = Set<AnyCancellable>()
+    /// Structured tasks for catalog and search stream observation.
+    @ObservationIgnored
+    private var catalogObservationTask: Task<Void, Never>?
+    @ObservationIgnored
+    private var spotlightObservationTask: Task<Void, Never>?
 
     /// Internal descriptor for registered Omnibar commands.
     private struct CommandDefinition {
@@ -80,15 +86,22 @@ public final class OmniSearchEngine: ObservableObject {
         executeSearch(query: "", directory: currentDirectory)
     }
 
+    deinit {
+        debounceTask?.cancel()
+        catalogObservationTask?.cancel()
+        spotlightObservationTask?.cancel()
+    }
+
     /// Binds application catalog changes to refresh default recommendations when query is empty.
     private func bindAppCatalogStream() {
-        AppCatalogService.shared.$apps
-            .receive(on: DispatchQueue.main)
-            .sink { [weak self] _ in
-                guard let self = self, self.query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+        catalogObservationTask?.cancel()
+        catalogObservationTask = Task { [weak self] in
+            for await _ in AppCatalogService.shared.makeAppsStream() {
+                guard let self = self, !Task.isCancelled else { break }
+                guard self.query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { continue }
                 self.executeUniversalSearch(query: "", directory: self.currentDirectory)
             }
-            .store(in: &cancellables)
+        }
     }
 
     /// Selects the item at the specified index with automatic boundary clamping.
@@ -136,12 +149,14 @@ public final class OmniSearchEngine: ObservableObject {
 
     /// Binds asynchronous Spotlight results into the file category when appropriate.
     private func bindSpotlightStream() {
-        spotlightService.$searchResults
-            .receive(on: DispatchQueue.main)
-            .sink { [weak self] results in
-                self?.mergeSpotlightResults(results)
+        spotlightObservationTask?.cancel()
+        spotlightObservationTask = Task { [weak self] in
+            guard let self = self else { return }
+            for await results in self.spotlightService.makeResultsStream() {
+                guard !Task.isCancelled else { break }
+                self.mergeSpotlightResults(results)
             }
-            .store(in: &cancellables)
+        }
     }
 
     /// Updates the search query string.

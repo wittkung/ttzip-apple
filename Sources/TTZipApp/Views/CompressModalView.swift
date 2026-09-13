@@ -14,7 +14,7 @@ import TTZipPreviewKit
 import TTZipBenchmarkKit
 
 public struct CompressModalView: View {
-    @ObservedObject var l10n = AppLocalizationState.shared
+    var l10n = AppLocalizationState.shared
     @Binding public var isPresented: Bool
     public let initialInputPaths: [String]
     public var onCompleteOpenArchive: ((String) -> Void)? = nil

@@ -25,7 +25,8 @@ public final class MPVMetalContainerView: MPVMetalNSView {
     }
     
     private let displayLink = MPVMetalDisplayLink()
-    private final class ObserverTokenHolder: @unchecked Sendable {
+    @MainActor
+    private final class ObserverTokenHolder {
         var tokens: [NSObjectProtocol] = []
         func removeAll() {
             let center = NotificationCenter.default
@@ -63,7 +64,9 @@ public final class MPVMetalContainerView: MPVMetalNSView {
     }
     
     deinit {
-        observerHolder.removeAll()
+        MainActor.assumeIsolated {
+            observerHolder.removeAll()
+        }
         displayLink.stop()
     }
     
@@ -271,7 +274,7 @@ public final class MPVMetalContainerView: MPVMetalNSView {
 /// SwiftUI View Representable bridging `MPVMetalContainerView` into the declarative presentation tree.
 public struct MPVMetalContainerRepresentableView: NSViewRepresentable {
     public let url: URL
-    @ObservedObject public var store: MPVMetalPlayerStore
+    public var store: MPVMetalPlayerStore
     public let isFullScreen: Bool
     public let onDropSubtitle: (URL) -> Void
     public let onTogglePlayPause: () -> Void
