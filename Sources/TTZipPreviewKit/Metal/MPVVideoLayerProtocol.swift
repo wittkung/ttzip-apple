@@ -23,6 +23,9 @@ public protocol MPVVideoLayerProtocol: AnyObject {
     /// Unbinds this layer and detaches active render update callbacks.
     func unbind()
 
+    /// Requests a new frame render pass on the render queue if a frame is pending.
+    func requestRender()
+
     /// Forces an immediate frame rasterization cycle on the viewport.
     func forceRedraw()
 }

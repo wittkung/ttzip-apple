@@ -114,6 +114,7 @@ public final class OverlayState {
     public var showPasswordPrompt: Bool = false
     public var pendingEncryptedPath: String? = nil
     public var selectedDiskItem: DiskItemInfo? = nil
+    public var activeInspectedFile: DiskItemInfo? = nil
     public var selectedPathsToCompress: [String] = []
     
     // Archive Inspector & Diagnostics
