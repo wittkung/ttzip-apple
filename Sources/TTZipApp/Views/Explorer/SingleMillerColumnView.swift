@@ -107,25 +107,25 @@ public struct SingleMillerColumnView: View {
                         if index == 0 && canGoParent {
                             Button(action: onPrependParent) {
                                 Image(systemName: "chevron.left")
-                                    .font(.system(size: 10, weight: .bold))
+                                    .font(.system(size: 9.5, weight: .bold))
                                     .foregroundStyle(.primary)
-                                    .padding(3)
-                                    .background(Color.primary.opacity(0.08))
+                                    .padding(2.5)
+                                    .background(Color.primary.opacity(0.06))
                                     .clipShape(Circle())
                             }
                             .buttonStyle(.plain)
                             .help("Expand parent folder to left")
                         } else {
                             Image(systemName: "folder.fill")
-                                .font(.system(size: 10, weight: .semibold))
+                                .font(.system(size: 9.5, weight: .semibold))
                                 .foregroundStyle(TTZipTheme.bambooGreen.opacity(0.8))
                         }
                     }
-                    .frame(width: 16, height: 16)
+                    .frame(width: 14, height: 14)
                     .fixedSize(horizontal: true, vertical: false)
                     
                     Text(columnTitle)
-                        .font(.system(size: 11, weight: .semibold, design: .serif))
+                        .font(.system(size: 10.5, weight: .semibold, design: .serif))
                         .tracking(0.3)
                         .foregroundStyle(Color.primary.opacity(0.85))
                         .lineLimit(1)
@@ -146,16 +146,16 @@ public struct SingleMillerColumnView: View {
                     } label: {
                         HStack(spacing: 3) {
                             Image(systemName: currentSort.iconName)
-                                .font(.system(size: 10, weight: .medium))
+                                .font(.system(size: 9.5, weight: .medium))
                                 .foregroundStyle(.secondary)
                             Image(systemName: "chevron.down")
-                                .font(.system(size: 7, weight: .semibold))
+                                .font(.system(size: 6.5, weight: .semibold))
                                 .foregroundStyle(.secondary.opacity(0.6))
                         }
                         .padding(.horizontal, 4)
-                        .padding(.vertical, 2)
-                        .background(Color.primary.opacity(0.04))
-                        .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
+                        .padding(.vertical, 1.5)
+                        .background(Color.primary.opacity(0.03))
+                        .clipShape(RoundedRectangle(cornerRadius: 3.5, style: .continuous))
                     }
                     .menuStyle(.borderlessButton)
                     .fixedSize(horizontal: true, vertical: false)
@@ -163,10 +163,12 @@ public struct SingleMillerColumnView: View {
                     .help("Change sort order")
                 }
                 .padding(.horizontal, 8)
-                .frame(height: 30)
-                .background(Color.primary.opacity(0.015))
+                .frame(height: 24)
+                .background(Color.primary.opacity(0.01))
                 
-                Divider()
+                Rectangle()
+                    .fill(Color.primary.opacity(0.04))
+                    .frame(height: 0.6)
                 
                 Group {
                     if let items = items {

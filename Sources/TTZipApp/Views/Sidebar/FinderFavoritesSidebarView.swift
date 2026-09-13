@@ -69,10 +69,23 @@ public struct FinderFavoritesSidebarView: View {
             // MARK: - 2. Scrollable Favorites & Locations List
             ScrollView(.vertical, showsIndicators: false) {
                 VStack(alignment: isIconRail ? .center : .leading, spacing: isIconRail ? 6 : 14) {
-                    // Group 0: Custom Pinned Directories (if any)
-                    if !customPinnedPaths.isEmpty && !isIconRail {
+                    // Group 0: Custom Pinned Directories
+                    if !isIconRail {
                         VStack(alignment: .leading, spacing: 2) {
-                            sectionHeader(title: l10n.currentLanguage == .zhHans ? "常用" : "PINNED")
+                            HStack {
+                                sectionHeader(title: l10n.currentLanguage == .zhHans ? "常用" : "PINNED")
+                                Spacer()
+                                Button(action: addCustomFolder) {
+                                    Image(systemName: "plus")
+                                        .font(.system(size: 10, weight: .semibold))
+                                        .foregroundStyle(Color.secondary)
+                                        .frame(width: 18, height: 18)
+                                        .contentShape(Rectangle())
+                                }
+                                .buttonStyle(.plain)
+                                .help(l10n.currentLanguage == .zhHans ? "选择文件夹固定到侧边栏..." : "Pin folder to sidebar...")
+                            }
+                            .padding(.trailing, 8)
                             
                             ForEach(customPinnedPaths, id: \.self) { path in
                                 let url = URL(fileURLWithPath: path)
@@ -89,36 +102,21 @@ public struct FinderFavoritesSidebarView: View {
                     // Group 1: Favorites
                     VStack(alignment: isIconRail ? .center : .leading, spacing: isIconRail ? 4 : 2) {
                         if !isIconRail {
-                            HStack(spacing: 6) {
+                            HStack {
                                 sectionHeader(title: l10n.currentLanguage == .zhHans ? "个人收藏" : "FAVORITES")
                                 Spacer()
                                 
-                                Button(action: addCustomFolder) {
-                                    Image(systemName: "plus")
-                                        .font(.system(size: 9, weight: .bold))
-                                        .foregroundStyle(Color.secondary)
-                                        .frame(width: 16, height: 16)
-                                }
-                                .buttonStyle(.plain)
-                                .help(l10n.currentLanguage == .zhHans ? "选择文件夹添加到左侧边栏..." : "Add folder to sidebar...")
-                                
                                 Button(action: authorizeFinderFavorites) {
-                                    HStack(spacing: 3) {
-                                        Image(systemName: "arrow.triangle.2.circlepath")
-                                            .font(.system(size: 8.5, weight: .bold))
-                                        Text(hasResolvedCustomFavorites
-                                            ? (l10n.currentLanguage == .zhHans ? "已同步" : "Synced")
-                                            : (l10n.currentLanguage == .zhHans ? "同步访达" : "Sync"))
-                                            .font(.system(size: 9, weight: .semibold))
-                                    }
-                                    .foregroundStyle(hasResolvedCustomFavorites ? Color.secondary : TTZipTheme.bambooGreen)
-                                    .padding(.horizontal, 5.5)
-                                    .padding(.vertical, 2)
-                                    .background((hasResolvedCustomFavorites ? Color.secondary : TTZipTheme.bambooGreen).opacity(0.12))
-                                    .clipShape(Capsule())
+                                    Image(systemName: "arrow.triangle.2.circlepath")
+                                        .font(.system(size: 10, weight: .semibold))
+                                        .foregroundStyle(hasResolvedCustomFavorites ? Color.secondary.opacity(0.65) : TTZipTheme.bambooGreen)
+                                        .frame(width: 18, height: 18)
+                                        .contentShape(Rectangle())
                                 }
                                 .buttonStyle(.plain)
-                                .help(l10n.currentLanguage == .zhHans ? "同步系统访达全部个人收藏..." : "Sync macOS Finder Favorites...")
+                                .help(hasResolvedCustomFavorites
+                                    ? (l10n.currentLanguage == .zhHans ? "已同步访达个人收藏 (点击重新同步)" : "Finder Favorites Synced (Click to re-sync)")
+                                    : (l10n.currentLanguage == .zhHans ? "同步系统访达全部个人收藏..." : "Sync macOS Finder Favorites..."))
                             }
                             .padding(.trailing, 8)
                         }
@@ -177,7 +175,8 @@ public struct FinderFavoritesSidebarView: View {
                     }
                 }
                 .padding(.horizontal, isIconRail ? 4 : 8)
-                .padding(.vertical, 10)
+                .padding(.top, 10)
+                .padding(.bottom, 24)
                 .frame(maxWidth: .infinity, alignment: isIconRail ? .center : .leading)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
@@ -364,6 +363,8 @@ public struct FinderFavoritesSidebarView: View {
             .font(.system(size: 10, weight: .bold, design: .serif))
             .tracking(1.8)
             .foregroundStyle(.secondary.opacity(0.75))
+            .lineLimit(1)
+            .fixedSize(horizontal: true, vertical: false)
             .padding(.horizontal, 10)
             .padding(.top, 4)
             .padding(.bottom, 2)

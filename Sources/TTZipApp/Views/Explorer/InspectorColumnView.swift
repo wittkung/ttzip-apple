@@ -79,12 +79,14 @@ public struct InspectorColumnView: View {
                     )
                     .id(item.path)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
-                } else {
+                } else if isDocumentOrCode(for: item) {
                     MediaPreviewView(
                         fileURL: effectivePreviewURL,
                         fileName: item.name
                     )
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
+                } else {
+                    fileInspectorContent(for: item)
                 }
             } else {
                 zenPlaceholderView
@@ -215,6 +217,55 @@ public struct InspectorColumnView: View {
                 self.asyncDimensions = nil
             }
         }
+    }
+    
+    private func isDocumentOrCode(for item: DiskItemInfo) -> Bool {
+        let ext = (item.name as NSString).pathExtension.lowercased()
+        return ["swift", "js", "ts", "py", "json", "html", "css", "cpp", "c", "h", "rs", "go", "sh", "xml", "txt", "md", "pdf", "docx"].contains(ext)
+    }
+    
+    @ViewBuilder
+    private func fileInspectorContent(for item: DiskItemInfo) -> some View {
+        ScrollView(.vertical, showsIndicators: false) {
+            VStack(spacing: 12) {
+                // 1. Centered Hero Preview Card
+                ZStack {
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .fill(Color.primary.opacity(0.025))
+                    
+                    MediaPreviewView(
+                        fileURL: effectivePreviewURL,
+                        fileName: item.name
+                    )
+                    .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                }
+                .frame(maxWidth: .infinity)
+                .frame(height: 280)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .strokeBorder(Color.primary.opacity(0.06), lineWidth: 0.8)
+                )
+                
+                // 2. Quick Action Buttons
+                quickActionButtons(
+                    for: item,
+                    onPreview: { onPreviewFile(item.path) },
+                    onCompress: { onCompressPath(item.path) },
+                    onSelectArchive: onSelectArchive
+                )
+                
+                // 3. Structured Metadata Bento Card
+                metadataBentoView(
+                    for: item,
+                    metadata: deepMetadataDict,
+                    dims: asyncDimensions
+                )
+            }
+            .padding(.horizontal, 14)
+            .padding(.top, 10)
+            .padding(.bottom, 24)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
     
     // MARK: - Zen Empty State
