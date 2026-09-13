@@ -522,7 +522,7 @@ public final class MPVMetalPlayerStore {
         guard self.mpv != nil else { return }
         pendingParamsRefreshTask?.cancel()
         pendingParamsRefreshTask = Task { @MainActor [weak self] in
-            try? await Task.sleep(nanoseconds: 50_000_000)
+            try? await Task.sleep(nanoseconds: 300_000_000)
             guard !Task.isCancelled else { return }
             
             let snapshot = await Task.detached(priority: .utility) { () -> MPVMediaParamsSnapshot? in
@@ -561,7 +561,7 @@ public final class MPVMetalPlayerStore {
         if let selAudio = snapshot.selectedAudioTrackId {
             self.selectedAudioTrackId = selAudio
         } else if self.selectedAudioTrackId == nil, let defTrack = snapshot.audioTracks.first(where: { $0.isDefault }) ?? snapshot.audioTracks.first {
-            self.selectAudioTrack(defTrack)
+            self.selectedAudioTrackId = defTrack.id
         }
         if let selSub = snapshot.selectedSubtitleTrackId { self.selectedSubtitleTrackId = selSub }
         self.updateEDRMetrics(detectedHDR: snapshot.hdrFormat)

@@ -69,7 +69,7 @@ public final class MPVMetalRenderLayer: CAMetalLayer, MPVVideoLayerProtocol, @un
         self.wantsExtendedDynamicRangeContent = true
         self.isOpaque = true
         self.framebufferOnly = false
-        self.allowsNextDrawableTimeout = false
+        self.allowsNextDrawableTimeout = true
         self.needsDisplayOnBoundsChange = true
         self.autoresizingMask = [.layerWidthSizable, .layerHeightSizable]
         self.contentsGravity = .resizeAspect
@@ -77,6 +77,9 @@ public final class MPVMetalRenderLayer: CAMetalLayer, MPVVideoLayerProtocol, @un
     
     /// Binds this layer to the player store and registers its update listener.
     public func bind(store: MPVMetalPlayerStore) {
+        if isBound && self.playerStore === store && self.renderContextManager?.rawContext != nil {
+            return
+        }
         self.playerStore = store
         self.renderContextManager = store.renderContextManager
         self.isBound = true

@@ -165,7 +165,7 @@ final class NativeMPVPlaybackTests: XCTestCase {
         XCTAssertTrue(layer.wantsExtendedDynamicRangeContent)
         XCTAssertEqual(layer.pixelFormat, .bgra8Unorm)
         XCTAssertEqual(layer.colorspace, CGColorSpace(name: CGColorSpace.extendedLinearSRGB))
-        XCTAssertFalse(layer.allowsNextDrawableTimeout)
+        XCTAssertTrue(layer.allowsNextDrawableTimeout)
         XCTAssertTrue(layer.needsDisplayOnBoundsChange)
         
         layer.updateDrawableSize(boundsSize: CGSize(width: 640, height: 480), scaleFactor: 2.0)

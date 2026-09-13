@@ -238,7 +238,7 @@ public final class AppCatalogService {
     }
 
     /// Constructs an `OmniSearchItem` from an `AppEntry`.
-    private func makeSearchItem(from app: AppEntry) -> OmniSearchItem {
+    public func makeSearchItem(from app: AppEntry) -> OmniSearchItem {
         let appIcon = icon(forPath: app.path)
         let prettyPath = app.path.replacingOccurrences(of: NSHomeDirectory(), with: "~")
         return OmniSearchItem(

@@ -20,6 +20,7 @@ public final class MPVMetalContainerView: MPVMetalNSView {
     
     public override weak var store: MPVMetalPlayerStore? {
         didSet {
+            guard store !== oldValue else { return }
             bindStore()
         }
     }
@@ -84,14 +85,11 @@ public final class MPVMetalContainerView: MPVMetalNSView {
         displayLink.setFrameCallback { [weak self] _, _ in
             Task { @MainActor [weak self] in
                 guard let self = self, let videoLayer = self.layer as? (any MPVVideoLayerProtocol) else { return }
-                guard let store = self.store ?? MPVMetalPlayerStore.shared as MPVMetalPlayerStore? else { return }
                 if self.warmupFrameCount > 0 {
                     self.warmupFrameCount -= 1
                     videoLayer.forceRedraw()
                     return
                 }
-                guard store.isPlaying else { return }
-                videoLayer.forceRedraw()
             }
         }
     }
@@ -308,7 +306,9 @@ public struct MPVMetalContainerRepresentableView: NSViewRepresentable {
     
     public func updateNSView(_ nsView: MPVMetalContainerView, context: Context) {
         nsView.isFullScreen = isFullScreen
-        nsView.store = store
+        if nsView.store !== store {
+            nsView.store = store
+        }
         nsView.onDropSubtitle = onDropSubtitle
         nsView.onTogglePlayPause = onTogglePlayPause
         nsView.onToggleFullScreen = onToggleFullScreen
