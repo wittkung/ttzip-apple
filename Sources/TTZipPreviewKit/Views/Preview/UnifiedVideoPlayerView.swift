@@ -15,20 +15,35 @@ import TTZipUI
 public struct UnifiedVideoPlayerView: View {
     public let url: URL
     public let isFullScreen: Bool
+    public var store: MPVMetalPlayerStore = .shared
     
     @State private var isSecurityScoped: Bool = false
     
-    public init(url: URL, isFullScreen: Bool = false) {
+    public init(url: URL, isFullScreen: Bool = false, store: MPVMetalPlayerStore = .shared) {
         self.url = url
         self.isFullScreen = isFullScreen
+        self.store = store
+    }
+    
+    private var videoAspect: CGFloat {
+        if store.videoWidth > 0 && store.videoHeight > 0 {
+            return CGFloat(store.videoWidth) / CGFloat(store.videoHeight)
+        }
+        return 16.0 / 9.0
     }
     
     public var body: some View {
         ZStack {
             Color.black.ignoresSafeArea()
             
-            MPVMetalVideoPlayerView(url: url, isFullScreen: isFullScreen)
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            if isFullScreen {
+                MPVMetalVideoPlayerView(url: url, store: store, isFullScreen: true)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else {
+                MPVMetalVideoPlayerView(url: url, store: store, isFullScreen: false)
+                    .aspectRatio(videoAspect, contentMode: .fit)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            }
         }
         .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
         .onAppear {

@@ -183,6 +183,8 @@ public final class MPVMetalRenderLayer: CAMetalLayer, MPVVideoLayerProtocol, @un
         
         let copyWidth = min(srcTexture.width, drawable.texture.width)
         let copyHeight = min(srcTexture.height, drawable.texture.height)
+        let dstX = max(0, (drawable.texture.width - copyWidth) / 2)
+        let dstY = max(0, (drawable.texture.height - copyHeight) / 2)
         
         blitEncoder.copy(
             from: srcTexture,
@@ -193,7 +195,7 @@ public final class MPVMetalRenderLayer: CAMetalLayer, MPVVideoLayerProtocol, @un
             to: drawable.texture,
             destinationSlice: 0,
             destinationLevel: 0,
-            destinationOrigin: MTLOrigin(x: 0, y: 0, z: 0)
+            destinationOrigin: MTLOrigin(x: dstX, y: dstY, z: 0)
         )
         blitEncoder.endEncoding()
         

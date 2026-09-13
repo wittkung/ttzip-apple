@@ -298,6 +298,9 @@ public final class MPVMetalPlayerStore {
                 try? await MPVCoreEngine.shared.setProperty(name: "volume", value: targetVol)
                 try? await MPVCoreEngine.shared.setProperty(name: "mute", value: self.isMuted)
                 try? await MPVCoreEngine.shared.setProperty(name: "aid", value: "auto")
+                // Explicitly unpause mpv upon load to ensure auto-start without requiring manual pause-then-play
+                try? await MPVCoreEngine.shared.setProperty(name: "pause", value: false)
+                self.isPlaying = true
             } catch {
                 self.hasPlaybackError = true
                 self.errorMessage = error.localizedDescription

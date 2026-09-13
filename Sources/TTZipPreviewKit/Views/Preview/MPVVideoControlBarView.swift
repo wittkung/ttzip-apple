@@ -174,6 +174,13 @@ public struct MPVVideoControlBarView: View {
     // MARK: - Tier 2: Controls, Status & Media Utilities
     
     private var tier2ControlsRow: some View {
+        ViewThatFits(in: .horizontal) {
+            expandedTier2ControlsRow
+            compactTier2ControlsRow
+        }
+    }
+    
+    private var expandedTier2ControlsRow: some View {
         HStack(spacing: 6) {
             // MARK: Left: Core Playback Controls
             HStack(spacing: 5) {
@@ -299,6 +306,110 @@ public struct MPVVideoControlBarView: View {
                 .buttonStyle(.plain)
                 .help(store.isFullScreen ? (isChinese ? "退出全屏 (Esc/F)" : "Exit Full Screen (Esc/F)") : (isChinese ? "全屏播放 (F)" : "Full Screen (F)"))
             }
+        }
+    }
+    
+    private var compactTier2ControlsRow: some View {
+        HStack(spacing: 4) {
+            Button(action: { store.seekBy(-10) }) {
+                Image(systemName: "gobackward.10")
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundStyle(Color.white.opacity(0.88))
+                    .frame(width: 18, height: 18)
+            }
+            .buttonStyle(.plain)
+            
+            Button(action: { store.togglePlayPause() }) {
+                ZStack {
+                    Circle()
+                        .fill(Color.white.opacity(0.18))
+                        .frame(width: 24, height: 24)
+                    
+                    Image(systemName: store.isPlaying ? "pause.fill" : "play.fill")
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundStyle(.white)
+                }
+            }
+            .buttonStyle(.plain)
+            
+            Button(action: { store.seekBy(10) }) {
+                Image(systemName: "goforward.10")
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundStyle(Color.white.opacity(0.88))
+                    .frame(width: 18, height: 18)
+            }
+            .buttonStyle(.plain)
+            
+            Spacer(minLength: 2)
+            
+            hdrStatusBadge
+            
+            Spacer(minLength: 2)
+            
+            volumeControlView
+            
+            Menu {
+                Menu(isChinese ? "播放速度" : "Speed") {
+                    ForEach(availablePlaybackSpeeds, id: \.self) { speed in
+                        Button(action: { store.setPlaybackSpeed(speed) }) {
+                            HStack {
+                                if abs(store.playbackSpeed - speed) < 0.01 { Image(systemName: "checkmark") }
+                                Text(String(format: "%.2fx", speed))
+                            }
+                        }
+                    }
+                }
+                
+                if !store.subtitleTracks.isEmpty {
+                    Menu(isChinese ? "字幕轨道" : "Subtitles") {
+                        Button(isChinese ? "关闭字幕" : "Off") { store.selectSubtitleTrack(nil) }
+                        Divider()
+                        ForEach(store.subtitleTracks) { sub in
+                            Button(action: { store.selectSubtitleTrack(sub) }) {
+                                HStack {
+                                    if store.selectedSubtitleTrackId == sub.id { Image(systemName: "checkmark") }
+                                    Text("[\(sub.format)] \(sub.title)")
+                                }
+                            }
+                        }
+                    }
+                }
+                
+                if !store.audioTracks.isEmpty {
+                    Menu(isChinese ? "音频轨道" : "Audio Tracks") {
+                        ForEach(store.audioTracks) { track in
+                            Button(action: { store.selectAudioTrack(track) }) {
+                                HStack {
+                                    if store.selectedAudioTrackId == track.id { Image(systemName: "checkmark") }
+                                    Text("\(track.title) [\(track.language.uppercased())]")
+                                }
+                            }
+                        }
+                    }
+                }
+                
+                Button(isChinese ? "播放列表" : "Playlist") { onTogglePlaylist() }
+                
+                Divider()
+                
+                Button(isChinese ? "在外部应用中打开" : "Open in External App") { onOpenExternal() }
+            } label: {
+                Image(systemName: "ellipsis.circle")
+                    .font(.system(size: 10.5, weight: .semibold))
+                    .foregroundStyle(Color.white.opacity(0.85))
+                    .frame(width: 18, height: 18)
+            }
+            .menuStyle(.borderlessButton)
+            .menuIndicator(.hidden)
+            .frame(width: 18, height: 18)
+            
+            Button(action: { onToggleFullScreen() }) {
+                Image(systemName: store.isFullScreen ? "arrow.down.right.and.arrow.up.left" : "arrow.up.left.and.arrow.down.right")
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundStyle(.white)
+                    .frame(width: 18, height: 18)
+            }
+            .buttonStyle(.plain)
         }
     }
     
