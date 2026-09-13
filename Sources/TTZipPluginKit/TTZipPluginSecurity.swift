@@ -7,6 +7,7 @@
 
 import Foundation
 import CryptoKit
+import TTZipCore
 
 /// Cryptographic integrity, Ed25519 signature verification, and path traversal security gate for plugins.
 public enum TTZipPluginSecurity {
@@ -42,26 +43,22 @@ public enum TTZipPluginSecurity {
         }
     }
     
-    /// Computes streaming SHA-256 digest in O(1) resident memory using 64KB micro-buffers.
-    public static func computeStreamingSHA256(fileURL: URL, bufferSize: Int = 64 * 1024) throws -> SHA256Digest {
+    /// Computes streaming SHA-256 digest string via TTZipCore HashCalculator microkernel.
+    @discardableResult
+    public static func computeStreamingSHA256(fileURL: URL) throws -> String {
         guard FileManager.default.fileExists(atPath: fileURL.path) else {
             throw SecurityError.fileNotFound(fileURL)
         }
-        
-        let fileHandle = try FileHandle(forReadingFrom: fileURL)
-        defer { try? fileHandle.close() }
-        
-        var hasher = SHA256()
-        while let chunk = try fileHandle.read(upToCount: bufferSize), !chunk.isEmpty {
-            hasher.update(data: chunk)
+        do {
+            return try HashCalculator.computeFileSha256(filePath: fileURL.path)
+        } catch {
+            throw SecurityError.fileNotFound(fileURL)
         }
-        return hasher.finalize()
     }
     
-    /// 1. O(1) resident memory chunked streaming SHA-256 calculation and verification.
+    /// 1. O(1) resident memory chunked streaming SHA-256 calculation and verification via TTZipCore microkernel.
     public static func verifyStreamingSHA256(fileURL: URL, expectedHex: String, bufferSize: Int = 64 * 1024) throws {
-        let digest = try computeStreamingSHA256(fileURL: fileURL, bufferSize: bufferSize)
-        let actualHex = digest.map { String(format: "%02x", $0) }.joined()
+        let actualHex = try computeStreamingSHA256(fileURL: fileURL)
         if actualHex.lowercased() != expectedHex.lowercased() {
             throw SecurityError.hashMismatch(expected: expectedHex, actual: actualHex)
         }
@@ -91,9 +88,9 @@ public enum TTZipPluginSecurity {
         }
         
         // Fallback check against streaming SHA-256 digest
-        let digest = try computeStreamingSHA256(fileURL: archiveFileURL)
-        let digestData = Data(digest)
-        if publicKey.isValidSignature(signatureData, for: digestData) {
+        if let digestHex = try? computeStreamingSHA256(fileURL: archiveFileURL),
+           let digestData = hexToData(digestHex),
+           publicKey.isValidSignature(signatureData, for: digestData) {
             return
         }
         
@@ -124,5 +121,19 @@ public enum TTZipPluginSecurity {
             throw SecurityError.zipSlipDetected(path: entryRelativePath)
         }
         return targetURL
+    }
+
+    private static func hexToData(_ hex: String) -> Data? {
+        var data = Data()
+        var temp = ""
+        for char in hex {
+            temp.append(char)
+            if temp.count == 2 {
+                guard let byte = UInt8(temp, radix: 16) else { return nil }
+                data.append(byte)
+                temp = ""
+            }
+        }
+        return data.isEmpty ? nil : data
     }
 }

@@ -16,29 +16,17 @@ import TTZipUI
 /// Media preview view factory for dynamic media previews with zero-kickout video routing.
 public enum MediaPreviewFactory {
 
-    /// Archive extensions.
-    public static let archiveExtensions: Set<String> = [
-        "7z", "zip", "rar", "tar", "gz", "tgz", "bz2", "xz", "001", "002", "003", "zst", "iso"
-    ]
+    /// Consolidated archive extensions referencing ArchiveFormatStandardRegistry and central preview matrix.
+    public static let archiveExtensions: Set<String> = ArchiveFormatStandardRegistry.allStandardExtensions.union(PreviewCapabilityMatrix.archiveExtensions)
     
-    /// E-book extensions.
-    public static let ebookExtensions: Set<String> = [
-        "mobi", "azw", "azw3", "fb2", "cbz", "cbr", "ibooks"
-    ]
+    /// E-book extensions consolidated from central preview matrix.
+    public static let ebookExtensions: Set<String> = PreviewCapabilityMatrix.ebookExtensions
     
-    /// Image extensions.
-    public static let imageExtensions: Set<String> = [
-        "png", "jpg", "jpeg", "gif", "webp", "heic", "bmp", "tiff", "ico",
-        "arw", "cr3", "nef", "dng"
-    ]
+    /// Image extensions consolidated from central preview matrix.
+    public static let imageExtensions: Set<String> = PreviewCapabilityMatrix.imageExtensions
     
     /// All video extensions supported for unified in-app zero-kickout playback via MPV Metal viewport.
-    public static let videoExtensions: Set<String> = [
-        "mp4", "mov", "m4v", "qt", "mkv", "avi", "webm", "ogv", "flv", "3gp",
-        "3g2", "ts", "mts", "m2ts", "m2t", "wmv", "vob", "rmvb", "rm", "divx",
-        "asf", "f4v", "y4m", "mpg", "mpeg", "mpe", "mpv", "m2v", "vro", "dat",
-        "nut", "dv", "mxf"
-    ]
+    public static let videoExtensions: Set<String> = PreviewCapabilityMatrix.videoExtensions
     
     /// Backward-compatible alias for video extensions.
     public static let nativeVideoExtensions: Set<String> = videoExtensions
@@ -46,13 +34,8 @@ public enum MediaPreviewFactory {
     /// Backward-compatible alias for extended video formats (now unified into videoExtensions).
     public static let extendedVideoExtensions: Set<String> = videoExtensions
     
-    /// Audio extensions.
-    public static let audioExtensions: Set<String> = [
-        "mp3", "wav", "m4a", "aac", "flac", "aifc", "aiff", "aif", "m4b", "m4r",
-        "alac", "caf", "ogg", "oga", "opus", "wma", "ape", "dts", "ac3", "eac3",
-        "amr", "mid", "midi", "mka", "dsd", "dsf", "dff", "wv", "tta", "mpc",
-        "tak", "spx", "au", "snd", "voc", "ra", "gsm"
-    ]
+    /// Audio extensions consolidated from central preview matrix.
+    public static let audioExtensions: Set<String> = PreviewCapabilityMatrix.audioExtensions
     
     /// Backward-compatible alias for audio extensions.
     public static let nativeAudioExtensions: Set<String> = audioExtensions
@@ -60,43 +43,26 @@ public enum MediaPreviewFactory {
     /// Backward-compatible alias for extended audio formats (now unified into audioExtensions).
     public static let extendedAudioExtensions: Set<String> = audioExtensions
     
-    /// Document extensions.
-    public static let docxExtensions: Set<String> = [
-        "docx", "doc", "rtf", "odt"
-    ]
+    /// Document extensions consolidated from central preview matrix.
+    public static let docxExtensions: Set<String> = PreviewCapabilityMatrix.docxExtensions
     
-    /// Presentation extensions.
-    public static let presentationExtensions: Set<String> = [
-        "pptx", "ppt", "odp", "key"
-    ]
+    /// Presentation extensions consolidated from central preview matrix.
+    public static let presentationExtensions: Set<String> = PreviewCapabilityMatrix.presentationExtensions
     
-    /// Markdown extensions.
-    public static let markdownExtensions: Set<String> = [
-        "md", "markdown", "mdown", "mkd", "mkdn"
-    ]
+    /// Markdown extensions consolidated from central preview matrix (including md, markdown, mdown, mkd, mkdn, mdtxt, mdtext).
+    public static let markdownExtensions: Set<String> = PreviewCapabilityMatrix.markdownExtensions
     
     /// HTML, web, and vector document extensions for rich visual rendering and dual-mode inspection.
-    public static let htmlWebExtensions: Set<String> = [
-        "html", "htm", "xhtml", "mhtml", "svg", "svgz"
-    ]
+    public static let htmlWebExtensions: Set<String> = PreviewCapabilityMatrix.htmlWebExtensions
     
-    /// Spreadsheet extensions.
-    public static let spreadsheetExtensions: Set<String> = [
-        "xlsx", "xls", "ods", "csv", "tsv", "tab", "psv", "ssv"
-    ]
+    /// Spreadsheet extensions consolidated from central preview matrix.
+    public static let spreadsheetExtensions: Set<String> = PreviewCapabilityMatrix.spreadsheetExtensions
     
-    /// Binary extensions.
-    public static let binaryExtensions: Set<String> = [
-        "bin", "dat", "so", "dylib", "wasm", "class", "o", "exe", "dll", "obj", "a", "lib", "hex", "rom", "elf", "dex", "pyc"
-    ]
+    /// Binary extensions consolidated from central preview matrix.
+    public static let binaryExtensions: Set<String> = PreviewCapabilityMatrix.binaryExtensions
     
-    /// Text extensions for native text code viewer.
-    public static let textExtensions: Set<String> = [
-        "txt", "log", "ini", "conf", "cfg", "properties", "env", "plist",
-        "swift", "kt", "kts", "java", "rs", "go", "c", "cpp", "h", "hpp", "cs", "m", "mm",
-        "js", "jsx", "ts", "tsx", "vue", "svelte", "py", "rb", "php", "sh", "bash", "zsh", "fish",
-        "css", "json", "xml", "yaml", "yml", "toml", "ipynb", "sql", "gradle", "srt", "ass", "vtt", "lrc", "sub"
-    ]
+    /// Text extensions for native text code viewer consolidated from central preview matrix.
+    public static let textExtensions: Set<String> = PreviewCapabilityMatrix.textExtensions
     
     /// Detects MediaPreviewType synchronously for URL.
     nonisolated public static func detectType(url: URL) -> MediaPreviewType {

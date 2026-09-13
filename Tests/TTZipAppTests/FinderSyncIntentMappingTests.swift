@@ -11,6 +11,7 @@ import TTZipPreviewKit
 import TTZipBenchmarkKit
 @testable import TTZipApp
 @testable import TTZipCore
+@testable import TTZipFinderSync
 
 final class FinderSyncIntentMappingTests: XCTestCase {
     
@@ -123,4 +124,45 @@ final class FinderSyncIntentMappingTests: XCTestCase {
         
         darwinHarness.stopObserving()
     }
+    
+    // MARK: - 5. Batch File Selection App Group Spooling (100+ files)
+    
+    func testFinderSyncBatchSpoolJobWith100PlusFiles() throws {
+        // Create 120 mock files to simulate large multi-selection
+        var mockPaths: [String] = []
+        for i in 1...120 {
+            let fileURL = mockHarness.createFile(named: "batch_item_\(i).txt")
+            mockPaths.append(fileURL.path)
+        }
+        XCTAssertEqual(mockPaths.count, 120)
+        
+        // 1. Spool job through AppGroupSpooler from TTZipFinderSync
+        let jobId = try AppGroupSpooler.shared.spoolJob(
+            action: "compress_quick_zip",
+            paths: mockPaths
+        )
+        
+        // 2. Construct compact URL with jobId token (simulating NSWorkspace.open)
+        let urlString = "ttzip://action?type=compress_quick_zip&jobId=\(jobId.uuidString)"
+        let url = try XCTUnwrap(URL(string: urlString))
+        
+        // 3. Verify URL string length is compact (< 100 bytes vs ~10KB)
+        XCTAssertLessThan(urlString.count, 120, "Spooled URL must remain compact even with 100+ files")
+        
+        // 4. Parse incoming URL via AppIntentParser
+        let envelope = try XCTUnwrap(AppIntentParser.parse(url: url))
+        
+        if case .createArchive(let paths, let options) = envelope.intent {
+            XCTAssertEqual(paths.count, 120, "All 120 spooled file paths must be recovered")
+            XCTAssertEqual(paths, mockPaths)
+            XCTAssertEqual(options.targetFormat, .zip)
+        } else {
+            XCTFail("Parsed intent did not match .createArchive")
+        }
+        
+        // 5. Verify the spool file was atomically consumed and removed from disk
+        let consumedAgain = AppGroupSpoolManager.shared.consumeJob(id: jobId)
+        XCTAssertNil(consumedAgain, "Spool job must be single-use and deleted upon consumption")
+    }
 }
+

@@ -176,4 +176,45 @@ final class QuickLookAndFinderIntegrationTests: XCTestCase {
         XCTAssertEqual(vc.view.frame.width, 800)
         XCTAssertEqual(vc.view.frame.height, 600)
     }
+    
+    @MainActor
+    func test_quicklook_cancellation_and_rapid_preview_switching() async throws {
+        let vc = QuickLookPreviewViewController()
+        vc.loadView()
+        
+        let tempDir = FileManager.default.temporaryDirectory.appendingPathComponent("QLCancelTest_\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: tempDir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: tempDir) }
+        
+        let file1 = tempDir.appendingPathComponent("doc1.txt")
+        let file2 = tempDir.appendingPathComponent("doc2.txt")
+        try "Content 1".write(to: file1, atomically: true, encoding: .utf8)
+        try "Content 2".write(to: file2, atomically: true, encoding: .utf8)
+        
+        let zip1 = tempDir.appendingPathComponent("archive1.zip")
+        let zip2 = tempDir.appendingPathComponent("archive2.zip")
+        let writer = ArchiveWriter()
+        try await writer.createArchive(outputPath: zip1.path, format: .zip, level: .fast, inputPaths: [file1.path])
+        try await writer.createArchive(outputPath: zip2.path, format: .zip, level: .fast, inputPaths: [file2.path])
+        
+        var firstHandlerResult: (any Error)? = nil
+        let firstExpectation = expectation(description: "First preview handler must be invoked with cancellation")
+        
+        // 1. Invoke first preview
+        vc.preparePreviewOfFile(at: zip1) { error in
+            firstHandlerResult = error
+            firstExpectation.fulfill()
+        }
+        
+        // 2. Immediately switch to second preview before first completes
+        vc.preparePreviewOfFile(at: zip2) { _ in }
+        
+        // 3. Verify first completion was immediately invoked with user cancelled error without hanging
+        await fulfillment(of: [firstExpectation], timeout: 2.0)
+        XCTAssertNotNil(firstHandlerResult)
+        if let error = firstHandlerResult as? CocoaError {
+            XCTAssertEqual(error.code, CocoaError.userCancelled)
+        }
+    }
 }
+

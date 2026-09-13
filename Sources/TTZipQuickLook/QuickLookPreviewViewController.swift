@@ -17,6 +17,13 @@ public final class QuickLookPreviewViewController: NSViewController, @preconcurr
     private var webView: WKWebView!
     private var activityIndicator: NSProgressIndicator!
     private var pendingCompletion: ((Error?) -> Void)?
+    private var currentTask: Task<Void, Never>?
+    private var currentGeneration: UInt64 = 0
+    private var currentNavigation: WKNavigation?
+    
+    deinit {
+        currentTask?.cancel()
+    }
     
     public override func loadView() {
         let container = NSView(frame: NSRect(x: 0, y: 0, width: 800, height: 600))
@@ -49,17 +56,70 @@ public final class QuickLookPreviewViewController: NSViewController, @preconcurr
     // MARK: - QLPreviewingController
     
     public func preparePreviewOfFile(at url: URL, completionHandler handler: @escaping (Error?) -> Void) {
+        // Increment generation counter to invalidate previous in-flight tasks and navigations
+        currentGeneration &+= 1
+        let generation = currentGeneration
+        
+        // Cancel existing background extraction task if still running
+        currentExtractionTaskCleanup()
+        
+        // Stop any active WebKit page loading
+        webView?.stopLoading()
+        currentNavigation = nil
+        
+        // Settle previous pending completion cleanly before assigning the new one
+        if let previousCompletion = self.pendingCompletion {
+            self.pendingCompletion = nil
+            previousCompletion(CocoaError(.userCancelled))
+        }
+        
         self.pendingCompletion = handler
         activityIndicator.startAnimation(nil)
         
         let targetLanguage = TTZipPreferencesStore.getSavedLanguage() ?? TTZipLocalizationManager.shared.currentLanguage
         
-        Task { @MainActor in
+        currentTask = Task { @MainActor [weak self] in
+            guard let self else {
+                handler(CocoaError(.userCancelled))
+                return
+            }
+            
+            // Fast exit if another request preempted this task before starting
+            guard self.currentGeneration == generation, !Task.isCancelled else {
+                if self.currentGeneration == generation {
+                    self.activityIndicator.stopAnimation(nil)
+                    self.pendingCompletion = nil
+                    handler(CocoaError(.userCancelled))
+                }
+                return
+            }
+            
             do {
                 let html = try await QuickLookPreviewEngine.generateHTMLPreview(for: url.path, language: targetLanguage)
-                self.webView.loadHTMLString(html, baseURL: url.deletingLastPathComponent())
+                
+                // Confirm generation validity after async extraction completed
+                guard self.currentGeneration == generation, !Task.isCancelled else {
+                    if self.currentGeneration == generation {
+                        self.activityIndicator.stopAnimation(nil)
+                        self.pendingCompletion = nil
+                        handler(CocoaError(.userCancelled))
+                    }
+                    return
+                }
+                
+                self.currentNavigation = self.webView.loadHTMLString(html, baseURL: url.deletingLastPathComponent())
             } catch {
+                guard self.currentGeneration == generation else { return }
                 self.activityIndicator.stopAnimation(nil)
+                
+                if Task.isCancelled {
+                    if self.pendingCompletion != nil {
+                        self.pendingCompletion = nil
+                        handler(CocoaError(.userCancelled))
+                    }
+                    return
+                }
+                
                 self.renderErrorFallback(error: error, fileURL: url, language: targetLanguage)
                 if let completion = self.pendingCompletion {
                     self.pendingCompletion = nil
@@ -67,6 +127,11 @@ public final class QuickLookPreviewViewController: NSViewController, @preconcurr
                 }
             }
         }
+    }
+    
+    private func currentExtractionTaskCleanup() {
+        currentTask?.cancel()
+        currentTask = nil
     }
     
     private func renderErrorFallback(error: Error, fileURL: URL, language: AppLanguage) {
@@ -119,12 +184,13 @@ public final class QuickLookPreviewViewController: NSViewController, @preconcurr
         </body>
         </html>
         """
-        self.webView.loadHTMLString(errorHTML, baseURL: nil)
+        self.currentNavigation = self.webView.loadHTMLString(errorHTML, baseURL: nil)
     }
     
     // MARK: - WKNavigationDelegate
     
     public func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+        guard navigation == nil || navigation === currentNavigation else { return }
         activityIndicator.stopAnimation(nil)
         if let completion = pendingCompletion {
             pendingCompletion = nil
@@ -133,6 +199,7 @@ public final class QuickLookPreviewViewController: NSViewController, @preconcurr
     }
     
     public func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
+        guard navigation == nil || navigation === currentNavigation else { return }
         activityIndicator.stopAnimation(nil)
         if let completion = pendingCompletion {
             pendingCompletion = nil
@@ -141,6 +208,7 @@ public final class QuickLookPreviewViewController: NSViewController, @preconcurr
     }
     
     public func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
+        guard navigation == nil || navigation === currentNavigation else { return }
         activityIndicator.stopAnimation(nil)
         if let completion = pendingCompletion {
             pendingCompletion = nil
