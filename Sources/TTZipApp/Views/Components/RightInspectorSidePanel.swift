@@ -148,10 +148,12 @@ public struct RightInspectorSidePanel: View {
                             .foregroundStyle(.tertiary)
                     }
                     
-                    Text(item.kindText)
-                        .font(.system(size: 10))
+                    let ext = URL(fileURLWithPath: item.path).pathExtension.uppercased()
+                    Text(ext.isEmpty ? item.kindText : ext)
+                        .font(.system(size: 10, weight: .medium))
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
+                        .minimumScaleFactor(0.8)
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -197,6 +199,7 @@ public struct RightInspectorSidePanel: View {
                         .contentShape(Rectangle())
                 }
                 .menuStyle(.borderlessButton)
+                .menuIndicator(.hidden)
                 .help(l10n.currentLanguage == .zhHans ? "更多操作" : "More Actions")
                 
                 // Deselect / Close Button

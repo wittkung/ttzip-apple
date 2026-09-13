@@ -34,6 +34,7 @@ public struct MediaPreviewView: View {
     @State private var previewType: MediaPreviewType = .unsupported("Loading...")
     @State private var isExtractingTemp = false
     @State private var isFullScreenActive = false
+    @State private var isHovered = false
     
     public init(fileURL: URL?, fileName: String, isImmersiveFullscreen: Bool? = nil) {
         self.fileURL = fileURL
@@ -128,9 +129,14 @@ public struct MediaPreviewView: View {
                     .shadow(color: .black.opacity(0.3), radius: 4, x: 0, y: 2)
                 }
                 .buttonStyle(.plain)
+                .opacity(isHovered ? 1.0 : 0.0)
+                .animation(.easeInOut(duration: 0.15), value: isHovered)
                 .padding(12)
                 .help("Toggle fullscreen preview (or double-click canvas)")
             }
+        }
+        .onHover { hovering in
+            isHovered = hovering
         }
         .task(id: fileURL) {
             loadPreview()

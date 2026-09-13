@@ -18,6 +18,7 @@ public struct InteractiveZoomImageView: View {
     @State private var lastScale: CGFloat = 1.0
     @State private var offset: CGSize = .zero
     @State private var lastOffset: CGSize = .zero
+    @State private var isHovered: Bool = false
     
     public init(image: NSImage) {
         self.image = image
@@ -146,7 +147,13 @@ public struct InteractiveZoomImageView: View {
                     Capsule()
                         .strokeBorder(TTZipTheme.hairlineBorder, lineWidth: 0.5)
                 )
+                .opacity((isHovered || scale != 1.0) ? 1.0 : 0.0)
+                .animation(.easeInOut(duration: 0.15), value: isHovered)
+                .animation(.easeInOut(duration: 0.15), value: scale)
                 .padding(12)
+            }
+            .onHover { hovering in
+                isHovered = hovering
             }
         }
     }
