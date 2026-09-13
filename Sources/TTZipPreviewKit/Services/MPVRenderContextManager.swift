@@ -140,7 +140,6 @@ public final class MPVRenderContextManager: @unchecked Sendable {
                 var dedicatedContext: CGLContextObj?
                 CGLCreateContext(validPix, nil, &dedicatedContext)
                 if let ctx = dedicatedContext {
-                    CGLEnable(ctx, kCGLCEMPEngine)
                     targetContext = ctx
                 }
             }
@@ -151,8 +150,13 @@ public final class MPVRenderContextManager: @unchecked Sendable {
             return false
         }
         
+        _ = CGLLockContext(activeContext)
+        defer { _ = CGLUnlockContext(activeContext) }
+        
         let previousContext = CGLGetCurrentContext()
-        CGLSetCurrentContext(activeContext)
+        if previousContext != activeContext {
+            CGLSetCurrentContext(activeContext)
+        }
         defer {
             if previousContext != activeContext {
                 CGLSetCurrentContext(previousContext)
@@ -205,13 +209,20 @@ public final class MPVRenderContextManager: @unchecked Sendable {
         let targetCGL = self.activeCGLContext
         contextLock.unlock()
         
+        guard let target = targetCGL else {
+            return mpv_render_context_update(ctx)
+        }
+        
+        _ = CGLLockContext(target)
+        defer { _ = CGLUnlockContext(target) }
+        
         let previousContext = CGLGetCurrentContext()
-        if previousContext == nil, let target = targetCGL {
+        if previousContext != target {
             CGLSetCurrentContext(target)
         }
         defer {
-            if previousContext == nil && targetCGL != nil {
-                CGLSetCurrentContext(nil)
+            if previousContext != target {
+                CGLSetCurrentContext(previousContext)
             }
         }
         
@@ -231,13 +242,18 @@ public final class MPVRenderContextManager: @unchecked Sendable {
         let targetCGL = self.activeCGLContext
         contextLock.unlock()
         
+        guard let target = targetCGL else { return 0 }
+        
+        _ = CGLLockContext(target)
+        defer { _ = CGLUnlockContext(target) }
+        
         let previousContext = CGLGetCurrentContext()
-        if previousContext == nil, let target = targetCGL {
+        if previousContext != target {
             CGLSetCurrentContext(target)
         }
         defer {
-            if previousContext == nil && targetCGL != nil {
-                CGLSetCurrentContext(nil)
+            if previousContext != target {
+                CGLSetCurrentContext(previousContext)
             }
         }
         
@@ -274,13 +290,21 @@ public final class MPVRenderContextManager: @unchecked Sendable {
         let targetCGL = self.activeCGLContext
         contextLock.unlock()
         
+        guard let target = targetCGL else {
+            mpv_render_context_report_swap(ctx)
+            return
+        }
+        
+        _ = CGLLockContext(target)
+        defer { _ = CGLUnlockContext(target) }
+        
         let previousContext = CGLGetCurrentContext()
-        if previousContext == nil, let target = targetCGL {
+        if previousContext != target {
             CGLSetCurrentContext(target)
         }
         defer {
-            if previousContext == nil && targetCGL != nil {
-                CGLSetCurrentContext(nil)
+            if previousContext != target {
+                CGLSetCurrentContext(previousContext)
             }
         }
         
@@ -297,6 +321,9 @@ public final class MPVRenderContextManager: @unchecked Sendable {
             return nil
         }
         contextLock.unlock()
+        
+        _ = CGLLockContext(cglCtx)
+        defer { _ = CGLUnlockContext(cglCtx) }
         
         let previousContext = CGLGetCurrentContext()
         if previousContext != cglCtx {
@@ -321,7 +348,7 @@ public final class MPVRenderContextManager: @unchecked Sendable {
             h: height,
             internal_format: GLint(GL_RGBA8)
         )
-        var flipY: Int32 = 1
+        var flipY: Int32 = 0
         let err: Int32 = withUnsafeMutablePointer(to: &glFbo) { fboPtr in
             withUnsafeMutablePointer(to: &flipY) { flipYPtr in
                 var renderParams: [mpv_render_param] = [
@@ -423,6 +450,9 @@ public final class MPVRenderContextManager: @unchecked Sendable {
         contextLock.unlock()
         
         if let targetCGL = targetCGL {
+            _ = CGLLockContext(targetCGL)
+            defer { _ = CGLUnlockContext(targetCGL) }
+            
             let prev = CGLGetCurrentContext()
             if prev != targetCGL {
                 CGLSetCurrentContext(targetCGL)
@@ -466,7 +496,10 @@ public final class MPVRenderContextManager: @unchecked Sendable {
         let previousContext = CGLGetCurrentContext()
         let active = self.activeCGLContext
         if let active = active {
-            CGLSetCurrentContext(active)
+            _ = CGLLockContext(active)
+            if previousContext != active {
+                CGLSetCurrentContext(active)
+            }
         }
         
         mpv_render_context_set_update_callback(ctx, nil, nil)
@@ -479,10 +512,13 @@ public final class MPVRenderContextManager: @unchecked Sendable {
         self.updateHandlerOwner = nil
         handlerLock.unlock()
         
-        if let prev = previousContext, prev != active {
-            CGLSetCurrentContext(prev)
+        if let active = active {
+            if previousContext != active {
+                CGLSetCurrentContext(previousContext)
+            }
+            _ = CGLUnlockContext(active)
         } else {
-            CGLSetCurrentContext(nil)
+            CGLSetCurrentContext(previousContext)
         }
         
         logger.info("mpv_render_context detached and released")

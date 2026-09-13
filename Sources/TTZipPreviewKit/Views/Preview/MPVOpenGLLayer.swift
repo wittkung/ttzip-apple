@@ -142,9 +142,6 @@ public final class MPVOpenGLLayer: CAOpenGLLayer, MPVVideoLayerProtocol {
             fatalError("Failed to allocate CGLContextObj")
         }
         
-        // Enable Apple Multi-threaded OpenGL Engine for maximum throughput
-        CGLEnable(validCtx, kCGLCEMPEngine)
-        
         // Synchronize with display VSync (swapInterval = 1)
         var swapInterval: GLint = 1
         CGLSetParameter(validCtx, kCGLCPSwapInterval, &swapInterval)
