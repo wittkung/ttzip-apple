@@ -164,7 +164,7 @@ final class NativeMPVPlaybackTests: XCTestCase {
         let layer = MPVMetalRenderLayer()
         XCTAssertTrue(layer.wantsExtendedDynamicRangeContent)
         XCTAssertEqual(layer.pixelFormat, .bgra8Unorm)
-        XCTAssertEqual(layer.colorspace, CGColorSpace(name: CGColorSpace.extendedLinearSRGB))
+        XCTAssertEqual(layer.colorspace, CGColorSpace(name: CGColorSpace.sRGB))
         XCTAssertTrue(layer.allowsNextDrawableTimeout)
         XCTAssertTrue(layer.needsDisplayOnBoundsChange)
         

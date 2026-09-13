@@ -266,12 +266,15 @@ public struct MPVMetalVideoPlayerView: View {
                 }
         }
         .onContinuousHover { phase in
+            let activeId = store.currentURL?.path ?? url.path
             switch phase {
             case .active:
                 isHovering = true
+                MediaPlaybackCoordinator.shared.setHovered(id: activeId, isHovered: true)
                 resetHideTimer()
             case .ended:
                 isHovering = false
+                MediaPlaybackCoordinator.shared.setHovered(id: activeId, isHovered: false)
             }
         }
         .onDrop(of: [.fileURL], isTargeted: $isDropTargeted) { providers in
@@ -338,6 +341,7 @@ public struct MPVMetalVideoPlayerView: View {
             hideTimer?.invalidate()
             hideTimer = nil
             let activeId = store.currentURL?.path ?? url.path
+            MediaPlaybackCoordinator.shared.setHovered(id: activeId, isHovered: false)
             MediaPlaybackCoordinator.shared.unregisterSession(id: activeId)
             store.pause()
         }

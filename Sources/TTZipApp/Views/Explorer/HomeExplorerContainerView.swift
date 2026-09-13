@@ -80,7 +80,8 @@ public struct HomeExplorerContainerView: View {
                         viewModel.openCompressWorkspace(paths: [folderPath])
                     },
                     onPreviewFile: { path in
-                        viewModel.previewMediaFile(path: path)
+                        let item = DiskItemInfo(url: URL(fileURLWithPath: path), isDirectory: false)
+                        viewModel.openImmersiveMedia(for: item)
                     },
                     onSelectItem: { item in
                         viewModel.selectedDiskItem = item

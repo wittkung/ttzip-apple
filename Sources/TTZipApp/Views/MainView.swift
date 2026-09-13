@@ -49,6 +49,7 @@ public struct MainView: View {
     @State private var initialLeftWidth: CGFloat = 190
     
     @AppStorage("TTZip_UserRightSidebarWidth") private var userRightSidebarWidth: Double = 340.0
+    @AppStorage("TTZip_UserRightInspectorRatio") private var userRightInspectorRatio: Double = 0.38
     @State private var rightSidebarWidth: CGFloat = 340
     @State private var initialRightWidth: CGFloat = 340
     @State private var rightVerticalTopHeight: CGFloat = 300
@@ -176,36 +177,7 @@ public struct MainView: View {
     
     @ViewBuilder
     private var detailArea: some View {
-        if let previewURL = viewModel.activePreviewFileURL, let name = viewModel.activePreviewFileName {
-            if viewModel.navigationState.layoutMode == .mediaFocus {
-                MediaPreviewView(fileURL: previewURL, fileName: name)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-            } else {
-                TTZipWorkspaceScaffold(
-                    title: name,
-                    isCardEnclosed: true
-                ) {
-                    Button(action: { viewModel.closeMediaPreview() }) {
-                        HStack(spacing: 4) {
-                            Image(systemName: "xmark")
-                            Text(l10n.t(L10n.Common.close))
-                        }
-                        .font(.system(size: 11, weight: .medium))
-                        .foregroundStyle(TTZipTheme.cinnabarRed)
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 4)
-                        .background(TTZipTheme.cinnabarRed.opacity(0.12))
-                        .clipShape(Capsule())
-                    }
-                    .buttonStyle(.plain)
-                } content: {
-                    MediaPreviewView(fileURL: previewURL, fileName: name)
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                }
-            }
-        } else {
-            HomeExplorerContainerView(viewModel: viewModel, isRightSidebarVisible: isRightSidebarVisible, isActive: true)
-        }
+        HomeExplorerContainerView(viewModel: viewModel, isRightSidebarVisible: isRightSidebarVisible, isActive: true)
     }
     
     private func liquidGlassSearchResultsOverlay(maxWidth: CGFloat) -> some View {
@@ -294,9 +266,11 @@ public struct MainView: View {
             let maxRightAllowedByWorkspace = max(minRightSidebarWidth, totalWidth - leftChrome - rightChrome - minSafeWorkspaceWidth)
             let effectiveMaxRightWidth = max(minRightSidebarWidth, min(maxRightSidebarWidth, maxRightAllowedByWorkspace))
             
+            let availableContentWidth = max(0, totalWidth - leftChrome - rightChrome)
+            let targetRightWidth = availableContentWidth * CGFloat(userRightInspectorRatio)
             let effectiveRightWidth: CGFloat = {
                 if !shouldShowRightPanel { return 0 }
-                return min(max(rightSidebarWidth, minRightSidebarWidth), effectiveMaxRightWidth)
+                return min(max(targetRightWidth, minRightSidebarWidth), effectiveMaxRightWidth)
             }()
             
             ZStack(alignment: .topLeading) {
@@ -316,7 +290,8 @@ public struct MainView: View {
                     effectiveRightWidth: effectiveRightWidth,
                     minSafeWorkspaceWidth: minSafeWorkspaceWidth,
                     minRightSidebarWidth: minRightSidebarWidth,
-                    effectiveMaxRightWidth: effectiveMaxRightWidth
+                    effectiveMaxRightWidth: effectiveMaxRightWidth,
+                    availableContentWidth: availableContentWidth
                 )
                 
                 if !isMediaFocus && viewModel.activeTab == .home {
@@ -343,7 +318,7 @@ public struct MainView: View {
                 } else {
                     self.leftSidebarWidth = min(max(savedLeft, SidebarGeometry.minExpandedWidth), SidebarGeometry.maxExpandedWidth)
                 }
-                let baseWidth = CGFloat(userRightSidebarWidth)
+                let baseWidth = availableContentWidth > 0 ? targetRightWidth : CGFloat(userRightSidebarWidth)
                 self.rightSidebarWidth = min(max(baseWidth, minRightSidebarWidth), effectiveMaxRightWidth)
             }
             .onChange(of: viewModel.selectedDiskItem) { _, _ in
@@ -376,7 +351,8 @@ public struct MainView: View {
         effectiveRightWidth: CGFloat,
         minSafeWorkspaceWidth: CGFloat,
         minRightSidebarWidth: CGFloat,
-        effectiveMaxRightWidth: CGFloat
+        effectiveMaxRightWidth: CGFloat,
+        availableContentWidth: CGFloat
     ) -> some View {
         HStack(alignment: .top, spacing: 0) {
             if shouldShowLeftPanel {
@@ -426,18 +402,26 @@ public struct MainView: View {
             
             if shouldShowRightPanel {
                 ResizableDividerHandle(
-                    onDragStart: { initialRightWidth = rightSidebarWidth },
+                    onDragStart: { initialRightWidth = effectiveRightWidth },
                     onDragChanged: { translation in
                         let newWidth = initialRightWidth - translation
-                        rightSidebarWidth = min(max(newWidth, minRightSidebarWidth), effectiveMaxRightWidth)
+                        let clamped = min(max(newWidth, minRightSidebarWidth), effectiveMaxRightWidth)
+                        rightSidebarWidth = clamped
+                        if availableContentWidth > 0 {
+                            userRightInspectorRatio = Double(clamped / availableContentWidth)
+                        }
                     },
                     onDragEnd: {
                         userRightSidebarWidth = Double(rightSidebarWidth)
+                        if availableContentWidth > 0 {
+                            userRightInspectorRatio = Double(rightSidebarWidth / availableContentWidth)
+                        }
                     },
                     onDoubleClick: {
                         withAnimation(.spring(response: 0.28, dampingFraction: 0.82)) {
-                            let targetWidth: CGFloat = 340.0
-                            rightSidebarWidth = min(targetWidth, effectiveMaxRightWidth)
+                            userRightInspectorRatio = 0.38
+                            let targetWidth = availableContentWidth * 0.38
+                            rightSidebarWidth = min(max(targetWidth, minRightSidebarWidth), effectiveMaxRightWidth)
                             userRightSidebarWidth = Double(rightSidebarWidth)
                         }
                         NSHapticFeedbackManager.defaultPerformer.perform(.alignment, performanceTime: .default)
