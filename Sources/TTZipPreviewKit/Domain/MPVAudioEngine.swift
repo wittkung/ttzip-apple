@@ -32,6 +32,7 @@ public final class MPVAudioEngine {
     public private(set) var isPlaying: Bool = false
     public private(set) var isBuffering: Bool = false
     public private(set) var volume: Double = 1.0
+    public private(set) var playbackSpeed: Double = 1.0
     public private(set) var isMuted: Bool = false
     public private(set) var hasPlaybackError: Bool = false
     public private(set) var errorMessage: String? = nil
@@ -199,6 +200,21 @@ public final class MPVAudioEngine {
     /// Toggles between audio mute and unmute states.
     public func toggleMute() {
         setMuted(!isMuted)
+    }
+
+    /// Sets playback speed multiplier (clamped to 0.25x ... 4.0x).
+    ///
+    /// - Parameter speed: Target playback speed factor.
+    public func setPlaybackSpeed(_ speed: Double) {
+        let clamped = max(0.25, min(4.0, speed))
+        self.playbackSpeed = clamped
+        Task {
+            do {
+                try await MPVCoreEngine.shared.setProperty(name: "speed", value: clamped)
+            } catch {
+                self.logger.error("Failed to set speed: \(error.localizedDescription, privacy: .public)")
+            }
+        }
     }
 
     /// Stops audio playback and resets engine timeline.

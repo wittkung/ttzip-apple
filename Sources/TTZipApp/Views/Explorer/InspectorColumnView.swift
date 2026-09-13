@@ -79,7 +79,7 @@ public struct InspectorColumnView: View {
                     )
                     .id(item.path)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
-                } else if isDocumentOrCode(for: item) {
+                } else if isInteractiveDocumentOrMedia(for: item) {
                     MediaPreviewView(
                         fileURL: effectivePreviewURL,
                         fileName: item.name
@@ -219,53 +219,76 @@ public struct InspectorColumnView: View {
         }
     }
     
-    private func isDocumentOrCode(for item: DiskItemInfo) -> Bool {
+    private func isInteractiveDocumentOrMedia(for item: DiskItemInfo) -> Bool {
         let ext = (item.name as NSString).pathExtension.lowercased()
-        return ["swift", "js", "ts", "py", "json", "html", "css", "cpp", "c", "h", "rs", "go", "sh", "xml", "txt", "md", "pdf", "docx"].contains(ext)
+        if ["swift", "js", "ts", "py", "json", "html", "css", "cpp", "c", "h", "rs", "go", "sh", "xml", "txt", "md", "pdf", "docx", "rtf"].contains(ext) {
+            return true
+        }
+        if ext == "epub" || MediaPreviewFactory.ebookExtensions.contains(ext) {
+            return true
+        }
+        if MediaPreviewFactory.spreadsheetExtensions.contains(ext) {
+            return true
+        }
+        if MediaPreviewFactory.presentationExtensions.contains(ext) {
+            return true
+        }
+        if MediaPreviewFactory.audioExtensions.contains(ext) {
+            return true
+        }
+        return false
     }
     
     @ViewBuilder
     private func fileInspectorContent(for item: DiskItemInfo) -> some View {
-        ScrollView(.vertical, showsIndicators: false) {
-            VStack(spacing: 12) {
-                // 1. Centered Hero Preview Card
-                ZStack {
-                    RoundedRectangle(cornerRadius: 10, style: .continuous)
-                        .fill(Color.primary.opacity(0.025))
-                    
-                    MediaPreviewView(
-                        fileURL: effectivePreviewURL,
-                        fileName: item.name
+        GeometryReader { proxy in
+            let availableHeight = proxy.size.height
+            let isImage = ["jpg", "jpeg", "png", "gif", "webp", "heic", "svg", "bmp", "tiff"]
+                .contains((item.name as NSString).pathExtension.lowercased())
+            let reservedHeight: CGFloat = isImage ? 230.0 : 250.0
+            let dynamicCardHeight = max(280.0, availableHeight - reservedHeight)
+            
+            ScrollView(.vertical, showsIndicators: false) {
+                VStack(spacing: 12) {
+                    // 1. Centered Hero Preview Card (Adaptive Height)
+                    ZStack {
+                        RoundedRectangle(cornerRadius: 10, style: .continuous)
+                            .fill(Color.primary.opacity(0.025))
+                        
+                        MediaPreviewView(
+                            fileURL: effectivePreviewURL,
+                            fileName: item.name
+                        )
+                        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                    }
+                    .frame(maxWidth: .infinity)
+                    .frame(height: dynamicCardHeight)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 10, style: .continuous)
+                            .strokeBorder(Color.primary.opacity(0.06), lineWidth: 0.8)
                     )
-                    .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                    
+                    // 2. Quick Action Buttons
+                    quickActionButtons(
+                        for: item,
+                        onPreview: { onPreviewFile(item.path) },
+                        onCompress: { onCompressPath(item.path) },
+                        onSelectArchive: onSelectArchive
+                    )
+                    
+                    // 3. Structured Metadata Bento Card
+                    metadataBentoView(
+                        for: item,
+                        metadata: deepMetadataDict,
+                        dims: asyncDimensions
+                    )
                 }
-                .frame(maxWidth: .infinity)
-                .frame(height: 280)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 10, style: .continuous)
-                        .strokeBorder(Color.primary.opacity(0.06), lineWidth: 0.8)
-                )
-                
-                // 2. Quick Action Buttons
-                quickActionButtons(
-                    for: item,
-                    onPreview: { onPreviewFile(item.path) },
-                    onCompress: { onCompressPath(item.path) },
-                    onSelectArchive: onSelectArchive
-                )
-                
-                // 3. Structured Metadata Bento Card
-                metadataBentoView(
-                    for: item,
-                    metadata: deepMetadataDict,
-                    dims: asyncDimensions
-                )
+                .padding(.horizontal, 14)
+                .padding(.top, 10)
+                .padding(.bottom, 24)
             }
-            .padding(.horizontal, 14)
-            .padding(.top, 10)
-            .padding(.bottom, 24)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
     
     // MARK: - Zen Empty State
