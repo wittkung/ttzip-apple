@@ -65,6 +65,13 @@ public final class MPVAudioEngine {
     ///   - url: Target audio file URL.
     ///   - autoPlay: Whether playback should start automatically upon demux completion.
     public func load(url: URL, autoPlay: Bool = true) {
+        if currentURL == url {
+            if autoPlay && !isPlaying {
+                play()
+            }
+            return
+        }
+        
         // Immediate UI reset for zero-flicker song transition
         activeWaveformTask?.cancel()
         currentURL = url

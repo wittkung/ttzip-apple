@@ -287,6 +287,9 @@ public final class MPVMetalPlayerStore {
         }
         
         self.ensureMpvInitialized(isAudioOnly: isAudioOnly)
+        if !isAudioOnly, let handle = self.mpv {
+            renderContextManager.createRenderContext(mpvHandle: handle)
+        }
         
         logger.info("Executing loadfile asynchronously via MPVCoreEngine for: \(url.path, privacy: .public)")
         Task { [weak self] in

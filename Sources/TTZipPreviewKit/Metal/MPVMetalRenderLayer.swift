@@ -125,6 +125,11 @@ public final class MPVMetalRenderLayer: CAMetalLayer, MPVVideoLayerProtocol, @un
     public func renderNextFrame() {
         guard let manager = renderContextManager, isBound else { return }
         
+        // Defensive self-healing: if rawContext is nil but mpv handle is now available, initialize context
+        if manager.rawContext == nil, let mpv = playerStore?.mpv {
+            manager.createRenderContext(mpvHandle: mpv)
+        }
+        
         stateLock.lock()
         let force = _needsForceRedraw
         _needsForceRedraw = false
@@ -133,7 +138,14 @@ public final class MPVMetalRenderLayer: CAMetalLayer, MPVVideoLayerProtocol, @un
         let flags = manager.update()
         guard (flags & UInt64(MPV_RENDER_UPDATE_FRAME.rawValue)) != 0 || force else { return }
         
-        let size = self.drawableSize
+        var size = self.drawableSize
+        if size.width <= 0 || size.height <= 0 {
+            if bounds.width > 0 && bounds.height > 0 {
+                let scale = contentsScale > 0 ? contentsScale : 2.0
+                updateDrawableSize(boundsSize: bounds.size, scaleFactor: scale)
+                size = self.drawableSize
+            }
+        }
         guard size.width > 0, size.height > 0 else { return }
         
         renderFrame(size: size, fbo: 0)

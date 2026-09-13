@@ -84,6 +84,9 @@ public struct HomeExplorerContainerView: View {
                     },
                     onSelectItem: { item in
                         viewModel.selectedDiskItem = item
+                        if !item.isDirectory {
+                            viewModel.activeInspectedFile = item
+                        }
                     }
                 )
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)

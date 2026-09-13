@@ -40,8 +40,8 @@ public struct MediaPreviewView: View {
         self.fileURL = fileURL
         self.fileName = fileName
         self.isImmersiveFullscreen = isImmersiveFullscreen
-        if fileURL != nil {
-            _previewType = State(initialValue: .unsupported("Loading preview..."))
+        if let url = fileURL {
+            _previewType = State(initialValue: MediaPreviewFactory.detectType(url: url))
         } else {
             _previewType = State(initialValue: .unsupported("Select a file from the explorer to preview"))
         }

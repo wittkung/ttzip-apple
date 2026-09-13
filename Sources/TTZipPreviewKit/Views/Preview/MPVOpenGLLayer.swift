@@ -103,7 +103,7 @@ public final class MPVOpenGLLayer: CAOpenGLLayer, MPVVideoLayerProtocol {
         self.playerStore = nil
     }
     
-    fileprivate func requestRender() {
+    public func requestRender() {
         let localProxy = self.proxy
         renderQueue.async { [weak localProxy] in
             guard let layer = localProxy?.layer, layer.isBound else { return }

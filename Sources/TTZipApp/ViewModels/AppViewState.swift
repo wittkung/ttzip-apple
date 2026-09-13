@@ -126,6 +126,14 @@ public final class AppViewState {
         get { overlayState.selectedDiskItem }
         set { overlayState.selectedDiskItem = newValue }
     }
+    public var activeInspectedFile: DiskItemInfo? {
+        get { overlayState.activeInspectedFile }
+        set { overlayState.activeInspectedFile = newValue }
+    }
+    public func clearInspectedFile() {
+        overlayState.activeInspectedFile = nil
+        overlayState.selectedDiskItem = nil
+    }
     public var selectedPathsToCompress: [String] {
         get { overlayState.selectedPathsToCompress }
         set { overlayState.selectedPathsToCompress = newValue }

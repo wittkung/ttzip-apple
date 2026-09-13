@@ -37,32 +37,30 @@ public struct RightInspectorSidePanel: View {
             
             // Contextual Content Area: Directory Canvas, File Preview, or Current Directory Canvas
             VStack(alignment: .leading, spacing: 0) {
-                if let item = viewModel.selectedDiskItem {
-                    if item.isDirectory {
-                        FolderMediaArtboardView(
-                            item: item,
-                            onCompressPath: { folderPath in
-                                viewModel.openCompressWorkspace(paths: [folderPath])
-                            }
-                        )
-                        .id(item.path)
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    } else {
-                        InspectorColumnView(
-                            item: item,
-                            onSelectArchive: { archivePath in
-                                Task { await viewModel.loadArchive(path: archivePath) }
-                            },
-                            onCompressPath: { folderPath in
-                                viewModel.openCompressWorkspace(paths: [folderPath])
-                            },
-                            onPreviewFile: { _ in
-                                viewModel.openImmersiveMedia(for: item)
-                            }
-                        )
-                        .id(item.path)
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    }
+                if let fileItem = viewModel.activeInspectedFile ?? (viewModel.selectedDiskItem?.isDirectory == false ? viewModel.selectedDiskItem : nil) {
+                    InspectorColumnView(
+                        item: fileItem,
+                        onSelectArchive: { archivePath in
+                            Task { await viewModel.loadArchive(path: archivePath) }
+                        },
+                        onCompressPath: { folderPath in
+                            viewModel.openCompressWorkspace(paths: [folderPath])
+                        },
+                        onPreviewFile: { _ in
+                            viewModel.openImmersiveMedia(for: fileItem)
+                        }
+                    )
+                    .id(fileItem.path)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                } else if let item = viewModel.selectedDiskItem, item.isDirectory {
+                    FolderMediaArtboardView(
+                        item: item,
+                        onCompressPath: { folderPath in
+                            viewModel.openCompressWorkspace(paths: [folderPath])
+                        }
+                    )
+                    .id(item.path)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
                 } else {
                     let currentFolderItem = DiskItemInfo(url: viewModel.currentDirectory)
                     if currentFolderItem.isDirectory {
@@ -85,18 +83,18 @@ public struct RightInspectorSidePanel: View {
         .background(Color.primary.opacity(0.025))
     }
     
+    // MARK: - Zen Empty State
+    
+    @ViewBuilder
     private var zenPlaceholderView: some View {
         VStack(spacing: 12) {
             Spacer()
-            Image(systemName: "circle.dotted")
-                .font(.system(size: 32, weight: .light))
-                .foregroundStyle(TTZipTheme.kintsugiGold.opacity(0.6))
-            Text(l10n.t(L10n.Inspector.emptyDirectory))
-                .font(.system(size: 13, weight: .medium, design: .serif))
-                .foregroundStyle(.primary.opacity(0.8))
-            Text(l10n.t(L10n.Inspector.emptyDirectoryDesc))
-                .font(.system(size: 11))
-                .foregroundStyle(.secondary)
+            Image(systemName: "circle.dashed")
+                .font(.system(size: 32, weight: .ultraLight))
+                .foregroundStyle(TTZipTheme.bambooGreen.opacity(0.4))
+            Text(l10n.currentLanguage == .zhHans ? "轻触选中文件以查看详情" : "Select an item to inspect")
+                .font(.system(size: 11, design: .serif))
+                .foregroundStyle(.secondary.opacity(0.7))
             Spacer()
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -104,9 +102,13 @@ public struct RightInspectorSidePanel: View {
     
     // MARK: - Header Components
     
+    private var activeHeaderItem: DiskItemInfo? {
+        viewModel.activeInspectedFile ?? (viewModel.selectedDiskItem?.isDirectory == false ? viewModel.selectedDiskItem : nil) ?? viewModel.selectedDiskItem
+    }
+    
     @ViewBuilder
     private var headerView: some View {
-        if let item = viewModel.selectedDiskItem {
+        if let item = activeHeaderItem {
             selectedItemHeader(for: item)
         } else {
             directoryHeader
@@ -187,7 +189,7 @@ public struct RightInspectorSidePanel: View {
                     
                     Button(role: .destructive, action: {
                         try? FileManager.default.trashItem(at: URL(fileURLWithPath: item.path), resultingItemURL: nil)
-                        viewModel.selectedDiskItem = nil
+                        viewModel.clearInspectedFile()
                     }) {
                         Label(l10n.currentLanguage == .zhHans ? "移到废纸篓" : "Move to Trash", systemImage: "trash")
                     }
@@ -205,7 +207,7 @@ public struct RightInspectorSidePanel: View {
                 // Deselect / Close Button
                 Button(action: {
                     withAnimation(.spring(response: 0.28, dampingFraction: 0.86)) {
-                        viewModel.selectedDiskItem = nil
+                        viewModel.clearInspectedFile()
                     }
                 }) {
                     Image(systemName: "xmark.circle.fill")

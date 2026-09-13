@@ -76,6 +76,7 @@ public final class MPVMetalContainerView: MPVMetalNSView {
         self.layerContentsRedrawPolicy = .duringViewResize
         self.layer?.backgroundColor = NSColor.black.cgColor
         self.layer?.wantsExtendedDynamicRangeContent = true
+        self.layer?.cornerRadius = 8
         self.layer?.masksToBounds = true
         let scale = window?.backingScaleFactor ?? NSScreen.main?.backingScaleFactor ?? 2.0
         self.layer?.contentsScale = scale
@@ -83,12 +84,18 @@ public final class MPVMetalContainerView: MPVMetalNSView {
         registerForDraggedTypes([.fileURL])
         
         displayLink.setFrameCallback { [weak self] _, _ in
+            guard let self else { return }
             Task { @MainActor [weak self] in
-                guard let self = self, let videoLayer = self.layer as? (any MPVVideoLayerProtocol) else { return }
-                if self.warmupFrameCount > 0 {
-                    self.warmupFrameCount -= 1
+                guard let strongSelf = self else { return }
+                let rawLayer = strongSelf.layer
+                guard let videoLayer = rawLayer as? (any MPVVideoLayerProtocol) else { return }
+                if strongSelf.warmupFrameCount > 0 {
+                    strongSelf.warmupFrameCount -= 1
                     videoLayer.forceRedraw()
                     return
+                }
+                if let store = strongSelf.store, store.isPlaying {
+                    videoLayer.requestRender()
                 }
             }
         }
@@ -124,6 +131,11 @@ public final class MPVMetalContainerView: MPVMetalNSView {
     
     public override func layout() {
         super.layout()
+        updateScaleAndBounds()
+    }
+    
+    public override func setFrameSize(_ newSize: NSSize) {
+        super.setFrameSize(newSize)
         updateScaleAndBounds()
     }
     
