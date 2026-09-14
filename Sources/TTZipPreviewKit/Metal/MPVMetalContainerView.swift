@@ -223,7 +223,8 @@ public final class MPVMetalContainerView: MPVMetalNSView {
                 self?.onTogglePlayPause?()
             }
             self.singleClickWorkItem = work
-            DispatchQueue.main.asyncAfter(deadline: .now() + NSEvent.doubleClickInterval, execute: work)
+            let debounceInterval = min(NSEvent.doubleClickInterval, 0.22)
+            DispatchQueue.main.asyncAfter(deadline: .now() + debounceInterval, execute: work)
         } else {
             super.mouseUp(with: event)
         }

@@ -36,6 +36,7 @@ public final class MPVMetalPlayerStore {
     
     public var currentURL: URL?
     public var isPlaying: Bool = false
+    private var pendingDesiredPauseState: Bool? = nil
     public var currentTime: Double = 0
     public var duration: Double = 0
     public var volume: Double = 1.0
@@ -124,7 +125,14 @@ public final class MPVMetalPlayerStore {
         if state.duration > 0 {
             self.duration = state.duration
         }
-        self.isPlaying = !state.isPaused
+        if let targetPaused = pendingDesiredPauseState {
+            if state.isPaused == targetPaused {
+                pendingDesiredPauseState = nil
+                self.isPlaying = !state.isPaused
+            }
+        } else {
+            self.isPlaying = !state.isPaused
+        }
         self.volume = state.volume
         self.isMuted = state.isMuted
         self.isBuffering = state.isBuffering
@@ -333,16 +341,18 @@ public final class MPVMetalPlayerStore {
     
     public func play() {
         isPlaying = true
+        pendingDesiredPauseState = false
         logger.info("Playback resumed")
-        Task {
+        Task(priority: .high) {
             try? await MPVCoreEngine.shared.setProperty(name: "pause", value: false)
         }
     }
     
     public func pause() {
         isPlaying = false
+        pendingDesiredPauseState = true
         logger.info("Playback paused")
-        Task {
+        Task(priority: .high) {
             try? await MPVCoreEngine.shared.setProperty(name: "pause", value: true)
         }
     }
