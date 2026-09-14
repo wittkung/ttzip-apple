@@ -5,6 +5,7 @@
 //
 // TTZip: High-performance native archiving and compression engine.
 
+import CryptoKit
 import Foundation
 import os
 import TTZipCore
@@ -132,7 +133,8 @@ public final class TTZipArchiveVfsProvider: TTZipVfsResourceProvider, Sendable {
             return nil
         }
         
-        guard let host = url.host, !host.isEmpty else { return nil }
+        guard let rawHost = url.host, !rawHost.isEmpty else { return nil }
+        let host = (rawHost.removingPercentEncoding ?? rawHost).lowercased()
         let rawPath = url.path.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
         let decodedPath = rawPath.removingPercentEncoding ?? rawPath
         let normalizedPath = Self.normalizePath(decodedPath)
@@ -140,12 +142,18 @@ public final class TTZipArchiveVfsProvider: TTZipVfsResourceProvider, Sendable {
     }
     
     public static func makeArchiveId(from archivePath: String) -> String {
-        let hash = String(format: "%08x", abs(archivePath.hashValue))
-        let baseName = (archivePath as NSString).lastPathComponent
-            .components(separatedBy: CharacterSet.alphanumerics.inverted)
-            .filter { !$0.isEmpty }
-            .joined()
-        return "\(baseName.prefix(12))_\(hash)"
+        let digest = SHA256.hash(data: Data(archivePath.utf8))
+        let hex = digest.prefix(8).map { String(format: "%02x", $0) }.joined()
+        
+        let lastComponent = (archivePath as NSString).lastPathComponent
+        var asciiScalars = String.UnicodeScalarView()
+        for scalar in lastComponent.unicodeScalars where scalar.isASCII && CharacterSet.alphanumerics.contains(scalar) {
+            asciiScalars.append(scalar)
+        }
+        let rawPrefix = String(asciiScalars).prefix(12)
+        let prefix = rawPrefix.isEmpty ? "arc" : String(rawPrefix)
+        
+        return "\(prefix)_\(hex)".lowercased()
     }
     
     public static func normalizePath(_ path: String) -> String {

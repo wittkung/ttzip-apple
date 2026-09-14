@@ -265,6 +265,7 @@ public struct InspectorColumnView: View {
                             fileURL: effectivePreviewURL,
                             fileName: item.name
                         )
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
                         .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
                     }
                     .frame(maxWidth: .infinity)
