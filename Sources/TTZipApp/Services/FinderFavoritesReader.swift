@@ -47,7 +47,7 @@ public final class FinderFavoritesReader {
             // Fallback: fetch macOS standard user directories
             let home = NSHomeDirectory()
             let standardPaths: [(String, String)] = [
-                ((home as NSString).appendingPathComponent("Downloads"), "arrow.down.circle.fill"),
+                ((home as NSString).appendingPathComponent("Downloads"), "arrow.down.circle"),
                 ((home as NSString).appendingPathComponent("Documents"), "doc.text.fill"),
                 ((home as NSString).appendingPathComponent("Desktop"), "desktopcomputer"),
                 (home, "house.fill"),
@@ -246,7 +246,7 @@ public final class FinderFavoritesReader {
         let lowerPath = path.lowercased()
         
         if path == (home as NSString).appendingPathComponent("Downloads") || lowerName == "downloads" || lowerName == "下载" {
-            return "arrow.down.circle.fill"
+            return "arrow.down.circle"
         } else if path == (home as NSString).appendingPathComponent("Documents") || lowerName == "documents" || lowerName == "文稿" {
             return "doc.text.fill"
         } else if path == (home as NSString).appendingPathComponent("Desktop") || lowerName == "desktop" || lowerName == "桌面" {

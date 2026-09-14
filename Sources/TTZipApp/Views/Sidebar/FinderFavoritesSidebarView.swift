@@ -200,7 +200,7 @@ public struct FinderFavoritesSidebarView: View {
             sidebarHardwareFooter
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .background(TTZipTheme.paperWhite.opacity(0.85))
+        .background(.ultraThinMaterial)
         .sheet(isPresented: $showWirelessDiscoverySheet) {
             WirelessDeviceDiscoveryView()
         }
@@ -328,7 +328,7 @@ public struct FinderFavoritesSidebarView: View {
                     HStack(spacing: 5) {
                         Image(systemName: "cpu")
                             .font(.system(size: 9.5, weight: .semibold))
-                            .foregroundStyle(TTZipTheme.bambooGreen)
+                            .foregroundStyle(.secondary)
                         
                         Text(hardwareChipSummary)
                             .font(.system(size: 9.5, weight: .medium, design: .monospaced))
@@ -336,26 +336,19 @@ public struct FinderFavoritesSidebarView: View {
                             .lineLimit(1)
                             .truncationMode(.middle)
                         
-                        Text("·")
-                            .font(.system(size: 9, design: .monospaced))
-                            .foregroundStyle(.tertiary)
-                        
-                        Text(currentDateBadge)
-                            .font(.system(size: 9.5, weight: .medium, design: .monospaced))
-                            .foregroundStyle(.secondary.opacity(0.85))
-                            .lineLimit(1)
-                        
                         Spacer(minLength: 4)
                         
                         HStack(spacing: 3.5) {
                             Circle()
                                 .fill(TTZipTheme.bambooGreen)
-                                .frame(width: 5, height: 5)
+                                .frame(width: 4.5, height: 4.5)
                             Text(l10n.currentLanguage == .zhHans ? "加速就绪" : "Online")
                                 .font(.system(size: 8.5, weight: .medium))
                                 .foregroundStyle(TTZipTheme.bambooGreen)
                                 .lineLimit(1)
                         }
+                        .fixedSize(horizontal: true, vertical: false)
+                        .layoutPriority(1)
                         .help(l10n.currentLanguage == .zhHans ? "Apple Silicon 硬件加速引擎就绪" : "Apple Silicon Hardware Engine Online")
                     }
                     .padding(.horizontal, 12)
@@ -376,15 +369,11 @@ public struct FinderFavoritesSidebarView: View {
         return raw
     }
     
-    private var currentDateBadge: String {
-        DateFormatterCache.shared.string(from: Date(), format: "MM/dd")
-    }
-    
     private func sectionHeader(title: String) -> some View {
         Text(title)
-            .font(.system(size: 10, weight: .bold, design: .serif))
-            .tracking(1.8)
-            .foregroundStyle(.secondary.opacity(0.75))
+            .font(.system(size: 10.5, weight: .semibold))
+            .tracking(0.6)
+            .foregroundStyle(.secondary)
             .lineLimit(1)
             .fixedSize(horizontal: true, vertical: false)
             .padding(.horizontal, 10)
@@ -455,14 +444,10 @@ public struct FinderFavoritesSidebarView: View {
                     }
                 }
                 .padding(.horizontal, 10)
-                .padding(.vertical, 6)
+                .frame(height: 28)
                 .background(
-                    RoundedRectangle(cornerRadius: 7, style: .continuous)
+                    RoundedRectangle(cornerRadius: 6, style: .continuous)
                         .fill(rowBackgroundColor(isSelected: isSelected, isHovered: isHovered))
-                )
-                .overlay(
-                    RoundedRectangle(cornerRadius: 7, style: .continuous)
-                        .strokeBorder(isSelected ? TTZipTheme.bambooGreen.opacity(0.3) : Color.clear, lineWidth: 0.8)
                 )
                 .contentShape(Rectangle())
             }
@@ -528,10 +513,9 @@ public struct FinderFavoritesSidebarView: View {
     
     private func rowBackgroundColor(isSelected: Bool, isHovered: Bool) -> Color {
         if isSelected {
-            return TTZipTheme.bambooGreen.opacity(0.14)
+            return Color.primary.opacity(0.08)
         } else if isHovered {
-            // Delicate hover tint adhering to macOS HIG to prevent double-selection illusion
-            return Color.primary.opacity(0.02)
+            return Color.primary.opacity(0.035)
         } else {
             return Color.clear
         }
@@ -549,10 +533,9 @@ public struct FinderFavoritesSidebarView: View {
     
     private func iconColor(isSelected: Bool) -> Color {
         if isSelected {
-            return TTZipTheme.bambooGreen
+            return .primary
         }
-        // Zen minimalist grayscale for unselected items to eliminate rainbow toybox clutter
-        return .secondary.opacity(0.85)
+        return .secondary
     }
     
     private func loadFavorites() {
@@ -722,14 +705,10 @@ public struct FinderFavoritesSidebarView: View {
                     .help(l10n.currentLanguage == .zhHans ? "弹出此安卓设备" : "Eject Android Device")
                 }
                 .padding(.horizontal, 10)
-                .padding(.vertical, 6)
+                .frame(height: 28)
                 .background(
-                    RoundedRectangle(cornerRadius: 7, style: .continuous)
+                    RoundedRectangle(cornerRadius: 6, style: .continuous)
                         .fill(rowBackgroundColor(isSelected: isSelected, isHovered: isHovered))
-                )
-                .overlay(
-                    RoundedRectangle(cornerRadius: 7, style: .continuous)
-                        .strokeBorder(isSelected ? TTZipTheme.bambooGreen.opacity(0.3) : Color.clear, lineWidth: 0.8)
                 )
                 .contentShape(Rectangle())
             }
