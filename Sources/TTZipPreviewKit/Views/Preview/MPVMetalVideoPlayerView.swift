@@ -164,91 +164,93 @@ public struct MPVMetalVideoPlayerView: View {
                 }
                 
                 // Top-right Sleek Actions
-                if isHovering && !isFullScreen && !isImmersiveFullscreen {
-                    VStack {
-                        HStack(spacing: 8) {
-                            Spacer()
-                            
-                            // Playlist Drawer Shortcut
-                            Button(action: {
+                let isTopControlsVisible = isHovering && !isFullScreen && !isImmersiveFullscreen
+                VStack {
+                    HStack(spacing: 8) {
+                        Spacer()
+                        
+                        // Playlist Drawer Shortcut
+                        Button(action: {
+                            withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                                isPlaylistOpen.toggle()
+                            }
+                        }) {
+                            Image(systemName: isPlaylistOpen ? "list.bullet.rectangle.fill" : "list.bullet.rectangle")
+                                .font(.system(size: 11, weight: .semibold))
+                                .foregroundStyle(isPlaylistOpen ? TTZipTheme.kintsugiGold : .white.opacity(0.9))
+                                .padding(7)
+                                .background(.ultraThinMaterial.opacity(0.8))
+                                .clipShape(Circle())
+                        }
+                        .buttonStyle(.plain)
+                        .help(isChinese ? "播放列表" : "Playlist")
+                        
+                        // Fullscreen Toggle
+                        Button(action: { toggleFullScreen() }) {
+                            Image(systemName: isFullScreen ? "arrow.down.right.and.arrow.up.left" : "arrow.up.left.and.arrow.down.right")
+                                .font(.system(size: 11, weight: .semibold))
+                                .foregroundStyle(.white.opacity(0.9))
+                                .padding(7)
+                                .background(.ultraThinMaterial.opacity(0.8))
+                                .clipShape(Circle())
+                        }
+                        .buttonStyle(.plain)
+                        .help(isFullScreen ? (isChinese ? "退出全屏 (Esc/F)" : "Exit Full Screen (Esc/F)") : (isChinese ? "进入全屏预览 (F)" : "Enter Full Screen (F)"))
+                    }
+                    .padding(10)
+                    Spacer()
+                }
+                .opacity(isTopControlsVisible ? 1.0 : 0.0)
+                .allowsHitTesting(isTopControlsVisible)
+                .animation(.easeInOut(duration: 0.15), value: isTopControlsVisible)
+                
+                // Bottom-Aligned Dock Controls with Ambient Scrim Veil
+                let isBottomControlsVisible = isHovering || !store.isPlaying
+                VStack(spacing: 0) {
+                    Spacer(minLength: 0)
+                    HStack {
+                        Spacer(minLength: 0)
+                        MPVVideoControlBarView(
+                            store: store,
+                            playlistStore: playlistStore,
+                            isPlaylistOpen: isPlaylistOpen,
+                            onTogglePlaylist: {
                                 withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
                                     isPlaylistOpen.toggle()
                                 }
-                            }) {
-                                Image(systemName: isPlaylistOpen ? "list.bullet.rectangle.fill" : "list.bullet.rectangle")
-                                    .font(.system(size: 11, weight: .semibold))
-                                    .foregroundStyle(isPlaylistOpen ? TTZipTheme.kintsugiGold : .white.opacity(0.9))
-                                    .padding(7)
-                                    .background(.ultraThinMaterial.opacity(0.8))
-                                    .clipShape(Circle())
-                            }
-                            .buttonStyle(.plain)
-                            .help(isChinese ? "播放列表" : "Playlist")
-                            
-                            // Fullscreen Toggle
-                            Button(action: { toggleFullScreen() }) {
-                                Image(systemName: isFullScreen ? "arrow.down.right.and.arrow.up.left" : "arrow.up.left.and.arrow.down.right")
-                                    .font(.system(size: 11, weight: .semibold))
-                                    .foregroundStyle(.white.opacity(0.9))
-                                    .padding(7)
-                                    .background(.ultraThinMaterial.opacity(0.8))
-                                    .clipShape(Circle())
-                            }
-                            .buttonStyle(.plain)
-                            .help(isFullScreen ? (isChinese ? "退出全屏 (Esc/F)" : "Exit Full Screen (Esc/F)") : (isChinese ? "进入全屏预览 (F)" : "Enter Full Screen (F)"))
-                        }
-                        .padding(10)
-                        Spacer()
-                    }
-                    .transition(.opacity.animation(.easeInOut(duration: 0.15)))
-                }
-                
-                // Bottom-Aligned Dock Controls with Ambient Scrim Veil
-                if isHovering || !store.isPlaying {
-                    VStack(spacing: 0) {
-                        Spacer(minLength: 0)
-                        HStack {
-                            Spacer(minLength: 0)
-                            MPVVideoControlBarView(
-                                store: store,
-                                playlistStore: playlistStore,
-                                isPlaylistOpen: isPlaylistOpen,
-                                onTogglePlaylist: {
-                                    withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
-                                        isPlaylistOpen.toggle()
-                                    }
-                                },
-                                onToggleFullScreen: { toggleFullScreen() },
-                                onOpenExternal: {
-                                    if let current = store.currentURL ?? playlistStore.currentURL {
-                                        NSWorkspace.shared.open(current)
-                                    } else {
-                                        NSWorkspace.shared.open(url)
-                                    }
+                            },
+                            onToggleFullScreen: { toggleFullScreen() },
+                            onOpenExternal: {
+                                if let current = store.currentURL ?? playlistStore.currentURL {
+                                    NSWorkspace.shared.open(current)
+                                } else {
+                                    NSWorkspace.shared.open(url)
                                 }
-                            )
-                            .frame(maxWidth: isFullScreen ? 740 : .infinity)
-                            Spacer(minLength: 0)
-                        }
-                        .padding(.horizontal, isFullScreen ? 32 : 16)
-                        .padding(.bottom, isFullScreen ? 24 : 12)
-                    }
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
-                    .background(
-                        LinearGradient(
-                            colors: [
-                                Color.black.opacity(0.4),
-                                Color.clear
-                            ],
-                            startPoint: .bottom,
-                            endPoint: .top
+                            }
                         )
-                        .frame(height: 48)
-                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
-                        .allowsHitTesting(false)
-                    )
-                    .transition(.opacity.animation(.easeInOut(duration: 0.2)))
+                        .frame(maxWidth: isFullScreen ? 740 : .infinity)
+                        Spacer(minLength: 0)
+                    }
+                    .padding(.horizontal, isFullScreen ? 32 : 16)
+                    .padding(.bottom, isFullScreen ? 24 : 12)
                 }
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
+                .background(
+                    LinearGradient(
+                        colors: [
+                            Color.black.opacity(0.4),
+                            Color.clear
+                        ],
+                        startPoint: .bottom,
+                        endPoint: .top
+                    )
+                    .frame(height: 48)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
+                    .allowsHitTesting(false)
+                )
+                .opacity(isBottomControlsVisible ? 1.0 : 0.0)
+                .allowsHitTesting(isBottomControlsVisible)
+                .animation(.easeInOut(duration: 0.2), value: isBottomControlsVisible)
                 
                 // Playlist Side Drawer Panel
                 if isPlaylistOpen {
@@ -371,9 +373,7 @@ public struct MPVMetalVideoPlayerView: View {
         hideTimer?.invalidate()
         hideTimer = Timer.scheduledTimer(withTimeInterval: 2.5, repeats: false) { _ in
             Task { @MainActor in
-                withAnimation(.easeInOut(duration: 0.2)) {
-                    if store.isPlaying && !isPlaylistOpen { isHovering = false }
-                }
+                if store.isPlaying && !isPlaylistOpen { isHovering = false }
             }
         }
     }
@@ -523,7 +523,8 @@ open class MPVMetalNSView: NSView {
                 self?.onTogglePlayPause?()
             }
             self.singleClickWorkItem = work
-            DispatchQueue.main.asyncAfter(deadline: .now() + NSEvent.doubleClickInterval, execute: work)
+            let debounceInterval = min(NSEvent.doubleClickInterval, 0.22)
+            DispatchQueue.main.asyncAfter(deadline: .now() + debounceInterval, execute: work)
         } else {
             super.mouseUp(with: event)
         }

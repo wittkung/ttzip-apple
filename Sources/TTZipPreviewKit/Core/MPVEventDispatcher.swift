@@ -221,7 +221,7 @@ public actor MPVEventDispatcher {
                 needsImmediateStateFlush = true
 
             case .propertyChange(let name, let value):
-                applyPropertyChange(name: name, value: value)
+                applyPropertyChange(name: name, value: value, needsImmediateStateFlush: &needsImmediateStateFlush)
 
             case .logMessage:
                 break
@@ -235,7 +235,7 @@ public actor MPVEventDispatcher {
         }
     }
 
-    private func applyPropertyChange(name: String, value: MPVPropertyValue) {
+    private func applyPropertyChange(name: String, value: MPVPropertyValue, needsImmediateStateFlush: inout Bool) {
         hasPendingStateFlush = true
         switch name {
         case "time-pos":
@@ -276,6 +276,7 @@ public actor MPVEventDispatcher {
                     isEOF: currentState.isEOF,
                     isBuffering: currentState.isBuffering
                 )
+                needsImmediateStateFlush = true
             }
         case "mute":
             if case .flag(let val) = value {

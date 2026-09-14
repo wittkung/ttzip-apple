@@ -249,6 +249,7 @@ public struct InspectorColumnView: View {
     private func fileInspectorContent(for item: DiskItemInfo) -> some View {
         GeometryReader { proxy in
             let availableHeight = proxy.size.height
+            let contentWidth = max(0, proxy.size.width - 28)
             let isImage = ["jpg", "jpeg", "png", "gif", "webp", "heic", "svg", "bmp", "tiff"]
                 .contains((item.name as NSString).pathExtension.lowercased())
             let reservedHeight: CGFloat = isImage ? 230.0 : 250.0
@@ -268,7 +269,7 @@ public struct InspectorColumnView: View {
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                         .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
                     }
-                    .frame(maxWidth: .infinity)
+                    .frame(maxWidth: contentWidth)
                     .frame(height: dynamicCardHeight)
                     .overlay(
                         RoundedRectangle(cornerRadius: 10, style: .continuous)
@@ -282,6 +283,7 @@ public struct InspectorColumnView: View {
                         onCompress: { onCompressPath(item.path) },
                         onSelectArchive: onSelectArchive
                     )
+                    .frame(maxWidth: contentWidth)
                     
                     // 3. Structured Metadata Bento Card
                     metadataBentoView(
@@ -289,12 +291,15 @@ public struct InspectorColumnView: View {
                         metadata: deepMetadataDict,
                         dims: asyncDimensions
                     )
+                    .frame(maxWidth: contentWidth)
                 }
+                .frame(width: contentWidth)
                 .padding(.horizontal, 14)
                 .padding(.top, 10)
                 .padding(.bottom, 24)
+                .frame(width: proxy.size.width)
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .frame(width: proxy.size.width, height: proxy.size.height)
         }
     }
     
