@@ -33,6 +33,16 @@ public enum TTZipTheme {
         }
     }))
     
+    /// Kintsugi Gold Editorial / Title text gold — Calibrated for WCAG 2.1 AA contrast (>= 4.5:1 on light backgrounds).
+    /// In Dark Aqua: #E6C35C (230, 195, 92); In Aqua: Deep mineral gold #8C6D23 (140, 109, 35, contrast 4.88:1 vs pure white).
+    public static let kintsugiGoldEditorial = Color(nsColor: NSColor(name: nil, dynamicProvider: { appearance in
+        if appearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua {
+            return NSColor(red: 230.0 / 255.0, green: 195.0 / 255.0, blue: 92.0 / 255.0, alpha: 1.0)
+        } else {
+            return NSColor(red: 140.0 / 255.0, green: 109.0 / 255.0, blue: 35.0 / 255.0, alpha: 1.0)
+        }
+    }))
+    
     /// Paper White (#FBFBF9).
     public static let paperWhite = Color(red: 0.98, green: 0.98, blue: 0.97)
     /// Porcelain Gray (#F2F2EF).
@@ -300,6 +310,8 @@ public enum TTZipZenTheme {
     public enum Surface {
         /// Dynamic Kintsugi Gold leaf accent for floating palettes, keylines, and dividers.
         public static let goldLeaf = TTZipTheme.kintsugiGold
+        /// Dynamic Kintsugi Gold editorial / headline accent satisfying WCAG 2.1 AA.
+        public static let goldEditorial = TTZipTheme.kintsugiGoldEditorial
         /// Subtle specular hairline border for floating sheets and popovers.
         public static let specularBorder = Color.primary.opacity(0.12)
     }

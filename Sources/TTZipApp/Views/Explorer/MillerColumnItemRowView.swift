@@ -7,6 +7,7 @@
 
 import SwiftUI
 import AppKit
+import QuickLookThumbnailing
 import TTZipCore
 import TTZipUI
 import TTZipPreviewKit
@@ -16,6 +17,7 @@ public struct MillerColumnItemRowView: View {
     public let item: DiskItemInfo
     public let columnIndex: Int
     public let isSelected: Bool
+    public let isColumnParentSelected: Bool
     public let isColumnActive: Bool
     public let dirURL: URL
     public let multiSelectedPaths: Set<String>
@@ -24,11 +26,15 @@ public struct MillerColumnItemRowView: View {
     public let onSelectItem: (DiskItemInfo, Int, Bool, Bool, URL?) -> Void
     public let onTriggerNewFolder: (URL) -> Void
     public let onTriggerNewFile: (URL) -> Void
+
+    @State private var isHovered: Bool = false
+    @State private var thumbnail: NSImage? = nil
     
     public init(
         item: DiskItemInfo,
         columnIndex: Int,
         isSelected: Bool,
+        isColumnParentSelected: Bool = false,
         isColumnActive: Bool = true,
         dirURL: URL,
         multiSelectedPaths: Set<String>,
@@ -41,6 +47,7 @@ public struct MillerColumnItemRowView: View {
         self.item = item
         self.columnIndex = columnIndex
         self.isSelected = isSelected
+        self.isColumnParentSelected = isColumnParentSelected
         self.isColumnActive = isColumnActive
         self.dirURL = dirURL
         self.multiSelectedPaths = multiSelectedPaths
@@ -95,7 +102,7 @@ public struct MillerColumnItemRowView: View {
     
     private var iconColor: Color {
         if isEncryptedLockItem { return TTZipTheme.archiveAmber }
-        if item.isDirectory { return TTZipTheme.bambooGreen }
+        if item.isDirectory { return Color.secondary }
         
         let ext = (item.name as NSString).pathExtension.lowercased()
         if ext == "epub" {
@@ -120,10 +127,10 @@ public struct MillerColumnItemRowView: View {
             }
         }
         if ["jpg", "jpeg", "png", "gif", "webp", "heic", "svg", "bmp", "tiff"].contains(ext) {
-            return Color.purple
+            return Color.secondary
         }
         if MediaPreviewFactory.videoExtensions.contains(ext) {
-            return Color.pink
+            return Color.secondary
         }
         if MediaPreviewFactory.audioExtensions.contains(ext) {
             return Color.teal
@@ -136,17 +143,141 @@ public struct MillerColumnItemRowView: View {
         }
         return Color.secondary
     }
+
+    /// Formatted display name ensuring typographical ellipsis (\u{2026}) and normalized full-width punctuation
+    /// (such as Chinese full-width colons) for clean typographical baseline alignment.
+    private var formattedDisplayName: String {
+        var name = item.displayName
+        if name.contains("....") {
+            name = name.replacingOccurrences(of: "....", with: "…")
+        } else if name.contains("...") {
+            name = name.replacingOccurrences(of: "...", with: "…")
+        }
+        if name.contains("：") {
+            name = name.replacingOccurrences(of: "： ", with: ": ")
+                       .replacingOccurrences(of: "：", with: ": ")
+        }
+        if name.contains("\u{3000}") {
+            name = name.replacingOccurrences(of: "\u{3000}", with: " ")
+        }
+        return name
+    }
     
-    public var body: some View {
-        HStack(spacing: 6) {
+    private var isRowSelected: Bool {
+        isSelected || isColumnParentSelected
+    }
+
+    private var rowBackgroundColor: Color {
+        if isRowSelected {
+            return isColumnActive ? TTZipTheme.bambooGreen.opacity(0.12) : TTZipTheme.bambooGreen.opacity(0.07)
+        }
+        if isHovered {
+            return Color.primary.opacity(0.045)
+        }
+        return Color.clear
+    }
+
+    private var rowBorderColor: Color {
+        if isRowSelected {
+            return isColumnActive ? TTZipTheme.bambooGreen.opacity(0.28) : TTZipTheme.bambooGreen.opacity(0.16)
+        }
+        if isHovered {
+            return Color.primary.opacity(0.06)
+        }
+        return Color.clear
+    }
+    
+    private var rowBorderLineWidth: CGFloat {
+        if isRowSelected {
+            return 0.5
+        }
+        if isHovered {
+            return 0.6
+        }
+        return 0.5
+    }
+
+    private var isMediaFile: Bool {
+        guard !item.isDirectory && !isEncryptedLockItem else { return false }
+        let ext = (item.name as NSString).pathExtension.lowercased()
+        return MediaPreviewFactory.imageExtensions.contains(ext)
+            || MediaPreviewFactory.videoExtensions.contains(ext)
+    }
+
+    private var fileURLForThumbnail: URL? {
+        let (archivePath, subpath) = Self.parseVirtualURL(item.path)
+        if !subpath.isEmpty {
+            let filename = (subpath as NSString).lastPathComponent
+            let hash = abs(archivePath.hashValue).description + "_" + abs(filename.hashValue).description
+            return PreviewLRUCacheManager.shared.existingCachedURL(forKey: hash, filename: filename)
+        } else {
+            let url: URL
+            if let u = URL(string: item.path), u.scheme != nil {
+                url = u
+            } else {
+                url = URL(fileURLWithPath: item.path)
+            }
+            if FileManager.default.fileExists(atPath: url.path) {
+                return url
+            }
+            return nil
+        }
+    }
+
+    private func loadThumbnailIfNeeded() async {
+        guard isMediaFile else { return }
+        if let cached = MillerColumnThumbnailCache.shared.image(forKey: item.path) {
+            self.thumbnail = cached
+            return
+        }
+        guard let url = fileURLForThumbnail else { return }
+        let request = QLThumbnailGenerator.Request(
+            fileAt: url,
+            size: CGSize(width: 32, height: 32),
+            scale: 2.0,
+            representationTypes: .thumbnail
+        )
+        do {
+            let rep = try await QLThumbnailGenerator.shared.generateBestRepresentation(for: request)
+            let image = rep.nsImage
+            MillerColumnThumbnailCache.shared.setImage(image, forKey: item.path)
+            if !Task.isCancelled {
+                withAnimation(.easeInOut(duration: 0.15)) {
+                    self.thumbnail = image
+                }
+            }
+        } catch {
+            // Keep fallback SF Symbol on failure
+        }
+    }
+
+    @ViewBuilder
+    private var itemIconView: some View {
+        if isMediaFile, let thumb = thumbnail {
+            Image(nsImage: thumb)
+                .resizable()
+                .aspectRatio(contentMode: .fill)
+                .frame(width: 16, height: 16)
+                .clipShape(RoundedRectangle(cornerRadius: 2.5, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 2.5, style: .continuous)
+                        .strokeBorder(Color.primary.opacity(0.12), lineWidth: 0.5)
+                )
+        } else {
             Image(systemName: iconName)
                 .font(.system(size: 11))
                 .foregroundStyle(iconColor)
-                .frame(width: 14)
+                .frame(width: 16, height: 16)
+        }
+    }
+    
+    public var body: some View {
+        HStack(spacing: 6) {
+            itemIconView
             
-            Text(item.displayName)
-                .font(.system(size: 11, weight: isSelected ? .semibold : .regular))
-                .foregroundStyle(isSelected ? Color.primary : (isEncryptedLockItem ? TTZipTheme.archiveAmber : (item.isArchive ? TTZipTheme.bambooGreen : Color.primary.opacity(0.85))))
+            Text(formattedDisplayName)
+                .font(.system(size: 11, weight: isRowSelected ? .semibold : .regular))
+                .foregroundStyle(isRowSelected ? Color.primary : (isEncryptedLockItem ? TTZipTheme.archiveAmber : (item.isArchive ? TTZipTheme.bambooGreen : Color.primary.opacity(0.85))))
                 .lineLimit(1)
                 .truncationMode(.middle)
             
@@ -159,16 +290,21 @@ public struct MillerColumnItemRowView: View {
             }
         }
         .padding(.horizontal, 6)
-        .padding(.vertical, 5)
+        .frame(height: 26)
         .background(
-            RoundedRectangle(cornerRadius: 5, style: .continuous)
-                .fill(isSelected ? (isColumnActive ? TTZipTheme.bambooGreen.opacity(0.18) : Color.primary.opacity(0.08)) : Color.primary.opacity(0.015))
+            RoundedRectangle(cornerRadius: 6, style: .continuous)
+                .fill(rowBackgroundColor)
         )
         .overlay(
-            RoundedRectangle(cornerRadius: 5, style: .continuous)
-                .strokeBorder(isSelected ? (isColumnActive ? TTZipTheme.bambooGreen.opacity(0.4) : Color.primary.opacity(0.15)) : Color.clear, lineWidth: 0.5)
+            RoundedRectangle(cornerRadius: 6, style: .continuous)
+                .strokeBorder(rowBorderColor, lineWidth: rowBorderLineWidth)
         )
         .contentShape(Rectangle())
+        .onHover { isHovered = $0 }
+        .animation(.easeInOut(duration: 0.12), value: isHovered)
+        .task(id: item.path) {
+            await loadThumbnailIfNeeded()
+        }
         .onTapGesture {
             NSApp.keyWindow?.makeFirstResponder(nil)
             let flags = NSEvent.modifierFlags
@@ -298,4 +434,25 @@ extension DiskItemInfo {
             || kindText.contains("受密码保护")
     }
 }
+
+// MARK: - In-Memory Thumbnail Cache
+
+@MainActor
+private final class MillerColumnThumbnailCache: @unchecked Sendable {
+    static let shared = MillerColumnThumbnailCache()
+    private let cache = NSCache<NSString, NSImage>()
+    
+    private init() {
+        cache.countLimit = 300
+    }
+    
+    func image(forKey key: String) -> NSImage? {
+        cache.object(forKey: key as NSString)
+    }
+    
+    func setImage(_ image: NSImage, forKey key: String) {
+        cache.setObject(image, forKey: key as NSString)
+    }
+}
+
 

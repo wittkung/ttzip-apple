@@ -125,9 +125,8 @@ public struct SingleMillerColumnView: View {
                     .fixedSize(horizontal: true, vertical: false)
                     
                     Text(columnTitle)
-                        .font(.system(size: 10.5, weight: .semibold, design: .serif))
-                        .tracking(0.3)
-                        .foregroundStyle(Color.primary.opacity(0.85))
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(Color.secondary)
                         .lineLimit(1)
                         .truncationMode(.middle)
                     
@@ -158,6 +157,7 @@ public struct SingleMillerColumnView: View {
                         .clipShape(RoundedRectangle(cornerRadius: 3.5, style: .continuous))
                     }
                     .menuStyle(.borderlessButton)
+                    .controlSize(.mini)
                     .fixedSize(horizontal: true, vertical: false)
                     .layoutPriority(1)
                     .help("Change sort order")

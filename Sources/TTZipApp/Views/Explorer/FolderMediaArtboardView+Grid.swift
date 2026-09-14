@@ -20,7 +20,7 @@ extension FolderMediaArtboardView {
             Text(l10n.t(L10n.Inspector.overviewFs))
                 .font(.system(size: 9, weight: .bold, design: .serif))
                 .tracking(2)
-                .foregroundStyle(TTZipTheme.kintsugiGold)
+                .foregroundStyle(TTZipTheme.kintsugiGoldEditorial)
             
             let itemsValue: String = {
                 if isCalculating {
@@ -53,7 +53,7 @@ extension FolderMediaArtboardView {
                 Text(l10n.t(L10n.Inspector.contentBreakdown))
                     .font(.system(size: 9, weight: .bold, design: .serif))
                     .tracking(2)
-                    .foregroundStyle(TTZipTheme.kintsugiGold)
+                    .foregroundStyle(TTZipTheme.kintsugiGoldEditorial)
                 
                 GeometryReader { barGeo in
                     let total = fileTypeDistribution.reduce(0) { $0 + $1.count }
@@ -150,14 +150,14 @@ extension FolderMediaArtboardView {
             Text(label)
                 .font(.system(size: 11, weight: .medium))
                 .foregroundStyle(.secondary)
-                .lineLimit(1)
-                .frame(width: 68, alignment: .leading)
+                .fixedSize(horizontal: true, vertical: false)
+                .frame(minWidth: 70, idealWidth: 85, maxWidth: 110, alignment: .leading)
             
             Text(value)
                 .font(.system(size: isHighlight ? 12.5 : 11, weight: isHighlight ? .bold : .regular, design: isHighlight ? .default : .monospaced))
                 .foregroundStyle(isHighlight ? TTZipTheme.bambooGreen : .primary)
-                .lineLimit(1)
-                .truncationMode(.tail)
+                .lineLimit(nil)
+                .multilineTextAlignment(.trailing)
                 .frame(maxWidth: .infinity, alignment: .trailing)
                 .help(tooltip ?? value)
         }
@@ -184,7 +184,40 @@ extension FolderMediaArtboardView {
     }
     
     func categoryColor(_ cat: String) -> Color {
-        TTZipTheme.fileCategoryColor(for: cat)
+        let key = cat.lowercased().trimmingCharacters(in: .whitespacesAndNewlines)
+        switch key {
+        // 1. Visual & Images -> Mineral Gold
+        case "jpg", "jpeg", "png", "gif", "webp", "heic", "heif", "tiff", "tif", "svg", "bmp", "raw", "psd", "ai", "image", "图片":
+            return TTZipUniversalTokens.Mineral.gold
+            
+        // 2. Documents & Code -> Mineral Bamboo
+        case "pdf", "txt", "doc", "docx", "pages", "rtf", "md", "markdown", "swift", "rs", "c", "cpp", "h", "py", "js", "ts", "json", "yaml", "yml", "toml", "xml", "html", "css", "sh", "document", "code", "文档", "代码":
+            return TTZipUniversalTokens.Mineral.bamboo
+            
+        // 3. Video & Motion -> Mineral Cinnabar
+        case "mp4", "mov", "m4v", "mkv", "avi", "webm", "wmv", "flv", "video", "视频":
+            return TTZipUniversalTokens.Mineral.cinnabar
+            
+        // 4. Audio & Speech -> Mineral Amethyst
+        case "mp3", "m4a", "aac", "wav", "flac", "alac", "ogg", "opus", "audio", "音频":
+            return TTZipUniversalTokens.Mineral.amethyst
+            
+        // 5. Archives & Disk Packages -> Mineral Amber
+        case "zip", "7z", "tar", "gz", "bz2", "xz", "zst", "rar", "dmg", "iso", "pkg", "deb", "rpm", "ttzip", "archive", "压缩包", "归档包":
+            return TTZipUniversalTokens.Mineral.amber
+            
+        default:
+            // Deterministic cyclic fallback across the 5 harmonious mineral tokens
+            let palette: [Color] = [
+                TTZipUniversalTokens.Mineral.gold,
+                TTZipUniversalTokens.Mineral.bamboo,
+                TTZipUniversalTokens.Mineral.cinnabar,
+                TTZipUniversalTokens.Mineral.amethyst,
+                TTZipUniversalTokens.Mineral.amber
+            ]
+            let hash = abs(key.hashValue)
+            return palette[hash % palette.count]
+        }
     }
     
     func createNewFolder() {

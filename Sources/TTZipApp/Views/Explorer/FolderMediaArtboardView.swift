@@ -53,6 +53,7 @@ public struct FolderMediaArtboardView: View {
                     contentBreakdownSection
                 }
                 .padding(14)
+                .padding(.bottom, 80)
             }
             
             bottomPinnedActionBar
@@ -167,6 +168,7 @@ public struct FolderMediaArtboardView: View {
         }
         .buttonStyle(.plain)
         .help(help)
+        .accessibilityLabel(fullTitle)
     }
     
     private var bottomPinnedActionBar: some View {
@@ -202,12 +204,27 @@ public struct FolderMediaArtboardView: View {
                 .foregroundStyle(.white)
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 10)
-                .background(TTZipTheme.bambooGreen)
+                .background(
+                    ZStack {
+                        TTZipTheme.bambooGreen
+                        LinearGradient(
+                            colors: [Color.white.opacity(0.06), Color.black.opacity(0.08)],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        )
+                    }
+                )
                 .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .strokeBorder(TTZipUniversalTokens.Border.specularHairline, lineWidth: TTZipUniversalTokens.Dimensions.hairlineWidth)
+                )
                 .shadow(color: TTZipTheme.bambooGreen.opacity(0.25), radius: 4, x: 0, y: 2)
             }
             .buttonStyle(.plain)
             .padding(14)
+            .help(l10n.t(L10n.Common.newArchiveShortcut))
+            .accessibilityLabel(l10n.t(L10n.Common.newArchiveShortcut))
         }
         .background(.ultraThinMaterial)
     }
