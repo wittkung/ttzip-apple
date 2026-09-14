@@ -61,7 +61,7 @@ public struct DiskItemInfo: Identifiable, Hashable, Equatable, Sendable {
             self.kindText = ArchiveCompressionFormat.kindDescription(forExtension: rawExt, isArchive: isArch, path: summary.path)
         } else {
             self.rawSizeBytes = 0
-            self.sizeText = "Folder"
+            self.sizeText = ""
             self.kindText = "Folder"
         }
     }
@@ -85,7 +85,7 @@ public struct DiskItemInfo: Identifiable, Hashable, Equatable, Sendable {
             self.kindText = ArchiveCompressionFormat.kindDescription(forExtension: rawExt, isArchive: isArch, path: url.path)
         } else {
             self.rawSizeBytes = 0
-            self.sizeText = "Folder"
+            self.sizeText = ""
             self.kindText = "Folder"
         }
     }
@@ -118,9 +118,8 @@ public struct DiskItemInfo: Identifiable, Hashable, Equatable, Sendable {
             self.kindText = rawKind
         } else {
             self.rawSizeBytes = 0
-            let folderText = "Folder"
-            self.sizeText = folderText
-            self.kindText = folderText
+            self.sizeText = ""
+            self.kindText = "Folder"
         }
     }
     

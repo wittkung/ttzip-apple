@@ -359,6 +359,8 @@ public struct MainView: View {
         effectiveMaxRightWidth: CGFloat,
         availableContentWidth: CGFloat
     ) -> some View {
+        let goldenLineBottomY = TTZipTheme.Layout.topBarOffset + TTZipTheme.Layout.headerBarHeight + TTZipTheme.Layout.kintsugiGoldLineHeight
+        
         HStack(alignment: .top, spacing: 0) {
             // MARK: - Macro Geometry & Y = 90pt Golden Line Alignment
             // All three columns strictly honor the design system invariant:
@@ -381,6 +383,7 @@ public struct MainView: View {
                 
                 if tier != .compact {
                     ResizableDividerHandle(
+                        topInset: goldenLineBottomY,
                         onDragStart: { initialLeftWidth = leftSidebarWidth },
                         onDragChanged: { translation in
                             let rawWidth = initialLeftWidth + translation
@@ -406,6 +409,16 @@ public struct MainView: View {
                     )
                     .frame(height: totalHeight)
                     .transition(.opacity)
+                } else {
+                    VStack(spacing: 0) {
+                        Color.clear.frame(height: goldenLineBottomY)
+                        Rectangle()
+                            .fill(TTZipTheme.hairlineBorder)
+                            .frame(width: TTZipTheme.Layout.hairlineBorderWidth)
+                            .frame(maxHeight: .infinity)
+                    }
+                    .frame(width: TTZipTheme.Layout.hairlineBorderWidth)
+                    .transition(.opacity)
                 }
             }
             
@@ -416,6 +429,7 @@ public struct MainView: View {
             // Column 3: Right Contextual Inspector (52pt Header strictly at Y = 90pt via 38pt top offset)
             if shouldShowRightPanel {
                 ResizableDividerHandle(
+                    topInset: goldenLineBottomY,
                     onDragStart: { initialRightWidth = effectiveRightWidth },
                     onDragChanged: { translation in
                         let newWidth = initialRightWidth - translation

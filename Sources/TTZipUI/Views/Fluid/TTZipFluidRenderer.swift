@@ -63,7 +63,7 @@ public struct TTZipFluidRenderer: View {
         case .organic:
             // Luminous Bamboo Green over OLED true black (#000000) achieves deep emerald vitality;
             // over Solar pure white (#FFFFFF) achieves an elegant, subtle tea-wash tint.
-            return colorScheme == .dark ? 0.40 : 0.22
+            return colorScheme == .dark ? 0.40 : 0.48
         case .monochrome:
             // High-luminance opal in dark needs soft diffusion; obsidian ink in light needs presence
             return colorScheme == .dark ? 0.38 : 0.22
@@ -132,9 +132,9 @@ public struct TTZipFluidRenderer: View {
                     return Color(.displayP3, red: 0.1490, green: 0.5100, blue: 0.9800, opacity: 1.0)
                         .opacity(0.10 * inst.weight * config.sheenIntensity)
                 } else {
-                    // 6% Deep Cobalt (#002244)
-                    return Color(.displayP3, red: 0.0240, green: 0.1310, blue: 0.2600, opacity: 1.0)
-                        .opacity(0.06 * inst.weight * config.sheenIntensity)
+                    // Spring Jade / Celadon sheen
+                    return Color(.displayP3, red: 0.5568, green: 0.7216, blue: 0.4392, opacity: 1.0)
+                        .opacity(0.14 * inst.weight * config.sheenIntensity)
                 }
             }()
             
@@ -173,8 +173,10 @@ public struct TTZipFluidRenderer: View {
             }
         }()
         
-        let centerOpacity = min(1.0, 0.90 * weight * 2.5)
-        let midOpacity = centerOpacity * 0.55
+        let centerOpacity = colorScheme == .dark
+            ? min(1.0, 0.90 * weight * 2.5)
+            : min(1.0, 0.95 * weight * 3.6)
+        let midOpacity = centerOpacity * (colorScheme == .dark ? 0.55 : 0.65)
         
         return Gradient(stops: [
             .init(color: baseColor.opacity(centerOpacity), location: 0.0),

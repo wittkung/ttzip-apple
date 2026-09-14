@@ -29,17 +29,18 @@ extension FolderMediaArtboardView {
                 return l10n.formatFilesAndDirectories(files: fileCount, directories: subfolderCount)
             }()
             
-            let fsValue = (l10n.currentLanguage == .zhHans || l10n.currentLanguage == .zhHant)
-                ? "APFS (Apple 文件系统)"
-                : "APFS (Apple File System)"
+            let isZh = l10n.currentLanguage == .zhHans || l10n.currentLanguage == .zhHant
+            let fsTooltip = isZh ? "Apple 文件系统 (APFS)" : "Apple File System (APFS)"
+            let ownerLabel = isZh ? "所有者" : "Owner"
+            let permTooltip = "0755 (drwxr-xr-x)"
             
             Grid(alignment: .leading, horizontalSpacing: 10, verticalSpacing: 6) {
                 detailGridRow(label: l10n.t(L10n.Inspector.size), value: formattedFolderSize, isHighlight: true)
                 detailGridRow(label: l10n.t(L10n.Inspector.items), value: itemsValue)
                 detailGridRow(label: l10n.t(L10n.Inspector.modified), value: formattedDate)
-                detailGridRow(label: l10n.t(L10n.Inspector.fileSystem), value: fsValue)
-                detailGridRow(label: l10n.t(L10n.Inspector.permissions), value: "0755 (drwxr-xr-x)")
-                detailGridRow(label: l10n.t(L10n.Inspector.ownerGroup), value: compactOwnerGroupString, tooltip: ownerGroupString)
+                detailGridRow(label: l10n.t(L10n.Inspector.fileSystem), value: "APFS", tooltip: fsTooltip)
+                detailGridRow(label: l10n.t(L10n.Inspector.permissions), value: "0755", tooltip: permTooltip)
+                detailGridRow(label: ownerLabel, value: ownerNameString, tooltip: ownerGroupTooltipString)
             }
         }
     }
@@ -114,6 +115,30 @@ extension FolderMediaArtboardView {
                     }
                 }
             }
+        } else if isCalculating {
+            Divider()
+            
+            VStack(alignment: .leading, spacing: 12) {
+                Text(l10n.t(L10n.Inspector.contentBreakdown))
+                    .font(.system(size: 9, weight: .bold, design: .serif))
+                    .tracking(2)
+                    .foregroundStyle(TTZipTheme.kintsugiGoldEditorial)
+                
+                Capsule()
+                    .fill(
+                        LinearGradient(
+                            colors: [
+                                Color.primary.opacity(0.04),
+                                Color.primary.opacity(0.08),
+                                Color.primary.opacity(0.04)
+                            ],
+                            startPoint: .leading,
+                            endPoint: .trailing
+                        )
+                    )
+                    .frame(height: 9)
+                    .overlay(Capsule().strokeBorder(Color.primary.opacity(0.06), lineWidth: 0.8))
+            }
         } else if !isCalculating && fileCount == 0 && subfolderCount == 0 {
             Divider()
             
@@ -151,36 +176,36 @@ extension FolderMediaArtboardView {
                 .font(.system(size: 11, weight: .medium))
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: true, vertical: false)
-                .frame(minWidth: 92, idealWidth: 95, maxWidth: 110, alignment: .leading)
+                .frame(minWidth: 54, idealWidth: 62, maxWidth: 72, alignment: .leading)
             
             Text(value)
-                .font(.system(size: isHighlight ? 12.5 : 11, weight: isHighlight ? .bold : .regular, design: isHighlight ? .default : .monospaced))
-                .foregroundStyle(isHighlight ? TTZipTheme.bambooGreen : .primary)
-                .lineLimit(nil)
+                .font(.system(size: isHighlight ? 12 : 11, weight: isHighlight ? .semibold : .regular, design: .monospaced))
+                .monospacedDigit()
+                .foregroundStyle(.primary)
+                .lineLimit(1)
+                .truncationMode(.middle)
+                .minimumScaleFactor(0.85)
                 .multilineTextAlignment(.trailing)
                 .frame(maxWidth: .infinity, alignment: .trailing)
                 .help(tooltip ?? value)
         }
     }
     
-    private var compactOwnerGroupString: String {
+    private var ownerNameString: String {
         if let attrs = try? FileManager.default.attributesOfItem(atPath: item.path) {
-            let owner = attrs[.ownerAccountName] as? String ?? NSUserName()
-            let group = attrs[.groupOwnerAccountName] as? String ?? "staff"
-            return "\(owner) · \(group)"
+            return attrs[.ownerAccountName] as? String ?? NSUserName()
         }
-        return "\(NSUserName()) · staff"
+        return NSUserName()
     }
     
-    private var ownerGroupString: String {
+    private var ownerGroupTooltipString: String {
+        let isZh = l10n.currentLanguage == .zhHans || l10n.currentLanguage == .zhHant
         if let attrs = try? FileManager.default.attributesOfItem(atPath: item.path) {
             let owner = attrs[.ownerAccountName] as? String ?? NSUserName()
-            let ownerID = (attrs[.ownerAccountID] as? NSNumber)?.stringValue ?? "\(getuid())"
             let group = attrs[.groupOwnerAccountName] as? String ?? "staff"
-            let groupID = (attrs[.groupOwnerAccountID] as? NSNumber)?.stringValue ?? "\(getgid())"
-            return "\(owner) (\(ownerID)) / \(group) (\(groupID))"
+            return isZh ? "所有者: \(owner) · 用户组: \(group)" : "Owner: \(owner) · Group: \(group)"
         }
-        return "\(NSUserName()) (\(getuid())) / staff (\(getgid()))"
+        return isZh ? "所有者: \(NSUserName()) · 用户组: staff" : "Owner: \(NSUserName()) · Group: staff"
     }
     
     func categoryColor(_ cat: String) -> Color {

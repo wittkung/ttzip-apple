@@ -53,7 +53,6 @@ public struct FolderMediaArtboardView: View {
                     contentBreakdownSection
                 }
                 .padding(14)
-                .padding(.bottom, 80)
             }
             
             bottomPinnedActionBar
@@ -90,8 +89,8 @@ public struct FolderMediaArtboardView: View {
         GeometryReader { btnGeo in
             let w = btnGeo.size.width
             let isZh = l10n.currentLanguage == .zhHans || l10n.currentLanguage == .zhHant
-            HStack(spacing: w > 320 ? 8 : 4) {
-                headerActionButton(
+            HStack(spacing: 2) {
+                QuickActionSegmentButton(
                     icon: "folder",
                     shortTitle: isZh ? "访达" : "Reveal",
                     fullTitle: l10n.t(L10n.Common.revealInFinder),
@@ -102,7 +101,7 @@ public struct FolderMediaArtboardView: View {
                     }
                 )
                 
-                headerActionButton(
+                QuickActionSegmentButton(
                     icon: "folder.badge.plus",
                     shortTitle: isZh ? "新建" : "Folder",
                     fullTitle: l10n.t(L10n.Explorer.newFolder),
@@ -113,7 +112,7 @@ public struct FolderMediaArtboardView: View {
                     }
                 )
                 
-                headerActionButton(
+                QuickActionSegmentButton(
                     icon: "doc.badge.plus",
                     shortTitle: isZh ? "文件" : "File",
                     fullTitle: l10n.t(L10n.Explorer.newFile),
@@ -124,7 +123,7 @@ public struct FolderMediaArtboardView: View {
                     }
                 )
                 
-                headerActionButton(
+                QuickActionSegmentButton(
                     icon: "doc.on.doc",
                     shortTitle: isZh ? "复制" : "Copy",
                     fullTitle: isZh ? "拷贝路径" : "Copy Path",
@@ -136,40 +135,16 @@ public struct FolderMediaArtboardView: View {
                     }
                 )
             }
+            .padding(2)
+            .background(Color.primary.opacity(0.04))
+            .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .strokeBorder(TTZipUniversalTokens.Border.subtle, lineWidth: 0.5)
+            )
         }
         .frame(height: 28)
         .padding(.bottom, 4)
-    }
-    
-    @ViewBuilder
-    private func headerActionButton(
-        icon: String,
-        shortTitle: String,
-        fullTitle: String,
-        width: CGFloat,
-        help: String,
-        action: @escaping () -> Void
-    ) -> some View {
-        Button(action: action) {
-            HStack(spacing: 4) {
-                Image(systemName: icon)
-                    .font(.system(size: 11, weight: .medium))
-                
-                if width >= 260 {
-                    Text(width > 400 ? fullTitle : shortTitle)
-                        .font(.system(size: 11, weight: .semibold))
-                        .lineLimit(1)
-                }
-            }
-            .foregroundStyle(TTZipTheme.bambooGreen)
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 5)
-            .background(TTZipTheme.bambooGreen.opacity(0.08))
-            .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
-        }
-        .buttonStyle(.plain)
-        .help(help)
-        .accessibilityLabel(fullTitle)
     }
     
     private var bottomPinnedActionBar: some View {
@@ -228,5 +203,57 @@ public struct FolderMediaArtboardView: View {
             .accessibilityLabel(l10n.t(L10n.Common.newArchiveShortcut))
         }
         .background(Color.clear)
+    }
+}
+
+// MARK: - Inset Segmented Quick Action Button
+
+private struct QuickActionSegmentButton: View {
+    let icon: String
+    let shortTitle: String
+    let fullTitle: String
+    let width: CGFloat
+    let help: String
+    let action: () -> Void
+    
+    @State private var isHovered = false
+    
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 4) {
+                Image(systemName: icon)
+                    .font(.system(size: 11, weight: .medium))
+                
+                if width >= 260 {
+                    Text(width > 400 ? fullTitle : shortTitle)
+                        .font(.system(size: 11, weight: .medium))
+                        .lineLimit(1)
+                }
+            }
+            .foregroundStyle(isHovered ? Color.primary : Color.primary.opacity(0.75))
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .padding(.vertical, 4)
+            .background(
+                RoundedRectangle(cornerRadius: 6, style: .continuous)
+                    .fill(isHovered ? Color.primary.opacity(0.07) : Color.clear)
+            )
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .onHover { hovering in
+            withAnimation(.easeInOut(duration: 0.12)) {
+                isHovered = hovering
+            }
+        }
+        .help(help)
+        .accessibilityLabel(fullTitle)
+    }
+}
+
+// MARK: - Universal Border Subtle Compatibility
+
+private extension TTZipUniversalTokens.Border {
+    static var subtle: Color {
+        specularHairline
     }
 }
