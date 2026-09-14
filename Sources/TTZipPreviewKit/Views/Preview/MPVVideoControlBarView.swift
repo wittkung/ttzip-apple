@@ -62,28 +62,12 @@ public struct MPVVideoControlBarView: View {
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
-        .background(
-            ZStack {
-                Rectangle().fill(.ultraThinMaterial)
-                Color.black.opacity(0.14)
-            }
-        )
-        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .strokeBorder(
-                    LinearGradient(
-                        colors: [
-                            Color.white.opacity(0.22),
-                            Color.white.opacity(0.06)
-                        ],
-                        startPoint: .top,
-                        endPoint: .bottom
-                    ),
-                    lineWidth: 0.5
-                )
+                .strokeBorder(Color.white.opacity(0.12), lineWidth: 0.5)
         )
-        .shadow(color: Color.black.opacity(0.26), radius: 20, x: 0, y: 6)
+        .shadow(color: Color.black.opacity(0.14), radius: 12, x: 0, y: 3)
         .environment(\.colorScheme, .dark)
     }
     

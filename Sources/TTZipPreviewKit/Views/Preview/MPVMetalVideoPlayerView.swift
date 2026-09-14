@@ -235,22 +235,9 @@ public struct MPVMetalVideoPlayerView: View {
                     .padding(.bottom, isFullScreen ? 24 : 12)
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
-                .background(
-                    LinearGradient(
-                        colors: [
-                            Color.black.opacity(0.4),
-                            Color.clear
-                        ],
-                        startPoint: .bottom,
-                        endPoint: .top
-                    )
-                    .frame(height: 48)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
-                    .allowsHitTesting(false)
-                )
                 .opacity(isBottomControlsVisible ? 1.0 : 0.0)
                 .allowsHitTesting(isBottomControlsVisible)
-                .animation(.easeInOut(duration: 0.2), value: isBottomControlsVisible)
+                .animation(.easeInOut(duration: 0.15), value: isBottomControlsVisible)
                 
                 // Playlist Side Drawer Panel
                 if isPlaylistOpen {
@@ -274,15 +261,35 @@ public struct MPVMetalVideoPlayerView: View {
                 }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .contentShape(Rectangle())
+        .onHover { hovering in
+            let activeId = store.currentURL?.path ?? url.path
+            if !hovering {
+                hideTimer?.invalidate()
+                hideTimer = nil
+                withAnimation(.easeInOut(duration: 0.15)) {
+                    isHovering = false
+                }
+                MediaPlaybackCoordinator.shared.setHovered(id: activeId, isHovered: false)
+            }
+        }
         .onContinuousHover { phase in
             let activeId = store.currentURL?.path ?? url.path
             switch phase {
             case .active:
-                isHovering = true
+                if !isHovering {
+                    withAnimation(.easeInOut(duration: 0.15)) {
+                        isHovering = true
+                    }
+                }
                 MediaPlaybackCoordinator.shared.setHovered(id: activeId, isHovered: true)
                 resetHideTimer()
             case .ended:
-                isHovering = false
+                hideTimer?.invalidate()
+                hideTimer = nil
+                withAnimation(.easeInOut(duration: 0.15)) {
+                    isHovering = false
+                }
                 MediaPlaybackCoordinator.shared.setHovered(id: activeId, isHovered: false)
             }
         }
@@ -373,7 +380,11 @@ public struct MPVMetalVideoPlayerView: View {
         hideTimer?.invalidate()
         hideTimer = Timer.scheduledTimer(withTimeInterval: 2.5, repeats: false) { _ in
             Task { @MainActor in
-                if store.isPlaying && !isPlaylistOpen { isHovering = false }
+                if store.isPlaying && !isPlaylistOpen {
+                    withAnimation(.easeInOut(duration: 0.15)) {
+                        isHovering = false
+                    }
+                }
             }
         }
     }

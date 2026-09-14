@@ -263,7 +263,8 @@ public struct ImmersiveMediaBrowserView: View {
                 .help("Dismiss (Esc)")
             }
         }
-        .padding(.horizontal, 24)
+        .padding(.leading, 84)
+        .padding(.trailing, 24)
         .padding(.top, 16)
         .frame(maxWidth: .infinity)
         .frame(height: 96, alignment: .top)

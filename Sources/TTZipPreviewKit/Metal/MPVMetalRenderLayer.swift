@@ -75,6 +75,27 @@ public final class MPVMetalRenderLayer: CAMetalLayer, MPVVideoLayerProtocol, @un
         self.contentsGravity = .resizeAspect
     }
     
+    /// Configures extended dynamic range (EDR) tone curve and color space according to HDR state and screen capabilities.
+    @MainActor
+    public func configureEDRColorspace(isHDR: Bool, primaries: String) {
+        let isEDRSupported = (NSScreen.main?.maximumPotentialExtendedDynamicRangeColorComponentValue ?? 1.0) > 1.0
+        if isHDR && isEDRSupported {
+            self.pixelFormat = .rgba16Float
+            self.wantsExtendedDynamicRangeContent = true
+            if primaries.contains("2020") {
+                self.colorspace = CGColorSpace(name: CGColorSpace.itur_2100_PQ)
+            } else if primaries.contains("display-p3") || primaries.contains("p3") {
+                self.colorspace = CGColorSpace(name: CGColorSpace.displayP3_PQ)
+            } else {
+                self.colorspace = CGColorSpace(name: CGColorSpace.itur_2100_PQ)
+            }
+        } else {
+            self.pixelFormat = .bgra8Unorm
+            self.wantsExtendedDynamicRangeContent = false
+            self.colorspace = CGColorSpace(name: CGColorSpace.sRGB)
+        }
+    }
+    
     /// Binds this layer to the player store and registers its update listener.
     public func bind(store: MPVMetalPlayerStore) {
         if isBound && self.playerStore === store && self.renderContextManager?.rawContext != nil {
@@ -83,6 +104,7 @@ public final class MPVMetalRenderLayer: CAMetalLayer, MPVVideoLayerProtocol, @un
         self.playerStore = store
         self.renderContextManager = store.renderContextManager
         self.isBound = true
+        store.registerRenderLayer(self)
         
         if let mpv = store.mpv {
             store.renderContextManager.createRenderContext(mpvHandle: mpv)
@@ -101,6 +123,9 @@ public final class MPVMetalRenderLayer: CAMetalLayer, MPVVideoLayerProtocol, @un
         self.isBound = false
         self.renderContextManager?.setUpdateHandler(owner: self, nil)
         self.renderContextManager = nil
+        if let store = self.playerStore {
+            store.unregisterRenderLayer(self)
+        }
         self.playerStore = nil
     }
     
@@ -171,7 +196,10 @@ public final class MPVMetalRenderLayer: CAMetalLayer, MPVVideoLayerProtocol, @un
     
     /// Presents the rendered IOSurface through CAMetalDrawable hardware blit with CoreAnimation composition fallback.
     private func presentSurface(_ surface: IOSurface) {
+        let srcFormat: MTLPixelFormat = (surface.bytesPerElement >= 8) ? .rgba16Float : .bgra8Unorm
+        
         guard let drawable = self.nextDrawable(),
+              drawable.texture.pixelFormat == srcFormat,
               let commandQueue = self.commandQueue,
               let commandBuffer = commandQueue.makeCommandBuffer() else {
             self.contents = surface
@@ -179,7 +207,7 @@ public final class MPVMetalRenderLayer: CAMetalLayer, MPVVideoLayerProtocol, @un
         }
         
         let desc = MTLTextureDescriptor.texture2DDescriptor(
-            pixelFormat: self.pixelFormat,
+            pixelFormat: srcFormat,
             width: surface.width,
             height: surface.height,
             mipmapped: false
