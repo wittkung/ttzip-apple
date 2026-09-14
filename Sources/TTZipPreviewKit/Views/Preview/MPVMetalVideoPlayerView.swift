@@ -19,6 +19,7 @@ public struct MPVMetalVideoPlayerView: View {
     
     public var store: MPVMetalPlayerStore
     public var playlistStore: MediaPlaylistStore
+    @Environment(\.isImmersiveFullscreen) private var isImmersiveFullscreen: Bool
     @State private var isHovering: Bool = false
     @State private var isDropTargeted: Bool = false
     @State private var isPlaylistOpen: Bool = false
@@ -163,7 +164,7 @@ public struct MPVMetalVideoPlayerView: View {
                 }
                 
                 // Top-right Sleek Actions
-                if isHovering {
+                if isHovering && !isFullScreen && !isImmersiveFullscreen {
                     VStack {
                         HStack(spacing: 8) {
                             Spacer()

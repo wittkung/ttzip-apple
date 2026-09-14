@@ -493,21 +493,25 @@ public struct MPVVideoControlBarView: View {
                     .frame(width: 4.5, height: 4.5)
                 Text(metrics.hdrFormat.rawValue)
                     .font(.system(size: 8.5, weight: .bold, design: .monospaced))
+                    .lineLimit(1)
                     .foregroundStyle(TTZipTheme.kintsugiGold)
             }
             .padding(.horizontal, 5)
             .padding(.vertical, 1.5)
             .background(TTZipTheme.kintsugiGold.opacity(0.15))
             .clipShape(Capsule())
+            .fixedSize(horizontal: true, vertical: true)
             .help(isChinese ? "4K/8K XDR 渲染模式 (峰值 \(Int(metrics.peakNits)) nits)" : "XDR HDR Video (Peak \(Int(metrics.peakNits)) nits)")
         } else {
             Text("SDR")
                 .font(.system(size: 8.5, weight: .semibold, design: .monospaced))
+                .lineLimit(1)
                 .foregroundStyle(.white.opacity(0.45))
                 .padding(.horizontal, 4)
                 .padding(.vertical, 1.5)
                 .background(Color.white.opacity(0.08))
                 .clipShape(Capsule())
+                .fixedSize(horizontal: true, vertical: true)
         }
     }
     
