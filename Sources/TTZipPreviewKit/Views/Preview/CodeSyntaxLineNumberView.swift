@@ -49,6 +49,7 @@ final class LineNumberRulerView: NSRulerView {
         super.init(scrollView: scrollView, orientation: .verticalRuler)
         self.clientView = textView
         updateRuleThickness()
+        updateTextViewInset()
     }
     
     required init(coder: NSCoder) {
@@ -70,12 +71,21 @@ final class LineNumberRulerView: NSRulerView {
         updateRuleThickness()
     }
     
+    func updateTextViewInset() {
+        guard let tv = self.clientView as? NSTextView else { return }
+        let leftInset: CGFloat = self.ruleThickness + 12.0
+        if tv.textContainerInset.width != leftInset {
+            tv.textContainerInset = NSSize(width: leftInset, height: 14.0)
+        }
+    }
+    
     private func updateRuleThickness() {
         let digits = max(2, String(lineStarts.count).count)
-        let required = max(34.0, CGFloat(digits) * 7.5 + 16.0)
+        let required = max(36.0, CGFloat(digits) * 8.0 + 16.0)
         if abs(ruleThickness - required) > 0.5 {
             ruleThickness = required
         }
+        updateTextViewInset()
     }
     
     override func draw(_ dirtyRect: NSRect) {

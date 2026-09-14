@@ -93,7 +93,9 @@ public struct CodeHighlightingEditorNSView: NSViewRepresentable {
         textView.textColor = NSColor.labelColor
         textView.backgroundColor = .clear
         textView.drawsBackground = false
-        textView.textContainerInset = NSSize(width: 14, height: 14)
+        let digits = max(2, String(text.split(separator: "\n", omittingEmptySubsequences: false).count).count)
+        let initialGutterWidth = showLineNumbers ? max(36.0, CGFloat(digits) * 8.0 + 16.0) : 0
+        textView.textContainerInset = NSSize(width: showLineNumbers ? (initialGutterWidth + 12.0) : 14.0, height: 14.0)
         textView.defaultParagraphStyle = Self.codeParagraphStyle
         
         var typingAttrs = textView.typingAttributes
@@ -155,6 +157,7 @@ public struct CodeHighlightingEditorNSView: NSViewRepresentable {
             nsView.rulersVisible = showLineNumbers
         }
         
+        let ruler = nsView.verticalRulerView as? LineNumberRulerView
         if storage.string != text {
             context.coordinator.isProgrammaticUpdate = true
             storage.beginEditing()
@@ -162,10 +165,15 @@ public struct CodeHighlightingEditorNSView: NSViewRepresentable {
             storage.endEditing()
             context.coordinator.isProgrammaticUpdate = false
             context.coordinator.highlightSyntaxProgressive(in: textView, fileName: fileName)
-            if let ruler = nsView.verticalRulerView as? LineNumberRulerView {
+            if let ruler = ruler {
                 ruler.updateLineStarts(for: text)
                 ruler.needsDisplay = true
             }
+        }
+        
+        let leftInset: CGFloat = showLineNumbers ? ((ruler?.ruleThickness ?? 36.0) + 12.0) : 14.0
+        if textView.textContainerInset.width != leftInset {
+            textView.textContainerInset = NSSize(width: leftInset, height: 14.0)
         }
     }
     
