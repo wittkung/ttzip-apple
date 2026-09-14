@@ -61,25 +61,30 @@ public struct MPVVideoControlBarView: View {
             tier2ControlsRow
         }
         .padding(.horizontal, 12)
-        .padding(.vertical, 7)
-        .background(.ultraThinMaterial.opacity(0.90))
-        .clipShape(RoundedRectangle(cornerRadius: 13, style: .continuous))
+        .padding(.vertical, 8)
+        .background(
+            ZStack {
+                Rectangle().fill(.ultraThinMaterial)
+                Color.black.opacity(0.14)
+            }
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
         .overlay(
-            RoundedRectangle(cornerRadius: 13, style: .continuous)
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
                 .strokeBorder(
                     LinearGradient(
                         colors: [
-                            Color.white.opacity(0.24),
-                            Color.white.opacity(0.08),
-                            TTZipTheme.kintsugiGold.opacity(0.18)
+                            Color.white.opacity(0.22),
+                            Color.white.opacity(0.06)
                         ],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
+                        startPoint: .top,
+                        endPoint: .bottom
                     ),
-                    lineWidth: 0.8
+                    lineWidth: 0.5
                 )
         )
-        .shadow(color: Color.black.opacity(0.42), radius: 12, x: 0, y: 3)
+        .shadow(color: Color.black.opacity(0.26), radius: 20, x: 0, y: 6)
+        .environment(\.colorScheme, .dark)
     }
     
     // MARK: - Tier 1: Full-Width Precision Timeline Scrubber

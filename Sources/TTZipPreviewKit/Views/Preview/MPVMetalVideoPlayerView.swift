@@ -207,38 +207,43 @@ public struct MPVMetalVideoPlayerView: View {
                 if isHovering || !store.isPlaying {
                     VStack {
                         Spacer()
-                        MPVVideoControlBarView(
-                            store: store,
-                            playlistStore: playlistStore,
-                            isPlaylistOpen: isPlaylistOpen,
-                            onTogglePlaylist: {
-                                withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
-                                    isPlaylistOpen.toggle()
+                        HStack {
+                            Spacer(minLength: 0)
+                            MPVVideoControlBarView(
+                                store: store,
+                                playlistStore: playlistStore,
+                                isPlaylistOpen: isPlaylistOpen,
+                                onTogglePlaylist: {
+                                    withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                                        isPlaylistOpen.toggle()
+                                    }
+                                },
+                                onToggleFullScreen: { toggleFullScreen() },
+                                onOpenExternal: {
+                                    if let current = store.currentURL ?? playlistStore.currentURL {
+                                        NSWorkspace.shared.open(current)
+                                    } else {
+                                        NSWorkspace.shared.open(url)
+                                    }
                                 }
-                            },
-                            onToggleFullScreen: { toggleFullScreen() },
-                            onOpenExternal: {
-                                if let current = store.currentURL ?? playlistStore.currentURL {
-                                    NSWorkspace.shared.open(current)
-                                } else {
-                                    NSWorkspace.shared.open(url)
-                                }
-                            }
-                        )
-                        .padding(.horizontal, 12)
-                        .padding(.bottom, 8)
+                            )
+                            .frame(maxWidth: isFullScreen ? 740 : .infinity)
+                            Spacer(minLength: 0)
+                        }
+                        .padding(.horizontal, isFullScreen ? 32 : 12)
+                        .padding(.bottom, isFullScreen ? 24 : 8)
                     }
                     .background(
                         LinearGradient(
                             colors: [
                                 Color.clear,
-                                Color.black.opacity(0.18),
-                                Color.black.opacity(0.65)
+                                Color.black.opacity(0.06),
+                                Color.black.opacity(0.24)
                             ],
                             startPoint: .top,
                             endPoint: .bottom
                         )
-                        .frame(height: 110)
+                        .frame(height: 88)
                         .frame(maxHeight: .infinity, alignment: .bottom)
                         .allowsHitTesting(false)
                     )
