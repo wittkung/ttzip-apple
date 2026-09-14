@@ -58,6 +58,7 @@ public struct FolderMediaArtboardView: View {
             
             bottomPinnedActionBar
         }
+        .background(Color.clear)
         .alert(l10n.t(L10n.Explorer.newFolder), isPresented: $showCreateSubfolderAlert) {
             TextField(l10n.t(L10n.Explorer.folderName), text: $newSubfolderName)
             Button(l10n.t(L10n.Common.cancel), role: .cancel) {
@@ -226,6 +227,6 @@ public struct FolderMediaArtboardView: View {
             .help(l10n.t(L10n.Common.newArchiveShortcut))
             .accessibilityLabel(l10n.t(L10n.Common.newArchiveShortcut))
         }
-        .background(.ultraThinMaterial)
+        .background(Color.clear)
     }
 }

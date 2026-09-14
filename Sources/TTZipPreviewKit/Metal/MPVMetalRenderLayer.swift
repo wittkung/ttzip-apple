@@ -79,8 +79,8 @@ public final class MPVMetalRenderLayer: CAMetalLayer, MPVVideoLayerProtocol, @un
     @MainActor
     public func configureEDRColorspace(isHDR: Bool, primaries: String) {
         let isEDRSupported = (NSScreen.main?.maximumPotentialExtendedDynamicRangeColorComponentValue ?? 1.0) > 1.0
+        self.pixelFormat = .bgra8Unorm
         if isHDR && isEDRSupported {
-            self.pixelFormat = .rgba16Float
             self.wantsExtendedDynamicRangeContent = true
             if primaries.contains("2020") {
                 self.colorspace = CGColorSpace(name: CGColorSpace.itur_2100_PQ)
@@ -90,7 +90,6 @@ public final class MPVMetalRenderLayer: CAMetalLayer, MPVVideoLayerProtocol, @un
                 self.colorspace = CGColorSpace(name: CGColorSpace.itur_2100_PQ)
             }
         } else {
-            self.pixelFormat = .bgra8Unorm
             self.wantsExtendedDynamicRangeContent = false
             self.colorspace = CGColorSpace(name: CGColorSpace.sRGB)
         }

@@ -99,6 +99,7 @@ public struct InspectorColumnView: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(Color.clear)
         .task(id: item?.path) {
             guard item != nil else {
                 self.deepMetadataDict = [:]
@@ -335,6 +336,6 @@ public struct InspectorColumnView: View {
             Spacer()
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Color.primary.opacity(0.015))
+        .background(Color.clear)
     }
 }

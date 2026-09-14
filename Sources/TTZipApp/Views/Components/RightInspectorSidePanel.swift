@@ -80,7 +80,7 @@ public struct RightInspectorSidePanel: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .clipped()
-        .background(Color.primary.opacity(0.025))
+        .background(Color.clear)
     }
     
     // MARK: - Zen Empty State
