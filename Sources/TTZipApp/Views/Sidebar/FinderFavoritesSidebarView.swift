@@ -200,7 +200,7 @@ public struct FinderFavoritesSidebarView: View {
             sidebarHardwareFooter
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .background(.ultraThinMaterial)
+        .background(Color.clear)
         .sheet(isPresented: $showWirelessDiscoverySheet) {
             WirelessDeviceDiscoveryView()
         }
@@ -356,7 +356,6 @@ public struct FinderFavoritesSidebarView: View {
                 }
             }
             .frame(height: 32)
-            .background(.ultraThinMaterial)
             .background(Color.primary.opacity(0.015))
         }
     }
