@@ -34,8 +34,8 @@ final class FinderFavoritesReaderTests: XCTestCase {
         
         // Downloads
         let downloadsPath = (home as NSString).appendingPathComponent("Downloads")
-        XCTAssertEqual(FinderFavoritesReader.iconFor(path: downloadsPath, name: "Downloads"), "arrow.down.circle.fill")
-        XCTAssertEqual(FinderFavoritesReader.iconFor(path: downloadsPath, name: "下载"), "arrow.down.circle.fill")
+        XCTAssertEqual(FinderFavoritesReader.iconFor(path: downloadsPath, name: "Downloads"), "arrow.down.circle")
+        XCTAssertEqual(FinderFavoritesReader.iconFor(path: downloadsPath, name: "下载"), "arrow.down.circle")
         
         // Documents
         let docsPath = (home as NSString).appendingPathComponent("Documents")
