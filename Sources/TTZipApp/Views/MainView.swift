@@ -240,13 +240,16 @@ public struct MainView: View {
             
             // Fixed Chrome Geometry & Safety Clamping Constants
             let dividerWidth: CGFloat = ResizableDividerHandle.gutterWidth
-            let minSafeWorkspaceWidth: CGFloat = 460.0
+            let minSafeWorkspaceWidth: CGFloat = (tier == .compact) ? 430.0 : 460.0
             
-            let isLeftPanelAvailable: Bool = (tier != .compact && viewModel.activeTab == .home)
+            let isLeftPanelAvailable: Bool = (viewModel.activeTab == .home)
             let shouldShowLeftPanel = isLeftSidebarVisible && isLeftPanelAvailable
             
             let effectiveLeftWidth: CGFloat = {
                 if !shouldShowLeftPanel { return 0 }
+                if tier == .compact {
+                    return SidebarGeometry.iconRailWidth
+                }
                 if leftSidebarWidth <= SidebarGeometry.snapThreshold {
                     return SidebarGeometry.iconRailWidth
                 } else {
@@ -254,14 +257,16 @@ public struct MainView: View {
                 }
             }()
             
-            let isIconRailMode: Bool = effectiveLeftWidth <= 80.0
+            let isIconRailMode: Bool = (tier == .compact) || (effectiveLeftWidth <= 80.0)
             
-            let minRightSidebarWidth: CGFloat = 240.0
+            let minRightSidebarWidth: CGFloat = (tier == .compact) ? 220.0 : 240.0
             let maxRightSidebarWidth: CGFloat = totalWidth * 0.5
-            let isRightPanelAvailable: Bool = (tier != .compact && viewModel.activeTab == .home)
+            let leftDividerWidth: CGFloat = (tier != .compact) ? dividerWidth : 0
+            let leftChrome = shouldShowLeftPanel ? (effectiveLeftWidth + leftDividerWidth) : 0
+            
+            let isRightPanelAvailable: Bool = (viewModel.activeTab == .home && (totalWidth - leftChrome >= 420.0))
             let shouldShowRightPanel = isRightSidebarVisible && isRightPanelAvailable
             
-            let leftChrome = shouldShowLeftPanel ? (effectiveLeftWidth + dividerWidth) : 0
             let rightChrome = shouldShowRightPanel ? dividerWidth : 0
             let maxRightAllowedByWorkspace = max(minRightSidebarWidth, totalWidth - leftChrome - rightChrome - minSafeWorkspaceWidth)
             let effectiveMaxRightWidth = max(minRightSidebarWidth, min(maxRightSidebarWidth, maxRightAllowedByWorkspace))

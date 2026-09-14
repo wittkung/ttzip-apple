@@ -141,7 +141,7 @@ struct TTZipApp: App {
     var body: some Scene {
         WindowGroup {
             MainView()
-                .frame(minWidth: 520, minHeight: 400)
+                .frame(minWidth: 720, minHeight: 400)
                 .background(WindowTabbingConfigurator())
                 .background(Color.clear)
                 .ignoresSafeArea()
