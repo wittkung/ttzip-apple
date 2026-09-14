@@ -61,7 +61,6 @@ public struct MainView: View {
         @Bindable var viewModel = viewModel
         mainGeometryLayout
             .ignoresSafeArea()
-            .toolbar(viewModel.overlayState.showImmersiveMediaBrowser ? .hidden : .visible, for: .windowToolbar)
             .toolbar {
                 if !viewModel.overlayState.showImmersiveMediaBrowser {
                     mainToolbarContent
@@ -137,17 +136,21 @@ public struct MainView: View {
             }
         }
         .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("TTZipToggleMediaFocusNotification"))) { notif in
-            withAnimation(.spring(response: 0.3, dampingFraction: 0.82)) {
-                if let item = notif.object as? ImmersiveMediaItem {
-                    viewModel.openImmersiveMedia(url: item.url, name: item.name, fileSizeBytes: item.fileSizeBytes)
-                } else if let url = notif.object as? URL {
-                    let name = (notif.userInfo?["name"] as? String) ?? url.lastPathComponent
-                    viewModel.openImmersiveMedia(url: url, name: name)
-                } else if let item = viewModel.selectedDiskItem {
-                    let u = URL(fileURLWithPath: item.path)
-                    viewModel.openImmersiveMedia(url: u, name: item.name, fileSizeBytes: item.fileSizeBytes)
-                } else if let url = viewModel.activePreviewFileURL, let name = viewModel.activePreviewFileName {
-                    viewModel.openImmersiveMedia(url: url, name: name)
+            withAnimation(.spring(response: 0.28, dampingFraction: 0.85)) {
+                if viewModel.overlayState.showImmersiveMediaBrowser {
+                    viewModel.closeImmersiveMedia()
+                } else {
+                    if let item = notif.object as? ImmersiveMediaItem {
+                        viewModel.openImmersiveMedia(url: item.url, name: item.name, fileSizeBytes: item.fileSizeBytes)
+                    } else if let url = notif.object as? URL {
+                        let name = (notif.userInfo?["name"] as? String) ?? url.lastPathComponent
+                        viewModel.openImmersiveMedia(url: url, name: name)
+                    } else if let item = viewModel.selectedDiskItem {
+                        let u = URL(fileURLWithPath: item.path)
+                        viewModel.openImmersiveMedia(url: u, name: item.name, fileSizeBytes: item.fileSizeBytes)
+                    } else if let url = viewModel.activePreviewFileURL, let name = viewModel.activePreviewFileName {
+                        viewModel.openImmersiveMedia(url: url, name: name)
+                    }
                 }
             }
         }
@@ -169,9 +172,6 @@ public struct MainView: View {
                     self.rightSidebarWidth = CGFloat(userRightSidebarWidth)
                 }
             }
-        }
-        .onChange(of: viewModel.overlayState.showImmersiveMediaBrowser) { _, isImmersive in
-            NSApp.keyWindow?.toolbar?.isVisible = !isImmersive
         }
     }
     
@@ -243,7 +243,7 @@ public struct MainView: View {
             let minSafeWorkspaceWidth: CGFloat = 460.0
             
             let isLeftPanelAvailable: Bool = (tier != .compact && viewModel.activeTab == .home)
-            let shouldShowLeftPanel = !isMediaFocus && isLeftSidebarVisible && isLeftPanelAvailable
+            let shouldShowLeftPanel = isLeftSidebarVisible && isLeftPanelAvailable
             
             let effectiveLeftWidth: CGFloat = {
                 if !shouldShowLeftPanel { return 0 }
@@ -259,7 +259,7 @@ public struct MainView: View {
             let minRightSidebarWidth: CGFloat = 240.0
             let maxRightSidebarWidth: CGFloat = totalWidth * 0.5
             let isRightPanelAvailable: Bool = (tier != .compact && viewModel.activeTab == .home)
-            let shouldShowRightPanel = !isMediaFocus && isRightSidebarVisible && isRightPanelAvailable
+            let shouldShowRightPanel = isRightSidebarVisible && isRightPanelAvailable
             
             let leftChrome = shouldShowLeftPanel ? (effectiveLeftWidth + dividerWidth) : 0
             let rightChrome = shouldShowRightPanel ? dividerWidth : 0

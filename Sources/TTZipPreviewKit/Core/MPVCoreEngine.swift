@@ -130,10 +130,9 @@ private final class MPVHandleHolder: Sendable {
 
         mpv_set_option_string(newHandle, "target-colorspace-hint", "yes")
         mpv_set_option_string(newHandle, "target-trc", "auto")
-        mpv_set_option_string(newHandle, "tone-mapping", "bt.2390")
-        mpv_set_option_string(newHandle, "tone-mapping-max-boost", "1.5")
-        mpv_set_option_string(newHandle, "gamut-mapping-mode", "perceptual")
+        mpv_set_option_string(newHandle, "tone-mapping", "auto")
         mpv_set_option_string(newHandle, "hdr-compute-peak", "yes")
+        mpv_set_option_string(newHandle, "gamut-mapping-mode", "perceptual")
         mpv_set_option_string(newHandle, "sub-auto", "fuzzy")
         mpv_set_option_string(newHandle, "sub-codepage", "auto")
         mpv_set_option_string(newHandle, "sub-font-size", "52")

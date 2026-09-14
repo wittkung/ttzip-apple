@@ -31,6 +31,21 @@ public final class MPVMetalPlayerStore {
     private nonisolated(unsafe) var securityScopedURL: URL? = nil
     private var isAccessingSecurityScopedResource: Bool = false
     
+    @ObservationIgnored
+    public nonisolated(unsafe) weak var activeLayer: MPVMetalRenderLayer? = nil
+    
+    /// Registers the active Metal render layer for dynamic EDR colorspace synchronization.
+    nonisolated public func registerRenderLayer(_ layer: MPVMetalRenderLayer) {
+        self.activeLayer = layer
+    }
+    
+    /// Unregisters the active Metal render layer when detaching.
+    nonisolated public func unregisterRenderLayer(_ layer: MPVMetalRenderLayer) {
+        if self.activeLayer === layer {
+            self.activeLayer = nil
+        }
+    }
+    
     /// Flag indicating whether the store is operating in pure audio mode without video rendering pipeline.
     public private(set) var isAudioOnly: Bool = false
     

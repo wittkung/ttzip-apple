@@ -23,10 +23,10 @@ extension MPVMetalPlayerStore {
         let gamma = getMpvString(handle, "video-params/gamma")?.lowercased() ?? ""
         let primaries = getMpvString(handle, "video-params/primaries")?.lowercased() ?? ""
         var detectedHDR: MPVHDRFormat = .sdr
-        if gamma.contains("pq") || primaries.contains("bt.2020") {
-            detectedHDR = .hdr10
-        } else if gamma.contains("dovi") || primaries.contains("dovi") {
+        if gamma.contains("dovi") || primaries.contains("dovi") {
             detectedHDR = .dolbyVision
+        } else if gamma.contains("pq") || primaries.contains("bt.2020") {
+            detectedHDR = .hdr10
         } else if gamma.contains("hlg") {
             detectedHDR = .hlg
         }
@@ -152,18 +152,64 @@ extension MPVMetalPlayerStore {
     
     // MARK: - EDR & Companion Discovery
     
-    public func updateEDRMetrics(detectedHDR: MPVHDRFormat = .sdr) {
+    /// Handles video parameter mutation and updates EDR state across libmpv and Metal rendering layers.
+    public func onVideoParamsChanged(detectedHDR: MPVHDRFormat = .sdr, primaries: String? = nil) {
+        self.updateEDRMetrics(detectedHDR: detectedHDR, primaries: primaries)
+    }
+    
+    public func updateEDRMetrics(detectedHDR: MPVHDRFormat = .sdr, primaries: String? = nil) {
         let maxHeadroom = NSScreen.main?.maximumExtendedDynamicRangeColorComponentValue ?? 1.0
         let currentHeadroom = NSScreen.main?.maximumPotentialExtendedDynamicRangeColorComponentValue ?? 1.0
         let peakNits = max(500.0, min(1600.0, Double(maxHeadroom) * 400.0))
+        
+        var effectivePrimaries = primaries ?? ""
+        var gamma = ""
+        if let handle = self.mpv {
+            if effectivePrimaries.isEmpty {
+                effectivePrimaries = Self.getMpvString(handle, "video-params/primaries")?.lowercased() ?? ""
+            }
+            gamma = Self.getMpvString(handle, "video-params/gamma")?.lowercased() ?? ""
+        }
+        
+        let isHDR = detectedHDR.isHDR || gamma == "pq" || gamma == "hlg"
+        let isEDRSupported = currentHeadroom > 1.0
+        
         self.edrMetrics = MPVEDRMetrics(
             maxEDRHeadroom: maxHeadroom,
             currentEDRHeadroom: currentHeadroom,
             peakNits: peakNits,
-            isHDRActive: maxHeadroom > 1.0 || detectedHDR.isHDR,
+            isHDRActive: isHDR && isEDRSupported,
             hdrFormat: detectedHDR,
             toneMappingMode: "auto"
         )
+        
+        if isHDR {
+            if isEDRSupported {
+                Task(priority: .high) {
+                    let prim = effectivePrimaries.isEmpty ? "bt.2020" : effectivePrimaries
+                    try? await MPVCoreEngine.shared.setProperty(name: "target-prim", value: prim)
+                    try? await MPVCoreEngine.shared.setProperty(name: "target-trc", value: "pq")
+                    try? await MPVCoreEngine.shared.setProperty(name: "icc-profile-auto", value: false)
+                    try? await MPVCoreEngine.shared.setProperty(name: "target-peak", value: "1600")
+                }
+            } else {
+                Task(priority: .high) {
+                    try? await MPVCoreEngine.shared.setProperty(name: "target-prim", value: "auto")
+                    try? await MPVCoreEngine.shared.setProperty(name: "target-trc", value: "auto")
+                    try? await MPVCoreEngine.shared.setProperty(name: "target-peak", value: "auto")
+                    try? await MPVCoreEngine.shared.setProperty(name: "tone-mapping", value: "auto")
+                }
+            }
+        } else {
+            Task(priority: .high) {
+                try? await MPVCoreEngine.shared.setProperty(name: "target-prim", value: "auto")
+                try? await MPVCoreEngine.shared.setProperty(name: "target-trc", value: "auto")
+                try? await MPVCoreEngine.shared.setProperty(name: "target-peak", value: "auto")
+                try? await MPVCoreEngine.shared.setProperty(name: "tone-mapping", value: "auto")
+            }
+        }
+        
+        self.activeLayer?.configureEDRColorspace(isHDR: isHDR, primaries: effectivePrimaries)
     }
     
     public func discoverCompanionSubtitles(for videoURL: URL) {
