@@ -125,7 +125,7 @@ public struct RightInspectorSidePanel: View {
                     .frame(width: 28, height: 28)
                 Image(systemName: itemIconName(for: item))
                     .font(.system(size: 13.5, weight: .semibold))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(Color.primary.opacity(0.85))
             }
             .frame(width: 28, height: 28)
             
@@ -263,36 +263,24 @@ public struct RightInspectorSidePanel: View {
     
     private func itemIconGradient(for item: DiskItemInfo) -> LinearGradient {
         if item.isDirectory {
-            return LinearGradient(colors: [TTZipTheme.bambooGreen, TTZipTheme.bambooGreen.opacity(0.85)], startPoint: .topLeading, endPoint: .bottomTrailing)
+            return LinearGradient(
+                colors: [Color.primary.opacity(0.08), Color.primary.opacity(0.04)],
+                startPoint: .top,
+                endPoint: .bottom
+            )
         }
         let ext = (item.name as NSString).pathExtension.lowercased()
-        if let fmt = ArchiveCompressionFormat.from(extensionOrName: ext) {
-            switch fmt.category {
-            case .standard:
-                return LinearGradient(colors: [TTZipTheme.bambooGreen, TTZipTheme.bambooGreen.opacity(0.8)], startPoint: .topLeading, endPoint: .bottomTrailing)
-            case .unixPackage:
-                return LinearGradient(colors: [Color.orange, Color.red.opacity(0.8)], startPoint: .topLeading, endPoint: .bottomTrailing)
-            case .diskImage:
-                return LinearGradient(colors: [Color.indigo, Color.purple], startPoint: .topLeading, endPoint: .bottomTrailing)
-            case .modernStream:
-                return LinearGradient(colors: [Color.teal, Color.cyan], startPoint: .topLeading, endPoint: .bottomTrailing)
-            }
-        }
-        if item.isArchive {
-            return LinearGradient(colors: [TTZipTheme.bambooGreen, TTZipTheme.bambooGreen.opacity(0.8)], startPoint: .topLeading, endPoint: .bottomTrailing)
-        }
         if ["jpg", "jpeg", "png", "gif", "webp", "heic", "svg", "bmp", "tiff"].contains(ext) {
-            return LinearGradient(colors: [Color.purple, Color.indigo], startPoint: .topLeading, endPoint: .bottomTrailing)
+            return LinearGradient(
+                colors: [Color.primary.opacity(0.08), Color.primary.opacity(0.04)],
+                startPoint: .top,
+                endPoint: .bottom
+            )
         }
-        if MediaPreviewFactory.videoExtensions.contains(ext) {
-            return LinearGradient(colors: [Color.pink, Color.orange], startPoint: .topLeading, endPoint: .bottomTrailing)
-        }
-        if MediaPreviewFactory.audioExtensions.contains(ext) {
-            return LinearGradient(colors: [Color.teal, Color.blue], startPoint: .topLeading, endPoint: .bottomTrailing)
-        }
-        if ext == "pdf" {
-            return LinearGradient(colors: [Color.red, Color.orange], startPoint: .topLeading, endPoint: .bottomTrailing)
-        }
-        return LinearGradient(colors: [Color.blue, Color.cyan], startPoint: .topLeading, endPoint: .bottomTrailing)
+        return LinearGradient(
+            colors: [Color.primary.opacity(0.08), Color.primary.opacity(0.04)],
+            startPoint: .top,
+            endPoint: .bottom
+        )
     }
 }

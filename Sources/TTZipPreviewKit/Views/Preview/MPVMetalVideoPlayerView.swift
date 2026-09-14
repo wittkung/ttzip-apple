@@ -206,6 +206,7 @@ public struct MPVMetalVideoPlayerView: View {
                 // Bottom-Aligned Dock Controls with Ambient Scrim Veil
                 if isHovering || !store.isPlaying {
                     VStack(spacing: 0) {
+                        Spacer(minLength: 0)
                         HStack {
                             Spacer(minLength: 0)
                             MPVVideoControlBarView(
@@ -232,7 +233,7 @@ public struct MPVMetalVideoPlayerView: View {
                         .padding(.horizontal, isFullScreen ? 32 : 16)
                         .padding(.bottom, isFullScreen ? 24 : 12)
                     }
-                    .frame(maxHeight: .infinity, alignment: .bottom)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
                     .background(
                         LinearGradient(
                             colors: [
@@ -243,7 +244,7 @@ public struct MPVMetalVideoPlayerView: View {
                             endPoint: .top
                         )
                         .frame(height: 48)
-                        .frame(maxHeight: .infinity, alignment: .bottom)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
                         .allowsHitTesting(false)
                     )
                     .transition(.opacity.animation(.easeInOut(duration: 0.2)))
@@ -270,6 +271,7 @@ public struct MPVMetalVideoPlayerView: View {
                     .transition(.move(edge: .trailing).combined(with: .opacity))
                 }
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .onContinuousHover { phase in
             let activeId = store.currentURL?.path ?? url.path
             switch phase {

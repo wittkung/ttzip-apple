@@ -112,6 +112,7 @@ public struct MediaPreviewView: View {
                 fileURL: effectiveFileURL,
                 isFullScreenActive: effectiveIsImmersive || isFullScreenActive
             )
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
             
             if showsFloatingFullScreenButton {
                 Button(action: { toggleFullScreen() }) {

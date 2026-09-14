@@ -151,7 +151,7 @@ extension FolderMediaArtboardView {
                 .font(.system(size: 11, weight: .medium))
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: true, vertical: false)
-                .frame(minWidth: 70, idealWidth: 85, maxWidth: 110, alignment: .leading)
+                .frame(minWidth: 92, idealWidth: 95, maxWidth: 110, alignment: .leading)
             
             Text(value)
                 .font(.system(size: isHighlight ? 12.5 : 11, weight: isHighlight ? .bold : .regular, design: isHighlight ? .default : .monospaced))
