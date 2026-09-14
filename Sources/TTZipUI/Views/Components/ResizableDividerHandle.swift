@@ -9,6 +9,7 @@ import SwiftUI
 
 /// Draggable vertical and horizontal divider handle controls.
 public struct ResizableDividerHandle: View {
+    public var topInset: CGFloat = 0
     public var onDragStart: (() -> Void)? = nil
     public let onDragChanged: (CGFloat) -> Void
     public var onDragEnd: (() -> Void)? = nil
@@ -19,11 +20,13 @@ public struct ResizableDividerHandle: View {
     @State private var startMouseX: CGFloat = 0
     
     public init(
+        topInset: CGFloat = 0,
         onDragStart: (() -> Void)? = nil,
         onDragChanged: @escaping (CGFloat) -> Void,
         onDragEnd: (() -> Void)? = nil,
         onDoubleClick: (() -> Void)? = nil
     ) {
+        self.topInset = topInset
         self.onDragStart = onDragStart
         self.onDragChanged = onDragChanged
         self.onDragEnd = onDragEnd
@@ -33,44 +36,52 @@ public struct ResizableDividerHandle: View {
     public static let gutterWidth: CGFloat = 8.0
     
     public var body: some View {
-        ZStack {
-            // 1. Zen Gutter: Transparent in rest state, glowing gold when hovered/dragged
-            Rectangle()
-                .fill(
-                    isHovered || isDragging
-                        ? TTZipTheme.kintsugiGold.opacity(0.55)
-                        : Color.clear
-                )
-                .frame(width: 1.5)
-            
-            // 2. Elegant floating tactile grip pill
-            if isHovered || isDragging {
-                ZStack {
-                    Capsule(style: .continuous)
-                        .fill(
-                            LinearGradient(
-                                colors: [
-                                    TTZipTheme.kintsugiGold,
-                                    TTZipTheme.kintsugiGold.opacity(0.85)
-                                ],
-                                startPoint: .top,
-                                endPoint: .bottom
-                            )
-                        )
-                        .frame(width: 4, height: 24)
-                        .shadow(color: TTZipTheme.kintsugiGold.opacity(0.35), radius: 3, y: 1)
-                    
-                    VStack(spacing: 3) {
-                        Circle()
-                            .fill(Color.white.opacity(0.95))
-                            .frame(width: 1.5, height: 1.5)
-                        Circle()
-                            .fill(Color.white.opacity(0.95))
-                            .frame(width: 1.5, height: 1.5)
-                    }
-                }
-                .transition(.opacity.combined(with: .scale(scale: 0.85)))
+        VStack(spacing: 0) {
+            if topInset > 0 {
+                Color.clear.frame(height: topInset)
             }
+            
+            ZStack {
+                // 1. Zen Gutter Line: Hairline border in rest state, glowing gold when hovered/dragged
+                Rectangle()
+                    .fill(
+                        isHovered || isDragging
+                            ? TTZipTheme.kintsugiGold.opacity(0.55)
+                            : TTZipTheme.hairlineBorder
+                    )
+                    .frame(width: isHovered || isDragging ? 1.5 : TTZipTheme.Layout.hairlineBorderWidth)
+                    .frame(maxHeight: .infinity)
+                
+                // 2. Elegant floating tactile grip pill
+                if isHovered || isDragging {
+                    ZStack {
+                        Capsule(style: .continuous)
+                            .fill(
+                                LinearGradient(
+                                    colors: [
+                                        TTZipTheme.kintsugiGold,
+                                        TTZipTheme.kintsugiGold.opacity(0.85)
+                                    ],
+                                    startPoint: .top,
+                                    endPoint: .bottom
+                                )
+                            )
+                            .frame(width: 4, height: 24)
+                            .shadow(color: TTZipTheme.kintsugiGold.opacity(0.35), radius: 3, y: 1)
+                        
+                        VStack(spacing: 3) {
+                            Circle()
+                                .fill(Color.white.opacity(0.95))
+                                .frame(width: 1.5, height: 1.5)
+                            Circle()
+                                .fill(Color.white.opacity(0.95))
+                                .frame(width: 1.5, height: 1.5)
+                        }
+                    }
+                    .transition(.opacity.combined(with: .scale(scale: 0.85)))
+                }
+            }
+            .frame(maxHeight: .infinity)
         }
         .frame(width: Self.gutterWidth)
         .contentShape(Rectangle())

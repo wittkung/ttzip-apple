@@ -139,23 +139,31 @@ public struct RightInspectorSidePanel: View {
                     .layoutPriority(1)
                 
                 HStack(spacing: 4) {
-                    if !item.sizeText.isEmpty {
-                        Text(item.sizeText)
-                            .font(.system(size: 10, design: .monospaced))
+                    if item.isDirectory {
+                        let folderTitle = (l10n.currentLanguage == .zhHans || l10n.currentLanguage == .zhHant) ? "文件夹" : "Folder"
+                        Text(folderTitle)
+                            .font(.system(size: 10, weight: .medium))
                             .foregroundStyle(.secondary)
                             .lineLimit(1)
+                    } else {
+                        if !item.sizeText.isEmpty {
+                            Text(item.sizeText)
+                                .font(.system(size: 10, design: .monospaced))
+                                .foregroundStyle(.secondary)
+                                .lineLimit(1)
+                            
+                            Text("•")
+                                .font(.system(size: 7))
+                                .foregroundStyle(.tertiary)
+                        }
                         
-                        Text("•")
-                            .font(.system(size: 7))
-                            .foregroundStyle(.tertiary)
+                        let ext = URL(fileURLWithPath: item.path).pathExtension.uppercased()
+                        Text(ext.isEmpty ? item.kindText : ext)
+                            .font(.system(size: 10, weight: .medium))
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.8)
                     }
-                    
-                    let ext = URL(fileURLWithPath: item.path).pathExtension.uppercased()
-                    Text(ext.isEmpty ? item.kindText : ext)
-                        .font(.system(size: 10, weight: .medium))
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.8)
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
