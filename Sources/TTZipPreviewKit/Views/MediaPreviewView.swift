@@ -124,9 +124,9 @@ public struct MediaPreviewView: View {
                     .foregroundStyle(.white)
                     .padding(.horizontal, 10)
                     .padding(.vertical, 5)
-                    .background(Capsule().fill(Color.black.opacity(0.6)))
+                    .background(.ultraThinMaterial, in: Capsule())
                     .overlay(Capsule().stroke(Color.white.opacity(0.2), lineWidth: 0.5))
-                    .shadow(color: .black.opacity(0.3), radius: 4, x: 0, y: 2)
+                    .shadow(color: .black.opacity(0.25), radius: 4, x: 0, y: 2)
                 }
                 .buttonStyle(.plain)
                 .opacity(isHovered ? 1.0 : 0.0)

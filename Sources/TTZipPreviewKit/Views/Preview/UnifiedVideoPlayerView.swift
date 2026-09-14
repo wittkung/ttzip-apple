@@ -25,25 +25,12 @@ public struct UnifiedVideoPlayerView: View {
         self.store = store
     }
     
-    private var videoAspect: CGFloat {
-        if store.videoWidth > 0 && store.videoHeight > 0 {
-            return CGFloat(store.videoWidth) / CGFloat(store.videoHeight)
-        }
-        return 16.0 / 9.0
-    }
-    
     public var body: some View {
         ZStack {
             Color.black.ignoresSafeArea()
             
-            if isFullScreen {
-                MPVMetalVideoPlayerView(url: url, store: store, isFullScreen: true)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-            } else {
-                MPVMetalVideoPlayerView(url: url, store: store, isFullScreen: false)
-                    .aspectRatio(videoAspect, contentMode: .fit)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-            }
+            MPVMetalVideoPlayerView(url: url, store: store, isFullScreen: isFullScreen)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
         .onAppear {

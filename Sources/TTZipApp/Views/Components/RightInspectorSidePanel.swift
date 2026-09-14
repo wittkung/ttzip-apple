@@ -30,10 +30,10 @@ public struct RightInspectorSidePanel: View {
                 .padding(.horizontal, 16)
                 .frame(height: 52)
             
-            // 1.5pt Kintsugi Gold Line (Y=90pt Alignment)
+            // 1.5pt Kintsugi Gold Line (Y=90pt Full-width Seamless Alignment)
             Rectangle()
                 .fill(TTZipTheme.kintsugiGold)
-                .frame(height: 1.5)
+                .frame(height: TTZipTheme.Layout.kintsugiGoldLineHeight)
             
             // Contextual Content Area: Directory Canvas, File Preview, or Current Directory Canvas
             VStack(alignment: .leading, spacing: 0) {
@@ -203,21 +203,23 @@ public struct RightInspectorSidePanel: View {
                 .menuStyle(.borderlessButton)
                 .menuIndicator(.hidden)
                 .help(l10n.currentLanguage == .zhHans ? "更多操作" : "More Actions")
+                .accessibilityLabel(l10n.currentLanguage == .zhHans ? "更多操作" : "More Actions")
                 
-                // Deselect / Close Button
+                // Deselect Button (Return to Directory Overview)
                 Button(action: {
                     withAnimation(.spring(response: 0.28, dampingFraction: 0.86)) {
                         viewModel.clearInspectedFile()
                     }
                 }) {
-                    Image(systemName: "xmark.circle.fill")
+                    Image(systemName: "xmark.circle")
                         .font(.system(size: 13))
                         .foregroundStyle(.secondary.opacity(0.8))
                         .frame(width: 22, height: 22)
                         .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
-                .help(l10n.t(L10n.Inspector.currentDirectory))
+                .help(l10n.currentLanguage == .zhHans ? "取消文件选中并返回目录概览" : "Deselect file and return to folder overview")
+                .accessibilityLabel(l10n.currentLanguage == .zhHans ? "取消文件选中并返回目录概览" : "Deselect file and return to folder overview")
             }
             .fixedSize(horizontal: true, vertical: false)
         }
@@ -230,7 +232,7 @@ public struct RightInspectorSidePanel: View {
                 Text(l10n.t(L10n.Inspector.currentDirectory))
                     .font(.system(size: 8.5, weight: .bold, design: .serif))
                     .tracking(1.8)
-                    .foregroundStyle(TTZipTheme.kintsugiGold)
+                    .foregroundStyle(TTZipTheme.kintsugiGoldEditorial)
                 
                 Text(FileManager.default.displayName(atPath: viewModel.currentDirectory.path))
                     .font(.system(size: 13.5, weight: .bold, design: .serif))

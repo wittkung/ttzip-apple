@@ -355,6 +355,13 @@ public struct MainView: View {
         availableContentWidth: CGFloat
     ) -> some View {
         HStack(alignment: .top, spacing: 0) {
+            // MARK: - Macro Geometry & Y = 90pt Golden Line Alignment
+            // All three columns strictly honor the design system invariant:
+            // 38pt Window Top Safety Offset (TTZipTheme.Layout.topBarOffset)
+            // + 52pt Functional Header Bar (TTZipTheme.Layout.headerBarHeight)
+            // -> Kintsugi Golden Rule Line strictly aligned across all 3 columns at Y = 90.0pt.
+            
+            // Column 1: Left Finder & Locations Sidebar
             if shouldShowLeftPanel {
                 FinderFavoritesSidebarView(
                     currentDirectory: viewModel.currentDirectory,
@@ -397,9 +404,11 @@ public struct MainView: View {
                 }
             }
             
+            // Column 2: Center Workspace (HomeExplorerContainerView / TTZipWorkspaceScaffold)
             detailArea
                 .frame(minWidth: isMediaFocus ? 0 : minSafeWorkspaceWidth, maxWidth: .infinity, maxHeight: totalHeight, alignment: .topLeading)
             
+            // Column 3: Right Contextual Inspector (52pt Header strictly at Y = 90pt via 38pt top offset)
             if shouldShowRightPanel {
                 ResizableDividerHandle(
                     onDragStart: { initialRightWidth = effectiveRightWidth },
@@ -432,8 +441,7 @@ public struct MainView: View {
                 
                 RightInspectorSidePanel(viewModel: viewModel, rightVerticalTopHeight: $rightVerticalTopHeight)
                     .padding(.top, TTZipTheme.Layout.topBarOffset)
-                    .frame(width: effectiveRightWidth, alignment: .topLeading)
-                    .frame(maxHeight: totalHeight, alignment: .topLeading)
+                    .frame(width: effectiveRightWidth, height: totalHeight, alignment: .topLeading)
                     .clipped()
                     .transition(.move(edge: .trailing).combined(with: .opacity))
             }

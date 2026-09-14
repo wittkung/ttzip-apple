@@ -196,11 +196,12 @@ extension InspectorColumnView {
     }
     
     private func detailRow(label: String, value: String, isPath: Bool = false) -> some View {
-        HStack(alignment: .top) {
+        HStack(alignment: .top, spacing: 8) {
             Text(label)
                 .font(.system(size: 10, weight: .regular))
                 .foregroundStyle(.secondary)
-                .frame(width: 52, alignment: .leading)
+                .fixedSize(horizontal: true, vertical: false)
+                .frame(minWidth: 48, idealWidth: 60, alignment: .leading)
             
             Text(value)
                 .font(.system(size: 10, weight: .medium, design: isPath ? .default : .monospaced))
@@ -220,39 +221,59 @@ extension InspectorColumnView {
     ) -> some View {
         let isZh = AppLocalizationState.shared.currentLanguage == .zhHans
         HStack(spacing: 8) {
-            Button(action: onPreview) {
-                HStack(spacing: 4) {
-                    Image(systemName: "arrow.up.left.and.arrow.down.right")
-                        .font(.system(size: 9.5, weight: .semibold))
-                    Text(isZh ? "全屏预览" : "Quick Look")
-                        .font(.system(size: 10.5, weight: .medium))
-                }
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 6)
-                .background(TTZipTheme.bambooGreen.opacity(0.12))
-                .foregroundStyle(TTZipTheme.bambooGreen)
-                .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
-            }
-            .buttonStyle(.plain)
-            .help(isZh ? "全屏沉浸式预览媒体 (空格键)" : "Full-screen media preview (Space)")
+            InspectorSecondaryActionButton(
+                title: isZh ? "全屏预览" : "Quick Look",
+                icon: "arrow.up.left.and.arrow.down.right",
+                helpText: isZh ? "全屏沉浸式预览媒体 (空格键)" : "Full-screen media preview (Space)",
+                action: onPreview
+            )
             
-            Button(action: {
-                NSWorkspace.shared.selectFile(item.path, inFileViewerRootedAtPath: "")
-            }) {
-                HStack(spacing: 4) {
-                    Image(systemName: "folder")
-                        .font(.system(size: 9.5, weight: .semibold))
-                    Text(isZh ? "访达中显示" : "Reveal")
-                        .font(.system(size: 10.5, weight: .medium))
+            InspectorSecondaryActionButton(
+                title: isZh ? "访达中显示" : "Reveal",
+                icon: "folder",
+                helpText: isZh ? "在系统访达中定位此文件" : "Reveal file in macOS Finder",
+                action: {
+                    NSWorkspace.shared.selectFile(item.path, inFileViewerRootedAtPath: "")
                 }
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 6)
-                .background(Color.primary.opacity(0.04))
-                .foregroundStyle(.primary.opacity(0.85))
-                .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
-            }
-            .buttonStyle(.plain)
-            .help(isZh ? "在系统访达中定位此文件" : "Reveal file in macOS Finder")
+            )
         }
+    }
+}
+
+// MARK: - Secondary Inspector Action Button
+
+private struct InspectorSecondaryActionButton: View {
+    let title: String
+    let icon: String
+    let helpText: String
+    let action: () -> Void
+    
+    @State private var isHovering = false
+    
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 4) {
+                Image(systemName: icon)
+                    .font(.system(size: 11, weight: .medium))
+                Text(title)
+                    .font(.system(size: 11, weight: .medium))
+            }
+            .foregroundStyle(Color.primary.opacity(0.88))
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 6)
+            .background(
+                RoundedRectangle(cornerRadius: 6, style: .continuous)
+                    .fill(Color.primary.opacity(isHovering ? 0.08 : 0.05))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 6, style: .continuous)
+                    .strokeBorder(Color.primary.opacity(0.08), lineWidth: 0.8)
+            )
+            .contentShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+        }
+        .buttonStyle(.plain)
+        .onHover { isHovering = $0 }
+        .help(helpText)
+        .accessibilityLabel(title)
     }
 }

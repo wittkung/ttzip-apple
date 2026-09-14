@@ -25,6 +25,13 @@ public struct FinderFavoritesSidebarView: View {
     @State private var showWirelessDiscoverySheet: Bool = false
     @State private var isDropTargeted: Bool = false
     @State private var hasResolvedCustomFavorites: Bool = false
+    @State private var activeSection: SidebarSection? = nil
+    
+    private enum SidebarSection: Hashable {
+        case pinned
+        case favorites
+        case locations
+    }
     
     @AppStorage("TTZipCustomShortcutFolderPaths") private var customPinnedPathsJSON: String = "[]"
     
@@ -91,9 +98,9 @@ public struct FinderFavoritesSidebarView: View {
                                 let url = URL(fileURLWithPath: path)
                                 sidebarRow(
                                     title: url.lastPathComponent,
-                                    icon: "folder.fill",
+                                    icon: "folder",
                                     path: path,
-                                    isCustom: true
+                                    section: .pinned
                                 )
                             }
                         }
@@ -126,7 +133,7 @@ public struct FinderFavoritesSidebarView: View {
                                 title: item.name,
                                 icon: item.systemImage,
                                 path: item.path,
-                                isCustom: false
+                                section: .favorites
                             )
                         }
                     }
@@ -164,7 +171,7 @@ public struct FinderFavoritesSidebarView: View {
                                     title: item.name,
                                     icon: item.systemImage,
                                     path: item.path,
-                                    isCustom: false
+                                    section: .locations
                                 )
                             }
                             
@@ -181,7 +188,7 @@ public struct FinderFavoritesSidebarView: View {
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
             .overlay(
-                RoundedRectangle(cornerRadius: 6, style: .continuous)
+                RoundedRectangle(cornerRadius: 7, style: .continuous)
                     .strokeBorder(isDropTargeted ? TTZipTheme.bambooGreen.opacity(0.6) : Color.clear, lineWidth: 1.5)
                     .padding(2)
             )
@@ -257,13 +264,13 @@ public struct FinderFavoritesSidebarView: View {
                         if licenseManager.currentTier.isPro {
                             Text("PRO")
                                 .font(.system(size: 8, weight: .heavy, design: .rounded))
-                                .foregroundStyle(TTZipTheme.kintsugiGold)
+                                .foregroundStyle(TTZipTheme.kintsugiGoldEditorial)
                                 .padding(.horizontal, 4.5)
                                 .padding(.vertical, 1.5)
-                                .background(TTZipTheme.kintsugiGold.opacity(0.12))
+                                .background(TTZipTheme.kintsugiGoldEditorial.opacity(0.12))
                                 .clipShape(Capsule())
                                 .overlay(
-                                    Capsule().strokeBorder(TTZipTheme.kintsugiGold.opacity(0.35), lineWidth: 0.6)
+                                    Capsule().strokeBorder(TTZipTheme.kintsugiGoldEditorial.opacity(0.35), lineWidth: 0.6)
                                 )
                                 .lineLimit(1)
                         }
@@ -272,7 +279,7 @@ public struct FinderFavoritesSidebarView: View {
                     
                     Spacer(minLength: 4)
                     
-                    Button(action: addCustomPinnedFolder) {
+                    Button(action: addCustomFolder) {
                         Image(systemName: "plus")
                             .font(.system(size: 10.5, weight: .bold))
                             .foregroundStyle(.secondary)
@@ -296,20 +303,27 @@ public struct FinderFavoritesSidebarView: View {
     private var sidebarHardwareFooter: some View {
         VStack(spacing: 0) {
             Rectangle()
-                .fill(Color.primary.opacity(0.06))
-                .frame(height: 0.6)
+                .fill(TTZipTheme.hairlineBorder)
+                .frame(height: 0.8)
             
             Group {
                 if isIconRail {
                     HStack {
                         Spacer(minLength: 0)
-                        Image(systemName: "cpu")
-                            .font(.system(size: 11, weight: .medium))
-                            .foregroundStyle(TTZipTheme.bambooGreen.opacity(0.85))
-                            .help(hardwareChipSummary)
+                        ZStack(alignment: .topTrailing) {
+                            Image(systemName: "cpu")
+                                .font(.system(size: 11, weight: .medium))
+                                .foregroundStyle(TTZipTheme.bambooGreen.opacity(0.85))
+                            
+                            Circle()
+                                .fill(TTZipTheme.bambooGreen)
+                                .frame(width: 4, height: 4)
+                                .offset(x: 2, y: -2)
+                        }
+                        .help("\(hardwareChipSummary) · \(l10n.currentLanguage == .zhHans ? "加速就绪" : "Engine Online")")
                         Spacer(minLength: 0)
                     }
-                    .frame(height: 30)
+                    .frame(height: 32)
                 } else {
                     HStack(spacing: 5) {
                         Image(systemName: "cpu")
@@ -331,17 +345,25 @@ public struct FinderFavoritesSidebarView: View {
                             .foregroundStyle(.secondary.opacity(0.85))
                             .lineLimit(1)
                         
-                        Spacer(minLength: 0)
+                        Spacer(minLength: 4)
                         
-                        Circle()
-                            .fill(TTZipTheme.bambooGreen)
-                            .frame(width: 5, height: 5)
-                            .help("Apple Silicon Engine Online")
+                        HStack(spacing: 3.5) {
+                            Circle()
+                                .fill(TTZipTheme.bambooGreen)
+                                .frame(width: 5, height: 5)
+                            Text(l10n.currentLanguage == .zhHans ? "加速就绪" : "Online")
+                                .font(.system(size: 8.5, weight: .medium))
+                                .foregroundStyle(TTZipTheme.bambooGreen)
+                                .lineLimit(1)
+                        }
+                        .help(l10n.currentLanguage == .zhHans ? "Apple Silicon 硬件加速引擎就绪" : "Apple Silicon Hardware Engine Online")
                     }
-                    .padding(.horizontal, 14)
-                    .frame(height: 30)
+                    .padding(.horizontal, 12)
+                    .frame(height: 32)
                 }
             }
+            .frame(height: 32)
+            .background(.ultraThinMaterial)
             .background(Color.primary.opacity(0.015))
         }
     }
@@ -370,17 +392,20 @@ public struct FinderFavoritesSidebarView: View {
             .padding(.bottom, 2)
     }
     
-    private func sidebarRow(title: String, icon: String, path: String, isCustom: Bool) -> some View {
-        let isSelected = isCurrentPath(path)
+    private func sidebarRow(title: String, icon: String, path: String, section: SidebarSection) -> some View {
+        let isSelected = isRowSelected(path: path, section: section)
         let isHovered = hoveredItemPath == path
+        let isCustom = section == .pinned
+        let displayIcon = standardizedSidebarIcon(icon)
         
         return Button(action: {
+            activeSection = section
             let targetURL = URL(fileURLWithPath: path)
             onSelectDirectory(targetURL)
         }) {
             if isIconRail {
                 ZStack(alignment: .leading) {
-                    Image(systemName: icon)
+                    Image(systemName: displayIcon)
                         .font(.system(size: 15, weight: isSelected ? .semibold : .regular))
                         .foregroundStyle(iconColor(isSelected: isSelected))
                         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
@@ -394,19 +419,19 @@ public struct FinderFavoritesSidebarView: View {
                 }
                 .frame(width: 36, height: 34)
                 .background(
-                    RoundedRectangle(cornerRadius: 6, style: .continuous)
+                    RoundedRectangle(cornerRadius: 7, style: .continuous)
                         .fill(iconRailRowBackgroundColor(isSelected: isSelected, isHovered: isHovered))
                 )
                 .overlay(
-                    RoundedRectangle(cornerRadius: 6, style: .continuous)
+                    RoundedRectangle(cornerRadius: 7, style: .continuous)
                         .strokeBorder(isSelected ? TTZipTheme.bambooGreen.opacity(0.3) : Color.clear, lineWidth: 0.8)
                 )
                 .help(title)
                 .contentShape(Rectangle())
             } else {
                 HStack(spacing: 8) {
-                    Image(systemName: icon)
-                        .font(.system(size: 12.5, weight: isSelected ? .bold : .medium))
+                    Image(systemName: displayIcon)
+                        .font(.system(size: 12.5, weight: isSelected ? .semibold : .medium))
                         .foregroundStyle(iconColor(isSelected: isSelected))
                         .frame(width: 18, alignment: .center)
                     
@@ -432,11 +457,11 @@ public struct FinderFavoritesSidebarView: View {
                 .padding(.horizontal, 10)
                 .padding(.vertical, 6)
                 .background(
-                    RoundedRectangle(cornerRadius: 6, style: .continuous)
+                    RoundedRectangle(cornerRadius: 7, style: .continuous)
                         .fill(rowBackgroundColor(isSelected: isSelected, isHovered: isHovered))
                 )
                 .overlay(
-                    RoundedRectangle(cornerRadius: 6, style: .continuous)
+                    RoundedRectangle(cornerRadius: 7, style: .continuous)
                         .strokeBorder(isSelected ? TTZipTheme.bambooGreen.opacity(0.3) : Color.clear, lineWidth: 0.8)
                 )
                 .contentShape(Rectangle())
@@ -475,6 +500,26 @@ public struct FinderFavoritesSidebarView: View {
     
     private func isCurrentPath(_ path: String) -> Bool {
         return currentDirectory.standardizedFileURL.path == URL(fileURLWithPath: path).standardizedFileURL.path
+    }
+    
+    private func isRowSelected(path: String, section: SidebarSection) -> Bool {
+        guard isCurrentPath(path) else { return false }
+        let currentNorm = currentDirectory.standardizedFileURL.path
+        let inPinned = customPinnedPaths.contains { URL(fileURLWithPath: $0).standardizedFileURL.path == currentNorm }
+        let inFavorites = dynamicFinderFavorites.contains { !isVolumePath($0.path) && URL(fileURLWithPath: $0.path).standardizedFileURL.path == currentNorm }
+        if inPinned && inFavorites {
+            return activeSection.map { $0 == section } ?? (section == .pinned)
+        }
+        return true
+    }
+    
+    private func standardizedSidebarIcon(_ icon: String) -> String {
+        if icon == "arrow.down.circle.fill" { return "arrow.down.circle" }
+        if icon.hasSuffix(".fill") && !icon.contains("badge") {
+            let outline = String(icon.dropLast(5))
+            return outline.isEmpty ? icon : outline
+        }
+        return icon
     }
     
     private func isVolumePath(_ path: String) -> Bool {
@@ -517,25 +562,6 @@ public struct FinderFavoritesSidebarView: View {
             }.value
             self.dynamicFinderFavorites = result.items
             self.hasResolvedCustomFavorites = result.hasResolvedCustomFavorites
-        }
-    }
-    
-    private func addCustomPinnedFolder() {
-        let panel = NSOpenPanel()
-        panel.canChooseDirectories = true
-        panel.canChooseFiles = false
-        panel.allowsMultipleSelection = true
-        panel.prompt = l10n.currentLanguage == .zhHans ? "固定为常用" : "Pin Folder"
-        panel.message = l10n.currentLanguage == .zhHans ? "请选择要常驻至侧边栏的目录：" : "Select folder to pin to sidebar:"
-        
-        if panel.runModal() == .OK {
-            var current = customPinnedPaths
-            for url in panel.urls {
-                if !current.contains(url.path) {
-                    current.append(url.path)
-                }
-            }
-            saveCustomPinnedPaths(current)
         }
     }
     
@@ -656,11 +682,11 @@ public struct FinderFavoritesSidebarView: View {
                 }
                 .frame(width: 36, height: 34)
                 .background(
-                    RoundedRectangle(cornerRadius: 6, style: .continuous)
+                    RoundedRectangle(cornerRadius: 7, style: .continuous)
                         .fill(iconRailRowBackgroundColor(isSelected: isSelected, isHovered: isHovered))
                 )
                 .overlay(
-                    RoundedRectangle(cornerRadius: 6, style: .continuous)
+                    RoundedRectangle(cornerRadius: 7, style: .continuous)
                         .strokeBorder(isSelected ? TTZipTheme.bambooGreen.opacity(0.3) : Color.clear, lineWidth: 0.8)
                 )
                 .help("\(device.displayName) (\(device.connectionType.description))")
@@ -668,7 +694,7 @@ public struct FinderFavoritesSidebarView: View {
             } else {
                 HStack(spacing: 7) {
                     Image(systemName: deviceIcon)
-                        .font(.system(size: 12.5, weight: isSelected ? .bold : .medium))
+                        .font(.system(size: 12.5, weight: isSelected ? .semibold : .medium))
                         .foregroundStyle(isSelected ? TTZipTheme.bambooGreen : .secondary.opacity(0.85))
                         .frame(width: 18, alignment: .center)
                     
@@ -698,11 +724,11 @@ public struct FinderFavoritesSidebarView: View {
                 .padding(.horizontal, 10)
                 .padding(.vertical, 6)
                 .background(
-                    RoundedRectangle(cornerRadius: 6, style: .continuous)
+                    RoundedRectangle(cornerRadius: 7, style: .continuous)
                         .fill(rowBackgroundColor(isSelected: isSelected, isHovered: isHovered))
                 )
                 .overlay(
-                    RoundedRectangle(cornerRadius: 6, style: .continuous)
+                    RoundedRectangle(cornerRadius: 7, style: .continuous)
                         .strokeBorder(isSelected ? TTZipTheme.bambooGreen.opacity(0.3) : Color.clear, lineWidth: 0.8)
                 )
                 .contentShape(Rectangle())

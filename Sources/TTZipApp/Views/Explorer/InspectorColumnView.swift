@@ -80,11 +80,17 @@ public struct InspectorColumnView: View {
                     .id(item.path)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                 } else if isInteractiveDocumentOrMedia(for: item) {
-                    MediaPreviewView(
-                        fileURL: effectivePreviewURL,
-                        fileName: item.name
-                    )
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    GeometryReader { proxy in
+                        ScrollView(.vertical, showsIndicators: false) {
+                            MediaPreviewView(
+                                fileURL: effectivePreviewURL,
+                                fileName: item.name
+                            )
+                            .frame(maxWidth: .infinity)
+                            .frame(minHeight: max(480, proxy.size.height))
+                        }
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    }
                 } else {
                     fileInspectorContent(for: item)
                 }

@@ -203,10 +203,9 @@ public struct MPVMetalVideoPlayerView: View {
                     .transition(.opacity.animation(.easeInOut(duration: 0.15)))
                 }
                 
-                // Bottom Ultra-Sleek Zen Floating Controls with Ambient Scrim Veil
+                // Bottom-Aligned Dock Controls with Ambient Scrim Veil
                 if isHovering || !store.isPlaying {
-                    VStack {
-                        Spacer()
+                    VStack(spacing: 0) {
                         HStack {
                             Spacer(minLength: 0)
                             MPVVideoControlBarView(
@@ -230,24 +229,24 @@ public struct MPVMetalVideoPlayerView: View {
                             .frame(maxWidth: isFullScreen ? 740 : .infinity)
                             Spacer(minLength: 0)
                         }
-                        .padding(.horizontal, isFullScreen ? 32 : 12)
-                        .padding(.bottom, isFullScreen ? 24 : 8)
+                        .padding(.horizontal, isFullScreen ? 32 : 16)
+                        .padding(.bottom, isFullScreen ? 24 : 12)
                     }
+                    .frame(maxHeight: .infinity, alignment: .bottom)
                     .background(
                         LinearGradient(
                             colors: [
-                                Color.clear,
-                                Color.black.opacity(0.06),
-                                Color.black.opacity(0.24)
+                                Color.black.opacity(0.4),
+                                Color.clear
                             ],
-                            startPoint: .top,
-                            endPoint: .bottom
+                            startPoint: .bottom,
+                            endPoint: .top
                         )
-                        .frame(height: 88)
+                        .frame(height: 48)
                         .frame(maxHeight: .infinity, alignment: .bottom)
                         .allowsHitTesting(false)
                     )
-                    .transition(.opacity.animation(.easeInOut(duration: 0.15)))
+                    .transition(.opacity.animation(.easeInOut(duration: 0.2)))
                 }
                 
                 // Playlist Side Drawer Panel

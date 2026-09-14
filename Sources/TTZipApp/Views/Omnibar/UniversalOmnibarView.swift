@@ -27,6 +27,7 @@ public struct UniversalOmnibarView: View {
     @State private var inputText: String = ""
     @State private var selectedIndex: Int = 0
     @State private var isHoveringCapsule: Bool = false
+    @State private var isHoveringSearchButton: Bool = false
 
     // MARK: - Constants
 
@@ -142,23 +143,48 @@ public struct UniversalOmnibarView: View {
 
             Spacer(minLength: 8)
 
-            // Right search shortcut badge
-            HStack(spacing: 5) {
-                Image(systemName: "magnifyingglass")
-                    .font(.system(size: 11, weight: .medium))
-                    .foregroundStyle(TTZipTheme.bambooGreen)
+            // Right search shortcut trigger button
+            Button {
+                beginEditing()
+            } label: {
+                HStack(alignment: .center, spacing: 5) {
+                    Image(systemName: "magnifyingglass")
+                        .font(.system(size: 10.5, weight: .medium))
+                        .foregroundStyle(isHoveringSearchButton ? TTZipTheme.bambooGreen : TTZipTheme.bambooGreen.opacity(0.85))
 
-                Text("⌘K")
-                    .font(.system(size: 9.5, weight: .semibold, design: .monospaced))
-                    .foregroundStyle(Color.secondary)
-                    .padding(.horizontal, 4.5)
-                    .padding(.vertical, 2)
-                    .background(
-                        RoundedRectangle(cornerRadius: 4, style: .continuous)
-                            .fill(Color.primary.opacity(0.06))
-                    )
+                    Text("⌘K")
+                        .font(.system(size: 9, weight: .semibold, design: .monospaced))
+                        .foregroundStyle(isHoveringSearchButton ? Color.primary : Color.secondary)
+                        .padding(.horizontal, 4.5)
+                        .padding(.vertical, 2)
+                        .background(
+                            RoundedRectangle(cornerRadius: 3.5, style: .continuous)
+                                .fill(isHoveringSearchButton ? Color.primary.opacity(0.08) : Color.primary.opacity(0.05))
+                        )
+                }
+                .padding(.horizontal, 6)
+                .padding(.vertical, 3)
+                .background(
+                    RoundedRectangle(cornerRadius: 5, style: .continuous)
+                        .fill(isHoveringSearchButton ? Color.primary.opacity(0.05) : Color.primary.opacity(0.015))
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 5, style: .continuous)
+                        .strokeBorder(
+                            isHoveringSearchButton
+                                ? TTZipTheme.bambooGreen.opacity(0.35)
+                                : Color.primary.opacity(0.08),
+                            lineWidth: 0.5
+                        )
+                )
             }
-            .padding(.trailing, 10)
+            .buttonStyle(.plain)
+            .onHover { hovering in
+                withAnimation(.easeInOut(duration: 0.12)) {
+                    isHoveringSearchButton = hovering
+                }
+            }
+            .padding(.trailing, 8)
         }
         .contentShape(Rectangle())
         .onTapGesture {
@@ -286,6 +312,7 @@ public struct UniversalOmnibarView: View {
             engine.currentDirectory = viewModel.currentDirectory
             selectedIndex = 0
             engine.selectIndex(0)
+            isHoveringSearchButton = false
         }
     }
 
@@ -295,6 +322,7 @@ public struct UniversalOmnibarView: View {
             inputText = ""
             engine.query = ""
             selectedIndex = 0
+            isHoveringSearchButton = false
         }
     }
 
@@ -369,11 +397,18 @@ public struct UniversalOmnibarView: View {
     // MARK: - Breadcrumb Computation
 
     private var effectiveActiveDirectory: URL {
-        if let selected = viewModel.selectedDiskItem, selected.isDirectory {
+        if let selected = viewModel.selectedDiskItem {
+            let itemURL: URL
             if let u = URL(string: selected.path), u.scheme != nil {
-                return u.standardizedFileURL
+                itemURL = u.standardizedFileURL
+            } else {
+                itemURL = URL(fileURLWithPath: selected.path).standardizedFileURL
             }
-            return URL(fileURLWithPath: selected.path).standardizedFileURL
+            if selected.isDirectory {
+                return itemURL
+            } else {
+                return itemURL.deletingLastPathComponent().standardizedFileURL
+            }
         }
         return viewModel.currentDirectory.standardizedFileURL
     }
