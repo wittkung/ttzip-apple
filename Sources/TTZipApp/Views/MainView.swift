@@ -279,7 +279,7 @@ public struct MainView: View {
             }()
             
             ZStack(alignment: .topLeading) {
-                TTZipTheme.paperWhite
+                TTZipFluidBackgroundView(mode: .organic)
                     .frame(width: totalWidth, height: totalHeight)
                     .allowsHitTesting(false)
                 
