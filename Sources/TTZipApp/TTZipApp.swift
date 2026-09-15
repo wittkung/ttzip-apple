@@ -67,46 +67,41 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
 // MARK: - Rust Microkernel Logging Bridge
 
-private typealias TTZipCLogCallback = @convention(c) (
-    Int32,
-    UnsafePointer<CChar>?,
-    UnsafePointer<CChar>?,
-    UnsafePointer<CChar>?,
-    Int32,
-    UnsafeMutableRawPointer?
-) -> Void
+private typealias UniFFILogCallback = UniFfiLogCallback
 
-@_silgen_name("ttzip_rust_set_logger")
-private func set_logger_callback(
-    _ callback: TTZipCLogCallback?,
-    _ minLevel: Int32,
-    _ userData: UnsafeMutableRawPointer?
-) -> Int32
-
-private func setupMicrokernelLoggingBridge() {
-    let callback: TTZipCLogCallback = { levelRaw, targetModule, cMessage, cFile, line, _ in
-        let msg = cMessage.map { String(cString: $0) } ?? ""
-        let file = cFile.map { String(cString: $0) } ?? "rust"
-        let target = targetModule.map { String(cString: $0) } ?? "kernel"
-        let level: TTLogger.Level
-        switch levelRaw {
-        case 0: level = .debug
-        case 1: level = .info
-        case 2: level = .warning
-        case 3: level = .error
-        default: level = .info
+/// Strongly-typed UniFFI logging sink bridging Rust microkernel log records to TTLogger.
+private final class AppMicrokernelLogHandler: UniFFILogCallback, @unchecked Sendable {
+    nonisolated func log(level: UInt32, target: String, message: String, file: String, line: UInt32) {
+        let resolvedFile = file.isEmpty ? "rust" : file
+        let resolvedTarget = target.isEmpty ? "kernel" : target
+        let logLevel: TTLogger.Level
+        switch level {
+        case 0:
+            logLevel = .debug
+        case 1:
+            logLevel = .info
+        case 2:
+            logLevel = .warning
+        case 3:
+            logLevel = .error
+        default:
+            logLevel = .info
         }
-        let formatted = target.isEmpty ? msg : "[\(target)] \(msg)"
+        let formatted = resolvedTarget.isEmpty ? message : "[\(resolvedTarget)] \(message)"
         TTLogger.shared.log(
-            level: level,
+            level: logLevel,
             category: .kernel,
             message: formatted,
-            file: file,
+            file: resolvedFile,
             line: UInt(max(0, line))
         )
     }
-    _ = set_logger_callback(callback, 0, nil)
 }
+
+private func setupMicrokernelLoggingBridge() {
+    try? uniffiSetLogger(callback: AppMicrokernelLogHandler(), minLevel: 0)
+}
+
 
 struct TTZipApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
