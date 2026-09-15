@@ -92,67 +92,20 @@ public struct AppKitMillerColumnScrollView<Content: View>: NSViewRepresentable {
 
 @MainActor
 public final class AutoHidingOverlayScrollView: NSScrollView {
-    private var hideTimer: Timer?
-    private var isUserScrolling = false
-    
     public override func wantsForwardedScrollEvents(for axis: NSEvent.GestureAxis) -> Bool {
         if axis == .horizontal {
             return true
         }
         return super.wantsForwardedScrollEvents(for: axis)
     }
-    
-    public override func tile() {
-        super.tile()
-        self.scrollerStyle = .overlay
-        self.autohidesScrollers = true
-        if let vScroller = self.verticalScroller {
-            vScroller.scrollerStyle = .overlay
-            if !isUserScrolling {
-                vScroller.isHidden = true
-                vScroller.alphaValue = 0
-            }
-        }
-    }
-    
-    public override func scrollWheel(with event: NSEvent) {
-        super.scrollWheel(with: event)
-        handleScroll()
-    }
-    
-    private func handleScroll() {
-        isUserScrolling = true
-        if let vScroller = self.verticalScroller {
-            vScroller.scrollerStyle = .overlay
-            vScroller.isHidden = false
-            vScroller.alphaValue = 1.0
-        }
-        hideTimer?.invalidate()
-        hideTimer = Timer.scheduledTimer(withTimeInterval: 0.6, repeats: false) { [weak self] _ in
-            Task { @MainActor [weak self] in
-                guard let self = self else { return }
-                self.isUserScrolling = false
-                if let vScroller = self.verticalScroller {
-                    NSAnimationContext.runAnimationGroup({ context in
-                        context.duration = 0.2
-                        vScroller.animator().alphaValue = 0.0
-                    }, completionHandler: {
-                        Task { @MainActor in
-                            vScroller.isHidden = true
-                        }
-                    })
-                }
-            }
-        }
-    }
 }
 
-/// Smart autohiding AppKit NSScrollView configurator.
+/// Clean AppKit NSScrollView configurator establishing standard overlay autohiding scrollers.
 public struct ConfigureNSScrollView: NSViewRepresentable {
     public init() {}
     
     public func makeNSView(context: Context) -> SmartScrollerConfiguratorView {
-        return SmartScrollerConfiguratorView()
+        SmartScrollerConfiguratorView()
     }
     
     public func updateNSView(_ nsView: SmartScrollerConfiguratorView, context: Context) {
@@ -162,149 +115,15 @@ public struct ConfigureNSScrollView: NSViewRepresentable {
 
 @MainActor
 public final class SmartScrollerConfiguratorView: NSView {
-    private var hideTimer: Timer?
-    private var boundsObserver: (any NSObjectProtocol)?
-    private var liveScrollWillStartObserver: (any NSObjectProtocol)?
-    private var liveScrollDidEndObserver: (any NSObjectProtocol)?
-    
-    private func findTargetScrollView() -> NSScrollView? {
-        if let scrollView = enclosingScrollView {
-            return scrollView
-        }
-        var current: NSView? = self
-        for _ in 0..<6 {
-            guard let parent = current?.superview else { break }
-            if let sv = parent as? NSScrollView { return sv }
-            for sub in parent.subviews {
-                if let sv = sub as? NSScrollView { return sv }
-                if let sv = sub.subviews.first(where: { $0 is NSScrollView }) as? NSScrollView { return sv }
-            }
-            current = parent
-        }
-        return nil
-    }
-    
     public override func viewDidMoveToWindow() {
         super.viewDidMoveToWindow()
         configureEnclosingScrollView()
-        setupObservers()
     }
     
     public func configureEnclosingScrollView() {
-        guard let scrollView = findTargetScrollView() else { return }
+        guard let scrollView = enclosingScrollView else { return }
         scrollView.scrollerStyle = .overlay
         scrollView.autohidesScrollers = true
-        
-        if window != nil {
-            setupObservers()
-        } else {
-            removeObservers()
-        }
-    }
-    
-    private func removeObservers() {
-        if let b = boundsObserver { NotificationCenter.default.removeObserver(b) }
-        if let w = liveScrollWillStartObserver { NotificationCenter.default.removeObserver(w) }
-        if let d = liveScrollDidEndObserver { NotificationCenter.default.removeObserver(d) }
-        boundsObserver = nil
-        liveScrollWillStartObserver = nil
-        liveScrollDidEndObserver = nil
-        hideTimer?.invalidate()
-        hideTimer = nil
-    }
-    
-    private func setupObservers() {
-        removeObservers()
-        guard let scrollView = findTargetScrollView() else { return }
-        let clipView = scrollView.contentView
-        clipView.postsBoundsChangedNotifications = true
-        
-        let center = NotificationCenter.default
-        boundsObserver = center.addObserver(
-            forName: NSView.boundsDidChangeNotification,
-            object: clipView,
-            queue: .main
-        ) { [weak self] _ in
-            Task { @MainActor [weak self] in
-                self?.handleScrollEvent()
-            }
-        }
-        
-        liveScrollWillStartObserver = center.addObserver(
-            forName: NSScrollView.willStartLiveScrollNotification,
-            object: scrollView,
-            queue: .main
-        ) { [weak self] _ in
-            Task { @MainActor [weak self] in
-                self?.handleScrollEvent()
-            }
-        }
-        
-        liveScrollDidEndObserver = center.addObserver(
-            forName: NSScrollView.didEndLiveScrollNotification,
-            object: scrollView,
-            queue: .main
-        ) { [weak self] _ in
-            Task { @MainActor [weak self] in
-                self?.scheduleHide()
-            }
-        }
-    }
-    
-    @MainActor
-    private func handleScrollEvent() {
-        guard let scrollView = findTargetScrollView() else { return }
-        scrollView.scrollerStyle = .overlay
-        scrollView.autohidesScrollers = true
-        
-        hideTimer?.invalidate()
-        hideTimer = nil
-        
-        if let vScroller = scrollView.verticalScroller {
-            vScroller.scrollerStyle = .overlay
-            vScroller.isHidden = false
-            NSAnimationContext.runAnimationGroup { context in
-                context.duration = 0.15
-                vScroller.animator().alphaValue = 1.0
-            }
-        }
-        
-        scheduleHide()
-    }
-    
-    @MainActor
-    private func scheduleHide() {
-        hideTimer?.invalidate()
-        hideTimer = Timer.scheduledTimer(withTimeInterval: 0.8, repeats: false) { [weak self] _ in
-            Task { @MainActor [weak self] in
-                guard let self = self, let scrollView = self.findTargetScrollView() else { return }
-                if let vScroller = scrollView.verticalScroller {
-                    NSAnimationContext.runAnimationGroup({ context in
-                        context.duration = 0.25
-                        vScroller.animator().alphaValue = 0.0
-                    }, completionHandler: {
-                        Task { @MainActor in
-                            vScroller.isHidden = true
-                        }
-                    })
-                }
-            }
-        }
-    }
-    
-    public override func removeFromSuperview() {
-        cleanup()
-        super.removeFromSuperview()
-    }
-    
-    private func cleanup() {
-        if let b = boundsObserver { NotificationCenter.default.removeObserver(b) }
-        if let w = liveScrollWillStartObserver { NotificationCenter.default.removeObserver(w) }
-        if let d = liveScrollDidEndObserver { NotificationCenter.default.removeObserver(d) }
-        boundsObserver = nil
-        liveScrollWillStartObserver = nil
-        liveScrollDidEndObserver = nil
-        hideTimer?.invalidate()
-        hideTimer = nil
+        scrollView.hasHorizontalScroller = false
     }
 }

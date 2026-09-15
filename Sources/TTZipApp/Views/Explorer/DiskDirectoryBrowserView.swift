@@ -14,11 +14,15 @@ import TTZipBenchmarkKit
 
 /// Native macOS disk directory browser with Miller Columns navigation.
 public struct DiskDirectoryBrowserView: View {
+    public var viewModel: AppViewState? = nil
+    @Environment(AppViewState.self) private var envViewModel: AppViewState?
+    private var activeViewModel: AppViewState? { viewModel ?? envViewModel }
+    
     let rootDirectory: URL
-    let onSelectArchive: (String) -> Void
-    let onCompressPath: (String) -> Void
-    let onPreviewFile: (String) -> Void
-    let onSelectItem: (DiskItemInfo) -> Void
+    let onSelectArchive: ((String) -> Void)?
+    let onCompressPath: ((String) -> Void)?
+    let onPreviewFile: ((String) -> Void)?
+    let onSelectItem: ((DiskItemInfo) -> Void)?
     
     @State private var currentDirectory: URL
     @State private var searchQuery: String = ""
@@ -29,6 +33,21 @@ public struct DiskDirectoryBrowserView: View {
     public let isActive: Bool
     
     public init(
+        viewModel: AppViewState? = nil,
+        rootDirectory: URL = FileManager.default.urls(for: .downloadsDirectory, in: .userDomainMask).first ?? URL(fileURLWithPath: NSHomeDirectory()),
+        isActive: Bool = true
+    ) {
+        self.viewModel = viewModel
+        self.rootDirectory = rootDirectory
+        self.isActive = isActive
+        self._currentDirectory = State(initialValue: rootDirectory)
+        self.onSelectArchive = nil
+        self.onCompressPath = nil
+        self.onPreviewFile = nil
+        self.onSelectItem = nil
+    }
+    
+    public init(
         rootDirectory: URL = FileManager.default.urls(for: .downloadsDirectory, in: .userDomainMask).first ?? URL(fileURLWithPath: NSHomeDirectory()),
         isActive: Bool = true,
         onSelectArchive: @escaping (String) -> Void,
@@ -36,6 +55,7 @@ public struct DiskDirectoryBrowserView: View {
         onPreviewFile: @escaping (String) -> Void,
         onSelectItem: @escaping (DiskItemInfo) -> Void = { _ in }
     ) {
+        self.viewModel = nil
         self.rootDirectory = rootDirectory
         self.isActive = isActive
         self._currentDirectory = State(initialValue: rootDirectory)
@@ -51,6 +71,7 @@ public struct DiskDirectoryBrowserView: View {
     
     public var body: some View {
         FinderMillerColumnsView(
+            viewModel: activeViewModel,
             rootDirectory: currentDirectory,
             initialSelectedPath: targetSelectedPath,
             sortOption: sortOption,
@@ -58,13 +79,15 @@ public struct DiskDirectoryBrowserView: View {
             onNavigateUp: canNavigateUp ? { navigateUp() } : nil,
             onSelectArchive: onSelectArchive,
             onCompressPath: onCompressPath,
-            onPreviewFile: { path in
-                previewFile(path: path)
-            },
+            onPreviewFile: onPreviewFile,
             onSelectItem: { item in
                 self.selectedItem = item
                 self.targetSelectedPath = item.path
-                onSelectItem(item)
+                if let onSelectItem = self.onSelectItem {
+                    onSelectItem(item)
+                } else {
+                    activeViewModel?.selectionState.select(item)
+                }
             }
         )
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
@@ -88,6 +111,8 @@ public struct DiskDirectoryBrowserView: View {
     }
     
     private func previewFile(path: String) {
-        onPreviewFile(path)
+        if let onPreviewFile {
+            onPreviewFile(path)
+        }
     }
 }

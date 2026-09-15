@@ -203,6 +203,25 @@ public final class OverlayState {
     public init() {}
 }
 
+/// 6. Selection and inspected disk item state as single source of truth.
+@Observable
+@MainActor
+public final class SelectionState {
+    public var selectedDiskItem: DiskItemInfo? = nil
+    
+    public init(selectedDiskItem: DiskItemInfo? = nil) {
+        self.selectedDiskItem = selectedDiskItem
+    }
+    
+    public func select(_ item: DiskItemInfo?) {
+        self.selectedDiskItem = item
+    }
+    
+    public func clear() {
+        self.selectedDiskItem = nil
+    }
+}
+
 /// 5. Isolated observable state tracking high-frequency background task progress and status messages,
 /// decoupling rapid rendering updates from the top-level AppViewState and MainView hierarchy.
 @Observable

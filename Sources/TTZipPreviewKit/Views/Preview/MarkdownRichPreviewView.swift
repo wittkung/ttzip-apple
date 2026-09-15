@@ -71,7 +71,7 @@ public struct MarkdownRichPreviewView: View {
     
     public var body: some View {
         GeometryReader { geometry in
-            let isCompact = geometry.size.width <= 480
+            let isCompact = geometry.size.width <= 560
             VStack(spacing: 0) {
                 // 1. Top Control & Mode Switcher Bar (Adaptive Compact vs Full)
                 MarkdownPreviewToolbarView(

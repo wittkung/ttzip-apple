@@ -44,7 +44,6 @@ public struct MainView: View {
     @State private var initialLeftWidth: CGFloat = 190.0
     @State private var rightSidebarWidth: CGFloat = 340
     @State private var initialRightWidth: CGFloat = 340
-    @State private var rightVerticalTopHeight: CGFloat = 300
     
     @State var searchService = SpotlightSearchService()
     @State var searchQuery: String = ""
@@ -52,6 +51,7 @@ public struct MainView: View {
     public var body: some View {
         mainGeometryLayout
             .ignoresSafeArea()
+            .environment(viewModel)
             .mainViewSheets(viewModel: viewModel, presentedSecondaryTool: $presentedSecondaryTool)
             .overlay {
                 rootOverlays
@@ -251,7 +251,7 @@ public struct MainView: View {
                         .frame(height: totalHeight)
                         .transition(.opacity)
                         
-                        RightInspectorSidePanel(viewModel: viewModel, rightVerticalTopHeight: $rightVerticalTopHeight)
+                        RightInspectorSidePanel(viewModel: viewModel)
                             .padding(.top, TTZipTheme.Layout.topBarOffset)
                             .frame(width: effectiveRightWidth, height: totalHeight, alignment: .topLeading)
                             .clipped()
@@ -406,23 +406,6 @@ private extension View {
                     viewModel.pendingEncryptedPath = path
                     viewModel.showPasswordPrompt = true
                     viewModel.statusMessage = l10n.t(L10n.Errors.passwordRequired)
-                }
-            }
-            .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("TTZipQuickExtractArchive"))) { notif in
-                if let path = notif.object as? String {
-                    Task { await viewModel.quickExtractArchive(archivePath: path) }
-                }
-            }
-            .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("TTZipOpenArchiveInspector"))) { notif in
-                if let path = notif.object as? String {
-                    viewModel.overlayState.inspectingArchivePath = path
-                    viewModel.overlayState.showArchiveInspectorModal = true
-                }
-            }
-            .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("TTZipOpenCompressWorkspaceWithPaths"))) { notif in
-                if let paths = notif.object as? [String] {
-                    viewModel.openCompressWorkspace(paths: paths)
-                    viewModel.showCompressModal = true
                 }
             }
             .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("TTZipToggleMediaFocusNotification"))) { notif in

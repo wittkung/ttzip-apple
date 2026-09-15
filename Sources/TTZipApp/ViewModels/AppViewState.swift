@@ -23,6 +23,7 @@ public final class AppViewState {
     public let explorerState: ArchiveExplorerState
     public let taskState: TaskExecutionState
     public let overlayState: OverlayState
+    public let selectionState: SelectionState
     public let progressObservable: TaskProgressObservable
     
     // MARK: - Forwarding Accessors for Backward Compatibility
@@ -151,14 +152,21 @@ public final class AppViewState {
         set { overlayState.pendingEncryptedPath = newValue }
     }
     public var selectedDiskItem: DiskItemInfo? {
-        get { overlayState.selectedDiskItem }
-        set { overlayState.selectedDiskItem = newValue }
+        get { selectionState.selectedDiskItem }
+        set {
+            selectionState.selectedDiskItem = newValue
+            overlayState.selectedDiskItem = newValue
+        }
     }
     public var activeInspectedFile: DiskItemInfo? {
-        get { overlayState.activeInspectedFile }
-        set { overlayState.activeInspectedFile = newValue }
+        get { selectionState.selectedDiskItem }
+        set {
+            selectionState.selectedDiskItem = newValue
+            overlayState.activeInspectedFile = newValue
+        }
     }
     public func clearInspectedFile() {
+        selectionState.clear()
         overlayState.activeInspectedFile = nil
         overlayState.selectedDiskItem = nil
     }
@@ -203,6 +211,7 @@ public final class AppViewState {
         explorerState: ArchiveExplorerState = ArchiveExplorerState(),
         taskState: TaskExecutionState = TaskExecutionState(),
         overlayState: OverlayState = OverlayState(),
+        selectionState: SelectionState = SelectionState(),
         progressObservable: TaskProgressObservable = TaskProgressObservable(),
         fileViewer: FileViewerServiceProtocol = MacNSWorkspaceFileViewer(),
         passwordVault: PasswordVaultManaging = PasswordVaultManager.shared,
@@ -213,6 +222,7 @@ public final class AppViewState {
         self.explorerState = explorerState
         self.taskState = taskState
         self.overlayState = overlayState
+        self.selectionState = selectionState
         self.progressObservable = progressObservable
         self.fileViewer = fileViewer
         self.passwordVault = passwordVault
@@ -226,28 +236,6 @@ public final class AppViewState {
             guard let self = self else { return }
             RootFolderAccessManager.shared.ensureAccess(for: self.currentDirectory, promptIfMissing: true)
         }
-        
-        let undoToken = NotificationCenter.default.addObserver(
-            forName: NSNotification.Name("TTZipPerformUndoNotification"),
-            object: nil,
-            queue: .main
-        ) { [weak self] _ in
-            Task { @MainActor [weak self] in
-                self?.performUndo()
-            }
-        }
-        self.tokenStore.tokens.append(undoToken)
-        
-        let redoToken = NotificationCenter.default.addObserver(
-            forName: NSNotification.Name("TTZipPerformRedoNotification"),
-            object: nil,
-            queue: .main
-        ) { [weak self] _ in
-            Task { @MainActor [weak self] in
-                self?.performRedo()
-            }
-        }
-        self.tokenStore.tokens.append(redoToken)
         
         updateUndoRedoState()
     }

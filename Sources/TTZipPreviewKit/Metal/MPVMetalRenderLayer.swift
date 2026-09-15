@@ -7,14 +7,14 @@
 
 import AppKit
 import QuartzCore
+import OpenGL.GL3
 import Metal
-import IOSurface
 import CMPVBridge
 import os.log
 import TTZipUI
 
 /// Thread-safe weak proxy enabling Sendable closure invocation without retaining or capturing non-Sendable CALayers.
-private final class MPVMetalLayerProxy: @unchecked Sendable {
+private final class MPVOpenGLLayerProxy: @unchecked Sendable {
     weak var layer: MPVMetalRenderLayer?
     init(layer: MPVMetalRenderLayer) { self.layer = layer }
     func trigger() {
@@ -22,11 +22,11 @@ private final class MPVMetalLayerProxy: @unchecked Sendable {
     }
 }
 
-/// Masterpiece pure Metal / CoreAnimation hardware passthrough layer unlocking Apple 1600 nits Liquid Retina XDR EDR headroom.
+/// High-performance native CAOpenGLLayer directly rendering libmpv frames into CoreAnimation FBOs.
 ///
-/// Configures an Apple Silicon zero-copy IOSurface to CAMetalDrawable hardware presentation pipeline mapped
-/// into extended linear sRGB color space, bypassing standard 8-bit SDR clamp boundaries.
-public final class MPVMetalRenderLayer: CAMetalLayer, MPVVideoLayerProtocol, @unchecked Sendable {
+/// Implements zero-copy hardware presentation via OpenGL 3.2 Core Profile, matching IINA's official architecture.
+/// Eliminates intermediate IOSurface allocations, Metal blit command passes, and cross-API sync penalties.
+public final class MPVMetalRenderLayer: CAOpenGLLayer, MPVVideoLayerProtocol, @unchecked Sendable {
     private let logger = Logger(subsystem: "com.metastudyline.ttzip", category: "MPVMetalRenderLayer")
     private let stateLock = NSLock()
     private var _needsForceRedraw: Bool = false
@@ -34,54 +34,112 @@ public final class MPVMetalRenderLayer: CAMetalLayer, MPVVideoLayerProtocol, @un
     public weak var renderContextManager: MPVRenderContextManager?
     public weak var playerStore: MPVMetalPlayerStore?
     
-    private let renderQueue = DispatchQueue(label: "com.metastudyline.ttzip.mpv.metalRenderQueue", qos: .userInteractive)
     public private(set) var isBound: Bool = false
-    private var proxy: MPVMetalLayerProxy?
-    private var commandQueue: MTLCommandQueue?
+    private var proxy: MPVOpenGLLayerProxy?
     
+    private var cglPixelFormat: CGLPixelFormatObj?
+    private var cglContext: CGLContextObj?
+
+    // Metal Layer Compatibility Interface
+    public var pixelFormat: MTLPixelFormat = .bgra8Unorm
+    public var allowsNextDrawableTimeout: Bool = true
+    public var drawableSize: CGSize = .zero
+
     public override init() {
         super.init()
-        configureEDRMetalPipeline()
+        setupLayer()
     }
     
     public override init(layer: Any) {
         super.init(layer: layer)
-        configureEDRMetalPipeline()
+        setupLayer()
     }
     
     public required init?(coder: NSCoder) {
         super.init(coder: coder)
-        configureEDRMetalPipeline()
+        setupLayer()
     }
     
-    /// Initializes and hardens the 1600 nits EDR CAMetalLayer parameters.
-    private func configureEDRMetalPipeline() {
-        self.device = MTLCreateSystemDefaultDevice()
-        if let dev = self.device {
-            self.commandQueue = dev.makeCommandQueue()
-        }
-        
-        self.proxy = MPVMetalLayerProxy(layer: self)
-        
-        // 1600 nits EDR Hardware Passthrough Configuration
-        self.pixelFormat = .bgra8Unorm
-        self.colorspace = CGColorSpace(name: CGColorSpace.sRGB)
-        self.wantsExtendedDynamicRangeContent = true
-        self.isOpaque = true
-        self.framebufferOnly = false
-        self.allowsNextDrawableTimeout = true
+    private func setupLayer() {
+        self.proxy = MPVOpenGLLayerProxy(layer: self)
+        self.isAsynchronous = false
         self.needsDisplayOnBoundsChange = true
         self.autoresizingMask = [.layerWidthSizable, .layerHeightSizable]
         self.contentsGravity = .resizeAspect
+        self.backgroundColor = NSColor.black.cgColor
+        self.wantsExtendedDynamicRangeContent = true
+        self.colorspace = CGColorSpace(name: CGColorSpace.sRGB)
+        
+        createGLContext()
+    }
+    
+    private func createGLContext() {
+        let attribs: [CGLPixelFormatAttribute] = [
+            kCGLPFAOpenGLProfile,
+            CGLPixelFormatAttribute(kCGLOGLPVersion_3_2_Core.rawValue),
+            kCGLPFAAccelerated,
+            kCGLPFADoubleBuffer,
+            kCGLPFAAllowOfflineRenderers,
+            kCGLPFAColorSize,
+            CGLPixelFormatAttribute(24),
+            kCGLPFAAlphaSize,
+            CGLPixelFormatAttribute(8),
+            CGLPixelFormatAttribute(0)
+        ]
+        var pix: CGLPixelFormatObj?
+        var npix: GLint = 0
+        let err = CGLChoosePixelFormat(attribs, &pix, &npix)
+        guard err == kCGLNoError, let validPix = pix else {
+            logger.error("Failed to create CGLPixelFormat: \(err.rawValue)")
+            return
+        }
+        self.cglPixelFormat = validPix
+        
+        var ctx: CGLContextObj?
+        let ctxErr = CGLCreateContext(validPix, nil, &ctx)
+        guard ctxErr == kCGLNoError, let validCtx = ctx else {
+            logger.error("Failed to create CGLContext: \(ctxErr.rawValue)")
+            return
+        }
+        
+        var swapInterval: GLint = 1
+        CGLSetParameter(validCtx, kCGLCPSwapInterval, &swapInterval)
+        CGLEnable(validCtx, kCGLCEMPEngine)
+        self.cglContext = validCtx
+    }
+    
+    deinit {
+        if let ctx = cglContext {
+            CGLReleaseContext(ctx)
+        }
+        if let pix = cglPixelFormat {
+            CGLReleasePixelFormat(pix)
+        }
+    }
+    
+    public override func copyCGLPixelFormat(forDisplayMask mask: UInt32) -> CGLPixelFormatObj {
+        if let pix = cglPixelFormat {
+            CGLRetainPixelFormat(pix)
+            return pix
+        }
+        return super.copyCGLPixelFormat(forDisplayMask: mask)
+    }
+    
+    public override func copyCGLContext(forPixelFormat pf: CGLPixelFormatObj) -> CGLContextObj {
+        if let ctx = cglContext {
+            CGLRetainContext(ctx)
+            return ctx
+        }
+        return super.copyCGLContext(forPixelFormat: pf)
     }
     
     /// Configures extended dynamic range (EDR) tone curve and color space according to HDR state and screen capabilities.
     @MainActor
     public func configureEDRColorspace(isHDR: Bool, primaries: String) {
         let isEDRSupported = (NSScreen.main?.maximumPotentialExtendedDynamicRangeColorComponentValue ?? 1.0) > 1.0
-        self.pixelFormat = .bgra8Unorm
         if isHDR && isEDRSupported {
             self.wantsExtendedDynamicRangeContent = true
+            self.contentsFormat = .RGBA16Float
             if primaries.contains("2020") {
                 self.colorspace = CGColorSpace(name: CGColorSpace.itur_2100_PQ)
             } else if primaries.contains("display-p3") || primaries.contains("p3") {
@@ -91,6 +149,7 @@ public final class MPVMetalRenderLayer: CAMetalLayer, MPVVideoLayerProtocol, @un
             }
         } else {
             self.wantsExtendedDynamicRangeContent = false
+            self.contentsFormat = .RGBA8Uint
             self.colorspace = CGColorSpace(name: CGColorSpace.sRGB)
         }
     }
@@ -106,15 +165,17 @@ public final class MPVMetalRenderLayer: CAMetalLayer, MPVVideoLayerProtocol, @un
         store.registerRenderLayer(self)
         
         if let mpv = store.mpv {
-            store.renderContextManager.createRenderContext(mpvHandle: mpv)
+            store.renderContextManager.createRenderContext(mpvHandle: mpv, cglContext: self.cglContext)
         }
         
-        let localProxy = self.proxy ?? MPVMetalLayerProxy(layer: self)
+        let localProxy = self.proxy ?? MPVOpenGLLayerProxy(layer: self)
         self.proxy = localProxy
         
         store.renderContextManager.setUpdateHandler(owner: self) { [weak localProxy] in
             localProxy?.trigger()
         }
+        
+        forceRedraw()
     }
     
     /// Unbinds this layer and detaches update callbacks.
@@ -126,23 +187,17 @@ public final class MPVMetalRenderLayer: CAMetalLayer, MPVVideoLayerProtocol, @un
             store.unregisterRenderLayer(self)
         }
         self.playerStore = nil
-        if self.contents != nil {
-            CATransaction.begin()
-            CATransaction.setDisableActions(true)
-            self.contents = nil
-            CATransaction.commit()
+    }
+    
+    /// Requests a new frame render pass.
+    public func requestRender() {
+        let localProxy = self.proxy
+        DispatchQueue.main.async { [weak localProxy] in
+            guard let layer = localProxy?.layer, layer.isBound else { return }
+            layer.setNeedsDisplay()
         }
     }
     
-    /// Requests a new frame render pass on the dedicated userInteractive render queue.
-    public func requestRender() {
-        let localProxy = self.proxy
-        renderQueue.async { [weak localProxy] in
-            guard let layer = localProxy?.layer, layer.isBound else { return }
-            layer.renderNextFrame()
-        }
-    }
-
     /// Forces an immediate frame redraw cycle.
     public func forceRedraw() {
         stateLock.lock()
@@ -151,112 +206,40 @@ public final class MPVMetalRenderLayer: CAMetalLayer, MPVVideoLayerProtocol, @un
         requestRender()
     }
     
-    /// Executes a frame render pass, presenting into the next available CAMetalDrawable or compatible buffer.
-    public func renderNextFrame() {
-        guard let manager = renderContextManager, isBound else { return }
-        
-        // Defensive self-healing: if rawContext is nil but mpv handle is now available, initialize context
-        if manager.rawContext == nil, let mpv = playerStore?.mpv {
-            manager.createRenderContext(mpvHandle: mpv)
-        }
+    public override func canDraw(inCGLContext ctx: CGLContextObj, pixelFormat pf: CGLPixelFormatObj, forLayerTime t: CFTimeInterval, displayTime ts: UnsafePointer<CVTimeStamp>?) -> Bool {
+        guard isBound else { return false }
         
         stateLock.lock()
         let force = _needsForceRedraw
+        stateLock.unlock()
+        
+        if force { return true }
+        
+        if let manager = renderContextManager {
+            let flags = manager.update()
+            return (flags & UInt64(MPV_RENDER_UPDATE_FRAME.rawValue)) != 0
+        }
+        return false
+    }
+    
+    public override func draw(inCGLContext ctx: CGLContextObj, pixelFormat pf: CGLPixelFormatObj, forLayerTime t: CFTimeInterval, displayTime ts: UnsafePointer<CVTimeStamp>?) {
+        guard let manager = renderContextManager, isBound else { return }
+        
+        stateLock.lock()
         _needsForceRedraw = false
         stateLock.unlock()
         
-        let flags = manager.update()
-        guard (flags & UInt64(MPV_RENDER_UPDATE_FRAME.rawValue)) != 0 || force else { return }
+        var fbo: GLint = 0
+        glGetIntegerv(GLenum(GL_DRAW_FRAMEBUFFER_BINDING), &fbo)
+        var dims: [GLint] = [0, 0, 0, 0]
+        glGetIntegerv(GLenum(GL_VIEWPORT), &dims)
         
-        var size = self.drawableSize
-        if bounds.width > 0 && bounds.height > 0 {
-            let scale = contentsScale > 0 ? contentsScale : 2.0
-            let expectedWidth = max(1.0, ceil(bounds.width * scale))
-            let expectedHeight = max(1.0, ceil(bounds.height * scale))
-            if size.width != expectedWidth || size.height != expectedHeight {
-                updateDrawableSize(boundsSize: bounds.size, scaleFactor: scale)
-                size = self.drawableSize
-            }
-        }
-        guard size.width > 0, size.height > 0 else { return }
+        let width = dims[2] > 0 ? dims[2] : Int32(max(1.0, ceil(bounds.width * contentsScale)))
+        let height = dims[3] > 0 ? dims[3] : Int32(max(1.0, ceil(bounds.height * contentsScale)))
         
-        renderFrame(size: size, fbo: 0)
-    }
-    
-    /// Safety-bound frame rasterization into target frame buffer / texture target, followed by displaySync.
-    ///
-    /// - Parameters:
-    ///   - size: Target viewport pixel size.
-    ///   - fbo: OpenGL / Metal FBO or surface identifier.
-    public func renderFrame(size: CGSize, fbo: Int32 = 0) {
-        guard let manager = renderContextManager else { return }
-        let width = Int32(max(1.0, size.width))
-        let height = Int32(max(1.0, size.height))
-        
-        if let surface = manager.renderToSurface(width: width, height: height) {
-            presentSurface(surface)
-        } else {
-            manager.render(fbo: fbo, width: width, height: height)
-        }
-        displaySync()
-    }
-    
-    /// Presents the rendered IOSurface through CAMetalDrawable hardware blit with CoreAnimation composition fallback.
-    private func presentSurface(_ surface: IOSurface) {
-        let srcFormat: MTLPixelFormat = (surface.bytesPerElement >= 8) ? .rgba16Float : .bgra8Unorm
-        
-        guard let drawable = self.nextDrawable(),
-              drawable.texture.pixelFormat == srcFormat,
-              let commandQueue = self.commandQueue,
-              let commandBuffer = commandQueue.makeCommandBuffer() else {
-            self.contents = surface
-            return
-        }
-        
-        let desc = MTLTextureDescriptor.texture2DDescriptor(
-            pixelFormat: srcFormat,
-            width: surface.width,
-            height: surface.height,
-            mipmapped: false
-        )
-        desc.usage = [.shaderRead]
-        
-        let surfaceRef = unsafeBitCast(surface, to: IOSurfaceRef.self)
-        guard let srcTexture = self.device?.makeTexture(descriptor: desc, iosurface: surfaceRef, plane: 0),
-              let blitEncoder = commandBuffer.makeBlitCommandEncoder() else {
-            self.contents = surface
-            return
-        }
-        
-        // Clear residual CoreAnimation contents once Metal direct presentation path is engaged
-        // to prevent hybrid compositing conflicts or mode jumps between CALayer and CAMetalLayer.
-        if self.contents != nil {
-            CATransaction.begin()
-            CATransaction.setDisableActions(true)
-            self.contents = nil
-            CATransaction.commit()
-        }
-        
-        let copyWidth = min(srcTexture.width, drawable.texture.width)
-        let copyHeight = min(srcTexture.height, drawable.texture.height)
-        let dstX = max(0, (drawable.texture.width - copyWidth) / 2)
-        let dstY = max(0, (drawable.texture.height - copyHeight) / 2)
-        
-        blitEncoder.copy(
-            from: srcTexture,
-            sourceSlice: 0,
-            sourceLevel: 0,
-            sourceOrigin: MTLOrigin(x: 0, y: 0, z: 0),
-            sourceSize: MTLSize(width: copyWidth, height: copyHeight, depth: 1),
-            to: drawable.texture,
-            destinationSlice: 0,
-            destinationLevel: 0,
-            destinationOrigin: MTLOrigin(x: dstX, y: dstY, z: 0)
-        )
-        blitEncoder.endEncoding()
-        
-        commandBuffer.present(drawable)
-        commandBuffer.commit()
+        manager.render(fbo: fbo, width: width, height: height, internalFormat: 0)
+        glFlush()
+        manager.reportSwap()
     }
     
     /// Signals display swap completion to keep libmpv audio/video timing locked to VSync.
@@ -268,11 +251,9 @@ public final class MPVMetalRenderLayer: CAMetalLayer, MPVVideoLayerProtocol, @un
     /// Synchronizes backing scale and drawable dimensions to match the Retina HiDPI scale factor.
     public func updateDrawableSize(boundsSize: CGSize, scaleFactor: CGFloat) {
         self.contentsScale = scaleFactor
-        let newWidth = max(1.0, ceil(boundsSize.width * scaleFactor))
-        let newHeight = max(1.0, ceil(boundsSize.height * scaleFactor))
-        let newSize = CGSize(width: newWidth, height: newHeight)
-        if self.drawableSize != newSize {
-            self.drawableSize = newSize
-        }
+        let w = max(1.0, ceil(boundsSize.width * scaleFactor))
+        let h = max(1.0, ceil(boundsSize.height * scaleFactor))
+        self.drawableSize = CGSize(width: w, height: h)
+        self.setNeedsDisplay()
     }
 }

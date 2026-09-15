@@ -136,3 +136,24 @@ public struct CodeTextEditorContainerView: View {
         }
     }
 }
+
+// MARK: - Backward-Compatible Facade Alias
+
+/// Backward-compatible typealias mapping `CodeSyntaxPreviewView` directly to `CodeTextEditorContainerView`.
+public typealias CodeSyntaxPreviewView = CodeTextEditorContainerView
+
+public extension CodeTextEditorContainerView {
+    /// Backward-compatible convenience initializer matching previous adapter signature.
+    init(
+        content: String,
+        fileURL: URL? = nil,
+        fileName: String = "",
+        onSave: ((String) -> Void)? = nil
+    ) {
+        self.init(
+            initialText: content,
+            fileURL: fileURL,
+            fileName: fileName.isEmpty ? (fileURL?.lastPathComponent ?? "document.txt") : fileName
+        )
+    }
+}

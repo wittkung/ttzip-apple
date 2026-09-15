@@ -31,7 +31,8 @@ extension FinderMillerColumnsView {
             refreshKey = UUID()
             let createdItem = DiskItemInfo(url: targetURL)
             selectedItem = createdItem
-            onSelectItem(createdItem)
+            activeViewModel?.selectionState.select(createdItem)
+            onSelectItem?(createdItem)
             NotificationCenter.default.post(name: NSNotification.Name("TTZipArchiveUnlockedRefresh"), object: nil)
         } catch {
             TTLogger.error("Failed to create directory: \(error)")
@@ -58,7 +59,8 @@ extension FinderMillerColumnsView {
         refreshKey = UUID()
         let createdItem = DiskItemInfo(url: targetURL)
         selectedItem = createdItem
-        onSelectItem(createdItem)
+        activeViewModel?.selectionState.select(createdItem)
+        onSelectItem?(createdItem)
         NotificationCenter.default.post(name: NSNotification.Name("TTZipArchiveUnlockedRefresh"), object: nil)
     }
 }

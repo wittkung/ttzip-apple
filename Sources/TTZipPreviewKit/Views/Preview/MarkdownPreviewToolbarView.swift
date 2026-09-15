@@ -68,7 +68,7 @@ struct MarkdownPreviewToolbarView: View {
                 fullscreenButton
             }
         }
-        .padding(.horizontal, isCompact ? 8 : 12)
+        .padding(.horizontal, isCompact ? 6 : 10)
         .padding(.vertical, 6)
         .background(Color(NSColor.windowBackgroundColor))
     }

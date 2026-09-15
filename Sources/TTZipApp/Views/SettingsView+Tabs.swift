@@ -33,6 +33,27 @@ extension SettingsView {
                 }
             }
             .toggleStyle(.switch)
+            
+            Rectangle()
+                .fill(TTZipTheme.hairlineBorder)
+                .frame(height: 0.5)
+            
+            VStack(alignment: .leading, spacing: 6) {
+                HStack {
+                    Label("QuickPeeker Desktop Preview", systemImage: "sparkles")
+                        .font(TTZipTheme.Typography.bodyMedium)
+                    Spacer()
+                    Text("⇧ Space")
+                        .font(.system(size: 11, weight: .semibold, design: .monospaced))
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 3)
+                        .background(Color(nsColor: .controlBackgroundColor).opacity(0.8))
+                        .clipShape(RoundedRectangle(cornerRadius: 5))
+                }
+                Text("Highlight any file in Finder and press Shift + Space to inspect with hardware-accelerated libmpv player, zero-IO archive peeking, or syntax-highlighted code viewer.")
+                    .font(TTZipTheme.Typography.caption)
+                    .foregroundStyle(.secondary)
+            }
         }
     }
     

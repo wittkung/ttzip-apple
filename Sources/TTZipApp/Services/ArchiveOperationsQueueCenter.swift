@@ -109,6 +109,15 @@ public final class ArchiveOperationsQueueCenter {
         recalculateTelemetry()
     }
 
+    @inline(__always)
+    public func pauseTask(id: UUID) { pause(id: id) }
+
+    @inline(__always)
+    public func resumeTask(id: UUID) { resume(id: id) }
+
+    @inline(__always)
+    public func cancelTask(id: UUID) { cancel(id: id) }
+
     /// Clears completed, failed, or cancelled tasks from the queue history.
     public func clearFinishedTasks() {
         tasks.removeAll { $0.state == .completed || $0.state == .failed || $0.state == .cancelled }

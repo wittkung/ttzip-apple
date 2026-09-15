@@ -17,6 +17,7 @@ public struct ResizableDividerHandle: View {
     
     @State private var isHovered = false
     @State private var isDragging = false
+    @State private var isCursorPushed = false
     @State private var startMouseX: CGFloat = 0
     
     public init(
@@ -36,39 +37,32 @@ public struct ResizableDividerHandle: View {
     public static let gutterWidth: CGFloat = 8.0
     
     public var body: some View {
-        VStack(spacing: 0) {
-            if topInset > 0 {
-                Color.clear.frame(height: topInset)
-            }
+        ZStack {
+            // 1. Zen Gutter Line: Hairline border in rest state, glowing gold when hovered/dragged
+            Rectangle()
+                .fill(
+                    isHovered || isDragging
+                        ? TTZipTheme.kintsugiGold.opacity(0.55)
+                        : TTZipTheme.hairlineBorder
+                )
+                .frame(width: isHovered || isDragging ? 1.5 : TTZipTheme.Layout.hairlineBorderWidth)
             
-            ZStack {
-                // 1. Zen Gutter Line: Hairline border in rest state, glowing gold when hovered/dragged
-                Rectangle()
+            // 2. Elegant floating tactile grip pill
+            if isHovered || isDragging {
+                Capsule(style: .continuous)
                     .fill(
-                        isHovered || isDragging
-                            ? TTZipTheme.kintsugiGold.opacity(0.55)
-                            : TTZipTheme.hairlineBorder
+                        LinearGradient(
+                            colors: [
+                                TTZipTheme.kintsugiGold,
+                                TTZipTheme.kintsugiGold.opacity(0.85)
+                            ],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        )
                     )
-                    .frame(width: isHovered || isDragging ? 1.5 : TTZipTheme.Layout.hairlineBorderWidth)
-                    .frame(maxHeight: .infinity)
-                
-                // 2. Elegant floating tactile grip pill
-                if isHovered || isDragging {
-                    ZStack {
-                        Capsule(style: .continuous)
-                            .fill(
-                                LinearGradient(
-                                    colors: [
-                                        TTZipTheme.kintsugiGold,
-                                        TTZipTheme.kintsugiGold.opacity(0.85)
-                                    ],
-                                    startPoint: .top,
-                                    endPoint: .bottom
-                                )
-                            )
-                            .frame(width: 4, height: 24)
-                            .shadow(color: TTZipTheme.kintsugiGold.opacity(0.35), radius: 3, y: 1)
-                        
+                    .frame(width: 4, height: 24)
+                    .shadow(color: TTZipTheme.kintsugiGold.opacity(0.35), radius: 3, y: 1)
+                    .overlay {
                         VStack(spacing: 3) {
                             Circle()
                                 .fill(Color.white.opacity(0.95))
@@ -79,20 +73,16 @@ public struct ResizableDividerHandle: View {
                         }
                     }
                     .transition(.opacity.combined(with: .scale(scale: 0.85)))
-                }
             }
-            .frame(maxHeight: .infinity)
         }
+        .frame(maxHeight: .infinity)
+        .padding(.top, topInset)
         .frame(width: Self.gutterWidth)
         .contentShape(Rectangle())
         .animation(.spring(response: 0.22, dampingFraction: 0.82), value: isHovered || isDragging)
         .onHover { hovering in
             isHovered = hovering
-            if hovering {
-                NSCursor.resizeLeftRight.push()
-            } else {
-                NSCursor.pop()
-            }
+            updateCursor(hovering: hovering)
         }
         .simultaneousGesture(
             TapGesture(count: 2)
@@ -107,6 +97,7 @@ public struct ResizableDividerHandle: View {
                     if !isDragging {
                         isDragging = true
                         startMouseX = currentMouseX
+                        updateCursor(hovering: true)
                         onDragStart?()
                     }
                     let deltaX = currentMouseX - startMouseX
@@ -114,9 +105,34 @@ public struct ResizableDividerHandle: View {
                 }
                 .onEnded { _ in
                     isDragging = false
+                    updateCursor(hovering: isHovered)
                     onDragEnd?()
                 }
         )
+        .onDisappear {
+            resetCursor()
+        }
+    }
+
+    private func updateCursor(hovering: Bool) {
+        if hovering || isDragging {
+            if !isCursorPushed {
+                NSCursor.resizeLeftRight.push()
+                isCursorPushed = true
+            }
+        } else {
+            if isCursorPushed && !isDragging {
+                NSCursor.pop()
+                isCursorPushed = false
+            }
+        }
+    }
+
+    private func resetCursor() {
+        if isCursorPushed {
+            NSCursor.pop()
+            isCursorPushed = false
+        }
     }
 }
 
@@ -125,6 +141,8 @@ public struct ResizableHorizontalDividerHandle: View {
     public var minHeight: CGFloat = 100
     public var maxHeight: CGFloat = 500
     @State private var isHovered = false
+    @State private var isDragging = false
+    @State private var isCursorPushed = false
     
     public init(height: Binding<CGFloat>, minHeight: CGFloat = 100, maxHeight: CGFloat = 500) {
         self._height = height
@@ -136,53 +154,81 @@ public struct ResizableHorizontalDividerHandle: View {
         ZStack {
             // 1. Subtle baseline hairline (1px)
             Rectangle()
-                .fill(isHovered ? TTZipTheme.kintsugiGold.opacity(0.45) : Color.primary.opacity(0.08))
+                .fill(isHovered || isDragging ? TTZipTheme.kintsugiGold.opacity(0.45) : Color.primary.opacity(0.08))
                 .frame(height: 1)
             
             // 2. Elegant floating tactile grip pill
-            if isHovered {
-                ZStack {
-                    Capsule(style: .continuous)
-                        .fill(TTZipTheme.kintsugiGold)
-                        .frame(width: 22, height: 3.5)
-                        .shadow(color: Color.black.opacity(0.2), radius: 2, x: 0, y: 1)
-                    
-                    HStack(spacing: 3) {
-                        Circle()
-                            .fill(Color.white.opacity(0.9))
-                            .frame(width: 1.5, height: 1.5)
-                        Circle()
-                            .fill(Color.white.opacity(0.9))
-                            .frame(width: 1.5, height: 1.5)
+            if isHovered || isDragging {
+                Capsule(style: .continuous)
+                    .fill(TTZipTheme.kintsugiGold)
+                    .frame(width: 22, height: 3.5)
+                    .shadow(color: Color.black.opacity(0.2), radius: 2, x: 0, y: 1)
+                    .overlay {
+                        HStack(spacing: 3) {
+                            Circle()
+                                .fill(Color.white.opacity(0.9))
+                                .frame(width: 1.5, height: 1.5)
+                            Circle()
+                                .fill(Color.white.opacity(0.9))
+                                .frame(width: 1.5, height: 1.5)
+                        }
                     }
-                }
-                .transition(.opacity.combined(with: .scale(scale: 0.85)))
+                    .transition(.opacity.combined(with: .scale(scale: 0.85)))
             }
         }
         .frame(height: 10)
         .contentShape(Rectangle())
-        .animation(.easeInOut(duration: 0.15), value: isHovered)
+        .animation(.easeInOut(duration: 0.15), value: isHovered || isDragging)
         .onHover { hovering in
             isHovered = hovering
-            if hovering {
-                NSCursor.resizeUpDown.push()
-            } else {
-                NSCursor.pop()
-            }
+            updateCursor(hovering: hovering)
         }
         .gesture(
             DragGesture(minimumDistance: 1)
                 .onChanged { value in
+                    if !isDragging {
+                        isDragging = true
+                        updateCursor(hovering: true)
+                    }
                     let newHeight = height + value.translation.height
                     height = min(max(newHeight, minHeight), maxHeight)
                 }
+                .onEnded { _ in
+                    isDragging = false
+                    updateCursor(hovering: isHovered)
+                }
         )
+        .onDisappear {
+            resetCursor()
+        }
+    }
+
+    private func updateCursor(hovering: Bool) {
+        if hovering || isDragging {
+            if !isCursorPushed {
+                NSCursor.resizeUpDown.push()
+                isCursorPushed = true
+            }
+        } else {
+            if isCursorPushed && !isDragging {
+                NSCursor.pop()
+                isCursorPushed = false
+            }
+        }
+    }
+
+    private func resetCursor() {
+        if isCursorPushed {
+            NSCursor.pop()
+            isCursorPushed = false
+        }
     }
 }
 
 public struct SidebarToggleButton: View {
     @Binding public var isSidebarVisible: Bool
     @State private var isHovered = false
+    @State private var isCursorPushed = false
     
     public init(isSidebarVisible: Binding<Bool>) {
         self._isSidebarVisible = isSidebarVisible
@@ -192,6 +238,10 @@ public struct SidebarToggleButton: View {
         Button(action: {
             withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
                 isSidebarVisible.toggle()
+            }
+            if isCursorPushed {
+                NSCursor.pop()
+                isCursorPushed = false
             }
             isHovered = false
         }) {
@@ -211,9 +261,21 @@ public struct SidebarToggleButton: View {
         .onHover { hovering in
             isHovered = hovering
             if hovering {
-                NSCursor.pointingHand.push()
+                if !isCursorPushed {
+                    NSCursor.pointingHand.push()
+                    isCursorPushed = true
+                }
             } else {
+                if isCursorPushed {
+                    NSCursor.pop()
+                    isCursorPushed = false
+                }
+            }
+        }
+        .onDisappear {
+            if isCursorPushed {
                 NSCursor.pop()
+                isCursorPushed = false
             }
         }
     }

@@ -13,14 +13,18 @@ import TTZipPreviewKit
 import TTZipBenchmarkKit
 
 public struct FinderMillerColumnsView: View {
+    public var viewModel: AppViewState? = nil
+    @Environment(AppViewState.self) private var envViewModel: AppViewState?
+    var activeViewModel: AppViewState? { viewModel ?? envViewModel }
+    
     public let rootDirectory: URL
     public var initialSelectedPath: String? = nil
     public var sortOption: DiskSortOption = .nameAsc
     public var onNavigateUp: (() -> Void)? = nil
-    public let onSelectArchive: (String) -> Void
-    public let onCompressPath: (String) -> Void
-    public let onPreviewFile: (String) -> Void
-    public let onSelectItem: (DiskItemInfo) -> Void
+    public var onSelectArchive: ((String) -> Void)? = nil
+    public var onCompressPath: ((String) -> Void)? = nil
+    public var onPreviewFile: ((String) -> Void)? = nil
+    public var onSelectItem: ((DiskItemInfo) -> Void)? = nil
     public let isActive: Bool
     
     @State var columnPaths: [URL] = []
@@ -42,16 +46,18 @@ public struct FinderMillerColumnsView: View {
     @State var targetCreateFileDir: URL? = nil
     
     public init(
+        viewModel: AppViewState? = nil,
         rootDirectory: URL,
         initialSelectedPath: String? = nil,
         sortOption: DiskSortOption = .nameAsc,
         isActive: Bool = true,
         onNavigateUp: (() -> Void)? = nil,
-        onSelectArchive: @escaping (String) -> Void,
-        onCompressPath: @escaping (String) -> Void,
-        onPreviewFile: @escaping (String) -> Void,
-        onSelectItem: @escaping (DiskItemInfo) -> Void
+        onSelectArchive: ((String) -> Void)? = nil,
+        onCompressPath: ((String) -> Void)? = nil,
+        onPreviewFile: ((String) -> Void)? = nil,
+        onSelectItem: ((DiskItemInfo) -> Void)? = nil
     ) {
+        self.viewModel = viewModel
         self.rootDirectory = rootDirectory
         self.initialSelectedPath = initialSelectedPath
         self.sortOption = sortOption
@@ -139,7 +145,11 @@ public struct FinderMillerColumnsView: View {
                 // KeyCode 49 is Space Bar -> Trigger native QuickLook preview without intercepting media playback
                 if event.keyCode == 49 {
                     if let item = selectedItem, !item.isDirectory {
-                        onPreviewFile(item.path)
+                        if let preview = onPreviewFile {
+                            preview(item.path)
+                        } else {
+                            activeViewModel?.openImmersiveMedia(for: item)
+                        }
                         return nil
                     }
                 }
@@ -200,7 +210,8 @@ public struct FinderMillerColumnsView: View {
                 }
                 let item = DiskItemInfo(url: targetURL)
                 selectedItem = item
-                onSelectItem(item)
+                activeViewModel?.selectionState.select(item)
+                onSelectItem?(item)
             } else {
                 columnPaths = [newRoot]
                 selectedItem = nil
@@ -311,8 +322,8 @@ public struct FinderMillerColumnsView: View {
             multiSelectedPaths: multiSelectedPaths,
             onPrependParent: { prependParentColumn(for: dirURL) },
             onChangeSort: { perColumnSortOption[index] = $0 },
-            onSelectArchive: onSelectArchive,
-            onCompressPath: onCompressPath,
+            onSelectArchive: onSelectArchive ?? { _ in },
+            onCompressPath: onCompressPath ?? { _ in },
             onSelectItem: { it, idx, cmd, shift, dir in
                 selectItem(item: it, columnIndex: idx, isCommand: cmd, isShift: shift, dirURL: dir)
             },

@@ -14,7 +14,7 @@ import TTZipBenchmarkKit
 /// Real-time multi-task operations management window with live throughput telemetry and controls.
 public struct OperationsQueueView: View {
     private var l10n = AppLocalizationState.shared
-    @State private var viewModel = OperationsQueueViewModel()
+    private var queueCenter = ArchiveOperationsQueueCenter.shared
     @Environment(\.dismiss) private var dismiss
     
     public init() {}
@@ -26,14 +26,14 @@ public struct OperationsQueueView: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(l10n.t(L10n.Queue.title))
                         .font(.title2.bold())
-                    Text("\(viewModel.activeTasksCount) " + l10n.t(L10n.Queue.activeTasks) + " · " + l10n.formatThroughput(viewModel.overallThroughputMBs))
+                    Text("\(queueCenter.activeTasksCount) " + l10n.t(L10n.Queue.activeTasks) + " · " + l10n.formatThroughput(queueCenter.overallThroughputMBs))
                         .font(.caption)
                         .foregroundColor(.secondary)
                 }
                 Spacer()
                 
-                if viewModel.activeTasksCount > 0 {
-                    ProgressView(value: viewModel.overallProgress)
+                if queueCenter.activeTasksCount > 0 {
+                    ProgressView(value: queueCenter.overallProgress)
                         .progressViewStyle(.circular)
                         .scaleEffect(0.7)
                 }
@@ -43,7 +43,7 @@ public struct OperationsQueueView: View {
             Divider()
             
             // Task List
-            if viewModel.tasks.isEmpty {
+            if queueCenter.tasks.isEmpty {
                 VStack(spacing: 12) {
                     Image(systemName: "tray")
                         .font(.system(size: 40))
@@ -56,12 +56,12 @@ public struct OperationsQueueView: View {
             } else {
                 ScrollView {
                     LazyVStack(spacing: 10) {
-                        ForEach(viewModel.tasks) { task in
+                        ForEach(queueCenter.tasks) { task in
                             TaskRowView(
                                 task: task,
-                                onPause: { viewModel.pauseTask(id: task.id) },
-                                onResume: { viewModel.resumeTask(id: task.id) },
-                                onCancel: { viewModel.cancelTask(id: task.id) }
+                                onPause: { queueCenter.pause(id: task.id) },
+                                onResume: { queueCenter.resume(id: task.id) },
+                                onCancel: { queueCenter.cancel(id: task.id) }
                             )
                         }
                     }
@@ -71,9 +71,9 @@ public struct OperationsQueueView: View {
             Divider()
             
             HStack {
-                if !viewModel.tasks.isEmpty {
+                if !queueCenter.tasks.isEmpty {
                     Button("Clear Completed") {
-                        viewModel.clearFinishedTasks()
+                        queueCenter.clearFinishedTasks()
                     }
                     .buttonStyle(.plain)
                     .font(.caption)

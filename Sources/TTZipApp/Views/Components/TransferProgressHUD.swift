@@ -15,7 +15,6 @@ public struct TransferProgressHUD: View {
     public let job: AndroidTransferJobInfo
     public var onCancel: (() -> Void)? = nil
     
-    @State private var isHovered: Bool = false
     @State private var isCollapsed: Bool = false
     
     public init(
@@ -84,25 +83,9 @@ public struct TransferProgressHUD: View {
             
             if !isCollapsed {
                 // Progress Bar
-                GeometryReader { geo in
-                    ZStack(alignment: .leading) {
-                        Capsule()
-                            .fill(Color.primary.opacity(0.08))
-                            .frame(height: 5)
-                        
-                        Capsule()
-                            .fill(
-                                LinearGradient(
-                                    colors: [TTZipTheme.bambooGreen, TTZipTheme.kintsugiGold],
-                                    startPoint: .leading,
-                                    endPoint: .trailing
-                                )
-                            )
-                            .frame(width: max(5, geo.size.width * CGFloat(job.progress)), height: 5)
-                            .animation(.easeOut(duration: 0.15), value: job.progress)
-                    }
-                }
-                .frame(height: 5)
+                ProgressView(value: job.progress, total: 1.0)
+                    .progressViewStyle(ZenGradientProgressViewStyle())
+                    .frame(height: 5)
                 
                 // Transfer Metrics: Speed & ETA
                 HStack(spacing: 8) {
@@ -149,9 +132,6 @@ public struct TransferProgressHUD: View {
             RoundedRectangle(cornerRadius: 10, style: .continuous)
                 .strokeBorder(TTZipTheme.kintsugiGold.opacity(0.35), lineWidth: 0.8)
         )
-        .onHover { hovering in
-            isHovered = hovering
-        }
     }
     
     // MARK: - Subviews & Formatters
@@ -201,3 +181,28 @@ public struct TransferProgressHUD: View {
         ByteCountFormatter.string(fromByteCount: Int64(bytes), countStyle: .file)
     }
 }
+
+/// Zen minimalist gradient style for transfer progress tracking.
+public struct ZenGradientProgressViewStyle: ProgressViewStyle {
+    public init() {}
+    
+    public func makeBody(configuration: Configuration) -> some View {
+        let fraction = configuration.fractionCompleted ?? 0.0
+        Capsule()
+            .fill(Color.primary.opacity(0.08))
+            .frame(height: 5)
+            .overlay(alignment: .leading) {
+                Capsule()
+                    .fill(
+                        LinearGradient(
+                            colors: [TTZipTheme.bambooGreen, TTZipTheme.kintsugiGold],
+                            startPoint: .leading,
+                            endPoint: .trailing
+                        )
+                    )
+                    .scaleEffect(x: max(0.001, CGFloat(fraction)), y: 1.0, anchor: .leading)
+            }
+            .animation(.easeOut(duration: 0.15), value: fraction)
+    }
+}
+

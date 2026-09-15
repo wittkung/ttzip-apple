@@ -38,6 +38,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         setupMicrokernelLoggingBridge()
         MainThreadHangWatchdog.shared.start()
+        QuickPeekerCoordinator.shared.start()
     }
     
     func applicationWillTerminate(_ notification: Notification) {

@@ -395,52 +395,8 @@ public struct MPVMetalVideoPlayerView: View {
     }
 }
 
-/// Native NSView hosting container embedding libmpv surface with Extended Dynamic Range (EDR) capability.
-public struct MPVNativeMetalContainerView: NSViewRepresentable {
-    public let url: URL
-    public var store: MPVMetalPlayerStore
-    public let isFullScreen: Bool
-    public let onDropSubtitle: (URL) -> Void
-    public let onTogglePlayPause: () -> Void
-    public let onToggleFullScreen: () -> Void
-    
-    public init(
-        url: URL,
-        store: MPVMetalPlayerStore = .shared,
-        isFullScreen: Bool = false,
-        onDropSubtitle: @escaping (URL) -> Void = { _ in },
-        onTogglePlayPause: @escaping () -> Void = {},
-        onToggleFullScreen: @escaping () -> Void = {}
-    ) {
-        self.url = url
-        self.store = store
-        self.isFullScreen = isFullScreen
-        self.onDropSubtitle = onDropSubtitle
-        self.onTogglePlayPause = onTogglePlayPause
-        self.onToggleFullScreen = onToggleFullScreen
-    }
-    
-    public func makeNSView(context: Context) -> MPVMetalNSView {
-        let view = MPVMetalNSView(frame: .zero, isFullScreen: isFullScreen)
-        view.isFullScreen = isFullScreen
-        view.store = store
-        view.onDropSubtitle = onDropSubtitle
-        view.onTogglePlayPause = onTogglePlayPause
-        view.onToggleFullScreen = onToggleFullScreen
-        return view
-    }
-    
-    public func updateNSView(_ nsView: MPVMetalNSView, context: Context) {
-        nsView.isFullScreen = isFullScreen
-        nsView.store = store
-        nsView.onDropSubtitle = onDropSubtitle
-        nsView.onTogglePlayPause = onTogglePlayPause
-        nsView.onToggleFullScreen = onToggleFullScreen
-        if store.currentURL == nil {
-            store.load(url: url)
-        }
-    }
-}
+/// Direct alias ensuring backward compatibility while eliminating redundant wrapper layers.
+public typealias UnifiedVideoPlayerView = MPVMetalVideoPlayerView
 
 /// High-performance NSView subclass configured for XDR Extended Dynamic Range, keyboard shortcuts, and subtitle drag operations.
 /// Preserved as layer host base class and white-box test target.

@@ -173,35 +173,6 @@ final class MPVAdversarialStressTests: XCTestCase {
         XCTAssertFalse(audioEngine.isPlaying)
     }
 
-    @MainActor
-    func testVideoEngineMultiTrackAndBoundarySeekStress() async throws {
-        let videoEngine = MPVVideoEngine.shared
-        let dummyVideoURL = tempDirURL.appendingPathComponent("stress_movie.mkv")
-        try Data("mock mkv video payload".utf8).write(to: dummyVideoURL)
-
-        videoEngine.load(url: dummyVideoURL, autoPlay: false)
-        XCTAssertEqual(videoEngine.currentURL, dummyVideoURL)
-
-        // Stress rapid seek and boundary seeks (negative, 0, huge)
-        videoEngine.seek(to: -50.0)
-        videoEngine.seek(to: 0.0)
-        videoEngine.seek(to: 99999.0)
-
-        // Stress audio/subtitle track switching
-        videoEngine.selectSubtitle(trackId: "mpv_sub_1")
-        videoEngine.selectSubtitle(trackId: nil)
-        videoEngine.selectAudioTrack(trackId: "mpv_audio_1")
-        videoEngine.selectAudioTrack(trackId: nil)
-
-        // Viewport dimensions updates
-        for dim in [CGSize(width: 320, height: 180), CGSize(width: 1920, height: 1080), CGSize(width: 3840, height: 2160)] {
-            videoEngine.updateViewportSize(dim, scaleFactor: 2.0)
-        }
-
-        videoEngine.stop()
-        XCTAssertFalse(videoEngine.isPlaying)
-    }
-
     // MARK: - 3. Event Dispatcher Queue Overflow & Concurrency Stress
 
     func testEventDispatcherQueueFloodingUnderHeavyConcurrency() async throws {

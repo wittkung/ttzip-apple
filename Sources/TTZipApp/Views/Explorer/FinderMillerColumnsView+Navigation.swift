@@ -109,9 +109,11 @@ extension FinderMillerColumnsView {
             if let path = selectedPaths[nextActive] {
                 let itemInfo = DiskItemInfo(url: URL(fileURLWithPath: path))
                 selectedItem = itemInfo
-                onSelectItem(itemInfo)
+                activeViewModel?.selectionState.select(itemInfo)
+                onSelectItem?(itemInfo)
             } else {
                 selectedItem = nil
+                activeViewModel?.selectionState.select(nil)
             }
         } else {
             onNavigateUp?()
@@ -129,7 +131,8 @@ extension FinderMillerColumnsView {
                 if let selectedPath = selectedPaths[nextActive],
                    let item = items.first(where: { $0.path == selectedPath }) {
                     selectedItem = item
-                    onSelectItem(item)
+                    activeViewModel?.selectionState.select(item)
+                    onSelectItem?(item)
                 } else if let firstItem = items.first {
                     selectItem(item: firstItem, columnIndex: nextActive, dirURL: targetURL)
                 }

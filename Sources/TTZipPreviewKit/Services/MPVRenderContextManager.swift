@@ -231,18 +231,15 @@ public final class MPVRenderContextManager: @unchecked Sendable {
 
     /// Rasterizes the current decoded video frame into the specified target OpenGL Framebuffer Object (FBO).
     @discardableResult
-    public func render(fbo: GLint, width: Int32, height: Int32, internalFormat: GLint = GLint(GL_RGBA8)) -> Int32 {
+    public func render(fbo: GLint, width: Int32, height: Int32, internalFormat: GLint = 0) -> Int32 {
         guard width > 0, height > 0 else { return 0 }
         
         contextLock.lock()
-        guard let ctx = renderContext else {
-            contextLock.unlock()
+        defer { contextLock.unlock() }
+        
+        guard let ctx = renderContext, let target = self.activeCGLContext else {
             return 0
         }
-        let targetCGL = self.activeCGLContext
-        contextLock.unlock()
-        
-        guard let target = targetCGL else { return 0 }
         
         _ = CGLLockContext(target)
         defer { _ = CGLUnlockContext(target) }
@@ -316,11 +313,10 @@ public final class MPVRenderContextManager: @unchecked Sendable {
         guard width > 0, height > 0 else { return nil }
         
         contextLock.lock()
+        defer { contextLock.unlock() }
         guard let ctx = renderContext, let cglCtx = self.activeCGLContext else {
-            contextLock.unlock()
             return nil
         }
-        contextLock.unlock()
         
         _ = CGLLockContext(cglCtx)
         defer { _ = CGLUnlockContext(cglCtx) }
@@ -346,7 +342,7 @@ public final class MPVRenderContextManager: @unchecked Sendable {
             fbo: Int32(fbo),
             w: width,
             h: height,
-            internal_format: GLint(GL_RGBA8)
+            internal_format: 0
         )
         var flipY: Int32 = 0
         let err: Int32 = withUnsafeMutablePointer(to: &glFbo) { fboPtr in

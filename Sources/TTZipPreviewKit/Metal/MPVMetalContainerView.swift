@@ -96,9 +96,7 @@ public final class MPVMetalContainerView: MPVMetalNSView {
                     videoLayer.forceRedraw()
                     return
                 }
-                if let store = strongSelf.store, store.isPlaying {
-                    videoLayer.requestRender()
-                }
+                videoLayer.requestRender()
             }
         }
     }
