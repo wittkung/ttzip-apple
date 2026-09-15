@@ -32,6 +32,7 @@ public struct MediaPreviewView: View {
     let fileName: String
     
     @State private var previewType: MediaPreviewType = .unsupported("Loading...")
+    @State private var previewTask: Task<Void, Never>?
     @State private var isExtractingTemp = false
     @State private var isFullScreenActive = false
     @State private var isHovered = false
@@ -41,7 +42,7 @@ public struct MediaPreviewView: View {
         self.fileName = fileName
         self.isImmersiveFullscreen = isImmersiveFullscreen
         if let url = fileURL {
-            _previewType = State(initialValue: MediaPreviewFactory.detectType(url: url))
+            _previewType = State(initialValue: MediaPreviewFactory.fastTypeByExtension(url: url))
         } else {
             _previewType = State(initialValue: .unsupported("Select a file from the explorer to preview"))
         }
@@ -142,6 +143,10 @@ public struct MediaPreviewView: View {
         .task(id: fileURL) {
             loadPreview()
         }
+        .onDisappear {
+            previewTask?.cancel()
+            previewTask = nil
+        }
     }
     
     private var mediaIconName: String {
@@ -149,17 +154,22 @@ public struct MediaPreviewView: View {
     }
     
     private func loadPreview() {
+        previewTask?.cancel()
         guard let url = fileURL else {
             previewType = .unsupported("Select a file from the explorer to preview")
             return
         }
         let targetURL = url
-        Task {
+        previewTask = Task { @MainActor in
+            // 120ms debounce to prevent task avalanche during rapid navigation
+            try? await Task.sleep(nanoseconds: 120_000_000)
+            guard !Task.isCancelled else { return }
+            
             let deepType = await MediaPreviewFactory.detectTypeAsync(url: targetURL)
-            await MainActor.run {
-                if self.fileURL == targetURL {
-                    self.previewType = deepType
-                }
+            guard !Task.isCancelled else { return }
+            
+            if self.fileURL == targetURL {
+                self.previewType = deepType
             }
         }
     }
@@ -167,6 +177,16 @@ public struct MediaPreviewView: View {
     nonisolated public static func readTextContent(from url: URL) -> String? {
         if url.scheme == TTZipVfsSchemeHandler.scheme {
             if let data = TTZipArchiveVfsProvider.shared.cachedData(for: url.absoluteString), !data.isEmpty {
+                let sampleData = data.prefix(4096)
+                if !sampleData.isEmpty {
+                    if sampleData.first == 0 {
+                        return nil
+                    }
+                    let nullCount = sampleData.filter { $0 == 0 }.count
+                    if Double(nullCount) / Double(sampleData.count) > 0.01 {
+                        return nil
+                    }
+                }
                 return decodeText(data: data)
             }
             return nil
@@ -182,6 +202,9 @@ public struct MediaPreviewView: View {
         
         let sampleData = (try? fileHandle.read(upToCount: 4096)) ?? Data()
         if !sampleData.isEmpty {
+            if sampleData.first == 0 {
+                return nil
+            }
             let nullCount = sampleData.filter { $0 == 0 }.count
             if Double(nullCount) / Double(sampleData.count) > 0.01 {
                 // High concentration of null bytes indicates compiled/binary payload

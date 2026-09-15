@@ -9,6 +9,7 @@ import SwiftUI
 import AVKit
 import PDFKit
 import WebKit
+@preconcurrency import Dispatch
 import TTZipCore
 import TTZipPluginKit
 import TTZipUI
@@ -64,6 +65,24 @@ public enum MediaPreviewFactory {
     /// Text extensions for native text code viewer consolidated from central preview matrix.
     public static let textExtensions: Set<String> = PreviewCapabilityMatrix.textExtensions
     
+    /// Rapidly infers preview type solely from file extension with zero disk I/O.
+    nonisolated public static func fastTypeByExtension(url: URL) -> MediaPreviewType {
+        let ext = url.pathExtension.lowercased()
+        if archiveExtensions.contains(ext) {
+            return .unsupported("Archive loaded. Double-click to browse contents.")
+        }
+        if videoExtensions.contains(ext) {
+            return .video(url)
+        }
+        if audioExtensions.contains(ext) {
+            return .audio(url)
+        }
+        if ext == "pdf" {
+            return .pdf(url)
+        }
+        return .unsupported("Loading...")
+    }
+
     /// Detects MediaPreviewType synchronously for URL.
     nonisolated public static func detectType(url: URL) -> MediaPreviewType {
         let ext = url.pathExtension.lowercased()
@@ -82,24 +101,43 @@ public enum MediaPreviewFactory {
         if ext == "pdf" {
             return .pdf(url)
         }
+        if docxExtensions.contains(ext) {
+            let sampleData = readInitialSampleData(from: url)
+            return sampleData.isEmpty ? .unsupported("Format: \(ext.uppercased())") : .hexViewer(sampleData, url)
+        }
         if presentationExtensions.contains(ext) {
             let xmlService = UniFfiXmlMetaService()
             if let outline = try? xmlService.extractOfficeOutline(filePath: url.path) {
                 return .officePresentation(OfficePresentationModel(fileName: url.lastPathComponent, outline: outline, fileURL: url))
             }
+            let sampleData = readInitialSampleData(from: url)
+            return sampleData.isEmpty ? .unsupported("Format: \(ext.uppercased())") : .hexViewer(sampleData, url)
         }
-        if ext == "xlsx" || ext == "ods" {
-            let officeService = UniFfiOfficeService()
-            if let sheetNames = try? officeService.extractSheetNamesFromFile(filePath: url.path),
-               let firstSheetName = sheetNames.first,
-               let sheetData = try? officeService.extractSheetDataFromFile(filePath: url.path, sheetNameOrIndex: firstSheetName, maxRows: 10000) {
-                return .officeSpreadsheet(OfficeSpreadsheetWorkbook(
-                    fileName: url.lastPathComponent,
-                    sheetNames: sheetNames,
-                    activeSheet: sheetData,
-                    fileURL: url
-                ))
+        if spreadsheetExtensions.contains(ext) {
+            if ext == "xlsx" || ext == "ods" {
+                let officeService = UniFfiOfficeService()
+                if let sheetNames = try? officeService.extractSheetNamesFromFile(filePath: url.path),
+                   let firstSheetName = sheetNames.first,
+                   let sheetData = try? officeService.extractSheetDataFromFile(filePath: url.path, sheetNameOrIndex: firstSheetName, maxRows: 10000) {
+                    return .officeSpreadsheet(OfficeSpreadsheetWorkbook(
+                        fileName: url.lastPathComponent,
+                        sheetNames: sheetNames,
+                        activeSheet: sheetData,
+                        fileURL: url
+                    ))
+                }
+                let sampleData = readInitialSampleData(from: url)
+                return sampleData.isEmpty ? .unsupported("Format: \(ext.uppercased())") : .hexViewer(sampleData, url)
             }
+            if ext == "xls" {
+                let sampleData = readInitialSampleData(from: url)
+                return sampleData.isEmpty ? .unsupported("Format: \(ext.uppercased())") : .hexViewer(sampleData, url)
+            }
+            if let content = MediaPreviewView.readTextContent(from: url) {
+                return .spreadsheetTable(content, url)
+            }
+            let sampleData = readInitialSampleData(from: url)
+            return sampleData.isEmpty ? .unsupported("Format: \(ext.uppercased())") : .hexViewer(sampleData, url)
         }
         if ebookExtensions.contains(ext) {
             let fileSize = (try? url.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0
@@ -124,13 +162,6 @@ public enum MediaPreviewFactory {
         if htmlWebExtensions.contains(ext) {
             if let content = MediaPreviewView.readTextContent(from: url) {
                 return .htmlWeb(content: content, fileURL: url)
-            }
-            let sampleData = readInitialSampleData(from: url)
-            return .hexViewer(sampleData, url)
-        }
-        if spreadsheetExtensions.contains(ext) {
-            if let content = MediaPreviewView.readTextContent(from: url) {
-                return .spreadsheetTable(content, url)
             }
             let sampleData = readInitialSampleData(from: url)
             return .hexViewer(sampleData, url)
@@ -246,11 +277,22 @@ public enum MediaPreviewFactory {
                 // Converted DOCX is read-only Markdown; do not expose disk URL to prevent destructive plain-text overwrite.
                 return .markdown(md, nil)
             }
-            if let attrStr = try? NSAttributedString(url: url, options: [:], documentAttributes: nil) {
-                return .docxDocument(attrStr, url)
+            if ext == "doc" {
+                if let attrStr = await loadLegacyDocAttributedString(from: url, timeoutSeconds: 1.5) {
+                    return .docxDocument(attrStr, url)
+                }
+                let sampleData = readInitialSampleData(from: url)
+                if !sampleData.isEmpty {
+                    return .hexViewer(sampleData, url)
+                }
+                return .unsupported("Legacy Word (.doc) preview timed out or unsupported.")
+            } else {
+                if let attrStr = try? NSAttributedString(url: url, options: [:], documentAttributes: nil) {
+                    return .docxDocument(attrStr, url)
+                }
+                let sampleData = readInitialSampleData(from: url)
+                return .hexViewer(sampleData, url)
             }
-            let sampleData = readInitialSampleData(from: url)
-            return .hexViewer(sampleData, url)
         }
         
         if markdownExtensions.contains(ext) {
@@ -464,5 +506,53 @@ public enum MediaPreviewFactory {
         } catch {
             return nil
         }
+    }
+
+    private static let legacyDocConversionQueue = DispatchQueue(
+        label: "com.ttzip.preview.legacyDocConversion",
+        qos: .userInitiated,
+        attributes: .concurrent
+    )
+    
+    private final class AttributedStringBox: @unchecked Sendable {
+        let value: NSAttributedString?
+        init(_ value: NSAttributedString?) {
+            self.value = value
+        }
+    }
+    
+    private final class LegacyDocContinuationTracker: @unchecked Sendable {
+        private let lock = NSLock()
+        private var hasResumed = false
+        private let continuation: CheckedContinuation<AttributedStringBox, Never>
+        
+        init(continuation: CheckedContinuation<AttributedStringBox, Never>) {
+            self.continuation = continuation
+        }
+        
+        func resume(with box: AttributedStringBox) {
+            lock.lock()
+            defer { lock.unlock() }
+            guard !hasResumed else { return }
+            hasResumed = true
+            continuation.resume(returning: box)
+        }
+    }
+
+    /// Loads NSAttributedString for legacy binary documents with hard 1.5s timeout circuit breaker to avoid hanging cooperative thread pool.
+    nonisolated private static func loadLegacyDocAttributedString(from url: URL, timeoutSeconds: Double = 1.5) async -> NSAttributedString? {
+        let box = await withCheckedContinuation { (continuation: CheckedContinuation<AttributedStringBox, Never>) in
+            let tracker = LegacyDocContinuationTracker(continuation: continuation)
+            
+            legacyDocConversionQueue.async {
+                let attrStr = try? NSAttributedString(url: url, options: [:], documentAttributes: nil)
+                tracker.resume(with: AttributedStringBox(attrStr))
+            }
+            
+            DispatchQueue.global(qos: .userInitiated).asyncAfter(deadline: .now() + timeoutSeconds) {
+                tracker.resume(with: AttributedStringBox(nil))
+            }
+        }
+        return box.value
     }
 }
