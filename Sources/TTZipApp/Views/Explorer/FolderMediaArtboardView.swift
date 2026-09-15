@@ -43,19 +43,15 @@ public struct FolderMediaArtboardView: View {
     }
     
     public var body: some View {
-        VStack(spacing: 0) {
-            ScrollView(.vertical, showsIndicators: true) {
-                VStack(alignment: .leading, spacing: 16) {
-                    quickActionButtonsRow
-                    
-                    overviewSection
-                    
-                    contentBreakdownSection
-                }
-                .padding(14)
+        ScrollView(.vertical, showsIndicators: true) {
+            VStack(alignment: .leading, spacing: 16) {
+                quickActionButtonsRow
+                
+                overviewSection
+                
+                contentBreakdownSection
             }
-            
-            bottomPinnedActionBar
+            .padding(14)
         }
         .background(Color.clear)
         .alert(l10n.t(L10n.Explorer.newFolder), isPresented: $showCreateSubfolderAlert) {
@@ -124,6 +120,17 @@ public struct FolderMediaArtboardView: View {
                 )
                 
                 QuickActionSegmentButton(
+                    icon: "archivebox",
+                    shortTitle: isZh ? "压缩" : "Zip",
+                    fullTitle: isZh ? "压缩目录" : "Compress Folder",
+                    width: w,
+                    help: isZh ? "压缩此目录 (⌘N)" : "Compress Folder (⌘N)",
+                    action: {
+                        onCompressPath(item.path)
+                    }
+                )
+                
+                QuickActionSegmentButton(
                     icon: "doc.on.doc",
                     shortTitle: isZh ? "复制" : "Copy",
                     fullTitle: isZh ? "拷贝路径" : "Copy Path",
@@ -145,64 +152,6 @@ public struct FolderMediaArtboardView: View {
         }
         .frame(height: 28)
         .padding(.bottom, 4)
-    }
-    
-    private var bottomPinnedActionBar: some View {
-        VStack(spacing: 0) {
-            Divider()
-            
-            Button(action: { onCompressPath(item.path) }) {
-                ViewThatFits(in: .horizontal) {
-                    HStack(spacing: 8) {
-                        Image(systemName: "archivebox.fill")
-                            .font(.system(size: 14, weight: .bold))
-                        Text(l10n.t(L10n.Common.newArchiveShortcut))
-                            .font(.system(size: 13, weight: .bold))
-                            .lineLimit(1)
-                    }
-                    
-                    HStack(spacing: 6) {
-                        Image(systemName: "archivebox.fill")
-                            .font(.system(size: 13, weight: .bold))
-                        Text(l10n.t(L10n.Sidebar.newArchive))
-                            .font(.system(size: 12, weight: .bold))
-                            .lineLimit(1)
-                    }
-                    
-                    HStack(spacing: 4) {
-                        Image(systemName: "archivebox.fill")
-                            .font(.system(size: 12, weight: .bold))
-                        Text(l10n.t(L10n.Compress.startAction))
-                            .font(.system(size: 12, weight: .bold))
-                            .lineLimit(1)
-                    }
-                }
-                .foregroundStyle(.white)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 10)
-                .background(
-                    ZStack {
-                        TTZipTheme.bambooGreen
-                        LinearGradient(
-                            colors: [Color.white.opacity(0.06), Color.black.opacity(0.08)],
-                            startPoint: .top,
-                            endPoint: .bottom
-                        )
-                    }
-                )
-                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 10, style: .continuous)
-                        .strokeBorder(TTZipUniversalTokens.Border.specularHairline, lineWidth: TTZipUniversalTokens.Dimensions.hairlineWidth)
-                )
-                .shadow(color: TTZipTheme.bambooGreen.opacity(0.25), radius: 4, x: 0, y: 2)
-            }
-            .buttonStyle(.plain)
-            .padding(14)
-            .help(l10n.t(L10n.Common.newArchiveShortcut))
-            .accessibilityLabel(l10n.t(L10n.Common.newArchiveShortcut))
-        }
-        .background(Color.clear)
     }
 }
 
