@@ -208,7 +208,7 @@ public struct MPVMetalVideoPlayerView: View {
                 let isBottomControlsVisible = isHovering || !store.isPlaying
                 VStack(spacing: 0) {
                     Spacer(minLength: 0)
-                    HStack {
+                    HStack(spacing: 0) {
                         Spacer(minLength: 0)
                         MPVVideoControlBarView(
                             store: store,
@@ -228,13 +228,18 @@ public struct MPVMetalVideoPlayerView: View {
                                 }
                             }
                         )
-                        .frame(maxWidth: isFullScreen ? 740 : .infinity)
+                        // Allow control bar to compress down to zero width to eliminate parent horizontal backpressure
+                        .frame(minWidth: 0, maxWidth: isFullScreen ? 740 : .infinity)
                         Spacer(minLength: 0)
                     }
+                    // Bounded horizontal container constraints prevent ViewThatFits from expanding the parent view
+                    .frame(minWidth: 0, maxWidth: .infinity)
                     .padding(.horizontal, isFullScreen ? 32 : 16)
                     .padding(.bottom, isFullScreen ? 24 : 12)
+                    .frame(maxWidth: .infinity)
                 }
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
+                .frame(minWidth: 0, maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
+                .clipped()
                 .opacity(isBottomControlsVisible ? 1.0 : 0.0)
                 .allowsHitTesting(isBottomControlsVisible)
                 .animation(.easeInOut(duration: 0.15), value: isBottomControlsVisible)

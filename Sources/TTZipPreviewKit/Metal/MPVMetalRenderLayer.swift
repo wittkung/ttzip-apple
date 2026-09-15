@@ -126,6 +126,12 @@ public final class MPVMetalRenderLayer: CAMetalLayer, MPVVideoLayerProtocol, @un
             store.unregisterRenderLayer(self)
         }
         self.playerStore = nil
+        if self.contents != nil {
+            CATransaction.begin()
+            CATransaction.setDisableActions(true)
+            self.contents = nil
+            CATransaction.commit()
+        }
     }
     
     /// Requests a new frame render pass on the dedicated userInteractive render queue.
@@ -163,9 +169,11 @@ public final class MPVMetalRenderLayer: CAMetalLayer, MPVVideoLayerProtocol, @un
         guard (flags & UInt64(MPV_RENDER_UPDATE_FRAME.rawValue)) != 0 || force else { return }
         
         var size = self.drawableSize
-        if size.width <= 0 || size.height <= 0 {
-            if bounds.width > 0 && bounds.height > 0 {
-                let scale = contentsScale > 0 ? contentsScale : 2.0
+        if bounds.width > 0 && bounds.height > 0 {
+            let scale = contentsScale > 0 ? contentsScale : 2.0
+            let expectedWidth = max(1.0, ceil(bounds.width * scale))
+            let expectedHeight = max(1.0, ceil(bounds.height * scale))
+            if size.width != expectedWidth || size.height != expectedHeight {
                 updateDrawableSize(boundsSize: bounds.size, scaleFactor: scale)
                 size = self.drawableSize
             }
@@ -218,6 +226,15 @@ public final class MPVMetalRenderLayer: CAMetalLayer, MPVVideoLayerProtocol, @un
               let blitEncoder = commandBuffer.makeBlitCommandEncoder() else {
             self.contents = surface
             return
+        }
+        
+        // Clear residual CoreAnimation contents once Metal direct presentation path is engaged
+        // to prevent hybrid compositing conflicts or mode jumps between CALayer and CAMetalLayer.
+        if self.contents != nil {
+            CATransaction.begin()
+            CATransaction.setDisableActions(true)
+            self.contents = nil
+            CATransaction.commit()
         }
         
         let copyWidth = min(srcTexture.width, drawable.texture.width)

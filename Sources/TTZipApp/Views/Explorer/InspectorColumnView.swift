@@ -270,7 +270,7 @@ public struct InspectorColumnView: View {
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                         .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
                     }
-                    .frame(maxWidth: contentWidth)
+                    .frame(width: contentWidth)
                     .frame(height: dynamicCardHeight)
                     .overlay(
                         RoundedRectangle(cornerRadius: 10, style: .continuous)
