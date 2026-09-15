@@ -65,32 +65,18 @@ public struct FinderMillerColumnsView: View {
     
     public var body: some View {
         GeometryReader { geometry in
-            ScrollView(.horizontal, showsIndicators: false) {
-                ScrollViewReader { proxy in
-                    HStack(alignment: .top, spacing: 0) {
-                        ForEach(Array(columnPaths.enumerated()), id: \.element.path) { index, dirURL in
-                            millerColumn(index: index, dirURL: dirURL, availableWidth: geometry.size.width)
-                                .id(index)
-                                .transition(.asymmetric(
-                                    insertion: .move(edge: .trailing).combined(with: .opacity),
-                                    removal: .opacity
-                                ))
-                        }
-                    }
-                    .frame(minWidth: geometry.size.width, maxHeight: .infinity, alignment: .topLeading)
-                    .onChange(of: columnPaths.count) { _, newCount in
-                        updateScrollPosition(proxy: proxy, count: newCount, availableWidth: geometry.size.width)
-                    }
-                    .onChange(of: geometry.size.width) { _, newWidth in
-                        let totalWidth = totalColumnsWidth(count: columnPaths.count, availableWidth: newWidth)
-                        if totalWidth <= newWidth + 0.5 {
-                            updateScrollPosition(proxy: proxy, count: columnPaths.count, availableWidth: newWidth, animated: false)
-                        }
-                    }
-                    .onAppear {
-                        updateScrollPosition(proxy: proxy, count: columnPaths.count, availableWidth: geometry.size.width, animated: false)
+            AppKitHorizontalScrollView(scrollToTrailingTrigger: columnPaths.count) {
+                HStack(alignment: .top, spacing: 0) {
+                    ForEach(Array(columnPaths.enumerated()), id: \.element.path) { index, dirURL in
+                        millerColumn(index: index, dirURL: dirURL, availableWidth: geometry.size.width)
+                            .id(index)
+                            .transition(.asymmetric(
+                                insertion: .move(edge: .trailing).combined(with: .opacity),
+                                removal: .opacity
+                            ))
                     }
                 }
+                .frame(minWidth: geometry.size.width, maxHeight: .infinity, alignment: .topLeading)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
             .clipped()
@@ -302,47 +288,7 @@ public struct FinderMillerColumnsView: View {
         }
     }
     
-    private func totalColumnsWidth(count: Int, availableWidth: CGFloat) -> CGFloat {
-        let columnsSum = (0..<count).reduce(0 as CGFloat) { total, idx in
-            let computed = computeColumnWidth(for: idx, availableWidth: availableWidth)
-            return total + max(computed, SingleMillerColumnView.minComfortableWidth)
-        }
-        // Account for 1.5pt vertical divider lines per column (1.0pt hairline + 0.5pt border)
-        let dividersWidth = CGFloat(count) * 1.5
-        return columnsSum + dividersWidth
-    }
-    
-    private func updateScrollPosition(
-        proxy: ScrollViewProxy,
-        count: Int,
-        availableWidth: CGFloat,
-        animated: Bool = true
-    ) {
-        guard count > 0 else { return }
-        DispatchQueue.main.async {
-            let totalWidth = self.totalColumnsWidth(count: count, availableWidth: availableWidth)
-            let targetIndex = max(0, count - 1)
-            
-            let executeScroll = {
-                if totalWidth <= availableWidth + 0.5 || targetIndex == 0 {
-                    // When all columns comfortably fit within viewport, align to leading edge
-                    proxy.scrollTo(0, anchor: .leading)
-                } else {
-                    // When viewport overflows, anchor the rightmost column to trailing
-                    // to ensure newly expanded child columns or active selections are fully visible.
-                    proxy.scrollTo(targetIndex, anchor: .trailing)
-                }
-            }
-            
-            if animated {
-                withAnimation(.spring(response: 0.25, dampingFraction: 0.85)) {
-                    executeScroll()
-                }
-            } else {
-                executeScroll()
-            }
-        }
-    }
+
     
     func millerColumn(index: Int, dirURL: URL, availableWidth: CGFloat) -> some View {
         let selectedPath = selectedPaths[index]
