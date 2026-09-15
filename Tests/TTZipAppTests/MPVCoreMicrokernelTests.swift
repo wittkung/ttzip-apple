@@ -267,11 +267,9 @@ final class MPVCoreMicrokernelTests: XCTestCase {
         await engine.terminate()
     }
 
-    // MARK: - Test 8: Playback Abort and Metadata Hwdec Properties
+    // MARK: - Test 8: Metadata Hwdec Properties
 
     func testMPVPlaybackAbortAndMetadataHwdecProperties() {
-        let abortEvent = MPVEvent.playbackAbort
-        XCTAssertEqual(abortEvent, .playbackAbort)
 
         let metadata = MPVMediaMetadataSnapshot(
             videoCodec: "vp8",

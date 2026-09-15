@@ -148,6 +148,11 @@ swift run ttzip-bench pipeline
      - **集成测试文件**: 必须显式添加 `--test <test_binary>`（如 `cargo test -p ttzip-engine --test blake3_facade_tests`），仅启动目标二进制；
      - **全量门禁回归**: 必须使用 `cargo test --workspace` 或专属测试脚本（如 `./scripts/run_blake3_tests.sh`）。
 
+8. **音视频媒体播放统一 100% 基于 `libmpv` 铁律 (Unified `libmpv` Media Pipeline Invariant)**:
+   - **唯一媒体播放内核**: TTZip 桌面客户端所有音频（.m4a, .aac, .aiff, .mp3, .flac, .alac, .wav, .ogg 等）与视频（.mkv, .mp4, .mov, .webm, .avi 等）预览及播放，统一 100% 基于 `libmpv` + Metal 渲染管线；
+   - **严禁擅自切换或建议回退原生**: 严禁在遇到解码异常或播放故障时擅自提出或重构为 macOS 原生 `AVPlayer` / `AVAudioPlayer` / `AVFoundation` 播放器。所有音视频格式支持与播放缺陷，必须且只能在 `libmpv` 实例配置、C-ABI 传参、CFFI 绑定、FFmpeg 滤镜、事件驱动循环及 Metal 纹理渲染管线内部排查与根治；
+   - **跨会话永久生效**: 本条为项目最高级架构选型宪章，任何 AI Agent 或工程师在跨会话与跨版本演进中均无权推翻或妥协。
+
 ---
 
 ## Ⅳ. 统一 SPDX 版权与注释标准 (Strict Invariants)

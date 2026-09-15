@@ -133,7 +133,7 @@ public enum MediaPreviewFactory {
                 let sampleData = readInitialSampleData(from: url)
                 return sampleData.isEmpty ? .unsupported("Format: \(ext.uppercased())") : .hexViewer(sampleData, url)
             }
-            if let content = MediaPreviewView.readTextContent(from: url) {
+            if let content = PreviewContentReader.readTextContent(from: url) {
                 return .spreadsheetTable(content, url)
             }
             let sampleData = readInitialSampleData(from: url)
@@ -153,14 +153,14 @@ public enum MediaPreviewFactory {
             return .ebook(meta)
         }
         if markdownExtensions.contains(ext) {
-            if let content = MediaPreviewView.readTextContent(from: url) {
+            if let content = PreviewContentReader.readTextContent(from: url) {
                 return .markdown(content, url)
             }
             let sampleData = readInitialSampleData(from: url)
             return .hexViewer(sampleData, url)
         }
         if htmlWebExtensions.contains(ext) {
-            if let content = MediaPreviewView.readTextContent(from: url) {
+            if let content = PreviewContentReader.readTextContent(from: url) {
                 return .htmlWeb(content: content, fileURL: url)
             }
             let sampleData = readInitialSampleData(from: url)
@@ -171,13 +171,13 @@ public enum MediaPreviewFactory {
             return .hexViewer(sampleData, url)
         }
         if textExtensions.contains(ext) {
-            if let content = MediaPreviewView.readTextContent(from: url) {
+            if let content = PreviewContentReader.readTextContent(from: url) {
                 return .text(content)
             }
             let sampleData = readInitialSampleData(from: url)
             return .hexViewer(sampleData, url)
         }
-        if let content = MediaPreviewView.readTextContent(from: url) {
+        if let content = PreviewContentReader.readTextContent(from: url) {
             return .text(content)
         }
         let sampleData = readInitialSampleData(from: url)
@@ -296,7 +296,7 @@ public enum MediaPreviewFactory {
         }
         
         if markdownExtensions.contains(ext) {
-            if let content = MediaPreviewView.readTextContent(from: url) {
+            if let content = PreviewContentReader.readTextContent(from: url) {
                 return .markdown(content, url)
             }
             let sampleData = readInitialSampleData(from: url)
@@ -304,7 +304,7 @@ public enum MediaPreviewFactory {
         }
         
         if htmlWebExtensions.contains(ext) {
-            if let content = MediaPreviewView.readTextContent(from: url) {
+            if let content = PreviewContentReader.readTextContent(from: url) {
                 return .htmlWeb(content: content, fileURL: url)
             }
             let sampleData = readInitialSampleData(from: url)
@@ -312,7 +312,7 @@ public enum MediaPreviewFactory {
         }
         
         if spreadsheetExtensions.contains(ext) {
-            if let content = MediaPreviewView.readTextContent(from: url) {
+            if let content = PreviewContentReader.readTextContent(from: url) {
                 return .spreadsheetTable(content, url)
             }
             let sampleData = readInitialSampleData(from: url)
@@ -325,7 +325,7 @@ public enum MediaPreviewFactory {
         }
         
         if textExtensions.contains(ext) {
-            if let content = MediaPreviewView.readTextContent(from: url) {
+            if let content = PreviewContentReader.readTextContent(from: url) {
                 return .text(content)
             }
             let sampleData = readInitialSampleData(from: url)
@@ -451,7 +451,7 @@ public enum MediaPreviewFactory {
         }
         
         if htmlWebExtensions.contains(ext) {
-            if let str = String(data: data.prefix(10 * 1024 * 1024), encoding: .utf8) ?? MediaPreviewView.decodeText(data: data) {
+            if let str = String(data: data.prefix(10 * 1024 * 1024), encoding: .utf8) ?? PreviewContentReader.decodeText(data: data) {
                 return .htmlWeb(content: str, fileURL: sourceURL)
             }
         }

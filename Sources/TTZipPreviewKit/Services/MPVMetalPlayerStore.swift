@@ -161,22 +161,25 @@ public final class MPVMetalPlayerStore {
         case .fileLoaded:
             self.hasPlaybackError = false
             self.errorMessage = nil
+            self.activeLayer?.forceRedraw()
             self.scheduleAsyncParamsRefresh()
         case .playbackRestart:
             self.hasPlaybackError = false
             self.isPlaying = true
+            self.activeLayer?.forceRedraw()
         case .seek(let pos):
             self.currentTime = pos
+            self.activeLayer?.forceRedraw()
         case .pause(let isPaused):
             self.isPlaying = !isPaused
         case .eof:
             self.isPlaying = false
             let finishedURL = self.currentURL
             self.onFilePlaybackEnded?(finishedURL)
-        case .playbackAbort:
-            self.handlePlaybackFailure(reason: "Playback aborted by decoder")
         case .error(let msg):
             self.handlePlaybackFailure(reason: msg)
+        case .playbackAbort:
+            self.handlePlaybackFailure(reason: "Playback aborted by decoder")
         case .propertyChange(let name, let value):
             self.handlePropertyChange(name: name, value: value)
         case .logMessage(let level, let text):

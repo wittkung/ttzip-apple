@@ -47,7 +47,7 @@ public struct HomeExplorerContainerView: View {
     
     private var hasCurrentDirectoryAccess: Bool {
         _ = accessRefreshTrigger
-        return RootFolderAccessManager.shared.hasActiveAccess(for: viewModel.currentDirectory)
+        return RootFolderAccessManager.shared.hasActiveAccess(for: viewModel.navigationState.currentDirectory)
     }
     
     public var body: some View {
@@ -122,7 +122,7 @@ public struct HomeExplorerContainerView: View {
                     
                     if !hasCurrentDirectoryAccess {
                         Button(action: {
-                            let rootURL = RootFolderAccessManager.shared.highestRootURL(for: viewModel.currentDirectory)
+                            let rootURL = RootFolderAccessManager.shared.highestRootURL(for: viewModel.navigationState.currentDirectory)
                             if RootFolderAccessManager.shared.requestRootAccess(for: rootURL) {
                                 accessRefreshTrigger &+= 1
                             }
@@ -156,25 +156,9 @@ public struct HomeExplorerContainerView: View {
                     MultiDirectoryTabBarView(viewModel: viewModel)
                     
                     DiskDirectoryBrowserView(
-                        rootDirectory: viewModel.currentDirectory,
-                        isActive: isActive,
-                        onSelectArchive: { archivePath in
-                            let u = URL(fileURLWithPath: archivePath)
-                            viewModel.openArchiveAsFolder(url: u)
-                        },
-                        onCompressPath: { folderPath in
-                            viewModel.openCompressWorkspace(paths: [folderPath])
-                        },
-                        onPreviewFile: { path in
-                            let item = DiskItemInfo(url: URL(fileURLWithPath: path), isDirectory: false)
-                            viewModel.openImmersiveMedia(for: item)
-                        },
-                        onSelectItem: { item in
-                            viewModel.selectedDiskItem = item
-                            if !item.isDirectory {
-                                viewModel.activeInspectedFile = item
-                            }
-                        }
+                        viewModel: viewModel,
+                        rootDirectory: viewModel.navigationState.currentDirectory,
+                        isActive: isActive
                     )
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
                 }

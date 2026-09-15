@@ -250,7 +250,7 @@ public struct InspectorColumnView: View {
     private func fileInspectorContent(for item: DiskItemInfo) -> some View {
         GeometryReader { proxy in
             let availableHeight = proxy.size.height
-            let contentWidth = max(0, proxy.size.width - 28)
+            let contentWidth = max(0, proxy.size.width - 16)
             let isImage = ["jpg", "jpeg", "png", "gif", "webp", "heic", "svg", "bmp", "tiff"]
                 .contains((item.name as NSString).pathExtension.lowercased())
             let reservedHeight: CGFloat = isImage ? 230.0 : 250.0
@@ -295,7 +295,7 @@ public struct InspectorColumnView: View {
                     .frame(maxWidth: contentWidth)
                 }
                 .frame(width: contentWidth)
-                .padding(.horizontal, 14)
+                .padding(.horizontal, 8)
                 .padding(.top, 10)
                 .padding(.bottom, 24)
                 .frame(width: proxy.size.width)

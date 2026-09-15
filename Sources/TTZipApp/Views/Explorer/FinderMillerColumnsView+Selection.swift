@@ -44,7 +44,8 @@ extension FinderMillerColumnsView {
             selectedPaths.removeValue(forKey: key)
         }
         selectedItem = item
-        onSelectItem(item)
+        activeViewModel?.selectionState.select(item)
+        onSelectItem?(item)
         
         let isEncrypted = item.kindText == "Password-Protected Archive" || item.kindText == "受密码保护的归档包" || item.name.contains("Encrypted Archive") || item.name.contains("压缩包已被加密")
         if isEncrypted {
@@ -82,7 +83,8 @@ extension FinderMillerColumnsView {
         if let first = items.first {
             selectedPaths[targetIndex] = first.path
             selectedItem = first
-            onSelectItem(first)
+            activeViewModel?.selectionState.select(first)
+            onSelectItem?(first)
         }
     }
     

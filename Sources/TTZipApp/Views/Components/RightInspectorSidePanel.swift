@@ -15,12 +15,10 @@ import TTZipBenchmarkKit
 /// Right contextual Inspector side panel supporting Home and Compress modes.
 public struct RightInspectorSidePanel: View {
     public var viewModel: AppViewState
-    @Binding public var rightVerticalTopHeight: CGFloat
     private var l10n = AppLocalizationState.shared
     
-    public init(viewModel: AppViewState, rightVerticalTopHeight: Binding<CGFloat> = .constant(300)) {
+    public init(viewModel: AppViewState) {
         self.viewModel = viewModel
-        self._rightVerticalTopHeight = rightVerticalTopHeight
     }
     
     public var body: some View {
@@ -37,32 +35,34 @@ public struct RightInspectorSidePanel: View {
             
             // Contextual Content Area: Directory Canvas, File Preview, or Current Directory Canvas
             VStack(alignment: .leading, spacing: 0) {
-                if let fileItem = viewModel.activeInspectedFile ?? (viewModel.selectedDiskItem?.isDirectory == false ? viewModel.selectedDiskItem : nil) {
-                    InspectorColumnView(
-                        item: fileItem,
-                        onSelectArchive: { archivePath in
-                            Task { await viewModel.loadArchive(path: archivePath) }
-                        },
-                        onCompressPath: { folderPath in
-                            viewModel.openCompressWorkspace(paths: [folderPath])
-                        },
-                        onPreviewFile: { _ in
-                            viewModel.openImmersiveMedia(for: fileItem)
-                        }
-                    )
-                    .id(fileItem.path)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                } else if let item = viewModel.selectedDiskItem, item.isDirectory {
-                    FolderMediaArtboardView(
-                        item: item,
-                        onCompressPath: { folderPath in
-                            viewModel.openCompressWorkspace(paths: [folderPath])
-                        }
-                    )
-                    .id(item.path)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                if let selectedItem = viewModel.selectionState.selectedDiskItem {
+                    if !selectedItem.isDirectory {
+                        InspectorColumnView(
+                            item: selectedItem,
+                            onSelectArchive: { archivePath in
+                                Task { await viewModel.loadArchive(path: archivePath) }
+                            },
+                            onCompressPath: { folderPath in
+                                viewModel.openCompressWorkspace(paths: [folderPath])
+                            },
+                            onPreviewFile: { _ in
+                                viewModel.openImmersiveMedia(for: selectedItem)
+                            }
+                        )
+                        .id(selectedItem.path)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    } else {
+                        FolderMediaArtboardView(
+                            item: selectedItem,
+                            onCompressPath: { folderPath in
+                                viewModel.openCompressWorkspace(paths: [folderPath])
+                            }
+                        )
+                        .id(selectedItem.path)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    }
                 } else {
-                    let currentFolderItem = DiskItemInfo(url: viewModel.currentDirectory)
+                    let currentFolderItem = DiskItemInfo(url: viewModel.navigationState.currentDirectory)
                     if currentFolderItem.isDirectory {
                         FolderMediaArtboardView(
                             item: currentFolderItem,
@@ -70,7 +70,7 @@ public struct RightInspectorSidePanel: View {
                                 viewModel.openCompressWorkspace(paths: [folderPath])
                             }
                         )
-                        .id(viewModel.currentDirectory.path)
+                        .id(viewModel.navigationState.currentDirectory.path)
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                     } else {
                         zenPlaceholderView
@@ -103,7 +103,7 @@ public struct RightInspectorSidePanel: View {
     // MARK: - Header Components
     
     private var activeHeaderItem: DiskItemInfo? {
-        viewModel.activeInspectedFile ?? (viewModel.selectedDiskItem?.isDirectory == false ? viewModel.selectedDiskItem : nil) ?? viewModel.selectedDiskItem
+        viewModel.selectionState.selectedDiskItem
     }
     
     @ViewBuilder
@@ -168,67 +168,48 @@ public struct RightInspectorSidePanel: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             
-            // Right: Compact Action Buttons (Context Menu + Dismiss)
-            HStack(spacing: 4) {
-                // More Actions Menu
-                Menu {
-                    Button(action: {
-                        viewModel.openImmersiveMedia(for: item)
-                    }) {
-                        Label(l10n.currentLanguage == .zhHans ? "全屏预览 (空格)" : "Quick Look (Space)", systemImage: "arrow.up.left.and.arrow.down.right")
-                    }
-                    
-                    Button(action: {
-                        NSWorkspace.shared.selectFile(item.path, inFileViewerRootedAtPath: "")
-                    }) {
-                        Label(l10n.t(L10n.Common.revealInFinder), systemImage: "folder")
-                    }
-                    
-                    if item.isArchive {
-                        Button(action: {
-                            viewModel.overlayState.inspectingArchivePath = item.path
-                            viewModel.overlayState.showArchiveInspectorModal = true
-                        }) {
-                            Label(l10n.t(L10n.Diagnostics.title), systemImage: "doc.badge.gearshape")
-                        }
-                    }
-                    
-                    Divider()
-                    
-                    Button(role: .destructive, action: {
-                        try? FileManager.default.trashItem(at: URL(fileURLWithPath: item.path), resultingItemURL: nil)
-                        viewModel.clearInspectedFile()
-                    }) {
-                        Label(l10n.currentLanguage == .zhHans ? "移到废纸篓" : "Move to Trash", systemImage: "trash")
-                    }
-                } label: {
-                    Image(systemName: "ellipsis.circle")
-                        .font(.system(size: 13))
-                        .foregroundStyle(Color.white.opacity(0.75))
-                        .frame(width: 22, height: 22)
-                        .contentShape(Rectangle())
-                }
-                .menuStyle(.borderlessButton)
-                .controlSize(.mini)
-                .help(l10n.currentLanguage == .zhHans ? "文件操作选项" : "Item actions")
-                .accessibilityLabel(l10n.currentLanguage == .zhHans ? "文件操作选项" : "Item actions")
-                
-                // Clear Selection Button
+            // Right: Compact Action Button (Context Menu)
+            Menu {
                 Button(action: {
-                    withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) {
-                        viewModel.clearInspectedFile()
-                    }
+                    viewModel.openImmersiveMedia(for: item)
                 }) {
-                    Image(systemName: "xmark.circle")
-                        .font(.system(size: 13))
-                        .foregroundStyle(Color.white.opacity(0.75))
-                        .frame(width: 22, height: 22)
-                        .contentShape(Rectangle())
+                    Label(l10n.currentLanguage == .zhHans ? "全屏预览 (空格)" : "Quick Look (Space)", systemImage: "arrow.up.left.and.arrow.down.right")
                 }
-                .buttonStyle(.plain)
-                .help(l10n.currentLanguage == .zhHans ? "取消文件选中并返回目录概览" : "Deselect file and return to folder overview")
-                .accessibilityLabel(l10n.currentLanguage == .zhHans ? "取消文件选中并返回目录概览" : "Deselect file and return to folder overview")
+                
+                Button(action: {
+                    NSWorkspace.shared.selectFile(item.path, inFileViewerRootedAtPath: "")
+                }) {
+                    Label(l10n.t(L10n.Common.revealInFinder), systemImage: "folder")
+                }
+                
+                if item.isArchive {
+                    Button(action: {
+                        viewModel.overlayState.inspectingArchivePath = item.path
+                        viewModel.overlayState.showArchiveInspectorModal = true
+                    }) {
+                        Label(l10n.t(L10n.Diagnostics.title), systemImage: "doc.badge.gearshape")
+                    }
+                }
+                
+                Divider()
+                
+                Button(role: .destructive, action: {
+                    try? FileManager.default.trashItem(at: URL(fileURLWithPath: item.path), resultingItemURL: nil)
+                    viewModel.clearInspectedFile()
+                }) {
+                    Label(l10n.currentLanguage == .zhHans ? "移到废纸篓" : "Move to Trash", systemImage: "trash")
+                }
+            } label: {
+                Image(systemName: "ellipsis.circle")
+                    .font(.system(size: 13))
+                    .foregroundStyle(Color.white.opacity(0.75))
+                    .frame(width: 22, height: 22)
+                    .contentShape(Rectangle())
             }
+            .menuStyle(.borderlessButton)
+            .controlSize(.mini)
+            .help(l10n.currentLanguage == .zhHans ? "文件操作选项" : "Item actions")
+            .accessibilityLabel(l10n.currentLanguage == .zhHans ? "文件操作选项" : "Item actions")
             .fixedSize(horizontal: true, vertical: false)
         }
     }

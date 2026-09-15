@@ -207,7 +207,20 @@ public actor MPVEventDispatcher {
                 )
                 needsImmediateStateFlush = true
 
-            case .error, .playbackAbort:
+            case .playbackAbort:
+                currentState = MPVPlaybackStateSnapshot(
+                    currentTime: currentState.currentTime,
+                    duration: currentState.duration,
+                    isPaused: true,
+                    volume: currentState.volume,
+                    isMuted: currentState.isMuted,
+                    cacheProgress: currentState.cacheProgress,
+                    isEOF: false,
+                    isBuffering: false
+                )
+                needsImmediateStateFlush = true
+
+            case .error:
                 currentState = MPVPlaybackStateSnapshot(
                     currentTime: currentState.currentTime,
                     duration: currentState.duration,
@@ -343,12 +356,6 @@ public actor MPVEventDispatcher {
                     isEOF: true,
                     isBuffering: false
                 )
-            }
-        case "playback-abort":
-            if case .flag(let aborted) = value, aborted {
-                for cont in eventContinuations.values {
-                    cont.yield(.playbackAbort)
-                }
             }
         case "hwdec-current":
             if case .string(let val) = value {

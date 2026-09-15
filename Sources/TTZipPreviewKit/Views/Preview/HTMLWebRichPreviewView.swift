@@ -76,11 +76,10 @@ public struct HTMLWebRichPreviewView: View {
                         )
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                     } else {
-                        CodeSyntaxPreviewView(
-                            content: content,
+                        CodeTextEditorContainerView(
+                            initialText: content,
                             fileURL: fileURL,
-                            fileName: fileName,
-                            onSave: onSave
+                            fileName: fileName
                         )
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                     }
@@ -357,46 +356,92 @@ public struct HTMLWKWebViewRepresentable: NSViewRepresentable {
     }
     
     private func loadHTML(in webView: WKWebView) {
-        if let url = fileURL, url.isFileURL {
+        let rawContent: String = {
+            if !content.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                return content
+            }
+            if let url = fileURL, url.isFileURL, let diskStr = try? String(contentsOf: url, encoding: .utf8) {
+                return diskStr
+            }
+            return ""
+        }()
+        
+        let pathExt = fileURL?.pathExtension.lowercased() ?? ""
+        let trimmed = rawContent.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        let isSVG = pathExt == "svg" || pathExt == "svgz" || trimmed.hasPrefix("<svg") || trimmed.contains("<svg")
+        
+        if isSVG {
+            var processedSVG = rawContent
+            let lowerSVG = processedSVG.lowercased()
+            if !lowerSVG.contains("viewbox") {
+                let widthPattern = #"(?i)(?<![\w-])width\s*=\s*["']([^"'%]+)["']"#
+                let heightPattern = #"(?i)(?<![\w-])height\s*=\s*["']([^"'%]+)["']"#
+                if let widthRegex = try? NSRegularExpression(pattern: widthPattern),
+                   let heightRegex = try? NSRegularExpression(pattern: heightPattern) {
+                    let nsStr = processedSVG as NSString
+                    let fullRange = NSRange(location: 0, length: nsStr.length)
+                    if let widthMatch = widthRegex.firstMatch(in: processedSVG, options: [], range: fullRange),
+                       let heightMatch = heightRegex.firstMatch(in: processedSVG, options: [], range: fullRange),
+                       widthMatch.numberOfRanges > 1,
+                       heightMatch.numberOfRanges > 1 {
+                        let wRaw = nsStr.substring(with: widthMatch.range(at: 1))
+                            .trimmingCharacters(in: .whitespacesAndNewlines)
+                            .replacingOccurrences(of: "px", with: "")
+                            .replacingOccurrences(of: "pt", with: "")
+                        let hRaw = nsStr.substring(with: heightMatch.range(at: 1))
+                            .trimmingCharacters(in: .whitespacesAndNewlines)
+                            .replacingOccurrences(of: "px", with: "")
+                            .replacingOccurrences(of: "pt", with: "")
+                        if let w = Double(wRaw), let h = Double(hRaw), w > 0, h > 0 {
+                            let wStr = (w.truncatingRemainder(dividingBy: 1) == 0) ? String(Int(w)) : String(w)
+                            let hStr = (h.truncatingRemainder(dividingBy: 1) == 0) ? String(Int(h)) : String(h)
+                            if let svgTagRange = lowerSVG.range(of: "<svg") {
+                                let insertIdx = processedSVG.index(svgTagRange.lowerBound, offsetBy: 4)
+                                processedSVG.insert(contentsOf: " viewBox=\"0 0 \(wStr) \(hStr)\"", at: insertIdx)
+                            }
+                        }
+                    }
+                }
+            }
+            
+            let htmlEnvelope = """
+            <!DOCTYPE html>
+            <html>
+            <head>
+            <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+            <style>
+              html, body {
+                margin: 0;
+                padding: 16px;
+                width: 100%;
+                height: 100%;
+                box-sizing: border-box;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                background: transparent;
+                overflow: hidden;
+              }
+              svg {
+                width: 100% !important;
+                height: 100% !important;
+                max-width: 100%;
+                max-height: 100%;
+                object-fit: contain;
+              }
+            </style>
+            </head>
+            <body>
+            \(processedSVG)
+            </body>
+            </html>
+            """
+            webView.loadHTMLString(htmlEnvelope, baseURL: fileURL?.deletingLastPathComponent())
+        } else if let url = fileURL, url.isFileURL {
             let directory = url.deletingLastPathComponent()
             webView.loadFileURL(url, allowingReadAccessTo: directory)
         } else {
-            let trimmed = content.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-            let isSVG = trimmed.hasPrefix("<svg") || trimmed.contains("<svg")
-            if isSVG {
-                let htmlEnvelope = """
-                <!DOCTYPE html>
-                <html>
-                <head>
-                <meta name="viewport" content="width=device-width, initial-scale=1.0">
-                <style>
-                  html, body {
-                    margin: 0;
-                    padding: 16px;
-                    height: 100%;
-                    box-sizing: border-box;
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    background: transparent;
-                  }
-                  svg {
-                    max-width: 100%;
-                    max-height: 100%;
-                    width: auto;
-                    height: auto;
-                  }
-                </style>
-                </head>
-                <body>
-                \(content)
-                </body>
-                </html>
-                """
-                webView.loadHTMLString(htmlEnvelope, baseURL: nil)
-            } else {
-                webView.loadHTMLString(content, baseURL: nil)
-            }
+            webView.loadHTMLString(content, baseURL: nil)
         }
     }
     
@@ -432,32 +477,3 @@ public struct HTMLWKWebViewRepresentable: NSViewRepresentable {
     }
 }
 
-// MARK: - CodeSyntaxPreviewView Adapter
-
-/// Syntax code preview and editor adapter view wrapping `CodeTextEditorContainerView`.
-public struct CodeSyntaxPreviewView: View {
-    public let content: String
-    public let fileURL: URL?
-    public let fileName: String
-    public let onSave: ((String) -> Void)?
-    
-    public init(
-        content: String,
-        fileURL: URL? = nil,
-        fileName: String = "",
-        onSave: ((String) -> Void)? = nil
-    ) {
-        self.content = content
-        self.fileURL = fileURL
-        self.fileName = fileName.isEmpty ? (fileURL?.lastPathComponent ?? "document.html") : fileName
-        self.onSave = onSave
-    }
-    
-    public var body: some View {
-        CodeTextEditorContainerView(
-            initialText: content,
-            fileURL: fileURL,
-            fileName: fileName
-        )
-    }
-}

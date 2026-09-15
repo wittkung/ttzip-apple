@@ -107,17 +107,18 @@ private final class MPVHandleHolder: Sendable {
         mpv_set_option_string(newHandle, "input-app-events", "no")
 
         if mode.isAudioOnly {
-            mpv_set_option_string(newHandle, "vo", "null")
+            mpv_set_option_string(newHandle, "vo", "libmpv")
             mpv_set_option_string(newHandle, "vid", "no")
             mpv_set_option_string(newHandle, "hwdec", "no")
-            mpv_set_option_string(newHandle, "ao", "coreaudio,auto")
+            mpv_set_option_string(newHandle, "ao", "coreaudio,")
         } else {
             mpv_set_option_string(newHandle, "vo", "libmpv")
-            mpv_set_option_string(newHandle, "hwdec", "auto")
+            mpv_set_option_string(newHandle, "hwdec", "videotoolbox-copy")
             mpv_set_option_string(newHandle, "hwdec-codecs", "all")
-            mpv_set_option_string(newHandle, "ao", "coreaudio,auto")
+            mpv_set_option_string(newHandle, "ao", "coreaudio,")
         }
         mpv_set_option_string(newHandle, "vd-lavc-dr", "no")
+        mpv_set_option_string(newHandle, "coreaudio-change-physical-format", "no")
 
         mpv_set_option_string(newHandle, "audio-stream-silence", "yes")
         mpv_set_option_string(newHandle, "audio-channels", "auto-safe")
@@ -170,8 +171,7 @@ private final class MPVHandleHolder: Sendable {
             (17, "hwdec-current", MPV_FORMAT_STRING),
             (18, "video-codec", MPV_FORMAT_STRING),
             (19, "audio-codec", MPV_FORMAT_STRING),
-            (20, "video-params/pixelformat", MPV_FORMAT_STRING),
-            (21, "playback-abort", MPV_FORMAT_FLAG)
+            (20, "video-params/pixelformat", MPV_FORMAT_STRING)
         ]
         for (replyId, name, format) in properties {
             mpv_observe_property(newHandle, replyId, name, format)
@@ -281,10 +281,6 @@ public actor MPVCoreEngine {
             self.securityScopedURL = url
         }
 
-        if isAudioOnly != currentOutputMode.isAudioOnly {
-            setOutputMode(isAudioOnly ? .audioOnly : .video(renderBackend: "libmpv"))
-        }
-
         try sendCommand(["loadfile", url.path, replace ? "replace" : "append"])
     }
 
@@ -372,21 +368,14 @@ public actor MPVCoreEngine {
         return flag != 0
     }
 
-    /// Dynamically switches the engine output mode between audio-only and video rendering.
+    /// Dynamically switches the engine output mode between audio-only and video rendering safely via property without re-initializing ao/vo drivers.
     public func setOutputMode(_ mode: MPVOutputMode) {
         self.currentOutputMode = mode
-        guard let handle else { return }
+        guard handle != nil else { return }
         if mode.isAudioOnly {
-            mpv_set_option_string(handle, "vo", "null")
-            mpv_set_option_string(handle, "vid", "no")
-            mpv_set_option_string(handle, "hwdec", "no")
-            mpv_set_option_string(handle, "ao", "coreaudio,auto")
+            try? setProperty(name: "vid", value: "no")
         } else {
-            mpv_set_option_string(handle, "vo", "libmpv")
-            mpv_set_option_string(handle, "vid", "auto")
-            mpv_set_option_string(handle, "hwdec", "auto")
-            mpv_set_option_string(handle, "hwdec-codecs", "all")
-            mpv_set_option_string(handle, "ao", "coreaudio,auto")
+            try? setProperty(name: "vid", value: "auto")
         }
     }
 

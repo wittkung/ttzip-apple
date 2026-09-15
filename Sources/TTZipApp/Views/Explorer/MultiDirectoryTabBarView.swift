@@ -20,7 +20,7 @@ public struct MultiDirectoryTabBarView: View {
     @State private var isHoveringNewTab: Bool = false
     private var l10n = AppLocalizationState.shared
 
-    private let barHeight: CGFloat = 28.0
+    private let barHeight: CGFloat = 24.0
 
     public init(viewModel: AppViewState) {
         self.viewModel = viewModel
@@ -71,12 +71,12 @@ public struct MultiDirectoryTabBarView: View {
         .background(
             ZStack {
                 Rectangle().fill(.ultraThinMaterial)
-                Color(nsColor: .windowBackgroundColor).opacity(0.35)
+                Color.white.opacity(0.015)
             }
         )
         .overlay(alignment: .bottom) {
             Rectangle()
-                .fill(Color.white.opacity(0.08))
+                .fill(Color.white.opacity(0.03))
                 .frame(height: 0.5)
         }
         .background(keyboardShortcuts)
@@ -121,21 +121,21 @@ public struct MultiDirectoryTabBarView: View {
                 .help(isChinese ? "关闭标签页 (⌘W)" : "Close Tab (⌘W)")
             }
         }
-        .padding(.leading, 8)
-        .padding(.trailing, viewModel.directoryTabs.count > 1 ? 4 : 8)
-        .padding(.vertical, 3.5)
+        .padding(.leading, 7)
+        .padding(.trailing, viewModel.directoryTabs.count > 1 ? 4 : 7)
+        .padding(.vertical, 2)
         .background(
-            RoundedRectangle(cornerRadius: 5, style: .continuous)
+            RoundedRectangle(cornerRadius: 4, style: .continuous)
                 .fill(
                     isActive
-                        ? Color.white.opacity(0.1)
+                        ? Color.white.opacity(0.08)
                         : (isHovered ? Color.white.opacity(0.04) : Color.clear)
                 )
         )
         .overlay(
-            RoundedRectangle(cornerRadius: 5, style: .continuous)
+            RoundedRectangle(cornerRadius: 4, style: .continuous)
                 .strokeBorder(
-                    isActive ? Color.white.opacity(0.15) : Color.clear,
+                    isActive ? Color.white.opacity(0.08) : Color.clear,
                     lineWidth: 0.5
                 )
         )

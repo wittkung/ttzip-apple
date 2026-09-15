@@ -281,7 +281,7 @@ public final class MPVAudioEngine {
             self.errorMessage = msg
         case .playbackAbort:
             self.hasPlaybackError = true
-            self.errorMessage = "Playback aborted by decoder"
+            self.errorMessage = "Playback aborted"
         case .propertyChange(let name, let value):
             applyTelemetryPropertyChange(name: name, value: value)
         case .logMessage:

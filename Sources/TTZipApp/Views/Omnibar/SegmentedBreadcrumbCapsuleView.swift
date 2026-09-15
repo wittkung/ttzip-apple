@@ -85,7 +85,7 @@ public struct SegmentedBreadcrumbCapsuleView: View {
             HStack(spacing: 3.5) {
                 if let icon = crumb.iconName {
                     Image(systemName: icon)
-                        .font(.system(size: 9.5, weight: .medium))
+                        .font(.system(size: 9.5, weight: crumb.isCurrent ? .semibold : .medium))
                         .foregroundStyle(crumb.isCurrent ? Color.white : Color.white.opacity(0.75))
                 }
 
@@ -98,9 +98,9 @@ public struct SegmentedBreadcrumbCapsuleView: View {
             .background(
                 RoundedRectangle(cornerRadius: 4, style: .continuous)
                     .fill(
-                        crumb.isCurrent
+                        hoveredCrumbID == crumb.id
                             ? Color.white.opacity(0.08)
-                            : (hoveredCrumbID == crumb.id ? Color.white.opacity(0.06) : Color.clear)
+                            : Color.clear
                     )
             )
             .contentShape(Rectangle())

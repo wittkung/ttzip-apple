@@ -77,7 +77,7 @@ public struct MarkdownNativeWKWebView: NSViewRepresentable {
                     font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang SC", "Hiragino Sans GB", "Segoe UI", sans-serif;
                     font-size: 14px;
                     line-height: 1.65;
-                    padding: 24px 36px;
+                    padding: 14px 18px;
                     margin: 0 auto;
                     max-width: 880px;
                     word-wrap: break-word;
@@ -138,7 +138,7 @@ public struct MarkdownNativeWKWebView: NSViewRepresentable {
                 tr:nth-child(even) { background-color: var(--table-stripe); }
                 img { max-width: 100%; height: auto; border-radius: 6px; margin: 1em 0; }
                 @media (max-width: 520px) {
-                    body { padding: 12px 14px; line-height: 1.5; font-size: 13px; }
+                    body { padding: 8px 10px; line-height: 1.45; font-size: 12.5px; }
                     h1 { font-size: 17px; margin-top: 1.0em; margin-bottom: 0.4em; }
                     h2 { font-size: 15px; margin-top: 0.9em; margin-bottom: 0.35em; }
                     h3 { font-size: 13.5px; margin-top: 0.8em; margin-bottom: 0.3em; }
@@ -146,8 +146,12 @@ public struct MarkdownNativeWKWebView: NSViewRepresentable {
                     p { margin-bottom: 0.75em; }
                     pre { padding: 8px 10px; border-radius: 6px; margin: 0.8em 0; }
                     blockquote { padding: 6px 10px; margin: 0.8em 0; }
-                    ul, ol { padding-left: 18px; margin-bottom: 0.75em; }
+                    ul, ol { padding-left: 14px; margin-bottom: 0.65em; }
                     th, td { padding: 6px 8px; font-size: 12px; }
+                }
+                @media (max-width: 320px) {
+                    body { padding: 6px 6px; }
+                    ul, ol { padding-left: 12px; }
                 }
             </style>
         </head>
