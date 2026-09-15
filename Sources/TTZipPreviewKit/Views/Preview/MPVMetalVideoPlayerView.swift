@@ -311,7 +311,7 @@ public struct MPVMetalVideoPlayerView: View {
             }
             return true
         }
-        .onAppear {
+        .onAppear { [playlistStore] in
             if store.currentURL == nil || store.currentURL != url {
                 store.load(url: url)
                 playlistStore.populateFromDirectory(for: url)

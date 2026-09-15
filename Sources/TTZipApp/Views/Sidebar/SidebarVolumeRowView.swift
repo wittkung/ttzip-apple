@@ -95,12 +95,12 @@ public struct SidebarVolumeRowView: View {
         HStack(spacing: 8) {
             Image(systemName: displayIcon)
                 .font(.system(size: 12.5, weight: isSelected ? .semibold : .medium))
-                .foregroundStyle(isSelected ? Color.primary : Color.secondary)
+                .foregroundStyle(isSelected ? Color.white : Color.white.opacity(0.75))
                 .frame(width: 18, alignment: .center)
 
             Text(volume.name)
                 .font(.system(size: 12, weight: isSelected ? .semibold : .regular))
-                .foregroundStyle(isSelected ? Color.primary : Color.primary.opacity(0.85))
+                .foregroundStyle(isSelected ? Color.white : Color.white.opacity(0.95))
                 .lineLimit(1)
                 .truncationMode(.tail)
 

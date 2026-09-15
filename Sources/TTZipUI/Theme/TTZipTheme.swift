@@ -290,8 +290,8 @@ public enum TTZipTheme {
     // MARK: - 5. Layout Tokens
     
     public enum Layout {
-        public static let headerBarHeight: CGFloat = 52.0
-        public static let topBarOffset: CGFloat = 38.0
+        public static let headerBarHeight: CGFloat = 48.0
+        public static let topBarOffset: CGFloat = 28.0
         public static let kintsugiGoldLineHeight: CGFloat = 1.5
         public static let hairlineBorderWidth: CGFloat = TTZipUniversalTokens.Dimensions.hairlineWidth
         public static let millerColumnMinWidth: CGFloat = 110.0

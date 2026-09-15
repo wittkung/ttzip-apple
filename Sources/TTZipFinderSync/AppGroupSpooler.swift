@@ -58,7 +58,7 @@ public final class AppGroupSpooler: Sendable {
             let dir = container.appendingPathComponent("spool", isDirectory: true)
             do {
                 try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
-                if FileManager.default.fileExists(atPath: dir.path) {
+                if FileManager.default.isWritableFile(atPath: dir.path) {
                     return dir
                 }
             } catch {
@@ -108,7 +108,14 @@ public final class AppGroupSpooler: Sendable {
         
         let fileURL = spoolDir.appendingPathComponent("\(jobId.uuidString).ttzipjob")
         let data = try JSONEncoder().encode(payload)
-        try data.write(to: fileURL, options: .atomic)
+        do {
+            try data.write(to: fileURL, options: .atomic)
+        } catch {
+            let fallback = FileManager.default.temporaryDirectory.appendingPathComponent("com.metastudyline.ttzip/spool", isDirectory: true)
+            try FileManager.default.createDirectory(at: fallback, withIntermediateDirectories: true)
+            let fallbackURL = fallback.appendingPathComponent("\(jobId.uuidString).ttzipjob")
+            try data.write(to: fallbackURL, options: .atomic)
+        }
         
         return jobId
     }

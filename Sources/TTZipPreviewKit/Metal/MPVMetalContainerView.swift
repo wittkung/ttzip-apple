@@ -112,7 +112,7 @@ public final class MPVMetalContainerView: MPVMetalNSView {
         observerHolder.removeAll()
         
         if let window = self.window {
-            warmupFrameCount = 5
+            warmupFrameCount = 15
             setupWindowObservers(for: window)
             bindStore()
             updateScaleAndBounds(force: true)
@@ -185,7 +185,7 @@ public final class MPVMetalContainerView: MPVMetalNSView {
                 metalLayer.updateDrawableSize(boundsSize: bounds.size, scaleFactor: scale)
             }
             videoLayer.bind(store: targetStore)
-            warmupFrameCount = 5
+            warmupFrameCount = 15
             if bounds.width > 0 && bounds.height > 0 {
                 videoLayer.forceRedraw()
             }

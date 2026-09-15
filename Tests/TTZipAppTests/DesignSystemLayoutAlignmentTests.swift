@@ -15,15 +15,15 @@ import TTZipBenchmarkKit
 @MainActor
 final class DesignSystemLayoutAlignmentTests: XCTestCase {
     
-    func test_sidebar_workspace_inspector_golden_rule_aligned_at_y90() {
+    func test_sidebar_workspace_inspector_golden_rule_aligned_at_y76() {
         // Design system baseline invariants
         let topInset: CGFloat = TTZipTheme.Layout.topBarOffset
         let headerHeight: CGFloat = TTZipTheme.Layout.headerBarHeight
         let goldenLineY: CGFloat = topInset + headerHeight
         
-        XCTAssertEqual(topInset, 38.0, "Top safety offset must be exactly 38.0pt")
-        XCTAssertEqual(headerHeight, 52.0, "Header bar height must be exactly 52.0pt")
-        XCTAssertEqual(goldenLineY, 90.0, "Golden Rule Line across 3 columns must align precisely at Y = 90pt")
+        XCTAssertEqual(topInset, 28.0, "Top safety offset must be exactly 28.0pt")
+        XCTAssertEqual(headerHeight, 48.0, "Header bar height must be exactly 48.0pt")
+        XCTAssertEqual(goldenLineY, 76.0, "Golden Rule Line across 3 columns must align precisely at Y = 76pt")
     }
     
     func test_zen_gutter_and_scaffold_spacing_tokens() {

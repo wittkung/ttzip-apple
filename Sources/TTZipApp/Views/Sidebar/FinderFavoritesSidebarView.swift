@@ -13,7 +13,6 @@ import AppKit
 /// Native macOS Finder favorites and locations sidebar adhering to the Zen x WSJ Editorial design system.
 public struct FinderFavoritesSidebarView: View {
     public let currentDirectory: URL
-    public var isIconRail: Bool
     public let onSelectDirectory: (URL) -> Void
     public var onSelectAndroidDevice: ((AndroidDevice) -> Void)? = nil
     
@@ -38,14 +37,10 @@ public struct FinderFavoritesSidebarView: View {
     
     public init(
         currentDirectory: URL,
-        isIconRail: Bool = false,
-        androidViewModel: AndroidDeviceViewModel = .shared,
         onSelectDirectory: @escaping (URL) -> Void,
         onSelectAndroidDevice: ((AndroidDevice) -> Void)? = nil
     ) {
         self.currentDirectory = currentDirectory
-        self.isIconRail = isIconRail
-        self.androidViewModel = androidViewModel
         self.onSelectDirectory = onSelectDirectory
         self.onSelectAndroidDevice = onSelectAndroidDevice
     }
@@ -66,8 +61,8 @@ public struct FinderFavoritesSidebarView: View {
     }
     
     public var body: some View {
-        VStack(alignment: isIconRail ? .center : .leading, spacing: 0) {
-            // MARK: - 1. Brand Header (Height 52pt, Golden Line strictly at Y = 90pt)
+        VStack(alignment: .leading, spacing: 0) {
+            // MARK: - 1. Brand Header (with traffic light safety clearance)
             headerSection
             
             Rectangle()
@@ -76,58 +71,54 @@ public struct FinderFavoritesSidebarView: View {
             
             // MARK: - 2. Scrollable Favorites & Locations List
             ScrollView(.vertical, showsIndicators: false) {
-                VStack(alignment: isIconRail ? .center : .leading, spacing: isIconRail ? 6 : 14) {
+                VStack(alignment: .leading, spacing: 14) {
                     // Group 0: Custom Pinned Directories
-                    if !isIconRail {
-                        VStack(alignment: .leading, spacing: 2) {
-                            HStack {
-                                sectionHeader(title: l10n.currentLanguage == .zhHans ? "常用" : "PINNED")
-                                Spacer()
-                                Button(action: addCustomFolder) {
-                                    Image(systemName: "plus")
-                                        .font(.system(size: 10, weight: .semibold))
-                                        .foregroundStyle(Color.secondary)
-                                        .frame(width: 18, height: 18)
-                                        .contentShape(Rectangle())
-                                }
-                                .buttonStyle(.plain)
-                                .help(l10n.currentLanguage == .zhHans ? "选择文件夹固定到侧边栏..." : "Pin folder to sidebar...")
+                    VStack(alignment: .leading, spacing: 2) {
+                        HStack {
+                            sectionHeader(title: l10n.currentLanguage == .zhHans ? "常用" : "PINNED")
+                            Spacer()
+                            Button(action: addCustomFolder) {
+                                Image(systemName: "plus")
+                                    .font(.system(size: 10, weight: .semibold))
+                                    .foregroundStyle(Color.white.opacity(0.65))
+                                    .frame(width: 18, height: 18)
+                                    .contentShape(Rectangle())
                             }
-                            .padding(.trailing, 8)
-                            
-                            ForEach(customPinnedPaths, id: \.self) { path in
-                                let url = URL(fileURLWithPath: path)
-                                sidebarRow(
-                                    title: url.lastPathComponent,
-                                    icon: "folder",
-                                    path: path,
-                                    section: .pinned
-                                )
-                            }
+                            .buttonStyle(.plain)
+                            .help(l10n.currentLanguage == .zhHans ? "选择文件夹固定到侧边栏..." : "Pin folder to sidebar...")
+                        }
+                        .padding(.trailing, 8)
+                        
+                        ForEach(customPinnedPaths, id: \.self) { path in
+                            let url = URL(fileURLWithPath: path)
+                            sidebarRow(
+                                title: url.lastPathComponent,
+                                icon: "folder",
+                                path: path,
+                                section: .pinned
+                            )
                         }
                     }
                     
                     // Group 1: Favorites
-                    VStack(alignment: isIconRail ? .center : .leading, spacing: isIconRail ? 4 : 2) {
-                        if !isIconRail {
-                            HStack {
-                                sectionHeader(title: l10n.currentLanguage == .zhHans ? "个人收藏" : "FAVORITES")
-                                Spacer()
-                                
-                                Button(action: authorizeFinderFavorites) {
-                                    Image(systemName: "arrow.triangle.2.circlepath")
-                                        .font(.system(size: 10, weight: .semibold))
-                                        .foregroundStyle(hasResolvedCustomFavorites ? Color.secondary.opacity(0.65) : TTZipTheme.bambooGreen)
-                                        .frame(width: 18, height: 18)
-                                        .contentShape(Rectangle())
-                                }
-                                .buttonStyle(.plain)
-                                .help(hasResolvedCustomFavorites
-                                    ? (l10n.currentLanguage == .zhHans ? "已同步访达个人收藏 (点击重新同步)" : "Finder Favorites Synced (Click to re-sync)")
-                                    : (l10n.currentLanguage == .zhHans ? "同步系统访达全部个人收藏..." : "Sync macOS Finder Favorites..."))
+                    VStack(alignment: .leading, spacing: 2) {
+                        HStack {
+                            sectionHeader(title: l10n.currentLanguage == .zhHans ? "个人收藏" : "FAVORITES")
+                            Spacer()
+                            
+                            Button(action: authorizeFinderFavorites) {
+                                Image(systemName: "arrow.triangle.2.circlepath")
+                                    .font(.system(size: 10, weight: .semibold))
+                                    .foregroundStyle(hasResolvedCustomFavorites ? Color.white.opacity(0.65) : TTZipTheme.bambooGreen)
+                                    .frame(width: 18, height: 18)
+                                    .contentShape(Rectangle())
                             }
-                            .padding(.trailing, 8)
+                            .buttonStyle(.plain)
+                            .help(hasResolvedCustomFavorites
+                                ? (l10n.currentLanguage == .zhHans ? "已同步访达个人收藏 (点击重新同步)" : "Finder Favorites Synced (Click to re-sync)")
+                                : (l10n.currentLanguage == .zhHans ? "同步系统访达全部个人收藏..." : "Sync macOS Finder Favorites..."))
                         }
+                        .padding(.trailing, 8)
                         
                         ForEach(dynamicFinderFavorites.filter { item in !volumeManager.mountedVolumes.contains { $0.path == item.path } }) { item in
                             sidebarRow(
@@ -143,35 +134,26 @@ public struct FinderFavoritesSidebarView: View {
                     let volumes = volumeManager.mountedVolumes
                     let androidDevices = androidViewModel.connectedDevices
                     if !volumes.isEmpty || !androidDevices.isEmpty {
-                        if isIconRail {
-                            Rectangle()
-                                .fill(Color.primary.opacity(0.08))
-                                .frame(width: 24, height: 0.8)
-                                .padding(.vertical, 4)
-                        }
-                        
-                        VStack(alignment: isIconRail ? .center : .leading, spacing: isIconRail ? 4 : 2) {
-                            if !isIconRail {
-                                HStack {
-                                    sectionHeader(title: l10n.currentLanguage == .zhHans ? "位置" : "LOCATIONS")
-                                    Spacer()
-                                    Button(action: { showWirelessDiscoverySheet = true }) {
-                                        Image(systemName: "wifi.badge.plus")
-                                            .font(.system(size: 10, weight: .bold))
-                                            .foregroundStyle(.secondary.opacity(0.75))
-                                             .frame(width: 18, height: 18)
-                                    }
-                                    .buttonStyle(.plain)
-                                    .help(l10n.currentLanguage == .zhHans ? "发现并配对无线安卓设备" : "Discover & Pair Wireless Android")
+                        VStack(alignment: .leading, spacing: 2) {
+                            HStack {
+                                sectionHeader(title: l10n.currentLanguage == .zhHans ? "位置" : "LOCATIONS")
+                                Spacer()
+                                Button(action: { showWirelessDiscoverySheet = true }) {
+                                    Image(systemName: "wifi.badge.plus")
+                                        .font(.system(size: 10, weight: .bold))
+                                        .foregroundStyle(.secondary.opacity(0.75))
+                                        .frame(width: 18, height: 18)
                                 }
-                                .padding(.trailing, 8)
+                                .buttonStyle(.plain)
+                                .help(l10n.currentLanguage == .zhHans ? "发现并配对无线安卓设备" : "Discover & Pair Wireless Android")
                             }
+                            .padding(.trailing, 8)
                             
                             ForEach(volumes) { volume in
                                 SidebarVolumeRowView(
                                     volume: volume,
                                     isSelected: isRowSelected(path: volume.path, section: .locations),
-                                    isIconRail: isIconRail,
+                                    isIconRail: false,
                                     onSelect: { url in
                                         activeSection = .locations
                                         onSelectDirectory(url)
@@ -183,7 +165,7 @@ public struct FinderFavoritesSidebarView: View {
                                 SidebarAndroidDeviceRowView(
                                     device: device,
                                     isSelected: androidViewModel.selectedDevice?.deviceId == device.deviceId,
-                                    isIconRail: isIconRail,
+                                    isIconRail: false,
                                     onSelect: { dev in
                                         androidViewModel.selectDevice(dev)
                                         onSelectAndroidDevice?(dev)
@@ -196,10 +178,10 @@ public struct FinderFavoritesSidebarView: View {
                         }
                     }
                 }
-                .padding(.horizontal, isIconRail ? 4 : 8)
+                .padding(.horizontal, 10)
                 .padding(.top, 10)
-                .padding(.bottom, 24)
-                .frame(maxWidth: .infinity, alignment: isIconRail ? .center : .leading)
+                .padding(.bottom, 20)
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
             .overlay(
@@ -212,7 +194,7 @@ public struct FinderFavoritesSidebarView: View {
             }
             
             // MARK: - 3. Apple Silicon Hardware & Engine Footer
-            SidebarHardwareFooterView(isIconRail: isIconRail)
+            SidebarHardwareFooterView(isIconRail: false)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .background(Color.clear)
@@ -235,91 +217,60 @@ public struct FinderFavoritesSidebarView: View {
     // MARK: - Subviews
     
     private var headerSection: some View {
-        Group {
-            if isIconRail {
-                HStack {
-                    Spacer(minLength: 0)
+        VStack(spacing: 0) {
+            // Safety spacer for macOS traffic light integration (red/yellow/green buttons)
+            Color.clear
+                .frame(height: TTZipTheme.Layout.topBarOffset)
+            
+            HStack(alignment: .center, spacing: 6) {
+                HStack(alignment: .center, spacing: 7) {
                     if let logo = AppLogoCache.sharedLogoImage {
                         Image(nsImage: logo)
                             .resizable()
                             .aspectRatio(contentMode: .fit)
-                            .frame(width: 22, height: 22)
-                            .clipShape(RoundedRectangle(cornerRadius: 5, style: .continuous))
+                            .frame(width: 20, height: 20)
+                            .clipShape(RoundedRectangle(cornerRadius: 4.5, style: .continuous))
+                            .shadow(color: .black.opacity(0.12), radius: 1.5, x: 0, y: 1)
                     } else {
                         Image(systemName: "archivebox.fill")
                             .font(.system(size: 14, weight: .bold))
                             .foregroundStyle(TTZipTheme.bambooGreen)
                     }
-                    Spacer(minLength: 0)
-                }
-                .frame(maxWidth: .infinity)
-                .help(licenseManager.currentTier.isPro ? "TTZip Pro" : "TTZip")
-            } else {
-                HStack(alignment: .center, spacing: 6) {
-                    HStack(alignment: .center, spacing: 7) {
-                        if let logo = AppLogoCache.sharedLogoImage {
-                            Image(nsImage: logo)
-                                .resizable()
-                                .aspectRatio(contentMode: .fit)
-                                .frame(width: 20, height: 20)
-                                .clipShape(RoundedRectangle(cornerRadius: 4.5, style: .continuous))
-                                .shadow(color: .black.opacity(0.12), radius: 1.5, x: 0, y: 1)
-                        } else {
-                            Image(systemName: "archivebox.fill")
-                                .font(.system(size: 14, weight: .bold))
-                                .foregroundStyle(TTZipTheme.bambooGreen)
-                        }
-                        
-                        Text("TTZip")
-                            .font(.system(size: 14.5, weight: .bold, design: .serif))
-                            .tracking(0.5)
-                            .foregroundStyle(.primary)
-                            .lineLimit(1)
-                        
-                        if licenseManager.currentTier.isPro {
-                            Text("PRO")
-                                .font(.system(size: 8, weight: .heavy, design: .rounded))
-                                .foregroundStyle(TTZipTheme.kintsugiGoldEditorial)
-                                .padding(.horizontal, 4.5)
-                                .padding(.vertical, 1.5)
-                                .background(TTZipTheme.kintsugiGoldEditorial.opacity(0.12))
-                                .clipShape(Capsule())
-                                .overlay(
-                                    Capsule().strokeBorder(TTZipTheme.kintsugiGoldEditorial.opacity(0.35), lineWidth: 0.6)
-                                )
-                                .lineLimit(1)
-                        }
-                    }
-                    .fixedSize(horizontal: true, vertical: false)
                     
-                    Spacer(minLength: 4)
+                    Text("TTZip")
+                        .font(.system(size: 14.5, weight: .bold, design: .serif))
+                        .tracking(0.5)
+                        .foregroundStyle(Color.white)
+                        .lineLimit(1)
                     
-                    Button(action: addCustomFolder) {
-                        Image(systemName: "plus")
-                            .font(.system(size: 10.5, weight: .bold))
-                            .foregroundStyle(.secondary)
-                            .frame(width: 20, height: 20)
-                            .background(Color.primary.opacity(0.04))
-                            .clipShape(Circle())
+                    if licenseManager.currentTier.isPro {
+                        Text("PRO")
+                            .font(.system(size: 8, weight: .heavy, design: .rounded))
+                            .foregroundStyle(TTZipTheme.kintsugiGoldEditorial)
+                            .padding(.horizontal, 4.5)
+                            .padding(.vertical, 1.5)
+                            .background(TTZipTheme.kintsugiGoldEditorial.opacity(0.12))
+                            .clipShape(Capsule())
                             .overlay(
-                                Circle().strokeBorder(Color.primary.opacity(0.08), lineWidth: 0.5)
+                                Capsule().strokeBorder(TTZipTheme.kintsugiGoldEditorial.opacity(0.35), lineWidth: 0.6)
                             )
+                            .lineLimit(1)
                     }
-                    .buttonStyle(.plain)
-                    .help(l10n.currentLanguage == .zhHans ? "添加自定常用文件夹到侧边栏" : "Pin custom folder to sidebar")
                 }
-                .padding(.horizontal, 12)
+                .fixedSize(horizontal: true, vertical: false)
+                
+                Spacer(minLength: 0)
             }
+            .padding(.horizontal, 14)
+            .frame(height: TTZipTheme.Layout.headerBarHeight)
         }
-        .frame(height: TTZipTheme.Layout.headerBarHeight)
-        .padding(.top, TTZipTheme.Layout.topBarOffset)
     }
     
     private func sectionHeader(title: String) -> some View {
         Text(title)
-            .font(.system(size: 10.5, weight: .semibold))
-            .tracking(0.6)
-            .foregroundStyle(.secondary)
+            .font(.system(size: 10.5, weight: .bold))
+            .tracking(0.8)
+            .foregroundStyle(Color.white.opacity(0.65))
             .lineLimit(1)
             .fixedSize(horizontal: true, vertical: false)
             .padding(.horizontal, 10)
@@ -338,65 +289,38 @@ public struct FinderFavoritesSidebarView: View {
             let targetURL = URL(fileURLWithPath: path)
             onSelectDirectory(targetURL)
         }) {
-            if isIconRail {
-                ZStack(alignment: .leading) {
-                    Image(systemName: displayIcon)
-                        .font(.system(size: 15, weight: isSelected ? .semibold : .regular))
-                        .foregroundStyle(iconColor(isSelected: isSelected))
-                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
-                    
-                    if isSelected {
-                        Capsule()
-                            .fill(TTZipTheme.bambooGreen)
-                            .frame(width: 2.5, height: 18)
-                            .padding(.leading, 2)
+            HStack(spacing: 8) {
+                Image(systemName: displayIcon)
+                    .font(.system(size: 12.5, weight: isSelected ? .semibold : .medium))
+                    .foregroundStyle(iconColor(isSelected: isSelected))
+                    .frame(width: 18, alignment: .center)
+                
+                Text(title)
+                    .font(.system(size: 12, weight: isSelected ? .semibold : .regular))
+                    .foregroundStyle(isSelected ? Color.white : Color.white.opacity(0.95))
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+                
+                Spacer(minLength: 0)
+                
+                if isCustom {
+                    Button(action: { removeCustomPinnedFolder(path: path) }) {
+                        Image(systemName: "xmark")
+                            .font(.system(size: 8.5, weight: .bold))
+                            .foregroundStyle(.secondary.opacity(0.6))
                     }
+                    .buttonStyle(.plain)
+                    .opacity(isHovered ? 1.0 : 0.0)
+                    .help(l10n.currentLanguage == .zhHans ? "移除此快捷方式" : "Unpin shortcut")
                 }
-                .frame(width: 36, height: 34)
-                .background(
-                    RoundedRectangle(cornerRadius: 7, style: .continuous)
-                        .fill(iconRailRowBackgroundColor(isSelected: isSelected, isHovered: isHovered))
-                )
-                .overlay(
-                    RoundedRectangle(cornerRadius: 7, style: .continuous)
-                        .strokeBorder(isSelected ? TTZipTheme.bambooGreen.opacity(0.3) : Color.clear, lineWidth: 0.8)
-                )
-                .help(title)
-                .contentShape(Rectangle())
-            } else {
-                HStack(spacing: 8) {
-                    Image(systemName: displayIcon)
-                        .font(.system(size: 12.5, weight: isSelected ? .semibold : .medium))
-                        .foregroundStyle(iconColor(isSelected: isSelected))
-                        .frame(width: 18, alignment: .center)
-                    
-                    Text(title)
-                        .font(.system(size: 12, weight: isSelected ? .semibold : .regular))
-                        .foregroundStyle(isSelected ? .primary : Color.primary.opacity(0.85))
-                        .lineLimit(1)
-                        .truncationMode(.tail)
-                    
-                    Spacer(minLength: 0)
-                    
-                    if isCustom {
-                        Button(action: { removeCustomPinnedFolder(path: path) }) {
-                            Image(systemName: "xmark")
-                                .font(.system(size: 8.5, weight: .bold))
-                                .foregroundStyle(.secondary.opacity(0.6))
-                        }
-                        .buttonStyle(.plain)
-                        .opacity(isHovered ? 1.0 : 0.0)
-                        .help(l10n.currentLanguage == .zhHans ? "移除此快捷方式" : "Unpin shortcut")
-                    }
-                }
-                .padding(.horizontal, 10)
-                .frame(height: 28)
-                .background(
-                    RoundedRectangle(cornerRadius: 6, style: .continuous)
-                        .fill(rowBackgroundColor(isSelected: isSelected, isHovered: isHovered))
-                )
-                .contentShape(Rectangle())
             }
+            .padding(.horizontal, 10)
+            .frame(height: 28)
+            .background(
+                RoundedRectangle(cornerRadius: 6, style: .continuous)
+                    .fill(rowBackgroundColor(isSelected: isSelected, isHovered: isHovered))
+            )
+            .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .onHover { hovering in
@@ -466,21 +390,11 @@ public struct FinderFavoritesSidebarView: View {
         }
     }
     
-    private func iconRailRowBackgroundColor(isSelected: Bool, isHovered: Bool) -> Color {
-        if isSelected {
-            return TTZipTheme.bambooGreen.opacity(0.16)
-        } else if isHovered {
-            return Color.primary.opacity(0.05)
-        } else {
-            return Color.clear
-        }
-    }
-    
     private func iconColor(isSelected: Bool) -> Color {
         if isSelected {
-            return .primary
+            return Color.white
         }
-        return .secondary
+        return Color.white.opacity(0.75)
     }
     
     private func loadFavorites() {

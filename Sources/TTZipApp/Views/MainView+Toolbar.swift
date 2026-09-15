@@ -22,7 +22,7 @@ extension MainView {
                         isLeftSidebarVisible.toggle()
                     }
                 } label: {
-                    Image(systemName: "sidebar.left")
+                    Image(systemName: "sidebar.leading")
                         .font(.system(size: 13.5, weight: .medium))
                         .foregroundStyle(isLeftSidebarVisible ? TTZipTheme.bambooGreen : .secondary)
                         .frame(height: 24)
@@ -211,13 +211,18 @@ extension MainView {
 
 /// A lightweight translucent action button conforming to Zen minimalist design and macOS HIG.
 /// Renders an independent bamboo green accent control with delicate border and smooth transitions.
-private struct NewArchiveToolbarButton: View {
-    let title: String
-    let action: () -> Void
+public struct NewArchiveToolbarButton: View {
+    public let title: String
+    public let action: () -> Void
     
     @State private var isHovered: Bool = false
     
-    var body: some View {
+    public init(title: String, action: @escaping () -> Void) {
+        self.title = title
+        self.action = action
+    }
+    
+    public var body: some View {
         Button(action: action) {
             HStack(spacing: 5) {
                 Image(systemName: "plus")

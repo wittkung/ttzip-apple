@@ -223,14 +223,16 @@ private struct QuickActionSegmentButton: View {
             HStack(spacing: 4) {
                 Image(systemName: icon)
                     .font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(isHovered ? Color.white : Color.white.opacity(0.85))
                 
                 if width >= 260 {
                     Text(width > 400 ? fullTitle : shortTitle)
                         .font(.system(size: 11, weight: .medium))
+                        .foregroundStyle(isHovered ? Color.white : Color.white.opacity(0.92))
                         .lineLimit(1)
                 }
             }
-            .foregroundStyle(isHovered ? Color.primary : Color.primary.opacity(0.75))
+            .foregroundStyle(isHovered ? Color.white : Color.white.opacity(0.92))
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .padding(.vertical, 4)
             .background(
