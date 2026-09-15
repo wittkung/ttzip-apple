@@ -20,6 +20,7 @@ public struct FinderFavoritesSidebarView: View {
     private var l10n = AppLocalizationState.shared
     private var licenseManager = AppLicenseManager.shared
     @State private var androidViewModel = AndroidDeviceViewModel.shared
+    @State private var volumeManager = MountedVolumeManager.shared
     @State private var dynamicFinderFavorites: [FinderFavoriteItem] = []
     @State private var hoveredItemPath: String? = nil
     @State private var showWirelessDiscoverySheet: Bool = false
@@ -128,7 +129,7 @@ public struct FinderFavoritesSidebarView: View {
                             .padding(.trailing, 8)
                         }
                         
-                        ForEach(dynamicFinderFavorites.filter { !isVolumePath($0.path) }) { item in
+                        ForEach(dynamicFinderFavorites.filter { item in !volumeManager.mountedVolumes.contains { $0.path == item.path } }) { item in
                             sidebarRow(
                                 title: item.name,
                                 icon: item.systemImage,
@@ -139,9 +140,9 @@ public struct FinderFavoritesSidebarView: View {
                     }
                     
                     // Group 2: Locations
-                    let volumeItems = dynamicFinderFavorites.filter { isVolumePath($0.path) }
+                    let volumes = volumeManager.mountedVolumes
                     let androidDevices = androidViewModel.connectedDevices
-                    if !volumeItems.isEmpty || !androidDevices.isEmpty {
+                    if !volumes.isEmpty || !androidDevices.isEmpty {
                         if isIconRail {
                             Rectangle()
                                 .fill(Color.primary.opacity(0.08))
@@ -166,17 +167,31 @@ public struct FinderFavoritesSidebarView: View {
                                 .padding(.trailing, 8)
                             }
                             
-                            ForEach(volumeItems) { item in
-                                sidebarRow(
-                                    title: item.name,
-                                    icon: item.systemImage,
-                                    path: item.path,
-                                    section: .locations
+                            ForEach(volumes) { volume in
+                                SidebarVolumeRowView(
+                                    volume: volume,
+                                    isSelected: isRowSelected(path: volume.path, section: .locations),
+                                    isIconRail: isIconRail,
+                                    onSelect: { url in
+                                        activeSection = .locations
+                                        onSelectDirectory(url)
+                                    }
                                 )
                             }
                             
                             ForEach(androidDevices) { device in
-                                androidDeviceRow(device: device)
+                                SidebarAndroidDeviceRowView(
+                                    device: device,
+                                    isSelected: androidViewModel.selectedDevice?.deviceId == device.deviceId,
+                                    isIconRail: isIconRail,
+                                    onSelect: { dev in
+                                        androidViewModel.selectDevice(dev)
+                                        onSelectAndroidDevice?(dev)
+                                    },
+                                    onEject: { dev in
+                                        androidViewModel.ejectDevice(dev)
+                                    }
+                                )
                             }
                         }
                     }
@@ -197,7 +212,7 @@ public struct FinderFavoritesSidebarView: View {
             }
             
             // MARK: - 3. Apple Silicon Hardware & Engine Footer
-            sidebarHardwareFooter
+            SidebarHardwareFooterView(isIconRail: isIconRail)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .background(Color.clear)
@@ -298,74 +313,6 @@ public struct FinderFavoritesSidebarView: View {
         }
         .frame(height: TTZipTheme.Layout.headerBarHeight)
         .padding(.top, TTZipTheme.Layout.topBarOffset)
-    }
-    
-    private var sidebarHardwareFooter: some View {
-        VStack(spacing: 0) {
-            Rectangle()
-                .fill(TTZipTheme.hairlineBorder)
-                .frame(height: 0.8)
-            
-            Group {
-                if isIconRail {
-                    HStack {
-                        Spacer(minLength: 0)
-                        ZStack(alignment: .topTrailing) {
-                            Image(systemName: "cpu")
-                                .font(.system(size: 11, weight: .medium))
-                                .foregroundStyle(TTZipTheme.bambooGreen.opacity(0.85))
-                            
-                            Circle()
-                                .fill(TTZipTheme.bambooGreen)
-                                .frame(width: 4, height: 4)
-                                .offset(x: 2, y: -2)
-                        }
-                        .help("\(hardwareChipSummary) · \(l10n.currentLanguage == .zhHans ? "加速就绪" : "Engine Online")")
-                        Spacer(minLength: 0)
-                    }
-                    .frame(height: 32)
-                } else {
-                    HStack(spacing: 5) {
-                        Image(systemName: "cpu")
-                            .font(.system(size: 9.5, weight: .semibold))
-                            .foregroundStyle(.secondary)
-                        
-                        Text(hardwareChipSummary)
-                            .font(.system(size: 9.5, weight: .medium, design: .monospaced))
-                            .foregroundStyle(.secondary)
-                            .lineLimit(1)
-                            .truncationMode(.middle)
-                        
-                        Spacer(minLength: 4)
-                        
-                        HStack(spacing: 3.5) {
-                            Circle()
-                                .fill(TTZipTheme.bambooGreen)
-                                .frame(width: 4.5, height: 4.5)
-                            Text(l10n.currentLanguage == .zhHans ? "加速就绪" : "Online")
-                                .font(.system(size: 8.5, weight: .medium))
-                                .foregroundStyle(TTZipTheme.bambooGreen)
-                                .lineLimit(1)
-                        }
-                        .fixedSize(horizontal: true, vertical: false)
-                        .layoutPriority(1)
-                        .help(l10n.currentLanguage == .zhHans ? "Apple Silicon 硬件加速引擎就绪" : "Apple Silicon Hardware Engine Online")
-                    }
-                    .padding(.horizontal, 12)
-                    .frame(height: 32)
-                }
-            }
-            .frame(height: 32)
-            .background(Color.primary.opacity(0.015))
-        }
-    }
-    
-    private var hardwareChipSummary: String {
-        let raw = AppleSiliconTuner.shared.topology.chipName
-        if raw.hasPrefix("Apple ") {
-            return String(raw.dropFirst(6))
-        }
-        return raw
     }
     
     private func sectionHeader(title: String) -> some View {
@@ -490,7 +437,10 @@ public struct FinderFavoritesSidebarView: View {
         guard isCurrentPath(path) else { return false }
         let currentNorm = currentDirectory.standardizedFileURL.path
         let inPinned = customPinnedPaths.contains { URL(fileURLWithPath: $0).standardizedFileURL.path == currentNorm }
-        let inFavorites = dynamicFinderFavorites.contains { !isVolumePath($0.path) && URL(fileURLWithPath: $0.path).standardizedFileURL.path == currentNorm }
+        let inFavorites = dynamicFinderFavorites.contains { item in
+            !volumeManager.mountedVolumes.contains { $0.path == item.path } &&
+            URL(fileURLWithPath: item.path).standardizedFileURL.path == currentNorm
+        }
         if inPinned && inFavorites {
             return activeSection.map { $0 == section } ?? (section == .pinned)
         }
@@ -504,10 +454,6 @@ public struct FinderFavoritesSidebarView: View {
             return outline.isEmpty ? icon : outline
         }
         return icon
-    }
-    
-    private func isVolumePath(_ path: String) -> Bool {
-        return path == "/" || path.lowercased().hasPrefix("/volumes/")
     }
     
     private func rowBackgroundColor(isSelected: Bool, isHovered: Bool) -> Color {
@@ -635,142 +581,5 @@ public struct FinderFavoritesSidebarView: View {
             configuration: NSWorkspace.OpenConfiguration(),
             completionHandler: nil
         )
-    }
-    
-    // MARK: - Android Device Sidebar Rows
-    
-    private func androidDeviceRow(device: AndroidDevice) -> some View {
-        let isSelected = androidViewModel.selectedDevice?.deviceId == device.deviceId
-        let isHovered = hoveredItemPath == device.deviceId
-        let deviceIcon = androidDeviceIcon(device)
-        
-        return Button(action: {
-            androidViewModel.selectDevice(device)
-            onSelectAndroidDevice?(device)
-        }) {
-            if isIconRail {
-                ZStack(alignment: .leading) {
-                    Image(systemName: deviceIcon)
-                        .font(.system(size: 15, weight: isSelected ? .semibold : .regular))
-                        .foregroundStyle(isSelected ? TTZipTheme.bambooGreen : .secondary.opacity(0.85))
-                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
-                    
-                    if isSelected {
-                        Capsule()
-                            .fill(TTZipTheme.bambooGreen)
-                            .frame(width: 2.5, height: 18)
-                            .padding(.leading, 2)
-                    }
-                }
-                .frame(width: 36, height: 34)
-                .background(
-                    RoundedRectangle(cornerRadius: 7, style: .continuous)
-                        .fill(iconRailRowBackgroundColor(isSelected: isSelected, isHovered: isHovered))
-                )
-                .overlay(
-                    RoundedRectangle(cornerRadius: 7, style: .continuous)
-                        .strokeBorder(isSelected ? TTZipTheme.bambooGreen.opacity(0.3) : Color.clear, lineWidth: 0.8)
-                )
-                .help("\(device.displayName) (\(device.connectionType.description))")
-                .contentShape(Rectangle())
-            } else {
-                HStack(spacing: 7) {
-                    Image(systemName: deviceIcon)
-                        .font(.system(size: 12.5, weight: isSelected ? .semibold : .medium))
-                        .foregroundStyle(isSelected ? TTZipTheme.bambooGreen : .secondary.opacity(0.85))
-                        .frame(width: 18, alignment: .center)
-                    
-                    Text(device.displayName)
-                        .font(.system(size: 12, weight: isSelected ? .semibold : .regular))
-                        .foregroundStyle(isSelected ? .primary : Color.primary.opacity(0.85))
-                        .lineLimit(1)
-                        .truncationMode(.tail)
-                    
-                    Spacer(minLength: 2)
-                    
-                    connectionModeBadge(type: device.connectionType)
-                    
-                    Button(action: {
-                        withAnimation(.easeInOut(duration: 0.2)) {
-                            androidViewModel.ejectDevice(device)
-                        }
-                    }) {
-                        Image(systemName: "eject.fill")
-                            .font(.system(size: 9.5, weight: .semibold))
-                            .foregroundStyle(.secondary.opacity(isHovered ? 0.9 : 0.4))
-                            .frame(width: 16, height: 16)
-                    }
-                    .buttonStyle(.plain)
-                    .help(l10n.currentLanguage == .zhHans ? "弹出此安卓设备" : "Eject Android Device")
-                }
-                .padding(.horizontal, 10)
-                .frame(height: 28)
-                .background(
-                    RoundedRectangle(cornerRadius: 6, style: .continuous)
-                        .fill(rowBackgroundColor(isSelected: isSelected, isHovered: isHovered))
-                )
-                .contentShape(Rectangle())
-            }
-        }
-        .buttonStyle(.plain)
-        .onHover { hovering in
-            withAnimation(.easeInOut(duration: 0.15)) {
-                if hovering {
-                    hoveredItemPath = device.deviceId
-                } else if hoveredItemPath == device.deviceId {
-                    hoveredItemPath = nil
-                }
-            }
-        }
-        .contextMenu {
-            Button(l10n.currentLanguage == .zhHans ? "弹出设备" : "Eject Device") {
-                androidViewModel.ejectDevice(device)
-            }
-            
-            if device.connectionType == .usbMtp {
-                Button(l10n.currentLanguage == .zhHans ? "切换至高速 ADB 模式..." : "Switch to High-Speed ADB Mode...") {
-                    androidViewModel.showAdbGuideSheet = true
-                }
-            }
-            
-            Divider()
-            
-            Text("ID: \(device.deviceId)")
-                .font(.caption)
-            Text(l10n.currentLanguage == .zhHans ? "状态: \(device.status.description)" : "Status: \(device.status.description)")
-                .font(.caption)
-        }
-    }
-    
-    private func androidDeviceIcon(_ device: AndroidDevice) -> String {
-        if device.connectionType == .wirelessAdb {
-            return "iphone.badge.play"
-        }
-        let lower = device.displayName.lowercased()
-        if lower.contains("pad") || lower.contains("tablet") {
-            return "ipad"
-        }
-        return "iphone"
-    }
-    
-    private func connectionModeBadge(type: AndroidConnectionType) -> some View {
-        let (title, bg, fg): (String, Color, Color) = {
-            switch type {
-            case .usbMtp:
-                return ("MTP", Color.primary.opacity(0.06), Color.secondary)
-            case .usbAdb:
-                return ("ADB", TTZipTheme.bambooGreen.opacity(0.16), TTZipTheme.bambooGreen)
-            case .wirelessAdb:
-                return ("Wi-Fi", TTZipTheme.kintsugiGold.opacity(0.18), TTZipTheme.kintsugiGold)
-            }
-        }()
-        
-        return Text(title)
-            .font(.system(size: 8, weight: .bold, design: .rounded))
-            .foregroundStyle(fg)
-            .padding(.horizontal, 4.5)
-            .padding(.vertical, 1.5)
-            .background(bg)
-            .clipShape(Capsule())
     }
 }
