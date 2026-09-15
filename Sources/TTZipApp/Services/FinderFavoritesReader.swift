@@ -16,6 +16,8 @@ public final class FinderFavoritesReader {
     
     private static let bookmarkStorageKey = "TTZipFinderFavoritesBookmarkData"
     
+    public typealias FinderFavoritesResult = FavoritesResult
+    
     /// Result of fetching favorites including items and custom status.
     public struct FavoritesResult: Sendable {
         public let items: [FinderFavoriteItem]
@@ -34,7 +36,7 @@ public final class FinderFavoritesReader {
         let fm = FileManager.default
         let hasResolvedCustom: Bool
         
-        // 1. Attempt to fetch real macOS Finder favorites (from SFL4/SFL3 or authorized bookmark)
+        // 1. Attempt to fetch real macOS Finder favorites (from SFL4/SFL3/SFL2 or authorized bookmark)
         if let sflFavorites = fetchSFLFavorites(), !sflFavorites.isEmpty {
             hasResolvedCustom = true
             for item in sflFavorites {
@@ -44,7 +46,7 @@ public final class FinderFavoritesReader {
             }
         } else {
             hasResolvedCustom = false
-            // Fallback: fetch macOS standard user directories
+            // Fallback: fetch macOS standard user directories (Downloads, Documents, Desktop, Home, etc.)
             let home = NSHomeDirectory()
             let standardPaths: [(String, String)] = [
                 ((home as NSString).appendingPathComponent("Downloads"), "arrow.down.circle"),
@@ -63,23 +65,6 @@ public final class FinderFavoritesReader {
                     let displayName = fm.displayName(atPath: path)
                     results.append(FinderFavoriteItem(name: displayName, path: path, systemImage: icon))
                 }
-            }
-        }
-        
-        // 2. Append mounted volumes (e.g., external drives, USB sticks) if not already present
-        if let mountedVolumes = fm.mountedVolumeURLs(includingResourceValuesForKeys: [.volumeIsInternalKey, .volumeLocalizedNameKey], options: .skipHiddenVolumes) {
-            for volumeURL in mountedVolumes {
-                let path = volumeURL.path
-                if path == "/System/Volumes/Data" || seenPaths.contains(path) {
-                    continue
-                }
-                
-                let isInternal = (try? volumeURL.resourceValues(forKeys: [.volumeIsInternalKey]).volumeIsInternal) ?? true
-                let name = (try? volumeURL.resourceValues(forKeys: [.volumeLocalizedNameKey]).volumeLocalizedName) ?? volumeURL.lastPathComponent
-                
-                let icon = isInternal ? "internaldrive.fill" : "externaldrive.fill"
-                seenPaths.insert(path)
-                results.append(FinderFavoriteItem(name: name, path: path, systemImage: icon))
             }
         }
         
