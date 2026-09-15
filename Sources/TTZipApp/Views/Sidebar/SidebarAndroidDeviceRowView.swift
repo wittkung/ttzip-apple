@@ -101,12 +101,12 @@ public struct SidebarAndroidDeviceRowView: View {
         HStack(spacing: 7) {
             Image(systemName: deviceIcon)
                 .font(.system(size: 12.5, weight: isSelected ? .semibold : .medium))
-                .foregroundStyle(isSelected ? TTZipTheme.bambooGreen : Color.secondary.opacity(0.85))
+                .foregroundStyle(isSelected ? TTZipTheme.bambooGreen : Color.white.opacity(0.75))
                 .frame(width: 18, alignment: .center)
 
             Text(device.displayName)
                 .font(.system(size: 12, weight: isSelected ? .semibold : .regular))
-                .foregroundStyle(isSelected ? Color.primary : Color.primary.opacity(0.85))
+                .foregroundStyle(isSelected ? Color.white : Color.white.opacity(0.95))
                 .lineLimit(1)
                 .truncationMode(.tail)
 

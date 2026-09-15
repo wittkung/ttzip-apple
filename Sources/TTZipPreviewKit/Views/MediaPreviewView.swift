@@ -169,7 +169,12 @@ public struct MediaPreviewView: View {
             guard !Task.isCancelled else { return }
             
             if self.fileURL == targetURL {
-                self.previewType = deepType
+                switch (self.previewType, deepType) {
+                case (.video, .video), (.audio, .audio):
+                    break
+                default:
+                    self.previewType = deepType
+                }
             }
         }
     }

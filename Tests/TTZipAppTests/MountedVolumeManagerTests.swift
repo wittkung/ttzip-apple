@@ -147,7 +147,6 @@ final class MountedVolumeManagerTests: XCTestCase {
     func testFinderFavoritesSidebarViewIntegration() {
         let sidebar = FinderFavoritesSidebarView(
             currentDirectory: URL(fileURLWithPath: "/"),
-            isIconRail: false,
             onSelectDirectory: { _ in }
         )
         XCTAssertNotNil(sidebar.body)

@@ -31,7 +31,8 @@ public final class ArchiveIntegrityViewModel {
         report = nil
         errorMessage = nil
         
-        Task {
+        Task { [weak self] in
+            guard let self else { return }
             do {
                 let checker = ArchiveIntegrityChecker()
                 let result = try await checker.checkArchiveIntegrity(

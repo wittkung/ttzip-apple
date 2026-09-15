@@ -7,6 +7,7 @@
 
 import SwiftUI
 import AppKit
+import Combine
 import TTZipCore
 import TTZipUI
 

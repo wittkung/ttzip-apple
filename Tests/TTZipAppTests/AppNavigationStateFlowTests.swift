@@ -146,4 +146,57 @@ final class AppNavigationStateFlowTests: XCTestCase {
         XCTAssertEqual(result, .success)
         XCTAssertEqual(sut.activeTab, .settings)
     }
+    
+    // MARK: - 6. Multi-Directory Tab Operations & Synchronizations
+    
+    @MainActor
+    func testMultiDirectoryTabOperationsAndSync() {
+        let (sut, tempDir) = createHarness()
+        defer { try? FileManager.default.removeItem(at: tempDir) }
+        
+        let initialTabCount = sut.directoryTabs.count
+        XCTAssertEqual(initialTabCount, 1)
+        XCTAssertEqual(sut.activeTabIndex, 0)
+        
+        // Open new tab
+        let folderA = tempDir.appendingPathComponent("FolderA")
+        try? FileManager.default.createDirectory(at: folderA, withIntermediateDirectories: true)
+        sut.openNewTab(url: folderA)
+        
+        XCTAssertEqual(sut.directoryTabs.count, 2)
+        XCTAssertEqual(sut.activeTabIndex, 1)
+        XCTAssertEqual(sut.currentDirectory, folderA)
+        XCTAssertEqual(sut.directoryTabs[1].url, folderA)
+        
+        // Open another tab
+        let folderB = tempDir.appendingPathComponent("FolderB")
+        try? FileManager.default.createDirectory(at: folderB, withIntermediateDirectories: true)
+        sut.openNewTab(url: folderB)
+        
+        XCTAssertEqual(sut.directoryTabs.count, 3)
+        XCTAssertEqual(sut.activeTabIndex, 2)
+        XCTAssertEqual(sut.currentDirectory, folderB)
+        
+        // Cycle tabs
+        sut.selectNextTab()
+        XCTAssertEqual(sut.activeTabIndex, 0)
+        
+        sut.selectPreviousTab()
+        XCTAssertEqual(sut.activeTabIndex, 2)
+        
+        // Select specific tab
+        sut.selectTab(at: 1)
+        XCTAssertEqual(sut.activeTabIndex, 1)
+        XCTAssertEqual(sut.currentDirectory, folderA)
+        
+        // Close middle tab
+        sut.closeTab(at: 1)
+        XCTAssertEqual(sut.directoryTabs.count, 2)
+        
+        // Cannot close last remaining tab
+        sut.closeTab(at: 0)
+        XCTAssertEqual(sut.directoryTabs.count, 1)
+        sut.closeTab(at: 0) // Should be guarded
+        XCTAssertEqual(sut.directoryTabs.count, 1)
+    }
 }

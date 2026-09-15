@@ -35,6 +35,34 @@ public final class AppViewState {
         get { navigationState.currentDirectory }
         set { navigationState.currentDirectory = newValue }
     }
+    public var directoryTabs: [DirectoryTabItem] {
+        get { navigationState.directoryTabs }
+        set { navigationState.directoryTabs = newValue }
+    }
+    public var activeTabIndex: Int {
+        get { navigationState.activeTabIndex }
+        set { navigationState.activeTabIndex = newValue }
+    }
+    
+    public func openNewTab(url: URL? = nil) {
+        navigationState.openNewTab(url: url)
+    }
+    
+    public func closeTab(at index: Int) {
+        navigationState.closeTab(at: index)
+    }
+    
+    public func selectTab(at index: Int) {
+        navigationState.selectTab(at: index)
+    }
+    
+    public func selectNextTab() {
+        navigationState.selectNextTab()
+    }
+    
+    public func selectPreviousTab() {
+        navigationState.selectPreviousTab()
+    }
     
     public var currentArchivePath: String? {
         get { explorerState.currentArchivePath }

@@ -36,6 +36,23 @@ extension NSNotification.Name {
     public static let ttzipToggleMediaFocus = NSNotification.Name("TTZipToggleMediaFocusNotification")
 }
 
+/// Strongly-typed immutable descriptor for a tab in the multi-directory tab bar.
+public struct DirectoryTabItem: Identifiable, Hashable, Sendable {
+    public let id: UUID
+    public var url: URL
+    public var customTitle: String?
+    
+    public var title: String {
+        customTitle ?? FileManager.default.displayName(atPath: url.path)
+    }
+    
+    public init(id: UUID = UUID(), url: URL, customTitle: String? = nil) {
+        self.id = id
+        self.url = url
+        self.customTitle = customTitle
+    }
+}
+
 /// 1. Navigation and routing state.
 @Observable
 @MainActor
@@ -43,9 +60,21 @@ public final class NavigationState {
     public var activeTab: WorkspaceTab = .home
     public var sidebarSelection: String? = nil
     public var isInspectorVisible: Bool = true
-    public var currentDirectory: URL = URL(fileURLWithPath: NSHomeDirectory() + "/Downloads")
+    public var currentDirectory: URL = URL(fileURLWithPath: NSHomeDirectory() + "/Downloads") {
+        didSet {
+            if directoryTabs.indices.contains(activeTabIndex) {
+                directoryTabs[activeTabIndex].url = currentDirectory
+            }
+        }
+    }
     public var isOmnibarFocused: Bool = false
     public var layoutMode: WindowLayoutMode = .standard
+    
+    // MARK: - Multi-Directory Tab State
+    public var directoryTabs: [DirectoryTabItem] = [
+        DirectoryTabItem(url: URL(fileURLWithPath: NSHomeDirectory() + "/Downloads"))
+    ]
+    public var activeTabIndex: Int = 0
     
     public init() {}
     
@@ -59,6 +88,52 @@ public final class NavigationState {
     
     public func setLayoutMode(_ mode: WindowLayoutMode) {
         self.layoutMode = mode
+    }
+    
+    // MARK: - Tab Management Operations
+    
+    public func openNewTab(url: URL? = nil) {
+        let targetURL = url ?? currentDirectory
+        let newTab = DirectoryTabItem(url: targetURL)
+        directoryTabs.append(newTab)
+        activeTabIndex = directoryTabs.count - 1
+        currentDirectory = targetURL
+    }
+    
+    public func closeTab(at index: Int) {
+        guard directoryTabs.indices.contains(index) else { return }
+        guard directoryTabs.count > 1 else { return }
+        
+        directoryTabs.remove(at: index)
+        if activeTabIndex >= directoryTabs.count {
+            activeTabIndex = max(0, directoryTabs.count - 1)
+        }
+        currentDirectory = directoryTabs[activeTabIndex].url
+    }
+    
+    public func selectTab(at index: Int) {
+        guard directoryTabs.indices.contains(index) else { return }
+        activeTabIndex = index
+        currentDirectory = directoryTabs[index].url
+    }
+    
+    public func selectNextTab() {
+        guard !directoryTabs.isEmpty else { return }
+        activeTabIndex = (activeTabIndex + 1) % directoryTabs.count
+        currentDirectory = directoryTabs[activeTabIndex].url
+    }
+    
+    public func selectPreviousTab() {
+        guard !directoryTabs.isEmpty else { return }
+        activeTabIndex = (activeTabIndex - 1 + directoryTabs.count) % directoryTabs.count
+        currentDirectory = directoryTabs[activeTabIndex].url
+    }
+    
+    public func updateActiveTabURL(_ newURL: URL) {
+        guard directoryTabs.indices.contains(activeTabIndex) else { return }
+        if directoryTabs[activeTabIndex].url != newURL {
+            directoryTabs[activeTabIndex].url = newURL
+        }
     }
 }
 

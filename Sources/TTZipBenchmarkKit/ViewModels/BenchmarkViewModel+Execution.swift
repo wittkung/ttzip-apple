@@ -37,7 +37,8 @@ extension BenchmarkViewModel {
         errorMessage = nil
         suiteResults = []
         
-        Task {
+        Task { [weak self] in
+            guard let self else { return }
             let engine = BenchmarkEngine()
             do {
                 if testMode == .customFile, let path = customPath {
@@ -132,7 +133,8 @@ extension BenchmarkViewModel {
         isRunning = true
         errorMessage = nil
         
-        Task {
+        Task { [weak self] in
+            guard let self else { return }
             let engine = BenchmarkEngine()
             do {
                 let res: BenchmarkResult

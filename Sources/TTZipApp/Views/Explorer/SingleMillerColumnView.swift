@@ -125,8 +125,8 @@ public struct SingleMillerColumnView: View {
                     .fixedSize(horizontal: true, vertical: false)
                     
                     Text(columnTitle)
-                        .font(.system(size: 11, weight: .semibold))
-                        .foregroundStyle(Color.secondary)
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundStyle(Color.white.opacity(0.92))
                         .lineLimit(1)
                         .truncationMode(.middle)
                     
@@ -146,10 +146,10 @@ public struct SingleMillerColumnView: View {
                         HStack(spacing: 3) {
                             Image(systemName: currentSort.iconName)
                                 .font(.system(size: 9.5, weight: .medium))
-                                .foregroundStyle(.secondary)
+                                .foregroundStyle(Color.white.opacity(0.75))
                             Image(systemName: "chevron.down")
                                 .font(.system(size: 6.5, weight: .semibold))
-                                .foregroundStyle(.secondary.opacity(0.6))
+                                .foregroundStyle(Color.white.opacity(0.6))
                         }
                         .padding(.horizontal, 4)
                         .padding(.vertical, 1.5)

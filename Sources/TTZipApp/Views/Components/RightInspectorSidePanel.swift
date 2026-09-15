@@ -25,12 +25,12 @@ public struct RightInspectorSidePanel: View {
     
     public var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            // 52pt Header strictly honoring Y=90pt Golden Line rule
+            // Header strictly honoring Y=76pt Golden Line rule
             headerView
                 .padding(.horizontal, 16)
-                .frame(height: 52)
+                .frame(height: TTZipTheme.Layout.headerBarHeight)
             
-            // 1.5pt Kintsugi Gold Line (Y=90pt Full-width Seamless Alignment)
+            // 1.5pt Kintsugi Gold Line (Y=76pt Full-width Seamless Alignment)
             Rectangle()
                 .fill(TTZipTheme.kintsugiGold)
                 .frame(height: TTZipTheme.Layout.kintsugiGoldLineHeight)
@@ -133,7 +133,7 @@ public struct RightInspectorSidePanel: View {
             VStack(alignment: .leading, spacing: 1.5) {
                 Text(item.displayName)
                     .font(.system(size: 13, weight: .bold))
-                    .foregroundStyle(.primary)
+                    .foregroundStyle(Color.white)
                     .lineLimit(1)
                     .truncationMode(.middle)
                     .layoutPriority(1)
@@ -143,13 +143,13 @@ public struct RightInspectorSidePanel: View {
                         let folderTitle = (l10n.currentLanguage == .zhHans || l10n.currentLanguage == .zhHant) ? "文件夹" : "Folder"
                         Text(folderTitle)
                             .font(.system(size: 10, weight: .medium))
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(Color.white.opacity(0.7))
                             .lineLimit(1)
                     } else {
                         if !item.sizeText.isEmpty {
                             Text(item.sizeText)
                                 .font(.system(size: 10, design: .monospaced))
-                                .foregroundStyle(.secondary)
+                                .foregroundStyle(Color.white.opacity(0.7))
                                 .lineLimit(1)
                             
                             Text("•")
@@ -160,7 +160,7 @@ public struct RightInspectorSidePanel: View {
                         let ext = URL(fileURLWithPath: item.path).pathExtension.uppercased()
                         Text(ext.isEmpty ? item.kindText : ext)
                             .font(.system(size: 10, weight: .medium))
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(Color.white.opacity(0.7))
                             .lineLimit(1)
                             .minimumScaleFactor(0.8)
                     }
@@ -203,25 +203,25 @@ public struct RightInspectorSidePanel: View {
                     }
                 } label: {
                     Image(systemName: "ellipsis.circle")
-                        .font(.system(size: 13.5, weight: .medium))
-                        .foregroundStyle(.secondary)
+                        .font(.system(size: 13))
+                        .foregroundStyle(Color.white.opacity(0.75))
                         .frame(width: 22, height: 22)
                         .contentShape(Rectangle())
                 }
                 .menuStyle(.borderlessButton)
-                .menuIndicator(.hidden)
-                .help(l10n.currentLanguage == .zhHans ? "更多操作" : "More Actions")
-                .accessibilityLabel(l10n.currentLanguage == .zhHans ? "更多操作" : "More Actions")
+                .controlSize(.mini)
+                .help(l10n.currentLanguage == .zhHans ? "文件操作选项" : "Item actions")
+                .accessibilityLabel(l10n.currentLanguage == .zhHans ? "文件操作选项" : "Item actions")
                 
-                // Deselect Button (Return to Directory Overview)
+                // Clear Selection Button
                 Button(action: {
-                    withAnimation(.spring(response: 0.28, dampingFraction: 0.86)) {
+                    withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) {
                         viewModel.clearInspectedFile()
                     }
                 }) {
                     Image(systemName: "xmark.circle")
                         .font(.system(size: 13))
-                        .foregroundStyle(.secondary.opacity(0.8))
+                        .foregroundStyle(Color.white.opacity(0.75))
                         .frame(width: 22, height: 22)
                         .contentShape(Rectangle())
                 }
@@ -244,7 +244,7 @@ public struct RightInspectorSidePanel: View {
                 
                 Text(FileManager.default.displayName(atPath: viewModel.currentDirectory.path))
                     .font(.system(size: 13.5, weight: .bold, design: .serif))
-                    .foregroundStyle(.primary)
+                    .foregroundStyle(Color.white)
                     .lineLimit(1)
             }
             

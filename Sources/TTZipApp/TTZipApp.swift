@@ -150,7 +150,7 @@ struct TTZipApp: App {
                 }
         }
         .windowStyle(.hiddenTitleBar)
-        .windowToolbarStyle(.unifiedCompact)
+        .windowToolbarStyle(.unified(showsTitle: false))
         
         Settings {
             SettingsView()
@@ -183,8 +183,8 @@ private final class WindowConfiguratorNSView: NSView {
         window.tabbingMode = .preferred
         window.titlebarAppearsTransparent = true
         window.titleVisibility = .hidden
-        window.isOpaque = true
-        window.backgroundColor = .windowBackgroundColor
+        window.isOpaque = false
+        window.backgroundColor = .clear
         window.styleMask.insert(.fullSizeContentView)
         window.hasShadow = true
         window.collectionBehavior.insert(.fullScreenPrimary)

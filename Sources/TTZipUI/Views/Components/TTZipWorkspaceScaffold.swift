@@ -25,7 +25,7 @@ public struct TTZipWorkspaceDefaultTitleView: View {
     }
 }
 
-/// Unified workspace scaffold enforcing 52pt header, Y=90pt Kintsugi Gold Line, and macOS safe area isolation.
+/// Unified workspace scaffold enforcing header bar height, Kintsugi Gold Line, and macOS safe area isolation.
 public struct TTZipWorkspaceScaffold<HeaderLeading: View, HeaderTrailing: View, Content: View>: View {
     public let headerLeading: HeaderLeading
     public let headerTrailing: HeaderTrailing
@@ -69,7 +69,7 @@ public struct TTZipWorkspaceScaffold<HeaderLeading: View, HeaderTrailing: View, 
     
     public var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            // 1. 52pt Header Bar (Top=38pt + Height=52pt -> Golden line strictly at Y = 90.0pt)
+            // 1. Header Bar (Top=28pt + Height=48pt -> Golden line strictly at Y = 76.0pt)
             HStack(alignment: .center, spacing: 12) {
                 headerLeading
                 
