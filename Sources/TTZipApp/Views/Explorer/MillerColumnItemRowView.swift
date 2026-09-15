@@ -13,7 +13,18 @@ import TTZipUI
 import TTZipPreviewKit
 import TTZipBenchmarkKit
 
-public struct MillerColumnItemRowView: View {
+public struct MillerColumnItemRowView: View, Equatable {
+    public nonisolated static func == (lhs: MillerColumnItemRowView, rhs: MillerColumnItemRowView) -> Bool {
+        lhs.item.path == rhs.item.path &&
+        lhs.item.displayName == rhs.item.displayName &&
+        lhs.item.sizeText == rhs.item.sizeText &&
+        lhs.columnIndex == rhs.columnIndex &&
+        lhs.isSelected == rhs.isSelected &&
+        lhs.isColumnActive == rhs.isColumnActive &&
+        lhs.isColumnParentSelected == rhs.isColumnParentSelected &&
+        lhs.dirURL == rhs.dirURL
+    }
+
     public let item: DiskItemInfo
     public let columnIndex: Int
     public let isSelected: Bool
@@ -188,13 +199,7 @@ public struct MillerColumnItemRowView: View {
     }
     
     private var rowBorderLineWidth: CGFloat {
-        if isRowSelected {
-            return 0.5
-        }
-        if isHovered {
-            return 0.6
-        }
-        return 0.5
+        0.5
     }
 
     private var isMediaFile: Bool {
@@ -204,24 +209,26 @@ public struct MillerColumnItemRowView: View {
             || MediaPreviewFactory.videoExtensions.contains(ext)
     }
 
-    private var fileURLForThumbnail: URL? {
-        let (archivePath, subpath) = Self.parseVirtualURL(item.path)
-        if !subpath.isEmpty {
-            let filename = (subpath as NSString).lastPathComponent
-            let hash = abs(archivePath.hashValue).description + "_" + abs(filename.hashValue).description
-            return PreviewLRUCacheManager.shared.existingCachedURL(forKey: hash, filename: filename)
-        } else {
-            let url: URL
-            if let u = URL(string: item.path), u.scheme != nil {
-                url = u
+    private nonisolated static func resolveFileURLForThumbnail(path: String) async -> URL? {
+        await Task.detached(priority: .utility) {
+            let (archivePath, subpath) = parseVirtualURL(path)
+            if !subpath.isEmpty {
+                let filename = (subpath as NSString).lastPathComponent
+                let hash = abs(archivePath.hashValue).description + "_" + abs(filename.hashValue).description
+                return PreviewLRUCacheManager.shared.existingCachedURL(forKey: hash, filename: filename)
             } else {
-                url = URL(fileURLWithPath: item.path)
+                let url: URL
+                if let u = URL(string: path), u.scheme != nil {
+                    url = u
+                } else {
+                    url = URL(fileURLWithPath: path)
+                }
+                if FileManager.default.fileExists(atPath: url.path) {
+                    return url
+                }
+                return nil
             }
-            if FileManager.default.fileExists(atPath: url.path) {
-                return url
-            }
-            return nil
-        }
+        }.value
     }
 
     private func loadThumbnailIfNeeded() async {
@@ -230,7 +237,16 @@ public struct MillerColumnItemRowView: View {
             self.thumbnail = cached
             return
         }
-        guard let url = fileURLForThumbnail else { return }
+        do {
+            try await Task.sleep(for: .milliseconds(120))
+        } catch {
+            return
+        }
+        guard !Task.isCancelled else { return }
+
+        guard let url = await Self.resolveFileURLForThumbnail(path: item.path) else { return }
+        guard !Task.isCancelled else { return }
+
         let request = QLThumbnailGenerator.Request(
             fileAt: url,
             size: CGSize(width: 32, height: 32),
@@ -242,9 +258,7 @@ public struct MillerColumnItemRowView: View {
             let image = rep.nsImage
             MillerColumnThumbnailCache.shared.setImage(image, forKey: item.path)
             if !Task.isCancelled {
-                withAnimation(.easeInOut(duration: 0.15)) {
-                    self.thumbnail = image
-                }
+                self.thumbnail = image
             }
         } catch {
             // Keep fallback SF Symbol on failure
@@ -301,7 +315,6 @@ public struct MillerColumnItemRowView: View {
         )
         .contentShape(Rectangle())
         .onHover { isHovered = $0 }
-        .animation(.easeInOut(duration: 0.12), value: isHovered)
         .task(id: item.path) {
             await loadThumbnailIfNeeded()
         }

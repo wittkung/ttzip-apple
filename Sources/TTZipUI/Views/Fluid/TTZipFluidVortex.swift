@@ -96,7 +96,7 @@ public struct TTZipFluidConfiguration: Sendable {
     public var blurRadius: CGFloat
     /// Micro-surface sheen opacity multiplier (default: 1.0).
     public var sheenIntensity: Double
-    /// Target timeline minimum frame interval (default: 1/120 for ProMotion displays).
+    /// Target timeline minimum frame interval (default: 1/30 for 30 FPS energy efficiency).
     public var minimumFrameInterval: Double
     
     public init(
@@ -105,7 +105,7 @@ public struct TTZipFluidConfiguration: Sendable {
         downscaleRatio: CGFloat = 4.0,
         blurRadius: CGFloat = 48.0,
         sheenIntensity: Double = 1.0,
-        minimumFrameInterval: Double = 1.0 / 120.0
+        minimumFrameInterval: Double = 1.0 / 30.0
     ) {
         self.speed = speed
         self.breathingAmplitude = breathingAmplitude

@@ -197,6 +197,7 @@ public struct SingleMillerColumnView: View {
                                                 onTriggerNewFolder: onTriggerNewFolder,
                                                 onTriggerNewFile: onTriggerNewFile
                                             )
+                                            .equatable()
                                             .id(item.path)
                                         }
                                     }
@@ -212,9 +213,7 @@ public struct SingleMillerColumnView: View {
                                     }
                                     .onChange(of: isColumnActive) { _, active in
                                         if active, let path = selectedPath {
-                                            withAnimation(.easeOut(duration: 0.15)) {
-                                                scrollProxy.scrollTo(path, anchor: nil)
-                                            }
+                                            scrollProxy.scrollTo(path, anchor: nil)
                                         }
                                     }
                                     .onChange(of: items.count) { _, count in
@@ -354,3 +353,4 @@ public struct SingleMillerColumnView: View {
         .frame(maxHeight: .infinity, alignment: .topLeading)
     }
 }
+

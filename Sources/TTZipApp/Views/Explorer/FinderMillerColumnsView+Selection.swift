@@ -64,7 +64,9 @@ extension FinderMillerColumnsView {
             } else {
                 targetURL = URL(fileURLWithPath: item.path)
             }
-            columnPaths.append(targetURL)
+            withAnimation(.smooth(duration: 0.28)) {
+                columnPaths.append(targetURL)
+            }
         }
     }
     

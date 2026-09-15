@@ -41,6 +41,13 @@ public struct TTZipFluidBackgroundView: View {
     public let config: TTZipFluidConfiguration
     
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.controlActiveState) private var controlActiveState
+    @Environment(\.scenePhase) private var scenePhase
+    
+    /// Pauses timeline animation when the window is inactive or scene is backgrounded.
+    private var isPaused: Bool {
+        controlActiveState == .inactive || scenePhase != .active
+    }
     
     /// Backward-compatible property exposing the effective base color.
     public var baseColor: Color {
@@ -96,7 +103,7 @@ public struct TTZipFluidBackgroundView: View {
             // MARK: - Layer 2: Deep Viscous Fluid Potential Field
             GeometryReader { geo in
                 let size = geo.size
-                TimelineView(.animation(minimumInterval: config.minimumFrameInterval)) { timeline in
+                TimelineView(.animation(minimumInterval: config.minimumFrameInterval, paused: isPaused)) { timeline in
                     let time = timeline.date.timeIntervalSinceReferenceDate
                     TTZipFluidRenderer(
                         time: time,
