@@ -216,6 +216,7 @@ extension InspectorColumnView {
                 title: isZh ? "全屏预览" : "Quick Look",
                 icon: "arrow.up.left.and.arrow.down.right",
                 helpText: isZh ? "全屏沉浸式预览媒体 (空格键)" : "Full-screen media preview (Space)",
+                shortcut: "Space",
                 action: onPreview
             )
             
@@ -223,6 +224,7 @@ extension InspectorColumnView {
                 title: isZh ? "访达中显示" : "Reveal",
                 icon: "folder",
                 helpText: isZh ? "在系统访达中定位此文件" : "Reveal file in macOS Finder",
+                shortcut: nil,
                 action: {
                     NSWorkspace.shared.selectFile(item.path, inFileViewerRootedAtPath: "")
                 }
@@ -237,6 +239,7 @@ private struct InspectorSecondaryActionButton: View {
     let title: String
     let icon: String
     let helpText: String
+    let shortcut: String?
     let action: () -> Void
     
     @State private var isHovering = false
@@ -246,24 +249,70 @@ private struct InspectorSecondaryActionButton: View {
             HStack(spacing: 4) {
                 Image(systemName: icon)
                     .font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(isHovering ? TTZipTheme.bambooGreen : Color.white.opacity(0.85))
                 Text(title)
                     .font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(isHovering ? Color.white : Color.white.opacity(0.92))
             }
-            .foregroundStyle(Color.primary.opacity(0.88))
             .frame(maxWidth: .infinity)
             .padding(.vertical, 6)
             .background(
                 RoundedRectangle(cornerRadius: 6, style: .continuous)
-                    .fill(Color.primary.opacity(isHovering ? 0.08 : 0.05))
+                    .fill(isHovering ? Color.white.opacity(0.1) : Color.white.opacity(0.04))
             )
             .overlay(
                 RoundedRectangle(cornerRadius: 6, style: .continuous)
-                    .strokeBorder(Color.primary.opacity(0.08), lineWidth: 0.8)
+                    .strokeBorder(isHovering ? Color.white.opacity(0.18) : Color.white.opacity(0.08), lineWidth: 0.8)
             )
             .contentShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
         }
         .buttonStyle(.plain)
-        .onHover { isHovering = $0 }
+        .onHover { hovering in
+            withAnimation(.spring(response: 0.2, dampingFraction: 0.8)) {
+                isHovering = hovering
+            }
+        }
+        .overlay(alignment: .top) {
+            if isHovering {
+                HStack(spacing: 4) {
+                    Text(helpText)
+                        .font(.system(size: 10.5, weight: .medium))
+                        .foregroundStyle(Color.white)
+                    
+                    if let sc = shortcut {
+                        Text(sc)
+                            .font(.system(size: 9, weight: .semibold, design: .monospaced))
+                            .foregroundStyle(TTZipTheme.kintsugiGold)
+                            .padding(.horizontal, 3.5)
+                            .padding(.vertical, 1)
+                            .background(Color.white.opacity(0.12), in: RoundedRectangle(cornerRadius: 3))
+                    }
+                }
+                .padding(.horizontal, 7)
+                .padding(.vertical, 4)
+                .background(
+                    ZStack {
+                        RoundedRectangle(cornerRadius: 5, style: .continuous)
+                            .fill(.ultraThinMaterial)
+                        RoundedRectangle(cornerRadius: 5, style: .continuous)
+                            .fill(Color.black.opacity(0.85))
+                    }
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 5, style: .continuous)
+                        .strokeBorder(Color.white.opacity(0.2), lineWidth: 0.5)
+                )
+                .shadow(color: Color.black.opacity(0.45), radius: 6, x: 0, y: 3)
+                .fixedSize()
+                .offset(y: -30)
+                .zIndex(999)
+                .transition(.asymmetric(
+                    insertion: .opacity.combined(with: .scale(scale: 0.94, anchor: .bottom)),
+                    removal: .opacity
+                ))
+                .allowsHitTesting(false)
+            }
+        }
         .help(helpText)
         .accessibilityLabel(title)
     }
