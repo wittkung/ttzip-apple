@@ -62,13 +62,13 @@ public struct TTZipFluidRenderer: View {
         switch mode {
         case .organic:
             // Luminous Bamboo Green over OLED true black (#000000) achieves deep emerald vitality;
-            // over Solar pure white (#FFFFFF) achieves an elegant, subtle tea-wash tint.
-            return colorScheme == .dark ? 0.40 : 0.48
+            // over Solar pure white (#FFFFFF) calibrated to 0.78 for distinctive celadon tea-wash visibility.
+            return colorScheme == .dark ? 0.40 : 0.78
         case .monochrome:
             // High-luminance opal in dark needs soft diffusion; obsidian ink in light needs presence
-            return colorScheme == .dark ? 0.38 : 0.22
+            return colorScheme == .dark ? 0.38 : 0.45
         case .tinted:
-            return colorScheme == .dark ? 0.35 : 0.18
+            return colorScheme == .dark ? 0.35 : 0.40
         }
     }
     
@@ -132,9 +132,9 @@ public struct TTZipFluidRenderer: View {
                     return Color(.displayP3, red: 0.1490, green: 0.5100, blue: 0.9800, opacity: 1.0)
                         .opacity(0.10 * inst.weight * config.sheenIntensity)
                 } else {
-                    // Spring Jade / Celadon sheen
-                    return Color(.displayP3, red: 0.5568, green: 0.7216, blue: 0.4392, opacity: 1.0)
-                        .opacity(0.14 * inst.weight * config.sheenIntensity)
+                    // Spring Jade / Celadon sheen with enhanced surface definition
+                    return Color(.displayP3, red: 0.4200, green: 0.6400, blue: 0.3500, opacity: 1.0)
+                        .opacity(0.32 * inst.weight * config.sheenIntensity)
                 }
             }()
             
@@ -175,12 +175,13 @@ public struct TTZipFluidRenderer: View {
         
         let centerOpacity = colorScheme == .dark
             ? min(1.0, 0.90 * weight * 2.5)
-            : min(1.0, 0.95 * weight * 3.6)
-        let midOpacity = centerOpacity * (colorScheme == .dark ? 0.55 : 0.65)
+            : min(1.0, 0.98 * weight * 4.2)
+        let midOpacity = centerOpacity * (colorScheme == .dark ? 0.55 : 0.72)
         
         return Gradient(stops: [
             .init(color: baseColor.opacity(centerOpacity), location: 0.0),
-            .init(color: baseColor.opacity(midOpacity), location: 0.45),
+            .init(color: baseColor.opacity(midOpacity), location: colorScheme == .dark ? 0.45 : 0.38),
+            .init(color: baseColor.opacity(midOpacity * 0.35), location: 0.72),
             .init(color: baseColor.opacity(0.0), location: 1.0)
         ])
     }
