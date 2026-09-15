@@ -68,17 +68,18 @@ public struct FinderMillerColumnsView: View {
             ScrollView(.horizontal, showsIndicators: false) {
                 ScrollViewReader { proxy in
                     HStack(alignment: .top, spacing: 0) {
-                        ForEach(Array(columnPaths.enumerated()), id: \.offset) { index, dirURL in
+                        ForEach(Array(columnPaths.enumerated()), id: \.element.path) { index, dirURL in
                             millerColumn(index: index, dirURL: dirURL, availableWidth: geometry.size.width)
                                 .id(index)
+                                .transition(.asymmetric(
+                                    insertion: .move(edge: .trailing).combined(with: .opacity),
+                                    removal: .opacity
+                                ))
                         }
                     }
                     .frame(minWidth: geometry.size.width, maxHeight: .infinity, alignment: .topLeading)
-                    .onChange(of: columnPaths) { _, newPaths in
-                        updateScrollPosition(proxy: proxy, count: newPaths.count, availableWidth: geometry.size.width)
-                    }
-                    .onChange(of: selectedPaths) { _, _ in
-                        updateScrollPosition(proxy: proxy, count: columnPaths.count, availableWidth: geometry.size.width)
+                    .onChange(of: columnPaths.count) { _, newCount in
+                        updateScrollPosition(proxy: proxy, count: newCount, availableWidth: geometry.size.width)
                     }
                     .onChange(of: geometry.size.width) { _, newWidth in
                         let totalWidth = totalColumnsWidth(count: columnPaths.count, availableWidth: newWidth)
@@ -279,40 +280,25 @@ public struct FinderMillerColumnsView: View {
     private let defaultColumnWidth: CGFloat = 260
     
     private func computeColumnWidth(for index: Int, availableWidth: CGFloat) -> CGFloat {
+        if let custom = columnWidths[index] {
+            return custom
+        }
         let count = columnPaths.count
-        if count <= 1 {
-            if let custom = columnWidths[index] {
-                return custom
-            }
-            // When only 1 column exists, expand to occupy the full available width (at least defaultColumnWidth)
-            return max(availableWidth, defaultColumnWidth)
-        } else if count == 2 {
-            if let custom = columnWidths[index] {
-                return custom
-            }
-            // When 2 columns exist, accurately deduct outer padding and dividers (16pt safe margin)
-            // calculating a safe column width ensuring both columns 100% display within the viewport
-            // without right-edge sort menu clipping.
-            let safeWidth = (availableWidth - 16.0) / 2.0
-            return max(180.0, safeWidth)
+        guard count > 0 else { return defaultColumnWidth }
+        let lastIndex = count - 1
+        
+        if index < lastIndex {
+            // Preceding columns maintain constant baseline width to prevent abrupt size jumps and text reflow
+            return defaultColumnWidth
         } else {
-            let lastIndex = count - 1
-            if index < lastIndex {
-                // Preceding path columns maintain their explicit dragged width or default baseline width
-                return columnWidths[index] ?? defaultColumnWidth
-            } else {
-                // Active trailing column adapts to consume all surplus viewport width,
-                // completely eliminating the dead zone on the right edge.
-                let dividersWidth = CGFloat(count) * 1.5
-                let precedingTotal = (0..<lastIndex).reduce(0 as CGFloat) { sum, idx in
-                    sum + (columnWidths[idx] ?? defaultColumnWidth)
-                }
-                let remainingWidth = availableWidth - precedingTotal - dividersWidth
-                let baseWidth = columnWidths[index] ?? defaultColumnWidth
-                // If remainingWidth exceeds baseline, stretch to flush-fill availableWidth.
-                // Otherwise retain baseWidth (or dragged width) and rely on horizontal scrolling.
-                return max(baseWidth, remainingWidth)
+            // Active trailing column adapts to consume surplus viewport width,
+            // completely eliminating right-edge dead zones while honoring baseline width.
+            let dividersWidth = CGFloat(count) * 1.5
+            let precedingTotal = (0..<lastIndex).reduce(0 as CGFloat) { sum, idx in
+                sum + (columnWidths[idx] ?? defaultColumnWidth)
             }
+            let remainingWidth = availableWidth - precedingTotal - dividersWidth
+            return max(defaultColumnWidth, remainingWidth)
         }
     }
     

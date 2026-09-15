@@ -99,7 +99,9 @@ extension FinderMillerColumnsView {
         if activeIndex > 0 {
             let nextActive = activeIndex - 1
             if columnPaths.count > nextActive + 1 {
-                columnPaths = Array(columnPaths.prefix(nextActive + 1))
+                withAnimation(.smooth(duration: 0.28)) {
+                    columnPaths = Array(columnPaths.prefix(nextActive + 1))
+                }
             }
             for key in selectedPaths.keys where key > nextActive {
                 selectedPaths.removeValue(forKey: key)
