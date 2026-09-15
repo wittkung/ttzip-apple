@@ -333,19 +333,33 @@ public struct MillerColumnItemRowView: View, Equatable {
         .onDrop(of: [.fileURL, .text], isTargeted: nil) { providers in
             handleDrop(providers: providers)
         }
-        .contextMenu {
-            MillerColumnItemContextMenu(
-                item: item,
-                columnIndex: columnIndex,
-                dirURL: dirURL,
-                multiSelectedPaths: multiSelectedPaths,
-                onSelectArchive: onSelectArchive,
-                onCompressPath: onCompressPath,
-                onSelectItem: onSelectItem,
-                onTriggerNewFolder: onTriggerNewFolder,
-                onTriggerNewFile: onTriggerNewFile
-            )
-        }
+        .nativeContextMenu(
+            onMenuWillOpen: {
+                if !item.isDirectory && !multiSelectedPaths.contains(item.path) {
+                    onSelectItem(item, columnIndex, false, false, dirURL)
+                }
+            },
+            target: {
+                if multiSelectedPaths.count > 1 && multiSelectedPaths.contains(item.path) {
+                    let urls = Array(multiSelectedPaths).map { URL(fileURLWithPath: $0) }
+                    return .multipleItems(urls: urls)
+                } else if item.path.contains("?subpath=") {
+                    let (archivePath, subpath) = Self.parseVirtualURL(item.path)
+                    return .virtualArchiveEntry(
+                        archivePath: archivePath,
+                        subpath: subpath,
+                        isDirectory: item.isDirectory
+                    )
+                } else {
+                    let url = URL(fileURLWithPath: item.path)
+                    return .singleItem(
+                        url: url,
+                        isDirectory: item.isDirectory,
+                        isArchive: item.isArchive
+                    )
+                }
+            }
+        )
     }
     
     private func handleDrop(providers: [NSItemProvider]) -> Bool {
