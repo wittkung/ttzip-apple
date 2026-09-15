@@ -10,10 +10,24 @@ import AppKit
 
 final class FlippedClipView: NSClipView {
     override var isFlipped: Bool { true }
+    
+    override func wantsForwardedScrollEvents(for axis: NSEvent.GestureAxis) -> Bool {
+        if axis == .horizontal {
+            return true
+        }
+        return super.wantsForwardedScrollEvents(for: axis)
+    }
 }
 
 final class FlippedContainerView: NSView {
     override var isFlipped: Bool { true }
+    
+    override func wantsForwardedScrollEvents(for axis: NSEvent.GestureAxis) -> Bool {
+        if axis == .horizontal {
+            return true
+        }
+        return super.wantsForwardedScrollEvents(for: axis)
+    }
 }
 
 /// AppKit native autohiding overlay scroll view.
@@ -80,6 +94,13 @@ public struct AppKitMillerColumnScrollView<Content: View>: NSViewRepresentable {
 public final class AutoHidingOverlayScrollView: NSScrollView {
     private var hideTimer: Timer?
     private var isUserScrolling = false
+    
+    public override func wantsForwardedScrollEvents(for axis: NSEvent.GestureAxis) -> Bool {
+        if axis == .horizontal {
+            return true
+        }
+        return super.wantsForwardedScrollEvents(for: axis)
+    }
     
     public override func tile() {
         super.tile()
