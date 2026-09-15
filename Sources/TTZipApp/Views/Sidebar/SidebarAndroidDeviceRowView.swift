@@ -101,12 +101,12 @@ public struct SidebarAndroidDeviceRowView: View {
         HStack(spacing: 7) {
             Image(systemName: deviceIcon)
                 .font(.system(size: 12.5, weight: isSelected ? .semibold : .medium))
-                .foregroundStyle(isSelected ? TTZipTheme.bambooGreen : Color.white.opacity(0.75))
+                .foregroundStyle(isSelected ? TTZipTheme.bambooGreen : Color.secondary)
                 .frame(width: 18, alignment: .center)
 
             Text(device.displayName)
                 .font(.system(size: 12, weight: isSelected ? .semibold : .regular))
-                .foregroundStyle(isSelected ? Color.white : Color.white.opacity(0.95))
+                .foregroundStyle(isSelected ? Color.primary : Color.primary.opacity(0.88))
                 .lineLimit(1)
                 .truncationMode(.tail)
 
@@ -131,7 +131,11 @@ public struct SidebarAndroidDeviceRowView: View {
         .frame(height: 28)
         .background(
             RoundedRectangle(cornerRadius: 6, style: .continuous)
-                .fill(isSelected ? Color.primary.opacity(0.08) : (isHovered ? Color.primary.opacity(0.035) : Color.clear))
+                .fill(isSelected ? TTZipTheme.bambooGreen.opacity(0.16) : (isHovered ? Color.primary.opacity(0.05) : Color.clear))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 6, style: .continuous)
+                .strokeBorder(isSelected ? TTZipTheme.bambooGreen.opacity(0.28) : Color.clear, lineWidth: 0.6)
         )
         .contentShape(Rectangle())
     }

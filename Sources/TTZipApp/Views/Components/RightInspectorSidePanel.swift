@@ -133,7 +133,7 @@ public struct RightInspectorSidePanel: View {
             VStack(alignment: .leading, spacing: 1.5) {
                 Text(item.displayName)
                     .font(.system(size: 13, weight: .bold))
-                    .foregroundStyle(Color.white)
+                    .foregroundStyle(Color.primary)
                     .lineLimit(1)
                     .truncationMode(.middle)
                     .layoutPriority(1)
@@ -143,13 +143,13 @@ public struct RightInspectorSidePanel: View {
                         let folderTitle = (l10n.currentLanguage == .zhHans || l10n.currentLanguage == .zhHant) ? "文件夹" : "Folder"
                         Text(folderTitle)
                             .font(.system(size: 10, weight: .medium))
-                            .foregroundStyle(Color.white.opacity(0.7))
+                            .foregroundStyle(Color.secondary)
                             .lineLimit(1)
                     } else {
                         if !item.sizeText.isEmpty {
                             Text(item.sizeText)
                                 .font(.system(size: 10, design: .monospaced))
-                                .foregroundStyle(Color.white.opacity(0.7))
+                                .foregroundStyle(Color.secondary)
                                 .lineLimit(1)
                             
                             Text("•")
@@ -160,7 +160,7 @@ public struct RightInspectorSidePanel: View {
                         let ext = URL(fileURLWithPath: item.path).pathExtension.uppercased()
                         Text(ext.isEmpty ? item.kindText : ext)
                             .font(.system(size: 10, weight: .medium))
-                            .foregroundStyle(Color.white.opacity(0.7))
+                            .foregroundStyle(Color.secondary)
                             .lineLimit(1)
                             .minimumScaleFactor(0.8)
                     }
@@ -202,7 +202,7 @@ public struct RightInspectorSidePanel: View {
             } label: {
                 Image(systemName: "ellipsis.circle")
                     .font(.system(size: 13))
-                    .foregroundStyle(Color.white.opacity(0.75))
+                    .foregroundStyle(Color.secondary)
                     .frame(width: 22, height: 22)
                     .contentShape(Rectangle())
             }
@@ -225,7 +225,7 @@ public struct RightInspectorSidePanel: View {
                 
                 Text(FileManager.default.displayName(atPath: viewModel.currentDirectory.path))
                     .font(.system(size: 13.5, weight: .bold, design: .serif))
-                    .foregroundStyle(Color.white)
+                    .foregroundStyle(Color.primary)
                     .lineLimit(1)
             }
             

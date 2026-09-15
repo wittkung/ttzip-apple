@@ -7,7 +7,6 @@
 
 import Foundation
 import os
-import os.log
 import CMPVBridge
 
 /// C-Safe wakeup trampoline preventing Use-After-Free (UAF) across actor and thread boundaries.
@@ -206,7 +205,7 @@ public actor MPVCoreEngine {
     /// Shared singleton instance for unified application-wide playback orchestration.
     public static let shared = MPVCoreEngine()
 
-    private let logger = Logger(subsystem: "com.metastudyline.ttzip", category: "MPVCoreEngine")
+    private let logger = PreviewKitLogger(category: "MPVCoreEngine")
     private let handleHolder = MPVHandleHolder()
     private var handle: OpaquePointer? { handleHolder.pointer }
     private var securityScopedURL: URL? = nil
@@ -263,7 +262,7 @@ public actor MPVCoreEngine {
     public func initialize(mode: MPVOutputMode = .video(renderBackend: "libmpv")) throws {
         _ = try ensureInitialized(mode: mode)
         self.currentOutputMode = mode
-        logger.info("libmpv Core Engine initialized successfully in mode: \(String(describing: mode), privacy: .public)")
+        logger.info("libmpv Core Engine initialized successfully in mode: \(String(describing: mode))")
     }
 
     /// Loads a local or remote media file with optional security-scoped bookmark support.
@@ -286,7 +285,7 @@ public actor MPVCoreEngine {
 
     /// Dynamically fallback to pure software decoding (hwdec=no) and reload the media file.
     public func fallbackToSoftwareDecodingAndReload(url: URL) async throws {
-        logger.warning("Dynamic fallback: switching to software decoding (hwdec=no) for \(url.lastPathComponent, privacy: .public)")
+        logger.warning("Dynamic fallback: switching to software decoding (hwdec=no) for \(url.lastPathComponent)")
         try setProperty(name: "hwdec", value: "no")
         try setProperty(name: "vd-lavc-dr", value: "no")
         try await loadFile(url: url, replace: true, isAudioOnly: false)
@@ -381,7 +380,7 @@ public actor MPVCoreEngine {
 
     /// Dynamically configures the hardware video decoding policy (e.g. zero-copy auto vs software fallback).
     public func setHardwareDecodingPolicy(_ policy: MPVHardwareDecodingPolicy) async throws {
-        logger.info("Setting hardware decoding policy to \(policy.rawValue, privacy: .public)")
+        logger.info("Setting hardware decoding policy to \(policy.rawValue)")
         try setProperty(name: "hwdec", value: policy.rawValue)
         if policy != .disabled {
             try setProperty(name: "hwdec-codecs", value: "all")

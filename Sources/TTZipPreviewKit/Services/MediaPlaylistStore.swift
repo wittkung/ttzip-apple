@@ -7,7 +7,6 @@
 
 import Foundation
 import Observation
-import os.log
 import TTZipUI
 
 /// Defines the loop and repeat behavior for media playback.
@@ -115,7 +114,7 @@ public final class MediaPlaylistStore {
     /// Shared singleton instance for coordinated playback across the application.
     public static let shared = MediaPlaylistStore()
     
-    private let logger = Logger(subsystem: "com.metastudyline.ttzip", category: "MediaPlaylistStore")
+    private let logger = PreviewKitLogger(category: "MediaPlaylistStore")
     
     /// Standard multimedia file extensions supported for automatic playlist discovery.
     public static let supportedExtensions: Set<String> = [
@@ -225,7 +224,7 @@ public final class MediaPlaylistStore {
                     Self.supportedExtensions.contains(url.pathExtension.lowercased())
                 }
             } catch {
-                logger.error("Failed to scan parent directory \(parentDir.path, privacy: .public): \(error.localizedDescription, privacy: .public)")
+                logger.error("Failed to scan parent directory \(parentDir.path): \(error.localizedDescription)")
                 mediaURLs = [currentURL]
             }
         }
@@ -248,7 +247,7 @@ public final class MediaPlaylistStore {
         }
         
         self.currentIndex = self.items.firstIndex(where: { $0.url.standardizedFileURL.path == currentStandardized })
-        logger.info("Populated playlist with \(self.items.count, privacy: .public) items. Current index: \(String(describing: self.currentIndex), privacy: .public)")
+        logger.info("Populated playlist with \(self.items.count) items. Current index: \(String(describing: self.currentIndex))")
     }
     
     /// Convenience alias to populate playlist items from the directory of the target URL.
@@ -328,7 +327,7 @@ public final class MediaPlaylistStore {
     @discardableResult
     public func playIndex(_ index: Int) -> PlaylistItem? {
         guard items.indices.contains(index) else {
-            logger.warning("playIndex out of bounds: \(index, privacy: .public), item count: \(self.items.count, privacy: .public)")
+            logger.warning("playIndex out of bounds: \(index), item count: \(self.items.count)")
             return nil
         }
         
@@ -338,7 +337,7 @@ public final class MediaPlaylistStore {
         self.currentIndex = index
         
         let targetItem = items[index]
-        logger.info("Switched active playlist item [\(index, privacy: .public)]: \(targetItem.title, privacy: .public)")
+        logger.info("Switched active playlist item [\(index)]: \(targetItem.title)")
         
         onPlayItemRequested?(targetItem)
         return targetItem

@@ -47,23 +47,39 @@ public final class FinderFavoritesReader {
         } else {
             hasResolvedCustom = false
             // Fallback: fetch macOS standard user directories (Downloads, Documents, Desktop, Home, etc.)
-            let home = NSHomeDirectory()
-            let standardPaths: [(String, String)] = [
-                ((home as NSString).appendingPathComponent("Downloads"), "arrow.down.circle"),
-                ((home as NSString).appendingPathComponent("Documents"), "doc.text.fill"),
-                ((home as NSString).appendingPathComponent("Desktop"), "desktopcomputer"),
-                (home, "house.fill"),
-                ((home as NSString).appendingPathComponent("Pictures"), "photo.fill"),
-                ((home as NSString).appendingPathComponent("Movies"), "film.fill"),
-                ((home as NSString).appendingPathComponent("Music"), "music.note"),
-                ("/Applications", "app.badge")
+            let realHome: String = {
+                if let pw = getpwuid(getuid()), let dir = pw.pointee.pw_dir {
+                    return fm.string(withFileSystemRepresentation: dir, length: strlen(dir))
+                }
+                return NSHomeDirectory()
+            }()
+            
+            let standardDirSpecs: [(FileManager.SearchPathDirectory, String, String)] = [
+                (.downloadsDirectory, "arrow.down.circle", "Downloads"),
+                (.documentDirectory, "doc.text.fill", "Documents"),
+                (.desktopDirectory, "desktopcomputer", "Desktop"),
+                (.picturesDirectory, "photo.fill", "Pictures"),
+                (.moviesDirectory, "film.fill", "Movies"),
+                (.musicDirectory, "music.note", "Music")
             ]
             
+            var standardPaths: [(String, String)] = []
+            for (searchDir, icon, fallbackSub) in standardDirSpecs {
+                let resolved = fm.urls(for: searchDir, in: .userDomainMask).first?.path ?? (realHome as NSString).appendingPathComponent(fallbackSub)
+                standardPaths.append((resolved, icon))
+            }
+            // Real User Home directory
+            standardPaths.insert((realHome, "house.fill"), at: 3)
+            // System Applications
+            let appPath = fm.urls(for: .applicationDirectory, in: .localDomainMask).first?.path ?? "/Applications"
+            standardPaths.append((appPath, "app.badge"))
+            
             for (path, icon) in standardPaths {
-                if !seenPaths.contains(path), fm.fileExists(atPath: path) {
+                if !seenPaths.contains(path) {
                     seenPaths.insert(path)
                     let displayName = fm.displayName(atPath: path)
-                    results.append(FinderFavoriteItem(name: displayName, path: path, systemImage: icon))
+                    let finalName = (displayName.isEmpty || displayName == path) ? (path as NSString).lastPathComponent : displayName
+                    results.append(FinderFavoriteItem(name: finalName, path: path, systemImage: icon))
                 }
             }
         }

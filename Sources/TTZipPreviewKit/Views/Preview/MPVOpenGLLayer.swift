@@ -10,7 +10,6 @@ import QuartzCore
 import OpenGL
 import OpenGL.GL3
 import CMPVBridge
-import os.log
 import TTZipUI
 
 /// Thread-safe weak proxy enabling Sendable closure invocation without retaining or capturing non-Sendable CALayers.
@@ -24,7 +23,7 @@ private final class MPVLayerProxy: @unchecked Sendable {
 
 /// High-performance OpenGL 3.2 Core rasterization layer driving libmpv frame rendering directly into CoreAnimation.
 public final class MPVOpenGLLayer: CAOpenGLLayer, MPVVideoLayerProtocol {
-    private let logger = Logger(subsystem: "com.metastudyline.ttzip", category: "MPVOpenGLLayer")
+    private let logger = PreviewKitLogger(category: "MPVOpenGLLayer")
     public weak var renderContextManager: MPVRenderContextManager?
     public weak var playerStore: MPVMetalPlayerStore?
     

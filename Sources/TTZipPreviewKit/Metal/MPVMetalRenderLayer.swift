@@ -10,7 +10,6 @@ import QuartzCore
 import OpenGL.GL3
 import Metal
 import CMPVBridge
-import os.log
 import TTZipUI
 
 /// Thread-safe weak proxy enabling Sendable closure invocation without retaining or capturing non-Sendable CALayers.
@@ -27,7 +26,7 @@ private final class MPVOpenGLLayerProxy: @unchecked Sendable {
 /// Implements zero-copy hardware presentation via OpenGL 3.2 Core Profile, matching IINA's official architecture.
 /// Eliminates intermediate IOSurface allocations, Metal blit command passes, and cross-API sync penalties.
 public final class MPVMetalRenderLayer: CAOpenGLLayer, MPVVideoLayerProtocol, @unchecked Sendable {
-    private let logger = Logger(subsystem: "com.metastudyline.ttzip", category: "MPVMetalRenderLayer")
+    private let logger = PreviewKitLogger(category: "MPVMetalRenderLayer")
     private let stateLock = NSLock()
     private var _needsForceRedraw: Bool = false
     

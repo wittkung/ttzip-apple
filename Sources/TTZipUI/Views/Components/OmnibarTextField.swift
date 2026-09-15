@@ -52,6 +52,7 @@ public struct OmnibarTextField: NSViewRepresentable {
         textField.isBordered = false
         textField.drawsBackground = false
         textField.focusRingType = .none
+        textField.cell?.focusRingType = .none
         textField.font = NSFont.monospacedSystemFont(ofSize: 11.5, weight: .medium)
         textField.textColor = NSColor.labelColor
         textField.placeholderString = placeholder
@@ -70,9 +71,9 @@ public struct OmnibarTextField: NSViewRepresentable {
             nsView.stringValue = text
         }
         
-        if isFocused && nsView.window?.firstResponder != nsView.currentEditor() {
+        if isFocused {
             DispatchQueue.main.async {
-                if let window = nsView.window {
+                if let window = nsView.window, window.firstResponder != nsView.currentEditor() {
                     window.makeFirstResponder(nsView)
                     nsView.selectText(nil)
                 }
@@ -82,6 +83,15 @@ public struct OmnibarTextField: NSViewRepresentable {
     
     public final class CustomNSTextField: NSTextField {
         weak var coordinator: Coordinator?
+        
+        public override var focusRingType: NSFocusRingType {
+            get { .none }
+            set {}
+        }
+        
+        public override var focusRingMaskBounds: NSRect {
+            .zero
+        }
         
         public override func performKeyEquivalent(with event: NSEvent) -> Bool {
             // Let Tab and Escape be processed by coordinator commands

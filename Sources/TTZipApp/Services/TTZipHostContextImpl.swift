@@ -89,4 +89,20 @@ public final class TTZipHostContextImpl: TTZipHostContext {
             DockProgressManager.shared.clearProgress()
         }
     }
+    
+    public func log(level: TTZipPluginLogLevel, message: String) {
+        let mappedLevel: TTLogger.Level
+        switch level {
+        case .debug:
+            mappedLevel = .debug
+        case .info:
+            mappedLevel = .info
+        case .warning:
+            mappedLevel = .warning
+        case .error:
+            mappedLevel = .error
+        }
+        let formattedMessage = message.hasPrefix("[Plugin:") ? message : "[Plugin:\(pluginIdentifier)] \(message)"
+        TTLogger.shared.log(level: mappedLevel, category: .general, message: formattedMessage)
+    }
 }

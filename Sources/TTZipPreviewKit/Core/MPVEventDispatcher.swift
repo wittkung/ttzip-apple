@@ -6,14 +6,13 @@
 // TTZip: High-performance native archiving and compression engine.
 
 import Foundation
-import os.log
 
 /// Swift 6 Actor-isolated event dispatcher providing AsyncStream multicast and high-frequency debouncing.
 public actor MPVEventDispatcher {
     /// Shared singleton instance bound to the shared core engine.
     public static let shared = MPVEventDispatcher()
 
-    private let logger = Logger(subsystem: "com.metastudyline.ttzip", category: "MPVEventDispatcher")
+    private let logger = PreviewKitLogger(category: "MPVEventDispatcher")
     private let engine: MPVCoreEngine
 
     private var currentState: MPVPlaybackStateSnapshot = MPVPlaybackStateSnapshot()

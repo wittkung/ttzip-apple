@@ -85,6 +85,14 @@ RULES = [
         "description": "Specific plugin C-symbol dlsym coupling detected",
         "pattern": re.compile(r'dlsym\s*\(\s*[^,]+,\s*"getLarkSyncWorkspaceView_c"\s*\)|getLarkSyncWorkspaceView_c'),
         "remediation": "Use standardized generic ABI entrypoint ('createTTZipPlugin') instead of plugin-specific dlsym symbols."
+    },
+    {
+        "id": "ARCH_NO_BARE_PRINT_OR_NSLOG",
+        "description": "Bare print(...) or NSLog(...) forbidden in Swift source code",
+        "pattern": re.compile(r'\b(print|NSLog)\s*\('),
+        "extensions": {".swift"},
+        "exclude_files": {"Logger.swift"},
+        "remediation": "Replace bare print(...) or NSLog(...) with TTLogger or Unified Logging (Logger/OSLog)."
     }
 ]
 
@@ -176,6 +184,13 @@ def scan_file_invariants(root_dir: Path) -> Tuple[int, List[Dict[str, Any]]]:
                         continue
 
                     for rule in RULES:
+                        target_exts = rule.get("extensions")
+                        if target_exts and ext not in target_exts:
+                            continue
+                        excluded_files = rule.get("exclude_files")
+                        if excluded_files and file in excluded_files:
+                            continue
+
                         if rule["pattern"].search(line):
                             violations.append({
                                 "rule_id": rule["id"],

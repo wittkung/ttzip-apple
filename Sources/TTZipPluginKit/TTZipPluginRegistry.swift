@@ -50,7 +50,7 @@ public final class TTZipPluginRegistry {
             archiveSourceProviders.append(contentsOf: plugin.archiveSourceProviders)
             contextMenuActions.append(contentsOf: plugin.contextMenuActions)
         } catch {
-            print("[TTZipPluginRegistry] Failed to initialize plugin \(plugin.manifest.id): \(error)")
+            PluginKitLogger.error("[TTZipPluginRegistry] Failed to initialize plugin \(plugin.manifest.id): \(error)")
         }
     }
     

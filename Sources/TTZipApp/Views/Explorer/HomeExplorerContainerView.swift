@@ -73,9 +73,12 @@ public struct HomeExplorerContainerView: View {
                     }
                     
                     SegmentedBreadcrumbCapsuleView(viewModel: viewModel)
+                        .layoutPriority(1)
                     
                     SpotlightSearchCapsuleView(viewModel: viewModel)
+                        .layoutPriority(0.8)
                 }
+                .layoutPriority(1)
             },
             headerTrailing: {
                 HStack(spacing: 8) {

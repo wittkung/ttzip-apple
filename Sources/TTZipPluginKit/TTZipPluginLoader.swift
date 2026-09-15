@@ -52,7 +52,7 @@ public enum TTZipPluginLoader {
     @MainActor
     public static func loadPluginBundle(at bundleURL: URL, context: TTZipHostContext) async {
         guard let bundle = Bundle(url: bundleURL) else {
-            print("[TTZipPluginLoader] Failed to open bundle at: \(bundleURL.path)")
+            PluginKitLogger.error("[TTZipPluginLoader] Failed to open bundle at: \(bundleURL.path)")
             return
         }
         
@@ -69,22 +69,22 @@ public enum TTZipPluginLoader {
                     let createFn = unsafeBitCast(sym, to: CreatePluginFn.self)
                     let rawPtr = createFn()
                     let instance = Unmanaged<AnyObject>.fromOpaque(rawPtr).takeRetainedValue()
-                    print("[TTZipPluginLoader] dlsym instance acquired: \(type(of: instance))")
+                    PluginKitLogger.debug("[TTZipPluginLoader] dlsym instance acquired: \(type(of: instance))")
                     if let plugin = instance as? TTZipPlugin {
                         resolvedPlugin = plugin
                     } else if let dynamicPlugin = DynamicDuckTypePluginAdapter(rawInstance: instance) {
                         resolvedPlugin = dynamicPlugin
                     } else {
-                        print("[TTZipPluginLoader] instance \(type(of: instance)) failed to cast to TTZipPlugin protocol")
+                        PluginKitLogger.error("[TTZipPluginLoader] instance \(type(of: instance)) failed to cast to TTZipPlugin protocol")
                     }
                 } else {
                     if let err = dlerror() {
-                        print("[TTZipPluginLoader] dlsym failed: \(String(cString: err))")
+                        PluginKitLogger.error("[TTZipPluginLoader] dlsym failed: \(String(cString: err))")
                     }
                 }
             } else {
                 if let err = dlerror() {
-                    print("[TTZipPluginLoader] dlopen failed: \(String(cString: err))")
+                    PluginKitLogger.error("[TTZipPluginLoader] dlopen failed: \(String(cString: err))")
                 }
             }
             
@@ -101,7 +101,7 @@ public enum TTZipPluginLoader {
             }
             
             guard let pluginInstance = resolvedPlugin else {
-                print("[TTZipPluginLoader] Could not resolve valid TTZipPlugin instance for: \(bundleURL.lastPathComponent)")
+                PluginKitLogger.error("[TTZipPluginLoader] Could not resolve valid TTZipPlugin instance for: \(bundleURL.lastPathComponent)")
                 return
             }
             
@@ -111,9 +111,9 @@ public enum TTZipPluginLoader {
                 masterKeychain: context.keychain
             )
             await TTZipPluginRegistry.shared.register(plugin: pluginInstance, context: scopedContext)
-            print("[TTZipPluginLoader] Successfully loaded plugin: \(pluginInstance.manifest.name) v\(pluginInstance.manifest.version)")
+            PluginKitLogger.info("[TTZipPluginLoader] Successfully loaded plugin: \(pluginInstance.manifest.name) v\(pluginInstance.manifest.version)")
         } catch {
-            print("[TTZipPluginLoader] Soft-fail: Could not load plugin at \(bundleURL.lastPathComponent): \(error)")
+            PluginKitLogger.error("[TTZipPluginLoader] Soft-fail: Could not load plugin at \(bundleURL.lastPathComponent): \(error)")
         }
     }
 }

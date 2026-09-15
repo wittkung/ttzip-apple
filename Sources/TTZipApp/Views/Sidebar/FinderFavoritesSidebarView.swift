@@ -20,7 +20,7 @@ public struct FinderFavoritesSidebarView: View {
     private var licenseManager = AppLicenseManager.shared
     @State private var androidViewModel = AndroidDeviceViewModel.shared
     @State private var volumeManager = MountedVolumeManager.shared
-    @State private var dynamicFinderFavorites: [FinderFavoriteItem] = []
+    @State private var dynamicFinderFavorites: [FinderFavoriteItem] = FinderFavoritesReader.fetchFavorites()
     @State private var hoveredItemPath: String? = nil
     @State private var showWirelessDiscoverySheet: Bool = false
     @State private var isDropTargeted: Bool = false
@@ -80,7 +80,7 @@ public struct FinderFavoritesSidebarView: View {
                             Button(action: addCustomFolder) {
                                 Image(systemName: "plus")
                                     .font(.system(size: 10, weight: .semibold))
-                                    .foregroundStyle(Color.white.opacity(0.65))
+                                    .foregroundStyle(Color.secondary)
                                     .frame(width: 18, height: 18)
                                     .contentShape(Rectangle())
                             }
@@ -109,7 +109,7 @@ public struct FinderFavoritesSidebarView: View {
                             Button(action: authorizeFinderFavorites) {
                                 Image(systemName: "arrow.triangle.2.circlepath")
                                     .font(.system(size: 10, weight: .semibold))
-                                    .foregroundStyle(hasResolvedCustomFavorites ? Color.white.opacity(0.65) : TTZipTheme.bambooGreen)
+                                    .foregroundStyle(hasResolvedCustomFavorites ? Color.secondary : TTZipTheme.bambooGreen)
                                     .frame(width: 18, height: 18)
                                     .contentShape(Rectangle())
                             }
@@ -141,7 +141,7 @@ public struct FinderFavoritesSidebarView: View {
                                 Button(action: { showWirelessDiscoverySheet = true }) {
                                     Image(systemName: "wifi.badge.plus")
                                         .font(.system(size: 10, weight: .bold))
-                                        .foregroundStyle(.secondary.opacity(0.75))
+                                        .foregroundStyle(Color.secondary)
                                         .frame(width: 18, height: 18)
                                 }
                                 .buttonStyle(.plain)
@@ -197,7 +197,12 @@ public struct FinderFavoritesSidebarView: View {
             SidebarHardwareFooterView(isIconRail: false)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .background(Color.clear)
+        .background(
+            ZStack {
+                Rectangle().fill(.ultraThinMaterial)
+                TTZipUniversalTokens.Plate.surfaceL2
+            }
+        )
         .sheet(isPresented: $showWirelessDiscoverySheet) {
             WirelessDeviceDiscoveryView()
         }
@@ -240,7 +245,7 @@ public struct FinderFavoritesSidebarView: View {
                     Text("TTZip")
                         .font(.system(size: 14.5, weight: .bold, design: .serif))
                         .tracking(0.5)
-                        .foregroundStyle(Color.white)
+                        .foregroundStyle(Color.primary)
                         .lineLimit(1)
                     
                     if licenseManager.currentTier.isPro {
@@ -270,7 +275,7 @@ public struct FinderFavoritesSidebarView: View {
         Text(title)
             .font(.system(size: 10.5, weight: .bold))
             .tracking(0.8)
-            .foregroundStyle(Color.white.opacity(0.65))
+            .foregroundStyle(Color.secondary)
             .lineLimit(1)
             .fixedSize(horizontal: true, vertical: false)
             .padding(.horizontal, 10)
@@ -297,7 +302,7 @@ public struct FinderFavoritesSidebarView: View {
                 
                 Text(title)
                     .font(.system(size: 12, weight: isSelected ? .semibold : .regular))
-                    .foregroundStyle(isSelected ? Color.white : Color.white.opacity(0.95))
+                    .foregroundStyle(isSelected ? Color.primary : Color.primary.opacity(0.88))
                     .lineLimit(1)
                     .truncationMode(.tail)
                 
@@ -307,7 +312,7 @@ public struct FinderFavoritesSidebarView: View {
                     Button(action: { removeCustomPinnedFolder(path: path) }) {
                         Image(systemName: "xmark")
                             .font(.system(size: 8.5, weight: .bold))
-                            .foregroundStyle(.secondary.opacity(0.6))
+                            .foregroundStyle(Color.secondary)
                     }
                     .buttonStyle(.plain)
                     .opacity(isHovered ? 1.0 : 0.0)
@@ -319,6 +324,10 @@ public struct FinderFavoritesSidebarView: View {
             .background(
                 RoundedRectangle(cornerRadius: 6, style: .continuous)
                     .fill(rowBackgroundColor(isSelected: isSelected, isHovered: isHovered))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 6, style: .continuous)
+                    .strokeBorder(isSelected ? TTZipTheme.bambooGreen.opacity(0.28) : Color.clear, lineWidth: 0.6)
             )
             .contentShape(Rectangle())
         }
@@ -382,9 +391,9 @@ public struct FinderFavoritesSidebarView: View {
     
     private func rowBackgroundColor(isSelected: Bool, isHovered: Bool) -> Color {
         if isSelected {
-            return Color.primary.opacity(0.08)
+            return TTZipTheme.bambooGreen.opacity(0.16)
         } else if isHovered {
-            return Color.primary.opacity(0.035)
+            return Color.primary.opacity(0.05)
         } else {
             return Color.clear
         }
@@ -392,9 +401,9 @@ public struct FinderFavoritesSidebarView: View {
     
     private func iconColor(isSelected: Bool) -> Color {
         if isSelected {
-            return Color.white
+            return TTZipTheme.bambooGreen
         }
-        return Color.white.opacity(0.75)
+        return Color.secondary
     }
     
     private func loadFavorites() {

@@ -8,7 +8,6 @@
 import SwiftUI
 import AppKit
 import Observation
-import os.log
 import CMPVBridge
 import TTZipCore
 import TTZipUI
@@ -26,7 +25,7 @@ public final class MPVMetalPlayerStore {
     /// Shared persistent playback store instance ensuring libmpv engine continuity.
     public static let shared = MPVMetalPlayerStore()
     
-    private let logger = Logger(subsystem: "com.metastudyline.ttzip", category: "MPVMetalPlayerStore")
+    private let logger = PreviewKitLogger(category: "MPVMetalPlayerStore")
     @ObservationIgnored
     private nonisolated(unsafe) var securityScopedURL: URL? = nil
     private var isAccessingSecurityScopedResource: Bool = false
@@ -183,14 +182,14 @@ public final class MPVMetalPlayerStore {
         case .propertyChange(let name, let value):
             self.handlePropertyChange(name: name, value: value)
         case .logMessage(let level, let text):
-            logger.debug("[\(level)] \(text, privacy: .public)")
+            logger.debug("[\(level)] \(text)")
         }
     }
     
     private func handlePlaybackFailure(reason: String) {
         if !hasAttemptedSoftwareFallback, let url = currentURL {
             hasAttemptedSoftwareFallback = true
-            logger.warning("Playback failure encountered (\(reason, privacy: .public)); automatically attempting software decoding fallback for \(url.lastPathComponent, privacy: .public)...")
+            logger.warning("Playback failure encountered (\(reason)); automatically attempting software decoding fallback for \(url.lastPathComponent)...")
             Task { @MainActor [weak self] in
                 guard let self else { return }
                 do {
@@ -201,7 +200,7 @@ public final class MPVMetalPlayerStore {
                     self.hasPlaybackError = true
                     self.errorMessage = reason
                     self.isPlaying = false
-                    self.logger.error("Software decoding fallback failed: \(error.localizedDescription, privacy: .public)")
+                    self.logger.error("Software decoding fallback failed: \(error.localizedDescription)")
                 }
             }
         } else {
@@ -281,7 +280,7 @@ public final class MPVMetalPlayerStore {
         if url.startAccessingSecurityScopedResource() {
             self.securityScopedURL = url
             self.isAccessingSecurityScopedResource = true
-            logger.info("Acquired security-scoped access for: \(url.path, privacy: .public)")
+            logger.info("Acquired security-scoped access for: \(url.path)")
         }
         
         self.currentURL = url
@@ -317,7 +316,7 @@ public final class MPVMetalPlayerStore {
             renderContextManager.createRenderContext(mpvHandle: handle)
         }
         
-        logger.info("Executing loadfile asynchronously via MPVCoreEngine for: \(url.path, privacy: .public)")
+        logger.info("Executing loadfile asynchronously via MPVCoreEngine for: \(url.path)")
         Task { [weak self] in
             guard let self else { return }
             do {
@@ -333,7 +332,7 @@ public final class MPVMetalPlayerStore {
             } catch {
                 self.hasPlaybackError = true
                 self.errorMessage = error.localizedDescription
-                self.logger.error("Failed to load file in MPVCoreEngine: \(error.localizedDescription, privacy: .public)")
+                self.logger.error("Failed to load file in MPVCoreEngine: \(error.localizedDescription)")
             }
         }
     }
@@ -349,7 +348,7 @@ public final class MPVMetalPlayerStore {
         } catch {
             self.hasPlaybackError = true
             self.errorMessage = "Failed to initialize MPVCoreEngine: \(error.localizedDescription)"
-            logger.error("Failed to initialize MPVCoreEngine: \(error.localizedDescription, privacy: .public)")
+            logger.error("Failed to initialize MPVCoreEngine: \(error.localizedDescription)")
         }
     }
     
@@ -379,7 +378,7 @@ public final class MPVMetalPlayerStore {
         let maxDur = duration > 0 ? duration : 86400
         let clamped = max(0, min(seconds, maxDur))
         currentTime = clamped
-        logger.info("Seeking to absolute position: \(clamped, privacy: .public)s")
+        logger.info("Seeking to absolute position: \(clamped)s")
         Task {
             try? await MPVCoreEngine.shared.sendCommand(["seek", "\(clamped)", "absolute"])
         }
@@ -391,7 +390,7 @@ public final class MPVMetalPlayerStore {
         let maxDur = duration > 0 ? duration : 36000
         let target = max(0, min(currentTime + delta, maxDur))
         currentTime = target
-        logger.info("Seeking relative position by: \(delta, privacy: .public)s (target: \(target, privacy: .public)s)")
+        logger.info("Seeking relative position by: \(delta)s (target: \(target)s)")
         Task {
             try? await MPVCoreEngine.shared.sendCommand(["seek", "\(delta)", "relative"])
         }
@@ -512,7 +511,7 @@ public final class MPVMetalPlayerStore {
         Task {
             try? await MPVCoreEngine.shared.sendCommand(["sub-add", url.path, select ? "select" : "auto"])
         }
-        logger.info("Loaded subtitle via sub-add: \(url.path, privacy: .public) (select: \(select))")
+        logger.info("Loaded subtitle via sub-add: \(url.path) (select: \(select))")
     }
     
     /// Backward-compatible alias for loading external subtitle.
@@ -543,7 +542,7 @@ public final class MPVMetalPlayerStore {
         Task {
             try? await MPVCoreEngine.shared.sendCommand(["sub-remove", "\(sub.subtitleId)"])
         }
-        logger.info("Removed subtitle track: \(sub.title, privacy: .public)")
+        logger.info("Removed subtitle track: \(sub.title)")
     }
     
     public func removeSubtitleTrack(_ sub: MPVSubtitleItem) {
@@ -625,7 +624,7 @@ public final class MPVMetalPlayerStore {
             url.stopAccessingSecurityScopedResource()
             securityScopedURL = nil
             isAccessingSecurityScopedResource = false
-            logger.info("Released security-scoped access for: \(url.path, privacy: .public)")
+            logger.info("Released security-scoped access for: \(url.path)")
         }
         
         currentURL = nil

@@ -8,7 +8,6 @@
 import AppKit
 import SwiftUI
 import QuartzCore
-import os.log
 import TTZipUI
 
 /// High-performance native NSView host container anchoring the `MPVMetalRenderLayer` and `MPVMetalDisplayLink`.
@@ -16,7 +15,7 @@ import TTZipUI
 /// Features dynamic HiDPI Retina scale factor tracking, automatic occlusion-aware GPU suspension
 /// for zero idle power consumption, gesture handling, subtitle drag-and-drop, and SwiftUI bridging.
 public final class MPVMetalContainerView: MPVMetalNSView {
-    private let logger = Logger(subsystem: "com.metastudyline.ttzip", category: "MPVMetalContainerView")
+    private let logger = PreviewKitLogger(category: "MPVMetalContainerView")
     
     public override weak var store: MPVMetalPlayerStore? {
         didSet {

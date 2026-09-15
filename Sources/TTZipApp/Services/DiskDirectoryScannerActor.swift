@@ -34,7 +34,11 @@ public actor DiskDirectoryScannerActor {
                 let summaries = try TTZipCore.scanDirectory(path: dirURL.path, maxDepth: 1)
                 return summaries.map { DiskItemInfo(summary: $0) }
             } catch {
-                NSLog("[DiskDirectoryScannerActor] Rust scanDirectory failed at \(dirURL.path): \(error). Attempting FileManager fallback.")
+                TTLogger.shared.log(
+                    level: .warning,
+                    category: .general,
+                    message: "[DiskDirectoryScannerActor] Rust scanDirectory failed at \(dirURL.path): \(error). Attempting FileManager fallback."
+                )
                 
                 // 2. Secondary path: Foundation FileManager fallback
                 do {
@@ -57,7 +61,11 @@ public actor DiskDirectoryScannerActor {
                         return a.name.localizedStandardCompare(b.name) == .orderedAscending
                     }
                 } catch let fmError {
-                    NSLog("[DiskDirectoryScannerActor] FileManager fallback failed at \(dirURL.path): \(fmError)")
+                    TTLogger.shared.log(
+                        level: .error,
+                        category: .general,
+                        message: "[DiskDirectoryScannerActor] FileManager fallback failed at \(dirURL.path): \(fmError)"
+                    )
                     
                     // 3. Informational placeholder & notification when access is denied
                     let nsError = fmError as NSError

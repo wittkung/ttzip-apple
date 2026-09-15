@@ -43,23 +43,42 @@ public struct SpotlightSearchCapsuleView: View {
                 collapsedSearchBar
             }
         }
+        .frame(
+            minWidth: isEditing ? 260 : 130,
+            idealWidth: isEditing ? 320 : 140,
+            maxWidth: isEditing ? 380 : 155
+        )
         .frame(height: capsuleHeight)
+        .animation(.spring(response: 0.28, dampingFraction: 0.84), value: isEditing)
         .background(
-            ZStack {
-                Rectangle().fill(.ultraThinMaterial)
-                Color(nsColor: .controlBackgroundColor).opacity(isEditing ? 0.88 : (isHoveringCapsule ? 0.65 : 0.5))
-            }
+            RoundedRectangle(cornerRadius: 7, style: .continuous)
+                .fill(.ultraThinMaterial)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 7, style: .continuous)
+                        .fill(Color(nsColor: .controlBackgroundColor).opacity(isEditing ? 0.88 : (isHoveringCapsule ? 0.65 : 0.5)))
+                )
         )
         .clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
         .overlay(
-            RoundedRectangle(cornerRadius: 7, style: .continuous)
-                .strokeBorder(
-                    isEditing
-                        ? TTZipTheme.bambooGreen.opacity(0.45)
-                        : (isHoveringCapsule ? Color.white.opacity(0.2) : Color.white.opacity(0.1)),
-                    lineWidth: isEditing ? 1.0 : 0.5
-                )
+            capsuleBorderOverlay
         )
+        .shadow(
+            color: isEditing
+                ? TTZipTheme.kintsugiGold.opacity(0.36)
+                : (isHoveringCapsule ? Color.primary.opacity(0.06) : Color.clear),
+            radius: isEditing ? 4 : (isHoveringCapsule ? 2 : 0),
+            x: 0,
+            y: 0
+        )
+        .shadow(
+            color: isEditing
+                ? TTZipTheme.kintsugiGold.opacity(0.14)
+                : Color.clear,
+            radius: isEditing ? 10 : 0,
+            x: 0,
+            y: 0
+        )
+        .focusEffectDisabled()
         .onHover { hovering in
             withAnimation(.easeInOut(duration: 0.12)) {
                 isHoveringCapsule = hovering
@@ -112,6 +131,33 @@ public struct SpotlightSearchCapsuleView: View {
         }
     }
 
+    // MARK: - Zen Crystalline Border Overlay
+    
+    @ViewBuilder
+    private var capsuleBorderOverlay: some View {
+        if isEditing {
+            RoundedRectangle(cornerRadius: 7, style: .continuous)
+                .strokeBorder(
+                    LinearGradient(
+                        colors: [
+                            TTZipTheme.kintsugiGold.opacity(0.95),
+                            Color.primary.opacity(0.30),
+                            TTZipTheme.kintsugiGold.opacity(0.75)
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    ),
+                    lineWidth: 1.0
+                )
+        } else {
+            RoundedRectangle(cornerRadius: 7, style: .continuous)
+                .strokeBorder(
+                    isHoveringCapsule ? Color.primary.opacity(0.18) : Color.primary.opacity(0.09),
+                    lineWidth: 0.5
+                )
+        }
+    }
+
     // MARK: - Collapsed Search Capsule
 
     private var collapsedSearchBar: some View {
@@ -121,31 +167,31 @@ public struct SpotlightSearchCapsuleView: View {
             HStack(spacing: 6) {
                 Image(systemName: "magnifyingglass")
                     .font(.system(size: 11, weight: .medium))
-                    .foregroundStyle(isHoveringCapsule ? TTZipTheme.bambooGreen : Color.white.opacity(0.75))
+                    .foregroundStyle(isHoveringCapsule ? TTZipTheme.kintsugiGold : Color.secondary)
 
-                Text(isChinese ? "搜索或跳转..." : "Search or jump...")
+                Text(isChinese ? "搜索..." : "Search...")
                     .font(.system(size: 11.5))
-                    .foregroundStyle(Color.white.opacity(0.55))
+                    .foregroundStyle(Color.secondary)
                     .lineLimit(1)
 
-                Spacer(minLength: 4)
+                Spacer(minLength: 2)
 
                 Text("⌘K")
                     .font(.system(size: 9.5, weight: .semibold, design: .monospaced))
-                    .foregroundStyle(isHoveringCapsule ? Color.white : Color.white.opacity(0.65))
+                    .foregroundStyle(isHoveringCapsule ? Color.primary : Color.secondary)
                     .padding(.horizontal, 4.5)
                     .padding(.vertical, 1.5)
                     .background(
                         RoundedRectangle(cornerRadius: 3.5, style: .continuous)
-                            .fill(Color.white.opacity(isHoveringCapsule ? 0.12 : 0.06))
+                            .fill(Color.primary.opacity(isHoveringCapsule ? 0.09 : 0.05))
                     )
             }
             .padding(.horizontal, 8)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .contentShape(Rectangle())
+            .contentShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
         }
         .buttonStyle(.plain)
-        .frame(minWidth: 140, idealWidth: 180, maxWidth: 220)
+        .focusEffectDisabled()
     }
 
     // MARK: - Active Search Input Bar
@@ -180,6 +226,7 @@ public struct SpotlightSearchCapsuleView: View {
                 }
             )
             .frame(height: 22)
+            .focusEffectDisabled()
 
             HStack(spacing: 4) {
                 if !inputText.isEmpty {
@@ -190,24 +237,26 @@ public struct SpotlightSearchCapsuleView: View {
                     } label: {
                         Image(systemName: "xmark.circle.fill")
                             .font(.system(size: 10.5))
-                            .foregroundStyle(Color.white.opacity(0.6))
+                            .foregroundStyle(Color.secondary)
                     }
                     .buttonStyle(.plain)
+                    .focusEffectDisabled()
                 }
 
                 Text("Esc")
                     .font(.system(size: 8.5, weight: .medium, design: .monospaced))
-                    .foregroundStyle(Color.white.opacity(0.6))
+                    .foregroundStyle(Color.secondary)
                     .padding(.horizontal, 3.5)
                     .padding(.vertical, 1.5)
                     .background(
                         RoundedRectangle(cornerRadius: 3, style: .continuous)
-                            .fill(Color.white.opacity(0.08))
+                            .fill(Color.primary.opacity(0.06))
                     )
             }
             .padding(.trailing, 8)
         }
-        .frame(minWidth: 280, maxWidth: .infinity)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .focusEffectDisabled()
     }
 
     @ViewBuilder
@@ -326,6 +375,8 @@ public struct SpotlightSearchCapsuleView: View {
                     beginEditing()
                 }
             }
+            .buttonStyle(.plain)
+            .focusEffectDisabled()
             .keyboardShortcut("k", modifiers: .command)
             .opacity(0)
 
@@ -336,6 +387,8 @@ public struct SpotlightSearchCapsuleView: View {
                     beginEditing()
                 }
             }
+            .buttonStyle(.plain)
+            .focusEffectDisabled()
             .keyboardShortcut("l", modifiers: .command)
             .opacity(0)
 
@@ -344,6 +397,8 @@ public struct SpotlightSearchCapsuleView: View {
                     cancelEditing()
                 }
             }
+            .buttonStyle(.plain)
+            .focusEffectDisabled()
             .keyboardShortcut(.escape, modifiers: [])
             .opacity(0)
         }

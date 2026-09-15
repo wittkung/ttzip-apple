@@ -61,14 +61,13 @@ public struct TTZipFluidRenderer: View {
     private var fluidOpacity: Double {
         switch mode {
         case .organic:
-            // Luminous Bamboo Green over OLED true black (#000000) achieves deep emerald vitality;
-            // over Solar pure white (#FFFFFF) calibrated to 0.78 for distinctive celadon tea-wash visibility.
-            return colorScheme == .dark ? 0.40 : 0.78
+            // Calibrated Zen aesthetic: dark mode reduced to 0.28 to enhance OLED black undertones;
+            // light mode calibrated to 0.22 for a whisper-soft, translucent celadon tea-wash wash.
+            return colorScheme == .dark ? 0.28 : 0.22
         case .monochrome:
-            // High-luminance opal in dark needs soft diffusion; obsidian ink in light needs presence
-            return colorScheme == .dark ? 0.38 : 0.45
+            return colorScheme == .dark ? 0.30 : 0.38
         case .tinted:
-            return colorScheme == .dark ? 0.35 : 0.40
+            return colorScheme == .dark ? 0.28 : 0.35
         }
     }
     
@@ -114,8 +113,8 @@ public struct TTZipFluidRenderer: View {
         size: CGSize,
         instances: [TTZipVortexInstance]
     ) {
-        // Micro-surface sheen sits on top of fluid core with plusLighter blend in Dark, normal in Light
-        context.blendMode = colorScheme == .dark ? .plusLighter : .normal
+        // Micro-surface sheen operates strictly with normal alpha compositing to prevent RGB channel saturation blowout.
+        context.blendMode = .normal
         
         for inst in instances {
             let r = inst.radius * 0.85
@@ -127,20 +126,28 @@ public struct TTZipFluidRenderer: View {
             )
             
             let sheenColor: Color = {
-                if colorScheme == .dark {
-                    // 10% Glacier Blue (#0A84FF)
-                    return Color(.displayP3, red: 0.1490, green: 0.5100, blue: 0.9800, opacity: 1.0)
-                        .opacity(0.10 * inst.weight * config.sheenIntensity)
-                } else {
-                    // Spring Jade / Celadon sheen with enhanced surface definition
-                    return Color(.displayP3, red: 0.4200, green: 0.6400, blue: 0.3500, opacity: 1.0)
-                        .opacity(0.32 * inst.weight * config.sheenIntensity)
+                switch mode {
+                case .organic:
+                    // Pure monochromatic tone-on-tone Bamboo Green sheen; zero chromatic clash or whiteout hotspot.
+                    let alphaScale = colorScheme == .dark ? 0.08 : 0.08
+                    return TTZipTheme.bambooGreen
+                        .opacity(alphaScale * inst.weight * config.sheenIntensity)
+                case .monochrome:
+                    if colorScheme == .dark {
+                        return Color(.displayP3, red: 0.1490, green: 0.5100, blue: 0.9800, opacity: 1.0)
+                            .opacity(0.06 * inst.weight * config.sheenIntensity)
+                    } else {
+                        return Color(.displayP3, red: 0.0240, green: 0.1310, blue: 0.2600, opacity: 1.0)
+                            .opacity(0.08 * inst.weight * config.sheenIntensity)
+                    }
+                case .tinted(let tint):
+                    return tint.opacity(0.08 * inst.weight * config.sheenIntensity)
                 }
             }()
             
             let gradient = Gradient(stops: [
                 .init(color: sheenColor, location: 0.0),
-                .init(color: sheenColor.opacity(0.50), location: 0.40),
+                .init(color: sheenColor.opacity(0.35), location: 0.35),
                 .init(color: .clear, location: 1.0)
             ])
             
@@ -160,10 +167,7 @@ public struct TTZipFluidRenderer: View {
         let baseColor: Color = {
             switch mode {
             case .organic:
-                // Primary vortices (0, 1, 2) flow Bamboo Green; 4th vortex (3) adds a warm touch of Kintsugi Gold
-                if vortexIndex == 3 {
-                    return TTZipTheme.kintsugiGold
-                }
+                // All organic vortices strictly unified to signature monochromatic Bamboo Green.
                 return TTZipTheme.bambooGreen
             case .monochrome:
                 // Dark: Opal White (#FAFAFC); Light: Obsidian Ink (#0A0A0C)
@@ -173,15 +177,17 @@ public struct TTZipFluidRenderer: View {
             }
         }()
         
+        // Attenuated center opacity to prevent energy concentration in the overlapping viewport center.
         let centerOpacity = colorScheme == .dark
-            ? min(1.0, 0.90 * weight * 2.5)
-            : min(1.0, 0.98 * weight * 4.2)
-        let midOpacity = centerOpacity * (colorScheme == .dark ? 0.55 : 0.72)
+            ? min(0.60, 0.75 * weight * 1.8)
+            : min(0.55, 0.80 * weight * 2.0)
+        let midOpacity = centerOpacity * (colorScheme == .dark ? 0.42 : 0.45)
+        let fringeOpacity = midOpacity * 0.25
         
         return Gradient(stops: [
             .init(color: baseColor.opacity(centerOpacity), location: 0.0),
-            .init(color: baseColor.opacity(midOpacity), location: colorScheme == .dark ? 0.45 : 0.38),
-            .init(color: baseColor.opacity(midOpacity * 0.35), location: 0.72),
+            .init(color: baseColor.opacity(midOpacity), location: colorScheme == .dark ? 0.35 : 0.32),
+            .init(color: baseColor.opacity(fringeOpacity), location: 0.68),
             .init(color: baseColor.opacity(0.0), location: 1.0)
         ])
     }

@@ -87,7 +87,7 @@ extension FolderMediaArtboardView {
                                 
                                 Text(item.category)
                                     .font(.system(size: 11, weight: .semibold, design: .monospaced))
-                                    .foregroundStyle(Color.white)
+                                    .foregroundStyle(Color.primary)
                                     .lineLimit(1)
                             }
                             
@@ -97,7 +97,7 @@ extension FolderMediaArtboardView {
                             Text(l10n.plural(key: L10n.Units.itemsCount, count: item.count))
                                 .font(.system(size: 11, design: .monospaced))
                                 .monospacedDigit()
-                                .foregroundStyle(Color.white.opacity(0.75))
+                                .foregroundStyle(Color.secondary)
                                 .lineLimit(1)
                                 .frame(width: 80, alignment: .trailing)
                             
@@ -174,14 +174,14 @@ extension FolderMediaArtboardView {
         GridRow(alignment: .firstTextBaseline) {
             Text(label)
                 .font(.system(size: 11, weight: .medium))
-                .foregroundStyle(Color.white.opacity(0.65))
+                .foregroundStyle(Color.secondary)
                 .fixedSize(horizontal: true, vertical: false)
                 .frame(minWidth: 54, idealWidth: 62, maxWidth: 72, alignment: .leading)
             
             Text(value)
                 .font(.system(size: isHighlight ? 12 : 11, weight: isHighlight ? .semibold : .regular, design: .monospaced))
                 .monospacedDigit()
-                .foregroundStyle(Color.white)
+                .foregroundStyle(Color.primary)
                 .lineLimit(1)
                 .truncationMode(.middle)
                 .minimumScaleFactor(0.85)
