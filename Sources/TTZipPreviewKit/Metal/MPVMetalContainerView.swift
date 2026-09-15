@@ -41,6 +41,8 @@ public final class MPVMetalContainerView: MPVMetalNSView {
     private let observerHolder = ObserverTokenHolder()
     private var singleClickWorkItem: DispatchWorkItem? = nil
     private var warmupFrameCount: Int = 5
+    private var lastBoundsSize: CGSize = .zero
+    private var lastBackingScale: CGFloat = 1.0
     
     public override func makeBackingLayer() -> CALayer {
         let metalLayer = MPVMetalRenderLayer()
@@ -112,13 +114,14 @@ public final class MPVMetalContainerView: MPVMetalNSView {
         if let window = self.window {
             warmupFrameCount = 5
             setupWindowObservers(for: window)
-            updateScaleAndBounds()
+            bindStore()
+            updateScaleAndBounds(force: true)
             displayLink.attach(to: self)
             displayLink.start()
-            bindStore()
         } else {
             singleClickWorkItem?.cancel()
             singleClickWorkItem = nil
+            lastBoundsSize = .zero
             displayLink.suspend()
             (layer as? (any MPVVideoLayerProtocol))?.unbind()
         }
@@ -126,7 +129,7 @@ public final class MPVMetalContainerView: MPVMetalNSView {
     
     public override func viewDidChangeBackingProperties() {
         super.viewDidChangeBackingProperties()
-        updateScaleAndBounds()
+        updateScaleAndBounds(force: true)
     }
     
     public override func layout() {
@@ -135,18 +138,41 @@ public final class MPVMetalContainerView: MPVMetalNSView {
     }
     
     public override func setFrameSize(_ newSize: NSSize) {
+        let sizeChanged = abs(newSize.width - frame.size.width) >= 0.5 || abs(newSize.height - frame.size.height) >= 0.5
         super.setFrameSize(newSize)
-        updateScaleAndBounds()
+        if sizeChanged {
+            updateScaleAndBounds()
+        }
     }
     
-    private func updateScaleAndBounds() {
+    /// Synchronizes backing scale and drawable dimensions to match the view's current bounds and Retina scale factor.
+    ///
+    /// When bounds size experiences a material change and is greater than zero, forces an immediate frame redraw
+    /// regardless of playback state (`store.isPlaying`). This guarantees that the paused or initial video frame
+    /// strictly aligns 1:1 in pixels with the actual view dimensions, eliminating any snapping or jump when playback starts.
+    private func updateScaleAndBounds(force: Bool = false) {
+        let currentSize = bounds.size
+        guard currentSize.width > 0, currentSize.height > 0 else { return }
+        
         let scale = window?.backingScaleFactor ?? NSScreen.main?.backingScaleFactor ?? 2.0
+        let sizeChanged = abs(currentSize.width - lastBoundsSize.width) > 0.001 || abs(currentSize.height - lastBoundsSize.height) > 0.001
+        let scaleChanged = abs(scale - lastBackingScale) > 0.001
+        
+        guard sizeChanged || scaleChanged || force else { return }
+        
+        lastBoundsSize = currentSize
+        lastBackingScale = scale
+        
         if let videoLayer = layer as? (any MPVVideoLayerProtocol) {
             videoLayer.contentsScale = scale
             if let metalLayer = videoLayer as? MPVMetalRenderLayer {
-                metalLayer.updateDrawableSize(boundsSize: bounds.size, scaleFactor: scale)
+                metalLayer.updateDrawableSize(boundsSize: currentSize, scaleFactor: scale)
             }
+            // Force redraw regardless of whether store.isPlaying is true.
+            // This guarantees that initial paused frames immediately scale to match
+            // the new viewport dimensions with zero 1:1 pixel snapping artifacts.
             videoLayer.forceRedraw()
+            videoLayer.requestRender()
         }
     }
     
@@ -160,6 +186,9 @@ public final class MPVMetalContainerView: MPVMetalNSView {
             }
             videoLayer.bind(store: targetStore)
             warmupFrameCount = 5
+            if bounds.width > 0 && bounds.height > 0 {
+                videoLayer.forceRedraw()
+            }
         }
     }
     
