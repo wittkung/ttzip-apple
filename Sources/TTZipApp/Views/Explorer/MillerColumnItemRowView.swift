@@ -138,10 +138,10 @@ public struct MillerColumnItemRowView: View, Equatable {
             }
         }
         if ["jpg", "jpeg", "png", "gif", "webp", "heic", "svg", "bmp", "tiff"].contains(ext) {
-            return Color.white.opacity(0.75)
+            return TTZipUniversalTokens.Mineral.gold
         }
         if MediaPreviewFactory.videoExtensions.contains(ext) {
-            return Color.white.opacity(0.75)
+            return Color.secondary
         }
         if MediaPreviewFactory.audioExtensions.contains(ext) {
             return Color.teal
@@ -152,7 +152,7 @@ public struct MillerColumnItemRowView: View, Equatable {
         if item.isArchive {
             return TTZipTheme.bambooGreen
         }
-        return Color.white.opacity(0.75)
+        return Color.secondary
     }
 
     /// Formatted display name ensuring typographical ellipsis (\u{2026}) and normalized full-width punctuation
@@ -291,7 +291,7 @@ public struct MillerColumnItemRowView: View, Equatable {
             
             Text(formattedDisplayName)
                 .font(.system(size: 11, weight: isRowSelected ? .semibold : .regular))
-                .foregroundStyle(isRowSelected ? Color.white : (isEncryptedLockItem ? TTZipTheme.archiveAmber : (item.isArchive ? TTZipTheme.bambooGreen : Color.white.opacity(0.95))))
+                .foregroundStyle(isRowSelected ? Color.primary : (isEncryptedLockItem ? TTZipTheme.archiveAmber : (item.isArchive ? TTZipTheme.bambooGreen : Color.primary.opacity(0.9))))
                 .lineLimit(1)
                 .truncationMode(.middle)
             
@@ -300,7 +300,7 @@ public struct MillerColumnItemRowView: View, Equatable {
             if item.isDirectory {
                 Image(systemName: "chevron.right")
                     .font(.system(size: 9))
-                    .foregroundStyle(Color.white.opacity(0.55))
+                    .foregroundStyle(Color.secondary)
             }
         }
         .padding(.horizontal, 6)

@@ -326,8 +326,8 @@ final class FluidDynamicsTests: XCTestCase {
         XCTAssertEqual(config.speed, 0.35, accuracy: 0.001)
         XCTAssertEqual(config.breathingAmplitude, 0.15, accuracy: 0.001)
         XCTAssertEqual(config.downscaleRatio, 4.0, accuracy: 0.001)
-        XCTAssertEqual(config.blurRadius, 48.0, accuracy: 0.001)
-        XCTAssertEqual(config.sheenIntensity, 1.0, accuracy: 0.001)
+        XCTAssertEqual(config.blurRadius, 72.0, accuracy: 0.001)
+        XCTAssertEqual(config.sheenIntensity, 0.75, accuracy: 0.001)
         XCTAssertEqual(config.minimumFrameInterval, 1.0 / 30.0, accuracy: 1e-5)
         
         var custom = TTZipFluidConfiguration()

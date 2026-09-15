@@ -16,6 +16,14 @@ public enum TTZipNotificationLevel: String, Sendable {
     case error
 }
 
+/// Plugin log severity level
+public enum TTZipPluginLogLevel: String, Sendable, CaseIterable {
+    case debug
+    case info
+    case warning
+    case error
+}
+
 /// Strongly typed subscription token for event bus lifecycle management
 public struct SubscriptionToken: Sendable, Hashable {
     public let id: UUID
@@ -40,6 +48,7 @@ public protocol TTZipHostContext: AnyObject {
     func createArchive(sources: [URL], destination: URL, format: String, level: Int) async throws -> URL
     func showNotification(title: String, message: String, level: TTZipNotificationLevel)
     func setGlobalProgress(progress: Double?, statusText: String?)
+    func log(level: TTZipPluginLogLevel, message: String)
     
     // Strongly typed publish-subscribe event bus
     func subscribeEvent<T: Sendable & Codable>(_ type: T.Type, name: String, handler: @escaping @Sendable (T) -> Void) -> SubscriptionToken
@@ -76,6 +85,10 @@ public final class PluginScopedHostContext: TTZipHostContext {
     
     public func setGlobalProgress(progress: Double?, statusText: String?) {
         baseContext.setGlobalProgress(progress: progress, statusText: statusText)
+    }
+    
+    public func log(level: TTZipPluginLogLevel, message: String) {
+        baseContext.log(level: level, message: "[Plugin:\(pluginIdentifier)] \(message)")
     }
     
     /// Enforces tenant namespace prefix on event names (e.g., `plugin.<pluginId>.<eventName>`) to prevent event collision

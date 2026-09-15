@@ -6,7 +6,6 @@
 // TTZip: High-performance native archiving and compression engine.
 
 import Foundation
-import os.log
 
 /// Thread-safe sandbox security-scoped resource manager utilizing reference counting.
 ///
@@ -18,7 +17,7 @@ public final class SecurityScopedResourceManager {
     /// Shared singleton instance for application-wide security-scoped URL management.
     public static let shared = SecurityScopedResourceManager()
 
-    private let logger = Logger(subsystem: "com.metastudyline.ttzip", category: "SecurityScopedResourceManager")
+    private let logger = PreviewKitLogger(category: "SecurityScopedResourceManager")
     private var accessCounts: [URL: Int] = [:]
     private var activeSecurityScopedURLs: Set<URL> = []
 
@@ -43,9 +42,9 @@ public final class SecurityScopedResourceManager {
 
         if accessGranted {
             activeSecurityScopedURLs.insert(key)
-            logger.debug("Successfully started accessing security-scoped resource: \(key.path, privacy: .public)")
+            logger.debug("Successfully started accessing security-scoped resource: \(key.path)")
         } else {
-            logger.debug("Accessing regular non-security-scoped resource: \(key.path, privacy: .public)")
+            logger.debug("Accessing regular non-security-scoped resource: \(key.path)")
         }
 
         return accessGranted || FileManager.default.isReadableFile(atPath: key.path)
@@ -64,7 +63,7 @@ public final class SecurityScopedResourceManager {
             accessCounts.removeValue(forKey: key)
             if activeSecurityScopedURLs.remove(key) != nil {
                 url.stopAccessingSecurityScopedResource()
-                logger.debug("Released security-scoped resource: \(key.path, privacy: .public)")
+                logger.debug("Released security-scoped resource: \(key.path)")
             }
         } else {
             accessCounts[key] = currentCount - 1

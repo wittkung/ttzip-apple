@@ -47,11 +47,11 @@ public struct SidebarHardwareFooterView: View {
                     HStack(spacing: 5) {
                         Image(systemName: "cpu")
                             .font(.system(size: 9.5, weight: .semibold))
-                            .foregroundStyle(Color.white.opacity(0.75))
+                            .foregroundStyle(Color.secondary)
 
                         Text(hardwareChipSummary)
                             .font(.system(size: 9.5, weight: .medium, design: .monospaced))
-                            .foregroundStyle(Color.white.opacity(0.85))
+                            .foregroundStyle(Color.primary.opacity(0.85))
                             .lineLimit(1)
                             .truncationMode(.middle)
 

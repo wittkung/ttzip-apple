@@ -8,7 +8,6 @@
 import AppKit
 import QuartzCore
 import CoreVideo
-import os.log
 
 /// High-precision VSync hardware pulse synchronizer locking up to 120Hz Apple ProMotion.
 ///
@@ -16,7 +15,7 @@ import os.log
 /// deterministic rising-edge frame dispatch, sub-millisecond jitter dampening, and
 /// zero-overhead power suspension when views are occluded or minimized.
 public final class MPVMetalDisplayLink: @unchecked Sendable {
-    private let logger = Logger(subsystem: "com.metastudyline.ttzip", category: "MPVMetalDisplayLink")
+    private let logger = PreviewKitLogger(category: "MPVMetalDisplayLink")
     private let lock = NSLock()
     
     /// Target frame rate range locked to 120Hz Apple ProMotion displays.

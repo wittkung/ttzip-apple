@@ -92,9 +92,9 @@ public struct TTZipFluidConfiguration: Sendable {
     public var breathingAmplitude: Double
     /// Downscale ratio for hardware rasterization (default: 4.0 for minimal GPU overhead).
     public var downscaleRatio: CGFloat
-    /// Gaussian diffusion blur radius (default: 48.0pt).
+    /// Gaussian diffusion blur radius (calibrated default: 72.0pt for deep Zen atmospheric dispersion).
     public var blurRadius: CGFloat
-    /// Micro-surface sheen opacity multiplier (default: 1.0).
+    /// Micro-surface sheen opacity multiplier (calibrated default: 0.75 for glare-free soft glow).
     public var sheenIntensity: Double
     /// Target timeline minimum frame interval (default: 1/30 for 30 FPS energy efficiency).
     public var minimumFrameInterval: Double
@@ -103,8 +103,8 @@ public struct TTZipFluidConfiguration: Sendable {
         speed: Double = 0.35,
         breathingAmplitude: Double = 0.15,
         downscaleRatio: CGFloat = 4.0,
-        blurRadius: CGFloat = 48.0,
-        sheenIntensity: Double = 1.0,
+        blurRadius: CGFloat = 72.0,
+        sheenIntensity: Double = 0.75,
         minimumFrameInterval: Double = 1.0 / 30.0
     ) {
         self.speed = speed

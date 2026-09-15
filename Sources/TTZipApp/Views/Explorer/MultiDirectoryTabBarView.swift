@@ -49,11 +49,11 @@ public struct MultiDirectoryTabBarView: View {
             } label: {
                 Image(systemName: "plus")
                     .font(.system(size: 10, weight: .semibold))
-                    .foregroundStyle(isHoveringNewTab ? Color.white : Color.white.opacity(0.6))
+                    .foregroundStyle(isHoveringNewTab ? Color.primary : Color.secondary)
                     .frame(width: 22, height: 22)
                     .background(
                         RoundedRectangle(cornerRadius: 4, style: .continuous)
-                            .fill(isHoveringNewTab ? Color.white.opacity(0.08) : Color.clear)
+                            .fill(isHoveringNewTab ? Color.primary.opacity(0.08) : Color.clear)
                     )
             }
             .buttonStyle(.plain)
@@ -71,12 +71,12 @@ public struct MultiDirectoryTabBarView: View {
         .background(
             ZStack {
                 Rectangle().fill(.ultraThinMaterial)
-                Color.white.opacity(0.015)
+                Color.primary.opacity(0.015)
             }
         )
         .overlay(alignment: .bottom) {
             Rectangle()
-                .fill(Color.white.opacity(0.03))
+                .fill(Color.primary.opacity(0.06))
                 .frame(height: 0.5)
         }
         .background(keyboardShortcuts)
@@ -92,12 +92,12 @@ public struct MultiDirectoryTabBarView: View {
             // Folder / Drive icon
             Image(systemName: iconName(for: tab.url))
                 .font(.system(size: 10, weight: .medium))
-                .foregroundStyle(isActive ? TTZipTheme.bambooGreen : Color.white.opacity(0.65))
+                .foregroundStyle(isActive ? TTZipTheme.bambooGreen : Color.secondary)
 
             // Folder display title
             Text(tab.title)
                 .font(.system(size: 11, weight: isActive ? .semibold : .regular))
-                .foregroundStyle(isActive ? Color.white : Color.white.opacity(0.75))
+                .foregroundStyle(isActive ? Color.primary : Color.secondary)
                 .lineLimit(1)
                 .truncationMode(.middle)
                 .frame(maxWidth: 160)
@@ -109,11 +109,11 @@ public struct MultiDirectoryTabBarView: View {
                 } label: {
                     Image(systemName: "xmark")
                         .font(.system(size: 8, weight: .bold))
-                        .foregroundStyle(isActive ? Color.white.opacity(0.7) : Color.white.opacity(0.4))
+                        .foregroundStyle(isActive ? Color.primary.opacity(0.8) : Color.secondary)
                         .frame(width: 14, height: 14)
                         .background(
                             Circle()
-                                .fill(isHovered ? Color.white.opacity(0.12) : Color.clear)
+                                .fill(isHovered ? Color.primary.opacity(0.1) : Color.clear)
                         )
                 }
                 .buttonStyle(.plain)
@@ -128,14 +128,14 @@ public struct MultiDirectoryTabBarView: View {
             RoundedRectangle(cornerRadius: 4, style: .continuous)
                 .fill(
                     isActive
-                        ? Color.white.opacity(0.08)
-                        : (isHovered ? Color.white.opacity(0.04) : Color.clear)
+                        ? Color.primary.opacity(0.08)
+                        : (isHovered ? Color.primary.opacity(0.04) : Color.clear)
                 )
         )
         .overlay(
             RoundedRectangle(cornerRadius: 4, style: .continuous)
                 .strokeBorder(
-                    isActive ? Color.white.opacity(0.08) : Color.clear,
+                    isActive ? Color.primary.opacity(0.12) : Color.clear,
                     lineWidth: 0.5
                 )
         )

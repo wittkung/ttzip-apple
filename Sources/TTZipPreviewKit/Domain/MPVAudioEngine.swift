@@ -7,7 +7,6 @@
 
 import Foundation
 import CoreGraphics
-import os.log
 import TTZipCore
 import TTZipUI
 
@@ -22,7 +21,7 @@ public final class MPVAudioEngine {
     /// Shared singleton instance for unified headless audio playback orchestration.
     public static let shared = MPVAudioEngine()
 
-    private let logger = Logger(subsystem: "com.metastudyline.ttzip", category: "MPVAudioEngine")
+    private let logger = PreviewKitLogger(category: "MPVAudioEngine")
 
     // MARK: - Reactive Playback State
 
@@ -109,7 +108,7 @@ public final class MPVAudioEngine {
             } catch {
                 self.hasPlaybackError = true
                 self.errorMessage = error.localizedDescription
-                self.logger.error("Failed to load audio file in MPVCoreEngine: \(error.localizedDescription, privacy: .public)")
+                self.logger.error("Failed to load audio file in MPVCoreEngine: \(error.localizedDescription)")
             }
         }
     }
@@ -121,7 +120,7 @@ public final class MPVAudioEngine {
                 try await MPVCoreEngine.shared.setProperty(name: "pause", value: false)
                 self.isPlaying = true
             } catch {
-                self.logger.error("Failed to play: \(error.localizedDescription, privacy: .public)")
+                self.logger.error("Failed to play: \(error.localizedDescription)")
             }
         }
     }
@@ -133,7 +132,7 @@ public final class MPVAudioEngine {
                 try await MPVCoreEngine.shared.setProperty(name: "pause", value: true)
                 self.isPlaying = false
             } catch {
-                self.logger.error("Failed to pause: \(error.localizedDescription, privacy: .public)")
+                self.logger.error("Failed to pause: \(error.localizedDescription)")
             }
         }
     }
@@ -156,7 +155,7 @@ public final class MPVAudioEngine {
             do {
                 try await MPVCoreEngine.shared.sendCommand(["seek", String(format: "%.3f", seconds), "absolute"])
             } catch {
-                self.logger.error("Failed to seek: \(error.localizedDescription, privacy: .public)")
+                self.logger.error("Failed to seek: \(error.localizedDescription)")
             }
         }
     }
@@ -178,7 +177,7 @@ public final class MPVAudioEngine {
             do {
                 try await MPVCoreEngine.shared.setProperty(name: "volume", value: clamped * 100.0)
             } catch {
-                self.logger.error("Failed to set volume: \(error.localizedDescription, privacy: .public)")
+                self.logger.error("Failed to set volume: \(error.localizedDescription)")
             }
         }
     }
@@ -192,7 +191,7 @@ public final class MPVAudioEngine {
             do {
                 try await MPVCoreEngine.shared.setProperty(name: "mute", value: muted)
             } catch {
-                self.logger.error("Failed to set mute: \(error.localizedDescription, privacy: .public)")
+                self.logger.error("Failed to set mute: \(error.localizedDescription)")
             }
         }
     }
@@ -212,7 +211,7 @@ public final class MPVAudioEngine {
             do {
                 try await MPVCoreEngine.shared.setProperty(name: "speed", value: clamped)
             } catch {
-                self.logger.error("Failed to set speed: \(error.localizedDescription, privacy: .public)")
+                self.logger.error("Failed to set speed: \(error.localizedDescription)")
             }
         }
     }

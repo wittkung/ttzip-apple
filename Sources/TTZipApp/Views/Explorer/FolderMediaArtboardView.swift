@@ -178,25 +178,25 @@ private struct QuickActionSegmentButton: View {
             HStack(spacing: 4) {
                 Image(systemName: icon)
                     .font(.system(size: 11.5, weight: .semibold))
-                    .foregroundStyle(isHovered ? TTZipTheme.bambooGreen : Color.white.opacity(0.85))
+                    .foregroundStyle(isHovered ? TTZipTheme.bambooGreen : Color.secondary)
                 
                 if width >= 320 {
                     Text(shortTitle)
                         .font(.system(size: 11, weight: .medium))
-                        .foregroundStyle(isHovered ? Color.white : Color.white.opacity(0.92))
+                        .foregroundStyle(isHovered ? Color.primary : Color.secondary)
                         .lineLimit(1)
                 }
             }
-            .foregroundStyle(isHovered ? Color.white : Color.white.opacity(0.92))
+            .foregroundStyle(isHovered ? Color.primary : Color.secondary)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .padding(.vertical, 4)
             .background(
                 RoundedRectangle(cornerRadius: 6, style: .continuous)
-                    .fill(isHovered ? Color.white.opacity(0.1) : Color.clear)
+                    .fill(isHovered ? Color.primary.opacity(0.08) : Color.clear)
             )
             .overlay(
                 RoundedRectangle(cornerRadius: 6, style: .continuous)
-                    .strokeBorder(isHovered ? Color.white.opacity(0.15) : Color.clear, lineWidth: 0.5)
+                    .strokeBorder(isHovered ? Color.primary.opacity(0.12) : Color.clear, lineWidth: 0.5)
             )
             .contentShape(Rectangle())
         }
@@ -211,7 +211,7 @@ private struct QuickActionSegmentButton: View {
                 HStack(spacing: 4) {
                     Text(fullTitle)
                         .font(.system(size: 10.5, weight: .medium))
-                        .foregroundStyle(Color.white)
+                        .foregroundStyle(Color.primary)
                     
                     if let sc = shortcut {
                         Text(sc)
@@ -219,24 +219,20 @@ private struct QuickActionSegmentButton: View {
                             .foregroundStyle(TTZipTheme.kintsugiGold)
                             .padding(.horizontal, 3.5)
                             .padding(.vertical, 1)
-                            .background(Color.white.opacity(0.12), in: RoundedRectangle(cornerRadius: 3))
+                            .background(Color.primary.opacity(0.08), in: RoundedRectangle(cornerRadius: 3))
                     }
                 }
                 .padding(.horizontal, 7)
                 .padding(.vertical, 4)
                 .background(
-                    ZStack {
-                        RoundedRectangle(cornerRadius: 5, style: .continuous)
-                            .fill(.ultraThinMaterial)
-                        RoundedRectangle(cornerRadius: 5, style: .continuous)
-                            .fill(Color.black.opacity(0.85))
-                    }
+                    RoundedRectangle(cornerRadius: 5, style: .continuous)
+                        .fill(.ultraThinMaterial)
                 )
                 .overlay(
                     RoundedRectangle(cornerRadius: 5, style: .continuous)
-                        .strokeBorder(Color.white.opacity(0.2), lineWidth: 0.5)
+                        .strokeBorder(Color.primary.opacity(0.15), lineWidth: 0.5)
                 )
-                .shadow(color: Color.black.opacity(0.45), radius: 6, x: 0, y: 3)
+                .shadow(color: Color.black.opacity(0.25), radius: 6, x: 0, y: 3)
                 .fixedSize()
                 .offset(y: -28)
                 .zIndex(999)

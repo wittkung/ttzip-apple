@@ -12,7 +12,6 @@ import SwiftUI
 import OpenGL
 import OpenGL.GL3
 import CMPVBridge
-import os.log
 import TTZipUI
 
 import CoreVideo
@@ -35,7 +34,7 @@ private func mpvRenderUpdateCallback(context: UnsafeMutableRawPointer?) {
 
 /// Thread-safe manager governing the lifecycle and dispatching of the native `mpv_render_context`.
 public final class MPVRenderContextManager: @unchecked Sendable {
-    private let logger = Logger(subsystem: "com.metastudyline.ttzip", category: "MPVRenderContextManager")
+    private let logger = PreviewKitLogger(category: "MPVRenderContextManager")
     private let contextLock = NSRecursiveLock()
     private let surfaceLock = NSLock()
     private let handlerLock = NSLock()
@@ -185,7 +184,7 @@ public final class MPVRenderContextManager: @unchecked Sendable {
         }
         guard status >= 0, let validCtx = ctx else {
             let errStr = mpv_error_string(status).map { String(cString: $0) } ?? "Code \(status)"
-            logger.error("Failed to create mpv_render_context: \(errStr, privacy: .public)")
+            logger.error("Failed to create mpv_render_context: \(errStr)")
             return false
         }
     

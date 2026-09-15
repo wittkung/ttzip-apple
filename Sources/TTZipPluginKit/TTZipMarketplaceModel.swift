@@ -98,7 +98,7 @@ public actor TTZipMarketplaceService {
                 return index.plugins
             }
         } catch {
-            print("[TTZipMarketplaceService] Failed to fetch remote index: \(error)")
+            PluginKitLogger.error("[TTZipMarketplaceService] Failed to fetch remote index: \(error)")
         }
         return Self.officialCatalog
     }

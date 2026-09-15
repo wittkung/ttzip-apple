@@ -34,35 +34,53 @@ public struct SegmentedBreadcrumbCapsuleView: View {
                 .padding(.leading, 8)
 
             // Interactive horizontal breadcrumb segment list
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 3) {
-                    let crumbs = buildBreadcrumbs()
-                    ForEach(crumbs) { crumb in
-                        breadcrumbSegment(for: crumb)
+            ScrollViewReader { proxy in
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 3) {
+                        let crumbs = buildBreadcrumbs()
+                        ForEach(crumbs) { crumb in
+                            breadcrumbSegment(for: crumb)
+                                .id(crumb.id)
 
-                        if !crumb.isCurrent {
-                            Image(systemName: "chevron.forward")
-                                .font(.system(size: 7.5, weight: .bold))
-                                .foregroundStyle(Color.white.opacity(0.35))
+                            if !crumb.isCurrent {
+                                Image(systemName: "chevron.forward")
+                                    .font(.system(size: 7.5, weight: .bold))
+                                    .foregroundStyle(Color.secondary.opacity(0.65))
+                            }
+                        }
+                    }
+                    .padding(.horizontal, 4)
+                    .padding(.vertical, 3)
+                }
+                .onAppear {
+                    if let lastID = buildBreadcrumbs().last?.id {
+                        proxy.scrollTo(lastID, anchor: .trailing)
+                    }
+                }
+                .onChange(of: viewModel.currentDirectory) { _, _ in
+                    if let lastID = buildBreadcrumbs().last?.id {
+                        withAnimation(.easeInOut(duration: 0.15)) {
+                            proxy.scrollTo(lastID, anchor: .trailing)
                         }
                     }
                 }
-                .padding(.horizontal, 4)
-                .padding(.vertical, 3)
             }
         }
+        .frame(minWidth: 140, idealWidth: 260, maxWidth: 440)
         .frame(height: capsuleHeight)
         .background(
-            ZStack {
-                Rectangle().fill(.ultraThinMaterial)
-                Color(nsColor: .controlBackgroundColor).opacity(isHoveringCapsule ? 0.65 : 0.5)
-            }
+            RoundedRectangle(cornerRadius: 7, style: .continuous)
+                .fill(.ultraThinMaterial)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 7, style: .continuous)
+                        .fill(Color(nsColor: .controlBackgroundColor).opacity(isHoveringCapsule ? 0.65 : 0.5))
+                )
         )
         .clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: 7, style: .continuous)
                 .strokeBorder(
-                    isHoveringCapsule ? Color.white.opacity(0.2) : Color.white.opacity(0.1),
+                    isHoveringCapsule ? Color.primary.opacity(0.18) : Color.primary.opacity(0.09),
                     lineWidth: 0.5
                 )
         )
@@ -86,20 +104,22 @@ public struct SegmentedBreadcrumbCapsuleView: View {
                 if let icon = crumb.iconName {
                     Image(systemName: icon)
                         .font(.system(size: 9.5, weight: crumb.isCurrent ? .semibold : .medium))
-                        .foregroundStyle(crumb.isCurrent ? Color.white : Color.white.opacity(0.75))
+                        .foregroundStyle(crumb.isCurrent ? Color.primary : Color.secondary)
                 }
 
                 Text(crumb.name)
                     .font(.system(size: 11.5, weight: crumb.isCurrent ? .semibold : .regular))
-                    .foregroundStyle(crumb.isCurrent ? Color.white : Color.white.opacity(0.85))
+                    .foregroundStyle(crumb.isCurrent ? Color.primary : Color.secondary)
+                    .lineLimit(1)
             }
+            .fixedSize(horizontal: crumb.isCurrent, vertical: false)
             .padding(.horizontal, 5)
             .padding(.vertical, 3)
             .background(
                 RoundedRectangle(cornerRadius: 4, style: .continuous)
                     .fill(
                         hoveredCrumbID == crumb.id
-                            ? Color.white.opacity(0.08)
+                            ? Color.primary.opacity(0.08)
                             : Color.clear
                     )
             )

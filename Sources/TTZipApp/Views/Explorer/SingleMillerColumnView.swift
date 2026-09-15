@@ -126,7 +126,7 @@ public struct SingleMillerColumnView: View {
                     
                     Text(columnTitle)
                         .font(.system(size: 11, weight: .bold))
-                        .foregroundStyle(Color.white.opacity(0.92))
+                        .foregroundStyle(Color.primary)
                         .lineLimit(1)
                         .truncationMode(.middle)
                     
@@ -146,14 +146,14 @@ public struct SingleMillerColumnView: View {
                         HStack(spacing: 3) {
                             Image(systemName: currentSort.iconName)
                                 .font(.system(size: 9.5, weight: .medium))
-                                .foregroundStyle(Color.white.opacity(0.75))
+                                .foregroundStyle(Color.secondary)
                             Image(systemName: "chevron.down")
                                 .font(.system(size: 6.5, weight: .semibold))
-                                .foregroundStyle(Color.white.opacity(0.6))
+                                .foregroundStyle(Color.secondary.opacity(0.8))
                         }
                         .padding(.horizontal, 4)
                         .padding(.vertical, 1.5)
-                        .background(Color.primary.opacity(0.03))
+                        .background(Color.primary.opacity(0.04))
                         .clipShape(RoundedRectangle(cornerRadius: 3.5, style: .continuous))
                     }
                     .menuStyle(.borderlessButton)
@@ -249,7 +249,12 @@ public struct SingleMillerColumnView: View {
                     }
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .background(Color.primary.opacity(0.005))
+                .background(
+                    ZStack {
+                        Rectangle().fill(.ultraThinMaterial)
+                        TTZipUniversalTokens.Plate.surfaceL2
+                    }
+                )
                 .contentShape(Rectangle())
                 .onDrop(of: [.fileURL, .text], isTargeted: nil) { providers in
                     for provider in providers {
