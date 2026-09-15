@@ -92,6 +92,7 @@ public struct FolderMediaArtboardView: View {
                     fullTitle: l10n.t(L10n.Common.revealInFinder),
                     width: w,
                     help: l10n.t(L10n.Common.revealInFinder),
+                    shortcut: nil,
                     action: {
                         NSWorkspace.shared.selectFile(item.path, inFileViewerRootedAtPath: "")
                     }
@@ -103,6 +104,7 @@ public struct FolderMediaArtboardView: View {
                     fullTitle: l10n.t(L10n.Explorer.newFolder),
                     width: w,
                     help: l10n.t(L10n.Explorer.newFolder),
+                    shortcut: nil,
                     action: {
                         showCreateSubfolderAlert = true
                     }
@@ -114,6 +116,7 @@ public struct FolderMediaArtboardView: View {
                     fullTitle: l10n.t(L10n.Explorer.newFile),
                     width: w,
                     help: l10n.t(L10n.Explorer.newFile),
+                    shortcut: nil,
                     action: {
                         showCreateFileAlert = true
                     }
@@ -125,6 +128,7 @@ public struct FolderMediaArtboardView: View {
                     fullTitle: isZh ? "压缩目录" : "Compress Folder",
                     width: w,
                     help: isZh ? "压缩此目录 (⌘N)" : "Compress Folder (⌘N)",
+                    shortcut: "⌘N",
                     action: {
                         onCompressPath(item.path)
                     }
@@ -136,6 +140,7 @@ public struct FolderMediaArtboardView: View {
                     fullTitle: isZh ? "拷贝路径" : "Copy Path",
                     width: w,
                     help: isZh ? "拷贝路径" : "Copy Path",
+                    shortcut: nil,
                     action: {
                         NSPasteboard.general.clearContents()
                         NSPasteboard.general.setString(item.path, forType: .string)
@@ -163,6 +168,7 @@ private struct QuickActionSegmentButton: View {
     let fullTitle: String
     let width: CGFloat
     let help: String
+    let shortcut: String?
     let action: () -> Void
     
     @State private var isHovered = false
@@ -171,11 +177,11 @@ private struct QuickActionSegmentButton: View {
         Button(action: action) {
             HStack(spacing: 4) {
                 Image(systemName: icon)
-                    .font(.system(size: 11, weight: .medium))
-                    .foregroundStyle(isHovered ? Color.white : Color.white.opacity(0.85))
+                    .font(.system(size: 11.5, weight: .semibold))
+                    .foregroundStyle(isHovered ? TTZipTheme.bambooGreen : Color.white.opacity(0.85))
                 
-                if width >= 260 {
-                    Text(width > 400 ? fullTitle : shortTitle)
+                if width >= 320 {
+                    Text(shortTitle)
                         .font(.system(size: 11, weight: .medium))
                         .foregroundStyle(isHovered ? Color.white : Color.white.opacity(0.92))
                         .lineLimit(1)
@@ -186,14 +192,59 @@ private struct QuickActionSegmentButton: View {
             .padding(.vertical, 4)
             .background(
                 RoundedRectangle(cornerRadius: 6, style: .continuous)
-                    .fill(isHovered ? Color.primary.opacity(0.07) : Color.clear)
+                    .fill(isHovered ? Color.white.opacity(0.1) : Color.clear)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 6, style: .continuous)
+                    .strokeBorder(isHovered ? Color.white.opacity(0.15) : Color.clear, lineWidth: 0.5)
             )
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .onHover { hovering in
-            withAnimation(.easeInOut(duration: 0.12)) {
+            withAnimation(.spring(response: 0.2, dampingFraction: 0.8)) {
                 isHovered = hovering
+            }
+        }
+        .overlay(alignment: .top) {
+            if isHovered {
+                HStack(spacing: 4) {
+                    Text(fullTitle)
+                        .font(.system(size: 10.5, weight: .medium))
+                        .foregroundStyle(Color.white)
+                    
+                    if let sc = shortcut {
+                        Text(sc)
+                            .font(.system(size: 9, weight: .semibold, design: .monospaced))
+                            .foregroundStyle(TTZipTheme.kintsugiGold)
+                            .padding(.horizontal, 3.5)
+                            .padding(.vertical, 1)
+                            .background(Color.white.opacity(0.12), in: RoundedRectangle(cornerRadius: 3))
+                    }
+                }
+                .padding(.horizontal, 7)
+                .padding(.vertical, 4)
+                .background(
+                    ZStack {
+                        RoundedRectangle(cornerRadius: 5, style: .continuous)
+                            .fill(.ultraThinMaterial)
+                        RoundedRectangle(cornerRadius: 5, style: .continuous)
+                            .fill(Color.black.opacity(0.85))
+                    }
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 5, style: .continuous)
+                        .strokeBorder(Color.white.opacity(0.2), lineWidth: 0.5)
+                )
+                .shadow(color: Color.black.opacity(0.45), radius: 6, x: 0, y: 3)
+                .fixedSize()
+                .offset(y: -28)
+                .zIndex(999)
+                .transition(.asymmetric(
+                    insertion: .opacity.combined(with: .scale(scale: 0.94, anchor: .bottom)),
+                    removal: .opacity
+                ))
+                .allowsHitTesting(false)
             }
         }
         .help(help)
