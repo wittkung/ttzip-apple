@@ -54,6 +54,7 @@ if [ -z "${ENTITLEMENTS}" ]; then
 fi
 
 SWIFT_FLAGS=()
+SWIFT_FLAGS+=("-Xcc" "-DGL_SILENCE_DEPRECATION")
 case "${CHANNEL}" in
     mas)
         SWIFT_FLAGS+=("-Xswiftc" "-DMAS_BUILD")

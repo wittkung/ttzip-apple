@@ -135,7 +135,7 @@ private struct TextFieldNode: View {
         let bindKey = json["bind"] as? String
         
         TextField(placeholder, text: $text)
-            .onChange(of: text) { newValue in
+            .onChange(of: text) { _, newValue in
                 if let key = bindKey {
                     NotificationCenter.default.post(name: NSNotification.Name("TTZipJSAction_Bind"), object: nil, userInfo: ["key": key, "value": newValue])
                 }
