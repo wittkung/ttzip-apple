@@ -36,6 +36,8 @@ public struct ArchiveExplorerView: View {
     @State var syncStatusMessage: String? = nil
     @State var isMutatingArchive: Bool = false
     @State var showDeleteConfirmation: Bool = false
+    @State private var entriesIndex: [String: ArchiveEntry] = [:]
+    @State private var outlineGenerationToken: Int = 1
     
     public init(
         archivePath: String,
@@ -47,13 +49,19 @@ public struct ArchiveExplorerView: View {
         self.archivePath = archivePath
         self.password = password
         self._entries = State(initialValue: entries)
+        var index = [String: ArchiveEntry](minimumCapacity: entries.count * 2)
+        for entry in entries {
+            index[entry.id] = entry
+            index[entry.path] = entry
+        }
+        self._entriesIndex = State(initialValue: index)
         self.onExtractClicked = onExtractClicked
         self.onCloseClicked = onCloseClicked
     }
     
     public var selectedEntry: ArchiveEntry? {
         guard let id = selectedEntryID else { return nil }
-        return entries.first(where: { $0.id == id || $0.path == id })
+        return entriesIndex[id] ?? entries.first(where: { $0.id == id || $0.path == id })
     }
     
     public var body: some View {
@@ -89,28 +97,23 @@ public struct ArchiveExplorerView: View {
                         } else {
                             NativeArchiveOutlineView(
                                 nodes: treeStore.rootNodes,
+                                generationToken: outlineGenerationToken,
                                 selectedPath: $selectedEntryID,
                                 onSelectFile: { node in
                                     extractSelectedForPreview(entryID: node.id)
                                 },
                                 onReplaceFile: { node in
-                                    if let entry = node.entry {
-                                        replaceSelectedEntry(entry)
-                                    } else if let entry = entries.first(where: { $0.id == node.id || $0.path == node.path }) {
+                                    if let entry = node.entry ?? entriesIndex[node.id] ?? entriesIndex[node.path] ?? entries.first(where: { $0.id == node.id || $0.path == node.path }) {
                                         replaceSelectedEntry(entry)
                                     }
                                 },
                                 onDeleteFile: { node in
-                                    if let entry = node.entry {
-                                        deleteSelectedEntry(entry)
-                                    } else if let entry = entries.first(where: { $0.id == node.id || $0.path == node.path }) {
+                                    if let entry = node.entry ?? entriesIndex[node.id] ?? entriesIndex[node.path] ?? entries.first(where: { $0.id == node.id || $0.path == node.path }) {
                                         deleteSelectedEntry(entry)
                                     }
                                 },
                                 onExtractFile: { node in
-                                    if let entry = node.entry {
-                                        extractSelectedEntry(entry)
-                                    } else if let entry = entries.first(where: { $0.id == node.id || $0.path == node.path }) {
+                                    if let entry = node.entry ?? entriesIndex[node.id] ?? entriesIndex[node.path] ?? entries.first(where: { $0.id == node.id || $0.path == node.path }) {
                                         extractSelectedEntry(entry)
                                     }
                                 }
@@ -198,6 +201,9 @@ public struct ArchiveExplorerView: View {
             Text(l10n.format(L10n.Dialogs.confirmDeleteMessage, selectedEntry?.name ?? ""))
         })
         .onAppear {
+            if entriesIndex.isEmpty && !entries.isEmpty {
+                rebuildEntriesIndex(with: entries)
+            }
             treeStore.updateEntries(entries)
             
             eventMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
@@ -242,7 +248,12 @@ public struct ArchiveExplorerView: View {
             }
         }
         .onChange(of: entries) { _, newEntries in
+            rebuildEntriesIndex(with: newEntries)
+            outlineGenerationToken &+= 1
             treeStore.updateEntries(newEntries)
+        }
+        .onChange(of: treeStore.rootNodes) { _, _ in
+            outlineGenerationToken &+= 1
         }
         .onChange(of: searchText) { _, newQuery in
             treeStore.filter(query: newQuery)
@@ -262,5 +273,14 @@ public struct ArchiveExplorerView: View {
             }
             activeEditSessions.removeAll()
         }
+    }
+    
+    private func rebuildEntriesIndex(with newEntries: [ArchiveEntry]) {
+        var index = [String: ArchiveEntry](minimumCapacity: newEntries.count * 2)
+        for entry in newEntries {
+            index[entry.id] = entry
+            index[entry.path] = entry
+        }
+        entriesIndex = index
     }
 }

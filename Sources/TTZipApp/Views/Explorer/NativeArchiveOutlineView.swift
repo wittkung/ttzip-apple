@@ -70,6 +70,7 @@ public final class ArchiveNodeTableCellView: NSTableCellView {
 /// Native macOS NSOutlineView representable matching Finder list view hierarchy.
 public struct NativeArchiveOutlineView: NSViewRepresentable {
     let nodes: [ArchiveTreeNode]
+    let generationToken: Int
     @Binding var selectedPath: String?
     let onSelectFile: (ArchiveTreeNode) -> Void
     var onReplaceFile: ((ArchiveTreeNode) -> Void)? = nil
@@ -78,6 +79,7 @@ public struct NativeArchiveOutlineView: NSViewRepresentable {
     
     public init(
         nodes: [ArchiveTreeNode],
+        generationToken: Int = 0,
         selectedPath: Binding<String?>,
         onSelectFile: @escaping (ArchiveTreeNode) -> Void,
         onReplaceFile: ((ArchiveTreeNode) -> Void)? = nil,
@@ -85,6 +87,7 @@ public struct NativeArchiveOutlineView: NSViewRepresentable {
         onExtractFile: ((ArchiveTreeNode) -> Void)? = nil
     ) {
         self.nodes = nodes
+        self.generationToken = generationToken
         self._selectedPath = selectedPath
         self.onSelectFile = onSelectFile
         self.onReplaceFile = onReplaceFile
@@ -118,8 +121,8 @@ public struct NativeArchiveOutlineView: NSViewRepresentable {
     @MainActor
     public class Coordinator: NSObject, NSOutlineViewDataSource, NSOutlineViewDelegate {
         var parent: NativeArchiveOutlineView
-        var lastNodesCount: Int = -1
-        var lastRootNodesIDs: [String] = []
+        var lastGenerationToken: Int? = nil
+        var lastSelectedPath: String? = nil
         nonisolated(unsafe) var moveUpObserver: NSObjectProtocol?
         nonisolated(unsafe) var moveDownObserver: NSObjectProtocol?
         nonisolated(unsafe) var moveLeftObserver: NSObjectProtocol?
@@ -278,13 +281,28 @@ public struct NativeArchiveOutlineView: NSViewRepresentable {
             nsView.scrollerStyle = .overlay
             nsView.autohidesScrollers = true
         }
-        if let outlineView = nsView.documentView as? NSOutlineView {
-            let currentIDs = nodes.map { $0.id }
-            if context.coordinator.lastRootNodesIDs != currentIDs {
-                context.coordinator.lastRootNodesIDs = currentIDs
-                context.coordinator.lastNodesCount = nodes.count
-                outlineView.reloadData()
-            }
+        guard let outlineView = nsView.documentView as? NSOutlineView else { return }
+        
+        let activeToken: Int
+        if generationToken != 0 {
+            activeToken = generationToken
+        } else {
+            var hasher = Hasher()
+            hasher.combine(nodes.count)
+            if let first = nodes.first { hasher.combine(first.id) }
+            if let last = nodes.last { hasher.combine(last.id) }
+            activeToken = hasher.finalize()
+        }
+        
+        let isNewGeneration = (context.coordinator.lastGenerationToken != activeToken)
+        if isNewGeneration {
+            context.coordinator.lastGenerationToken = activeToken
+            outlineView.reloadData()
+        }
+        
+        let selectionChanged = (context.coordinator.lastSelectedPath != selectedPath)
+        if isNewGeneration || selectionChanged {
+            context.coordinator.lastSelectedPath = selectedPath
             
             if let selectedPath = selectedPath {
                 if let chain = NativeArchiveOutlineView.findAncestorChain(for: selectedPath, in: nodes) {

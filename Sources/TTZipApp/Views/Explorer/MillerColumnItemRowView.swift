@@ -69,6 +69,20 @@ public struct MillerColumnItemRowView: View, Equatable {
         self.onTriggerNewFile = onTriggerNewFile
     }
     
+    private static let imageExtensions: Set<String> = [
+        "jpg", "jpeg", "png", "gif", "webp", "heic", "svg", "bmp", "tiff"
+    ]
+    private static let textExtensions: Set<String> = [
+        "swift", "js", "ts", "py", "json", "html", "css", "cpp", "c", "h", "rs", "go", "sh", "xml", "md", "txt"
+    ]
+
+    @inline(__always)
+    public nonisolated static func pathExtension(of name: String) -> String {
+        guard let dotIndex = name.lastIndex(of: ".") else { return "" }
+        if dotIndex == name.startIndex { return "" }
+        return String(name[name.index(after: dotIndex)...]).lowercased()
+    }
+
     private var isEncryptedLockItem: Bool {
         item.isEncryptedLockItem
     }
@@ -77,7 +91,7 @@ public struct MillerColumnItemRowView: View, Equatable {
         if isEncryptedLockItem { return "lock.doc.fill" }
         if item.isDirectory { return "folder.fill" }
         
-        let ext = (item.name as NSString).pathExtension.lowercased()
+        let ext = Self.pathExtension(of: item.name)
         if ext == "epub" {
             return "book.fill"
         }
@@ -90,7 +104,7 @@ public struct MillerColumnItemRowView: View, Equatable {
         if let fmt = ArchiveCompressionFormat.from(extensionOrName: ext) {
             return fmt.iconName
         }
-        if ["jpg", "jpeg", "png", "gif", "webp", "heic", "svg", "bmp", "tiff"].contains(ext) {
+        if Self.imageExtensions.contains(ext) {
             return "photo.fill"
         }
         if MediaPreviewFactory.videoExtensions.contains(ext) {
@@ -102,7 +116,7 @@ public struct MillerColumnItemRowView: View, Equatable {
         if ext == "pdf" {
             return "doc.richtext.fill"
         }
-        if ["swift", "js", "ts", "py", "json", "html", "css", "cpp", "c", "h", "rs", "go", "sh", "xml", "md", "txt"].contains(ext) {
+        if Self.textExtensions.contains(ext) {
             return "doc.text.fill"
         }
         if item.isArchive {
@@ -115,7 +129,7 @@ public struct MillerColumnItemRowView: View, Equatable {
         if isEncryptedLockItem { return TTZipTheme.archiveAmber }
         if item.isDirectory { return TTZipTheme.bambooGreen.opacity(0.85) }
         
-        let ext = (item.name as NSString).pathExtension.lowercased()
+        let ext = Self.pathExtension(of: item.name)
         if ext == "epub" {
             return Color.orange
         }
@@ -137,7 +151,7 @@ public struct MillerColumnItemRowView: View, Equatable {
                 return Color.teal
             }
         }
-        if ["jpg", "jpeg", "png", "gif", "webp", "heic", "svg", "bmp", "tiff"].contains(ext) {
+        if Self.imageExtensions.contains(ext) {
             return TTZipUniversalTokens.Mineral.gold
         }
         if MediaPreviewFactory.videoExtensions.contains(ext) {
@@ -204,7 +218,7 @@ public struct MillerColumnItemRowView: View, Equatable {
 
     private var isMediaFile: Bool {
         guard !item.isDirectory && !isEncryptedLockItem else { return false }
-        let ext = (item.name as NSString).pathExtension.lowercased()
+        let ext = Self.pathExtension(of: item.name)
         return MediaPreviewFactory.imageExtensions.contains(ext)
             || MediaPreviewFactory.videoExtensions.contains(ext)
     }
