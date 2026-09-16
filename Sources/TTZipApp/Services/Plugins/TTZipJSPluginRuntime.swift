@@ -6,14 +6,15 @@
 // TTZip: High-performance native archiving and compression engine.
 
 import Foundation
-import JavaScriptCore
+@preconcurrency import JavaScriptCore
 import SwiftUI
 
 /// 沙盒版 JavaScriptCore 运行时
-public final class TTZipJSPluginRuntime: @unchecked Sendable {
+@MainActor
+public final class TTZipJSPluginRuntime {
     private let context: JSContext
     private let pluginID: String
-    private var observers: [NSObjectProtocol] = []
+    private var eventTasks: [Task<Void, Never>] = []
     
     public init?(pluginID: String) {
         self.pluginID = pluginID
@@ -25,8 +26,8 @@ public final class TTZipJSPluginRuntime: @unchecked Sendable {
     }
     
     deinit {
-        for observer in observers {
-            NotificationCenter.default.removeObserver(observer)
+        for task in eventTasks {
+            task.cancel()
         }
     }
     
@@ -71,14 +72,18 @@ public final class TTZipJSPluginRuntime: @unchecked Sendable {
         ttzipHost.setValue(extractArchive, forProperty: "extractArchive")
         
         let onEvent: @convention(block) (String, JSValue) -> Void = { [weak self] name, callback in
-            let token = NotificationCenter.default.addObserver(forName: NSNotification.Name(name), object: nil, queue: .main) { notification in
-                if let userInfo = notification.userInfo {
-                    callback.call(withArguments: [userInfo])
-                } else {
-                    callback.call(withArguments: [])
+            guard let self = self else { return }
+            let task = Task { @MainActor [weak self] in
+                for await notification in NotificationCenter.default.notifications(named: NSNotification.Name(name)) {
+                    guard self != nil else { break }
+                    if let userInfo = notification.userInfo {
+                        callback.call(withArguments: [userInfo])
+                    } else {
+                        callback.call(withArguments: [])
+                    }
                 }
             }
-            self?.observers.append(token)
+            self.eventTasks.append(task)
         }
         ttzipHost.setValue(onEvent, forProperty: "onEvent")
         
