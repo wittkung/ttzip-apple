@@ -23,6 +23,7 @@ swift_library(
             "Sources/TTZipPluginKit/Testing/PluginCLI.swift",
         ],
     ),
+    copts = ["-enable-testing"],
     module_name = "TTZipPluginKit",
     visibility = ["//visibility:public"],
     deps = [
