@@ -17,6 +17,7 @@ public struct PluginsView: View {
     
     @State private var selectedTab: Int = 0 // 0: Installed, 1: Marketplace
     @State private var showConfigSheet: Bool = false
+    @State private var showDevModeSheet: Bool = false
     @State private var configPluginId: String = ""
     @State private var marketplacePlugins: [TTZipMarketplacePlugin] = []
     @State private var errorMessage: String?
@@ -39,17 +40,29 @@ public struct PluginsView: View {
             title: PluginL10n.title(locale: pluginLocale),
             isCardEnclosed: true
         ) {
-            HStack(spacing: 6) {
-                Image(systemName: "shield.lefthalf.filled")
-                    .foregroundStyle(TTZipTheme.bambooGreen)
-                Text(PluginL10n.securityBadge(locale: pluginLocale))
-                    .font(TTZipTheme.Typography.caption)
-                    .foregroundStyle(TTZipTheme.bambooGreen)
+            HStack(spacing: 8) {
+                HStack(spacing: 6) {
+                    Image(systemName: "shield.lefthalf.filled")
+                        .foregroundStyle(TTZipTheme.bambooGreen)
+                    Text(PluginL10n.securityBadge(locale: pluginLocale))
+                        .font(TTZipTheme.Typography.caption)
+                        .foregroundStyle(TTZipTheme.bambooGreen)
+                }
+                .padding(.horizontal, 10)
+                .padding(.vertical, 4)
+                .background(TTZipTheme.bambooGreen.opacity(0.12))
+                .clipShape(Capsule())
+                
+                Button {
+                    showDevModeSheet = true
+                } label: {
+                    Image(systemName: "hammer.fill")
+                        .font(TTZipTheme.Typography.caption)
+                        .foregroundStyle(Color.secondary)
+                }
+                .buttonStyle(.plain)
+                .help(pluginLocale == .zhHans ? "开发者模式" : "Developer Mode")
             }
-            .padding(.horizontal, 10)
-            .padding(.vertical, 4)
-            .background(TTZipTheme.bambooGreen.opacity(0.12))
-            .clipShape(Capsule())
         } content: {
             VStack(spacing: 0) {
                 customSegmentedTabBar
@@ -75,6 +88,9 @@ public struct PluginsView: View {
         }
         .sheet(isPresented: $showConfigSheet) {
             PluginConfigSheetView(pluginId: configPluginId, isPresented: $showConfigSheet)
+        }
+        .sheet(isPresented: $showDevModeSheet) {
+            DeveloperModeSheet()
         }
     }
     
@@ -253,8 +269,27 @@ public struct PluginsView: View {
             let destDir = TTZipPluginLoader.userPluginsDirectory
             let files = (try? FileManager.default.contentsOfDirectory(at: destDir, includingPropertiesForKeys: nil)) ?? []
             for file in files {
+                var isMatch = false
+                // Check direct name match
                 if file.lastPathComponent.localizedCaseInsensitiveContains(pluginId) ||
                    file.deletingPathExtension().lastPathComponent.localizedCaseInsensitiveContains(pluginId) {
+                    isMatch = true
+                } else if file.pathExtension == "ttplugin" || file.pathExtension == "bundle" {
+                    // Inspect manifest inside bundle to match exact manifest.id
+                    let candidatePaths = [
+                        file.appendingPathComponent("Contents/Resources/plugin.json"),
+                        file.appendingPathComponent("plugin.json")
+                    ]
+                    for manifestURL in candidatePaths {
+                        if let data = try? Data(contentsOf: manifestURL),
+                           let manifest = try? JSONDecoder().decode(TTZipPluginManifest.self, from: data),
+                           manifest.id == pluginId {
+                            isMatch = true
+                            break
+                        }
+                    }
+                }
+                if isMatch {
                     try? FileManager.default.removeItem(at: file)
                 }
             }

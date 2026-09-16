@@ -129,8 +129,18 @@ struct TTZipApp: App {
             }
         }
         
+        TTZipPluginSafeModeManager.shared.evaluateCrashState()
+        
         Task { @MainActor in
-            await TTZipPluginLoader.loadInstalledPlugins(context: TTZipHostContextImpl.shared)
+            if TTZipPluginSafeModeManager.shared.isSafeModeActive {
+                TTZipHostContextImpl.shared.showNotification(
+                    title: "TTZip Safe Mode",
+                    message: "Third-party plugins have been disabled due to repeated startup crashes.",
+                    level: .warning
+                )
+            } else {
+                await TTZipPluginLoader.loadInstalledPlugins(context: TTZipHostContextImpl.shared)
+            }
         }
     }
     

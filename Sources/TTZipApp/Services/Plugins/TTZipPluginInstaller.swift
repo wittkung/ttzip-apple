@@ -8,6 +8,7 @@
 import Foundation
 import SwiftUI
 import Observation
+import TTZipPluginKit
 
 public enum PluginInstallPhase: Sendable, Equatable {
     case idle
@@ -91,8 +92,10 @@ public final class TTZipPluginInstaller: NSObject, URLSessionDownloadDelegate {
             currentPhase = .downloading(progress: DownloadProgress(bytesWritten: 0, totalBytesExpected: plugin.size, fractionCompleted: 0, bytesPerSecond: 0))
             
             var downloadedURL: URL
+            var needsDownloadedURLCleanup = false
             if let remoteURL = URL(string: plugin.downloadUrl), remoteURL.scheme?.hasPrefix("http") == true {
                 downloadedURL = try await downloadArchive(from: remoteURL)
+                needsDownloadedURLCleanup = true
             } else if let localURL = URL(string: plugin.downloadUrl), localURL.isFileURL, fileManager.fileExists(atPath: localURL.path) {
                 downloadedURL = localURL
             } else if let bundleFallback = resolveBundleFallbackArchive(plugin: plugin) {
@@ -104,12 +107,21 @@ public final class TTZipPluginInstaller: NSObject, URLSessionDownloadDelegate {
                     userInfo: [NSLocalizedDescriptionKey: "Plugin package download failed: remote or local package unavailable for \(plugin.id) (\(plugin.downloadUrl))"]
                 )
             }
+            defer {
+                if needsDownloadedURLCleanup {
+                    try? fileManager.removeItem(at: downloadedURL)
+                }
+            }
             
             try? fileManager.removeItem(at: tempZipURL)
             try fileManager.copyItem(at: downloadedURL, to: tempZipURL)
             defer { try? fileManager.removeItem(at: tempZipURL) }
             
             // Stage 2: Cryptographic integrity and signature verification gate
+            let isRemote = plugin.downloadUrl.hasPrefix("http://") || plugin.downloadUrl.hasPrefix("https://")
+            if isRemote && plugin.sha256.isEmpty {
+                throw TTZipPluginSecurity.SecurityError.hashMismatch(expected: "valid SHA-256 hash", actual: "empty")
+            }
             if !plugin.sha256.isEmpty {
                 currentPhase = .verifyingHash
                 try TTZipPluginSecurity.verifyStreamingSHA256(fileURL: tempZipURL, expectedHex: plugin.sha256)
@@ -122,6 +134,9 @@ public final class TTZipPluginInstaller: NSObject, URLSessionDownloadDelegate {
                     signatureBase64: plugin.signature,
                     trustedPublicKeyBase64: plugin.publicKey
                 )
+            } else if isRemote && (!plugin.signature.isEmpty || !plugin.publicKey.isEmpty) {
+                // Partial credentials provided
+                throw TTZipPluginSecurity.SecurityError.invalidSignature
             }
             
             // Stage 3: Secure extraction to isolated staging directory

@@ -72,8 +72,6 @@ public enum TTZipPluginLoader {
                     PluginKitLogger.debug("[TTZipPluginLoader] dlsym instance acquired: \(type(of: instance))")
                     if let plugin = instance as? TTZipPlugin {
                         resolvedPlugin = plugin
-                    } else if let dynamicPlugin = DynamicDuckTypePluginAdapter(rawInstance: instance) {
-                        resolvedPlugin = dynamicPlugin
                     } else {
                         PluginKitLogger.error("[TTZipPluginLoader] instance \(type(of: instance)) failed to cast to TTZipPlugin protocol")
                     }
@@ -94,8 +92,6 @@ public enum TTZipPluginLoader {
                     let instance = principalClass.init()
                     if let pluginInstance = instance as? TTZipPlugin {
                         resolvedPlugin = pluginInstance
-                    } else if let dynamicPlugin = DynamicDuckTypePluginAdapter(rawInstance: instance) {
-                        resolvedPlugin = dynamicPlugin
                     }
                 }
             }
@@ -103,6 +99,15 @@ public enum TTZipPluginLoader {
             guard let pluginInstance = resolvedPlugin else {
                 PluginKitLogger.error("[TTZipPluginLoader] Could not resolve valid TTZipPlugin instance for: \(bundleURL.lastPathComponent)")
                 return
+            }
+            
+            // Version compatibility gate: minHostVersion verification
+            if let minVersion = pluginInstance.manifest.minHostVersion {
+                let hostVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0.0"
+                if hostVersion.compare(minVersion, options: .numeric) == .orderedAscending {
+                    PluginKitLogger.error("[TTZipPluginLoader] Incompatible host version for plugin \(pluginInstance.manifest.id). Required: \(minVersion), current: \(hostVersion)")
+                    return
+                }
             }
             
             let scopedContext = PluginScopedHostContext(
@@ -117,80 +122,3 @@ public enum TTZipPluginLoader {
         }
     }
 }
-
-/// Cross-dylib safe duck-type reflection adapter (bridges Swift protocol metadata across Mach-O image boundaries)
-@MainActor
-public final class DynamicDuckTypePluginAdapter: TTZipPlugin {
-    public let rawInstance: AnyObject
-    public let manifest: TTZipPluginManifest
-    
-    public init?(rawInstance: AnyObject) {
-        self.rawInstance = rawInstance
-        
-        let mirror = Mirror(reflecting: rawInstance)
-        if let manifestVal = mirror.children.first(where: { $0.label == "manifest" })?.value as? TTZipPluginManifest {
-            self.manifest = manifestVal
-        } else {
-            return nil
-        }
-    }
-    
-    public func onInitialize(context: TTZipHostContext) async throws {
-        if let plugin = rawInstance as? TTZipPlugin {
-            try await plugin.onInitialize(context: context)
-        }
-    }
-    
-    public func onTerminate() async {
-        if let plugin = rawInstance as? TTZipPlugin {
-            await plugin.onTerminate()
-        }
-    }
-    
-    public var sidebarItem: TTZipSidebarContribution? {
-        if let plugin = rawInstance as? TTZipPlugin {
-            return plugin.sidebarItem
-        }
-        let mirror = Mirror(reflecting: rawInstance)
-        if let item = mirror.children.first(where: { $0.label == "sidebarItem" })?.value as? TTZipSidebarContribution {
-            return item
-        }
-        return nil
-    }
-    
-    public func makeWorkspaceView(tabIdentifier: String) -> AnyView? {
-        if let plugin = rawInstance as? TTZipPlugin,
-           let view = plugin.makeWorkspaceView(tabIdentifier: tabIdentifier) {
-            return view
-        }
-        
-        // Attempt to acquire via exported standard C view factory function
-        if let handle = dlopen(nil, RTLD_NOW),
-           let sym = dlsym(handle, "createTTZipWorkspaceView") ?? dlsym(handle, "createTTZipWorkspaceView_v1") {
-            typealias GetViewFn = @convention(c) (UnsafeMutableRawPointer, UnsafePointer<CChar>) -> UnsafeMutableRawPointer?
-            let fn = unsafeBitCast(sym, to: GetViewFn.self)
-            let rawPtr = Unmanaged.passUnretained(rawInstance).toOpaque()
-            if let resultPtr = tabIdentifier.withCString({ fn(rawPtr, $0) }) {
-                let nsView = Unmanaged<NSView>.fromOpaque(resultPtr).takeRetainedValue()
-                return AnyView(HostNativePluginViewWrapper(makeView: { nsView }))
-            }
-        }
-        return nil
-    }
-}
-
-#if os(macOS)
-public struct HostNativePluginViewWrapper: NSViewRepresentable {
-    public let makeView: () -> NSView?
-    
-    public init(makeView: @escaping () -> NSView?) {
-        self.makeView = makeView
-    }
-    
-    public func makeNSView(context: Context) -> NSView {
-        makeView() ?? NSView()
-    }
-    
-    public func updateNSView(_ nsView: NSView, context: Context) {}
-}
-#endif

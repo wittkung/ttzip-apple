@@ -39,13 +39,46 @@ public protocol TTZipKeychainStore: Sendable {
     func delete(key: String) async throws
 }
 
+/// Archive entry metadata model exposed to plugins
+public struct TTZipArchiveEntry: Codable, Sendable, Hashable, Identifiable {
+    public var id: String { path }
+    public let path: String
+    public let uncompressedSize: UInt64
+    public let compressedSize: UInt64?
+    public let isDirectory: Bool
+    public let modificationDate: Date?
+    public let isEncrypted: Bool
+    public let compressionMethod: String
+    
+    public init(
+        path: String,
+        uncompressedSize: UInt64,
+        compressedSize: UInt64? = nil,
+        isDirectory: Bool = false,
+        modificationDate: Date? = nil,
+        isEncrypted: Bool = false,
+        compressionMethod: String = "deflate"
+    ) {
+        self.path = path
+        self.uncompressedSize = uncompressedSize
+        self.compressedSize = compressedSize
+        self.isDirectory = isDirectory
+        self.modificationDate = modificationDate
+        self.isEncrypted = isEncrypted
+        self.compressionMethod = compressionMethod
+    }
+}
+
 /// Host capability context protocol injected into TTZip plugins
 @MainActor
 public protocol TTZipHostContext: AnyObject {
     var pluginIdentifier: String { get }
     var keychain: TTZipKeychainStore { get }
+    var storageDirectory: URL { get }
     
     func createArchive(sources: [URL], destination: URL, format: String, level: Int) async throws -> URL
+    func inspectArchive(at url: URL, password: String?) async throws -> [TTZipArchiveEntry]
+    func extractArchive(from url: URL, to destination: URL, password: String?, entries: [String]?) async throws
     func showNotification(title: String, message: String, level: TTZipNotificationLevel)
     func setGlobalProgress(progress: Double?, statusText: String?)
     func log(level: TTZipPluginLogLevel, message: String)
@@ -75,8 +108,24 @@ public final class PluginScopedHostContext: TTZipHostContext {
         ScopedKeychainStore(pluginPrefix: "com.ttzip.plugin.\(pluginIdentifier).", underlyingStore: masterKeychain)
     }
     
+    /// Dedicated managed storage directory: ~/Library/Application Support/TTZip/PluginData/<pluginId>
+    public var storageDirectory: URL {
+        let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
+        let dir = appSupport.appendingPathComponent("TTZip/PluginData/\(pluginIdentifier)", isDirectory: true)
+        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        return dir
+    }
+    
     public func createArchive(sources: [URL], destination: URL, format: String, level: Int) async throws -> URL {
         try await baseContext.createArchive(sources: sources, destination: destination, format: format, level: level)
+    }
+    
+    public func inspectArchive(at url: URL, password: String?) async throws -> [TTZipArchiveEntry] {
+        try await baseContext.inspectArchive(at: url, password: password)
+    }
+    
+    public func extractArchive(from url: URL, to destination: URL, password: String?, entries: [String]?) async throws {
+        try await baseContext.extractArchive(from: url, to: destination, password: password, entries: entries)
     }
     
     public func showNotification(title: String, message: String, level: TTZipNotificationLevel) {
@@ -149,9 +198,9 @@ public final class ScopedKeychainStore: TTZipKeychainStore, Sendable {
     }
 }
 
-/// Native macOS Keychain storage implementation (Security.framework)
-public final class SystemKeychainStore: TTZipKeychainStore, Sendable {
-    public static let shared = SystemKeychainStore()
+/// Native macOS Keychain storage implementation (Internal to framework)
+final class SystemKeychainStore: TTZipKeychainStore, Sendable {
+    static let shared = SystemKeychainStore()
     private let service = "com.metastudyline.ttzip.plugins"
     
     public init() {}

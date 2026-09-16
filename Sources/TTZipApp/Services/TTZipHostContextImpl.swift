@@ -13,6 +13,49 @@ import TTZipUI
 import TTZipPreviewKit
 import TTZipBenchmarkKit
 
+/// Host-side Keychain store implementation backing TTZipHostContext
+public final class HostKeychainStore: TTZipKeychainStore, Sendable {
+    public static let shared = HostKeychainStore()
+    private let service = "com.metastudyline.ttzip.plugins"
+    
+    public init() {}
+    
+    public func get(key: String) async throws -> String? {
+        let query: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: service,
+            kSecAttrAccount as String: key,
+            kSecReturnData as String: true,
+            kSecMatchLimit as String: kSecMatchLimitOne
+        ]
+        var item: CFTypeRef?
+        let status = SecItemCopyMatching(query as CFDictionary, &item)
+        guard status == errSecSuccess, let data = item as? Data else { return nil }
+        return String(data: data, encoding: .utf8)
+    }
+    
+    public func set(key: String, value: String) async throws {
+        guard let data = value.data(using: .utf8) else { return }
+        try? await delete(key: key)
+        let query: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: service,
+            kSecAttrAccount as String: key,
+            kSecValueData as String: data
+        ]
+        SecItemAdd(query as CFDictionary, nil)
+    }
+    
+    public func delete(key: String) async throws {
+        let query: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: service,
+            kSecAttrAccount as String: key
+        ]
+        SecItemDelete(query as CFDictionary)
+    }
+}
+
 /// Production host capability implementation injected into TTZip plugins.
 @MainActor
 public final class TTZipHostContextImpl: TTZipHostContext {
@@ -20,7 +63,14 @@ public final class TTZipHostContextImpl: TTZipHostContext {
     
     public var pluginIdentifier: String { "com.ttzip.host" }
     
-    public let keychain: TTZipKeychainStore = TTZipPluginKit.SystemKeychainStore.shared
+    public let keychain: TTZipKeychainStore = HostKeychainStore.shared
+    
+    public var storageDirectory: URL {
+        let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
+        let dir = appSupport.appendingPathComponent("TTZip/HostData", isDirectory: true)
+        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        return dir
+    }
     
     private var eventListeners: [String: [SubscriptionToken: @Sendable (Data) -> Void]] = [:]
     
@@ -39,6 +89,31 @@ public final class TTZipHostContextImpl: TTZipHostContext {
             inputPaths: inputPaths
         )
         return destination
+    }
+    
+    public func inspectArchive(at url: URL, password: String?) async throws -> [TTZipArchiveEntry] {
+        let entries = try inspectArchiveEntries(archivePath: url.path, password: password)
+        return entries.map { entry in
+            TTZipArchiveEntry(
+                path: entry.path,
+                uncompressedSize: entry.uncompressedSize,
+                compressedSize: entry.compressedSize,
+                isDirectory: entry.isDirectory,
+                modificationDate: entry.modificationDate,
+                isEncrypted: entry.isEncrypted,
+                compressionMethod: entry.compressionMethod
+            )
+        }
+    }
+    
+    public func extractArchive(from url: URL, to destination: URL, password: String?, entries: [String]?) async throws {
+        let extractor = ArchiveExtractor()
+        _ = try await Task.detached(priority: .userInitiated) {
+            try extractor.extractSync(
+                archivePath: url.path,
+                destinationDir: destination.path
+            )
+        }.value
     }
     
     public func subscribeEvent<T: Sendable & Codable>(
@@ -68,8 +143,12 @@ public final class TTZipHostContextImpl: TTZipHostContext {
     public func publishEvent<T: Sendable & Codable>(name: String, event: T) {
         guard let data = try? JSONEncoder().encode(event),
               let listeners = eventListeners[name] else { return }
-        for (_, listener) in listeners {
-            listener(data)
+        let listenerSnapshots = Array(listeners.values)
+        // Dispatches asynchronously detached to ensure slow plugin listeners never stall the MainActor
+        Task.detached(priority: .userInitiated) {
+            for listener in listenerSnapshots {
+                listener(data)
+            }
         }
     }
     
