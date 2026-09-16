@@ -26,6 +26,7 @@ public final class ArchiveTreeStore {
     public private(set) var currentSearchQuery: String = ""
     
     private var cachedSourceEntries: [ArchiveEntry] = []
+    private var vfsSession: RustVfsSession?
     private var activeBuildTask: Task<[ArchiveTreeNode], Never>?
     private var activeFilterTask: Task<[ArchiveEntry], Never>?
     private var buildGeneration: UInt64 = 0
@@ -45,6 +46,7 @@ public final class ArchiveTreeStore {
         
         cachedSourceEntries = entries
         filteredEntries = entries
+        vfsSession = entries.isEmpty ? nil : RustVfsBridge.session(for: entries)
         
         activeBuildTask?.cancel()
         activeBuildTask = nil
@@ -96,6 +98,7 @@ public final class ArchiveTreeStore {
         
         isFiltering = true
         let source = cachedSourceEntries
+        let session = vfsSession
         let currentFilterGen = filterGeneration &+ 1
         filterGeneration = currentFilterGen
         
@@ -104,7 +107,11 @@ public final class ArchiveTreeStore {
                 try? await Task.sleep(nanoseconds: debounceMs * 1_000_000)
             }
             guard !Task.isCancelled else { return [ArchiveEntry]() }
-            return RustVfsBridge.fuzzySearch(in: source, query: trimmed)
+            if let session = session {
+                return session.fuzzySearch(query: trimmed)
+            } else {
+                return RustVfsBridge.fuzzySearch(in: source, query: trimmed)
+            }
         }
         activeFilterTask = filterTask
         
@@ -126,6 +133,7 @@ public final class ArchiveTreeStore {
         activeFilterTask = nil
         
         cachedSourceEntries = []
+        vfsSession = nil
         rootNodes = []
         filteredEntries = []
         isBuildingTree = false

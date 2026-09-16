@@ -63,16 +63,30 @@ extension NativeArchiveOutlineView.Coordinator {
             
             return cell
         } else if identifier == "size" {
-            let tf = NSTextField(labelWithString: node.isDirectory ? "--" : formatBytes(node.uncompressedSize))
-            tf.font = .systemFont(ofSize: 12)
-            tf.textColor = .secondaryLabelColor
-            tf.alignment = .right
+            let cellIdentifier = NSUserInterfaceItemIdentifier("ArchiveSizeCell")
+            let tf = outlineView.makeView(withIdentifier: cellIdentifier, owner: nil) as? NSTextField
+                ?? {
+                    let field = NSTextField(labelWithString: "")
+                    field.identifier = cellIdentifier
+                    field.font = .systemFont(ofSize: 12)
+                    field.textColor = .secondaryLabelColor
+                    field.alignment = .right
+                    return field
+                }()
+            tf.stringValue = node.isDirectory ? "--" : formatBytes(node.uncompressedSize)
             return tf
         } else if identifier == "encoding" {
-            let tf = NSTextField(labelWithString: node.detectedEncoding)
-            tf.font = .systemFont(ofSize: 11, weight: .medium)
-            tf.textColor = .systemBlue
-            tf.alignment = .center
+            let cellIdentifier = NSUserInterfaceItemIdentifier("ArchiveEncodingCell")
+            let tf = outlineView.makeView(withIdentifier: cellIdentifier, owner: nil) as? NSTextField
+                ?? {
+                    let field = NSTextField(labelWithString: "")
+                    field.identifier = cellIdentifier
+                    field.font = .systemFont(ofSize: 11, weight: .medium)
+                    field.textColor = .systemBlue
+                    field.alignment = .center
+                    return field
+                }()
+            tf.stringValue = node.detectedEncoding
             return tf
         }
         
@@ -91,7 +105,12 @@ extension NativeArchiveOutlineView.Coordinator {
     
     func fileIconName(isDirectory: Bool, name: String) -> String {
         if isDirectory { return "folder.fill" }
-        let ext = (name as NSString).pathExtension.lowercased()
+        let ext: String
+        if let dotIndex = name.lastIndex(of: "."), dotIndex != name.startIndex {
+            ext = String(name[name.index(after: dotIndex)...]).lowercased()
+        } else {
+            ext = ""
+        }
         if let fmt = ArchiveCompressionFormat.from(extensionOrName: ext) {
             return fmt.iconName
         }

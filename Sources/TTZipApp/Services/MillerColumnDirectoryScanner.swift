@@ -20,16 +20,15 @@ public enum MillerColumnDirectoryScanner {
             return await DiskDirectoryScannerActor.shared.scanDirectory(at: dirURL)
         }
         
-        let archivePath: String
+        let archivePath = dirURL.path
         let subpath: String
         
-        if let components = URLComponents(url: dirURL, resolvingAgainstBaseURL: false),
-           let queryItems = components.queryItems,
-           let subItem = queryItems.first(where: { $0.name == "subpath" })?.value {
-            archivePath = dirURL.path
-            subpath = subItem.hasSuffix("/") ? String(subItem.dropLast()) : subItem
+        let urlString = dirURL.absoluteString
+        if let queryRange = urlString.range(of: "?subpath=") {
+            let rawSubpath = String(urlString[queryRange.upperBound...])
+            let decoded = rawSubpath.removingPercentEncoding ?? rawSubpath
+            subpath = decoded.hasSuffix("/") ? String(decoded.dropLast()) : decoded
         } else {
-            archivePath = dirURL.path
             subpath = ""
         }
         
@@ -72,12 +71,13 @@ public enum MillerColumnDirectoryScanner {
         var diskItems: [DiskItemInfo] = []
         diskItems.reserveCapacity(childComponents.count)
         let prefix = subpath.isEmpty ? "" : (subpath.hasSuffix("/") ? subpath : subpath + "/")
+        let baseArchiveURL = URL(fileURLWithPath: archivePath)
+        let basePrefix = baseArchiveURL.absoluteString + "?subpath="
         
         for child in childComponents {
             let childSubpath = prefix + child.name
-            var comp = URLComponents(url: URL(fileURLWithPath: archivePath), resolvingAgainstBaseURL: false)!
-            comp.queryItems = [URLQueryItem(name: "subpath", value: childSubpath)]
-            let virtualURL = comp.url ?? URL(fileURLWithPath: archivePath)
+            let encodedSubpath = childSubpath.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? childSubpath
+            let virtualURL = URL(string: basePrefix + encodedSubpath) ?? baseArchiveURL
             
             let isDir = child.isDirectory
             let diskItem: DiskItemInfo
@@ -92,7 +92,12 @@ public enum MillerColumnDirectoryScanner {
                     kindText: "Archive Folder"
                 )
             } else {
-                let ext = (child.name as NSString).pathExtension
+                let ext: String
+                if let dotIndex = child.name.lastIndex(of: "."), dotIndex != child.name.startIndex {
+                    ext = String(child.name[child.name.index(after: dotIndex)...])
+                } else {
+                    ext = ""
+                }
                 let sizeText = ByteCountFormatterFlyweight.shared.string(fromByteCount: child.sizeBytes)
                 let kind = ext.isEmpty ? "File" : "\(ext.uppercased()) File"
                 diskItem = DiskItemInfo(

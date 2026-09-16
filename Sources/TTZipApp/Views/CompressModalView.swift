@@ -141,16 +141,9 @@ public struct CompressModalView: View {
     
     @ViewBuilder
     private var taskProgressAndSummaryOverlay: some View {
-        if session.isProgressModalPresented {
-            CompressionProgressModalView(
-                outputFileName: "\(session.outputName).\(session.selectedFormat.rawValue)",
-                progress: session.currentProgress,
-                onCancel: {
-                    session.cancelCompression()
-                },
-                onMinimize: { session.isProgressModalPresented = false }
-            )
-        } else if session.isSummarySheetPresented, let summary = session.completedSummary {
+        CompressProgressPresenter(session: session)
+        
+        if session.isSummarySheetPresented, let summary = session.completedSummary {
             CompressionSummarySheetView(
                 archivePath: summary.archivePath,
                 originalSizeBytes: summary.originalBytes,
@@ -182,5 +175,24 @@ public struct CompressModalView: View {
             })
         }
         .frame(width: 600, height: 400)
+    }
+}
+
+/// Independent progress presenter isolating 60Hz compression progress updates
+/// from the host form and list hierarchy to eliminate over-invalidation.
+private struct CompressProgressPresenter: View {
+    let session: CompressFormSession
+    
+    var body: some View {
+        if session.isProgressModalPresented {
+            CompressionProgressModalView(
+                outputFileName: "\(session.outputName).\(session.selectedFormat.rawValue)",
+                progress: session.currentProgress,
+                onCancel: {
+                    session.cancelCompression()
+                },
+                onMinimize: { session.isProgressModalPresented = false }
+            )
+        }
     }
 }
