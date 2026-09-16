@@ -6,25 +6,33 @@
 // TTZip: High-performance native archiving and compression engine.
 
 import Foundation
-import os
+import TTLogKit
 
 /// Internal diagnostic logger for TTZipPluginKit infrastructure
-enum PluginKitLogger {
-    static let logger = Logger(subsystem: "com.metastudyline.ttzip", category: "PluginKit")
+public enum PluginKitLogger {
+    public static let logger = TTLog(TTLogCategory(rawValue: "PluginKit"))
     
-    static func debug(_ message: String) {
-        logger.debug("\(message, privacy: .public)")
+    @inline(__always)
+    public static func debug(_ message: @autoclosure () -> String, file: String = #file, line: UInt = #line) {
+        let msg = message()
+        logger.debug("\(msg)")
     }
     
-    static func info(_ message: String) {
-        logger.info("\(message, privacy: .public)")
+    @inline(__always)
+    public static func info(_ message: @autoclosure () -> String, file: String = #file, line: UInt = #line) {
+        let msg = message()
+        logger.info("\(msg)")
     }
     
-    static func warning(_ message: String) {
-        logger.warning("\(message, privacy: .public)")
+    @inline(__always)
+    public static func warning(_ message: @autoclosure () -> String, file: String = #file, line: UInt = #line) {
+        let msg = message()
+        logger.warning("\(msg)")
     }
     
-    static func error(_ message: String) {
-        logger.error("\(message, privacy: .public)")
+    @inline(__always)
+    public static func error(_ message: @autoclosure () -> String, file: String = #file, line: UInt = #line) {
+        let msg = message()
+        logger.error("\(msg)")
     }
 }

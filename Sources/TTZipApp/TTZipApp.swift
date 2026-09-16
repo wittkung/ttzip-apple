@@ -8,6 +8,7 @@
 import SwiftUI
 import TTZipCore
 import AppKit
+import TTLogKit
 import TTZipPluginKit
 import TTZipUI
 import TTZipPreviewKit
@@ -36,13 +37,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
     
     func applicationDidFinishLaunching(_ notification: Notification) {
-        setupMicrokernelLoggingBridge()
-        MainThreadHangWatchdog.shared.start()
+        TTZipCore.enableMicrokernelLoggingBridge()
+        TTLogKit.MainThreadHangWatchdog.shared.start()
         QuickPeekerCoordinator.shared.start()
     }
     
     func applicationWillTerminate(_ notification: Notification) {
-        MainThreadHangWatchdog.shared.stop()
+        TTLogKit.MainThreadHangWatchdog.shared.stop()
         TTLogFileWriter.shared.flushSync()
         TempDirectoryCleanUpManager.shared.cleanupAllTemporaryDirectories()
     }
@@ -65,50 +66,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 }
 
-// MARK: - Rust Microkernel Logging Bridge
-
-private typealias UniFFILogCallback = UniFfiLogCallback
-
-/// Strongly-typed UniFFI logging sink bridging Rust microkernel log records to TTLogger.
-private final class AppMicrokernelLogHandler: UniFFILogCallback, @unchecked Sendable {
-    nonisolated func log(level: UInt32, target: String, message: String, file: String, line: UInt32) {
-        let resolvedFile = file.isEmpty ? "rust" : file
-        let resolvedTarget = target.isEmpty ? "kernel" : target
-        let logLevel: TTLogger.Level
-        switch level {
-        case 0:
-            logLevel = .debug
-        case 1:
-            logLevel = .info
-        case 2:
-            logLevel = .warning
-        case 3:
-            logLevel = .error
-        default:
-            logLevel = .info
-        }
-        let formatted = resolvedTarget.isEmpty ? message : "[\(resolvedTarget)] \(message)"
-        TTLogger.shared.log(
-            level: logLevel,
-            category: .kernel,
-            message: formatted,
-            file: resolvedFile,
-            line: UInt(max(0, line))
-        )
-    }
-}
-
-private func setupMicrokernelLoggingBridge() {
-    try? uniffiSetLogger(callback: AppMicrokernelLogHandler(), minLevel: 0)
-}
-
-
 struct TTZipApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
     
     init() {
-        setupMicrokernelLoggingBridge()
-        MainThreadHangWatchdog.shared.start()
+        TTZipCore.enableMicrokernelLoggingBridge()
+        TTLogKit.MainThreadHangWatchdog.shared.start()
         TTZipEngineFacade.initializeSubsystems()
         
         TempDirectoryCleanUpManager.shared.cleanupAllTemporaryDirectories()
