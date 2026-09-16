@@ -53,7 +53,6 @@ let mpvPackageName = ttmpvDependencyResolution.packageName
 
 let swiftSettings: [SwiftSetting] = [
     .define("GL_SILENCE_DEPRECATION"),
-    .unsafeFlags(["-Xcc", "-DGL_SILENCE_DEPRECATION"]),
     .enableUpcomingFeature("StrictConcurrency")
 ]
 
@@ -69,7 +68,7 @@ let package = Package(
         .library(name: "TTZipUI", targets: ["TTZipUI"]),
         .library(name: "TTZipPreviewKit", targets: ["TTZipPreviewKit"]),
         .library(name: "TTZipBenchmarkKit", targets: ["TTZipBenchmarkKit"]),
-        .library(name: "TTZipPluginKit", targets: ["TTZipPluginKit"]),
+        .library(name: "TTZipPluginKit", type: .dynamic, targets: ["TTZipPluginKit"]),
         .library(name: "TTZipQuickLook", type: .dynamic, targets: ["TTZipQuickLook"]),
         .library(name: "TTZipFinderSync", type: .dynamic, targets: ["TTZipFinderSync"]),
         .library(name: "TTZipFileProvider", type: .dynamic, targets: ["TTZipFileProvider"])
@@ -93,9 +92,9 @@ let package = Package(
                 .unsafeFlags([
                     "-LFrameworks",
                     "-Xlinker", "-rpath",
-                    "-Xlinker", "@loader_path/../../../../../../Frameworks",
+                    "-Xlinker", "@loader_path/../../Frameworks",
                     "-Xlinker", "-rpath",
-                    "-Xlinker", "@loader_path/../../../../../Frameworks",
+                    "-Xlinker", "@loader_path/../../../Frameworks",
                     "-Xlinker", "-rpath",
                     "-Xlinker", "@loader_path/../../../../Frameworks",
                     "-Xlinker", "-rpath",
@@ -115,9 +114,7 @@ let package = Package(
         ),
         .target(
             name: "TTZipPluginKit",
-            dependencies: [
-                .product(name: "TTZipCore", package: corePackageName)
-            ],
+            dependencies: [],
             path: "Sources/TTZipPluginKit",
             exclude: [
                 "README.md",

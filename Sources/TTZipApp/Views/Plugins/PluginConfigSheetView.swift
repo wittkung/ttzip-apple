@@ -26,6 +26,10 @@ public struct PluginConfigSheetView: View {
         AppLocalizationState.shared.currentLanguage == .zhHans ? .zhHans : .en
     }
     
+    private var customSettingsView: AnyView? {
+        TTZipPluginRegistry.shared.installedPlugins.first(where: { $0.manifest.id == pluginId })?.makeSettingsView()
+    }
+    
     public init(pluginId: String, isPresented: Binding<Bool>) {
         self.pluginId = pluginId
         self._isPresented = isPresented
@@ -41,6 +45,12 @@ public struct PluginConfigSheetView: View {
                 .font(TTZipTheme.Typography.caption)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
+            
+            if let customSettings = customSettingsView {
+                customSettings
+                    .padding(.vertical, 4)
+                Divider()
+            }
             
             if store.isLoading {
                 ProgressView()

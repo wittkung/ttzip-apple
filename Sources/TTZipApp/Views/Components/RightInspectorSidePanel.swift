@@ -11,11 +11,19 @@ import TTZipCore
 import TTZipUI
 import TTZipPreviewKit
 import TTZipBenchmarkKit
+import TTZipPluginKit
 
 /// Right contextual Inspector side panel supporting Home and Compress modes.
 public struct RightInspectorSidePanel: View {
     public var viewModel: AppViewState
     private var l10n = AppLocalizationState.shared
+    
+    private var pluginInspectorViews: [AnyView] {
+        let context = viewModel.selectionState.selectedDiskItem ?? DiskItemInfo(url: viewModel.navigationState.currentDirectory)
+        return TTZipPluginRegistry.shared.installedPlugins.compactMap { plugin in
+            plugin.makeInspectorView(selectedContext: context)
+        }
+    }
     
     public init(viewModel: AppViewState) {
         self.viewModel = viewModel
@@ -75,6 +83,13 @@ public struct RightInspectorSidePanel: View {
                     } else {
                         zenPlaceholderView
                     }
+                }
+                
+                // Plugin Contributed Inspector Views
+                ForEach(Array(pluginInspectorViews.enumerated()), id: \.offset) { _, pluginView in
+                    Divider()
+                        .padding(.vertical, 8)
+                    pluginView
                 }
             }
         }

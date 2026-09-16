@@ -16,6 +16,7 @@ public struct TTZipPluginManifest: Sendable, Codable, Identifiable {
     public let description: String
     public let iconSystemName: String
     public let homepage: URL?
+    public let minHostVersion: String?
     public let permissions: [TTZipPluginPermission]
     
     public init(
@@ -26,6 +27,7 @@ public struct TTZipPluginManifest: Sendable, Codable, Identifiable {
         description: String,
         iconSystemName: String,
         homepage: URL? = nil,
+        minHostVersion: String? = nil,
         permissions: [TTZipPluginPermission] = []
     ) {
         self.id = id
@@ -35,6 +37,7 @@ public struct TTZipPluginManifest: Sendable, Codable, Identifiable {
         self.description = description
         self.iconSystemName = iconSystemName
         self.homepage = homepage
+        self.minHostVersion = minHostVersion
         self.permissions = permissions
     }
 }
