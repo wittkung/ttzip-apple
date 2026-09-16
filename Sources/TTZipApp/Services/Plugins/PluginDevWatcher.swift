@@ -9,6 +9,7 @@ import Foundation
 import AppKit
 import SwiftUI
 import CoreServices
+import TTLogKit
 
 /// File watcher for plugin development auto-reload
 @MainActor
@@ -106,7 +107,7 @@ public final class PluginDevWatcher: ObservableObject {
         debounceTimer?.invalidate()
         debounceTimer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: false) { _ in
             Task { @MainActor in
-                print("[PluginDevWatcher] Detected plugin changes. Relaunching...")
+                TTLog(TTLogCategory(rawValue: "PluginDevWatcher")).info("Detected plugin changes. Relaunching...")
                 NSApplication.relaunch()
             }
         }

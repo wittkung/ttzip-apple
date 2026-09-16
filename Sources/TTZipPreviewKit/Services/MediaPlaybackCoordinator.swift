@@ -84,7 +84,7 @@ public final class MediaPlaybackCoordinator {
     
     /// Queries whether arrow keys should be intercepted for media seeking rather than directory navigation.
     public func shouldInterceptMediaKeys() -> Bool {
-        let isFullScreen = NSApp.keyWindow?.styleMask.contains(.fullScreen) == true
+        let isFullScreen = NSApp?.keyWindow?.styleMask.contains(.fullScreen) == true
         return isMediaActive && playPauseHandler != nil && (isPlaying || isFocusedOrHovered || isFullScreen)
     }
     

@@ -8,10 +8,12 @@
 import Foundation
 @preconcurrency import JavaScriptCore
 import SwiftUI
+import TTLogKit
 
 /// 沙盒版 JavaScriptCore 运行时
 @MainActor
 public final class TTZipJSPluginRuntime {
+    private static let logger = TTLog(TTLogCategory(rawValue: "JSPluginRuntime"))
     private let context: JSContext
     private let pluginID: String
     private var eventTasks: [Task<Void, Never>] = []
@@ -34,19 +36,19 @@ public final class TTZipJSPluginRuntime {
     private func setupSandbox() {
         context.exceptionHandler = { [weak self] _, exception in
             if let exception = exception, let pid = self?.pluginID {
-                print("JS Error in plugin \(pid): \(exception)")
+                Self.logger.error("JS Error in plugin \(pid): \(exception)")
             }
         }
         
         guard let ttzipHost = JSValue(newObjectIn: context) else { return }
         
         let log: @convention(block) (String, String) -> Void = { level, message in
-            print("[\(level.uppercased())] \(message)")
+            Self.logger.info("[\(level.uppercased())] \(message)")
         }
         ttzipHost.setValue(log, forProperty: "log")
         
         let showNotification: @convention(block) (String, String, String) -> Void = { title, message, level in
-            print("Notification (\(level)): \(title) - \(message)")
+            Self.logger.info("Notification (\(level)): \(title) - \(message)")
         }
         ttzipHost.setValue(showNotification, forProperty: "showNotification")
         
@@ -57,7 +59,7 @@ public final class TTZipJSPluginRuntime {
         ttzipHost.setValue(getKeychain, forProperty: "getKeychain")
         
         let setKeychain: @convention(block) (String, String) -> Void = { key, value in
-            print("Keychain SET: \(key) = \(value)")
+            Self.logger.debug("Keychain SET: \(key) = \(value)")
         }
         ttzipHost.setValue(setKeychain, forProperty: "setKeychain")
         

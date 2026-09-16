@@ -51,6 +51,34 @@ let ttmpvDependencyResolution: (dependency: Package.Dependency, packageName: Str
 let mpvDependency = ttmpvDependencyResolution.dependency
 let mpvPackageName = ttmpvDependencyResolution.packageName
 
+let ttlogDependencyResolution: (dependency: Package.Dependency, packageName: String) = {
+    // Tier 1: Explicit environment variable override
+    if let envPath = ProcessInfo.processInfo.environment["TTLOG_PATH"],
+       FileManager.default.fileExists(atPath: "\(envPath)/Package.swift") {
+        return (.package(path: envPath), "TTLog")
+    }
+
+    // Tier 2: Standard peer workspace probe (e.g. ../../../infra/ttlog or ../../infra/ttlog)
+    if ProcessInfo.processInfo.environment["TTZIP_USE_REMOTE_TTLOG"] != "1" {
+        let candidates = ["../../../infra/ttlog", "../../infra/ttlog"]
+        for relPath in candidates {
+            let manifestURL = URL(fileURLWithPath: #filePath)
+                .deletingLastPathComponent()
+                .appendingPathComponent("\(relPath)/Package.swift")
+                .standardized
+            if FileManager.default.fileExists(atPath: manifestURL.path) {
+                return (.package(path: relPath), "TTLog")
+            }
+        }
+    }
+
+    // Tier 3: Remote GitHub repository fallback for external machines and CI
+    return (.package(url: "https://github.com/wittkung/ttlog.git", branch: "main"), "TTLog")
+}()
+
+let ttlogPackage = ttlogDependencyResolution.dependency
+let ttlogPackageName = ttlogDependencyResolution.packageName
+
 let swiftSettings: [SwiftSetting] = [
     .define("GL_SILENCE_DEPRECATION"),
     .enableUpcomingFeature("StrictConcurrency")
@@ -68,14 +96,15 @@ let package = Package(
         .library(name: "TTZipUI", targets: ["TTZipUI"]),
         .library(name: "TTZipPreviewKit", targets: ["TTZipPreviewKit"]),
         .library(name: "TTZipBenchmarkKit", targets: ["TTZipBenchmarkKit"]),
-        .library(name: "TTZipPluginKit", type: .dynamic, targets: ["TTZipPluginKit"]),
         .library(name: "TTZipQuickLook", type: .dynamic, targets: ["TTZipQuickLook"]),
         .library(name: "TTZipFinderSync", type: .dynamic, targets: ["TTZipFinderSync"]),
         .library(name: "TTZipFileProvider", type: .dynamic, targets: ["TTZipFileProvider"])
     ],
     dependencies: [
+        .package(path: "Sources/TTZipPluginKit"),
         coreDependency,
         mpvDependency,
+        ttlogPackage,
         .package(url: "https://github.com/sparkle-project/Sparkle", exact: "2.6.0")
     ],
     targets: [
@@ -113,22 +142,12 @@ let package = Package(
             swiftSettings: swiftSettings
         ),
         .target(
-            name: "TTZipPluginKit",
-            dependencies: [],
-            path: "Sources/TTZipPluginKit",
-            exclude: [
-                "README.md",
-                "README.zh-CN.md"
-            ],
-            swiftSettings: swiftSettings
-        ),
-        .target(
             name: "TTZipPreviewKit",
             dependencies: [
                 .product(name: "TTZipCore", package: corePackageName),
                 .product(name: "TTMPVKit", package: mpvPackageName),
+                .product(name: "TTZipPluginKit", package: "TTZipPluginKit"),
                 "TTZipUI",
-                "TTZipPluginKit",
                 "CMPVBridge"
             ],
             path: "Sources/TTZipPreviewKit",
@@ -147,11 +166,12 @@ let package = Package(
             name: "TTZipApp",
             dependencies: [
                 .product(name: "TTZipCore", package: corePackageName),
+                .product(name: "TTLogKit", package: ttlogPackageName),
                 .product(name: "Sparkle", package: "Sparkle"),
+                .product(name: "TTZipPluginKit", package: "TTZipPluginKit"),
                 "TTZipUI",
                 "TTZipPreviewKit",
                 "TTZipBenchmarkKit",
-                "TTZipPluginKit",
                 "CMPVBridge"
             ],
             path: "Sources/TTZipApp",
@@ -202,7 +222,7 @@ let package = Package(
                 "TTZipUI",
                 "TTZipPreviewKit",
                 "TTZipBenchmarkKit",
-                "TTZipPluginKit",
+                .product(name: "TTZipPluginKit", package: "TTZipPluginKit"),
                 "TTZipFinderSync",
                 "TTZipQuickLook",
                 "TTZipFileProvider",
