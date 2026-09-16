@@ -16,8 +16,9 @@ public struct PresetWorkspaceView: View {
     private var l10n = AppLocalizationState.shared
     @State private var viewModel: PresetWorkspaceViewModel
     
-    public init(viewModel: PresetWorkspaceViewModel = PresetWorkspaceViewModel()) {
-        self._viewModel = State(initialValue: viewModel)
+    @MainActor
+    public init(viewModel: PresetWorkspaceViewModel? = nil) {
+        self._viewModel = State(initialValue: viewModel ?? PresetWorkspaceViewModel())
     }
     
     public var body: some View {

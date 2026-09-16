@@ -20,8 +20,9 @@ public struct PasswordVaultView: View {
     
     var onSelectPassword: ((String) -> Void)? = nil
     
-    public init(viewModel: PasswordVaultViewModel = PasswordVaultViewModel(), onSelectPassword: ((String) -> Void)? = nil) {
-        self._viewModel = State(initialValue: viewModel)
+    @MainActor
+    public init(viewModel: PasswordVaultViewModel? = nil, onSelectPassword: ((String) -> Void)? = nil) {
+        self._viewModel = State(initialValue: viewModel ?? PasswordVaultViewModel())
         self.onSelectPassword = onSelectPassword
     }
     

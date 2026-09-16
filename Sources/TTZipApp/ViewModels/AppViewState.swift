@@ -206,28 +206,29 @@ public final class AppViewState {
     }
     private let tokenStore = NotificationTokenStore()
     
+    @MainActor
     public init(
-        navigationState: NavigationState = NavigationState(),
-        explorerState: ArchiveExplorerState = ArchiveExplorerState(),
-        taskState: TaskExecutionState = TaskExecutionState(),
-        overlayState: OverlayState = OverlayState(),
-        selectionState: SelectionState = SelectionState(),
-        progressObservable: TaskProgressObservable = TaskProgressObservable(),
-        fileViewer: FileViewerServiceProtocol = MacNSWorkspaceFileViewer(),
-        passwordVault: PasswordVaultManaging = PasswordVaultManager.shared,
-        historyManager: CommandHistoryManager = CommandHistoryManager.shared,
-        passwordVaultManager: PasswordVaultManager = PasswordVaultManager.shared
+        navigationState: NavigationState? = nil,
+        explorerState: ArchiveExplorerState? = nil,
+        taskState: TaskExecutionState? = nil,
+        overlayState: OverlayState? = nil,
+        selectionState: SelectionState? = nil,
+        progressObservable: TaskProgressObservable? = nil,
+        fileViewer: FileViewerServiceProtocol? = nil,
+        passwordVault: PasswordVaultManaging? = nil,
+        historyManager: CommandHistoryManager? = nil,
+        passwordVaultManager: PasswordVaultManager? = nil
     ) {
-        self.navigationState = navigationState
-        self.explorerState = explorerState
-        self.taskState = taskState
-        self.overlayState = overlayState
-        self.selectionState = selectionState
-        self.progressObservable = progressObservable
-        self.fileViewer = fileViewer
-        self.passwordVault = passwordVault
-        self.historyManager = historyManager
-        self.passwordVaultManager = passwordVaultManager
+        self.navigationState = navigationState ?? NavigationState()
+        self.explorerState = explorerState ?? ArchiveExplorerState()
+        self.taskState = taskState ?? TaskExecutionState()
+        self.overlayState = overlayState ?? OverlayState()
+        self.selectionState = selectionState ?? SelectionState()
+        self.progressObservable = progressObservable ?? TaskProgressObservable()
+        self.fileViewer = fileViewer ?? MacNSWorkspaceFileViewer()
+        self.passwordVault = passwordVault ?? PasswordVaultManager.shared
+        self.historyManager = historyManager ?? CommandHistoryManager.shared
+        self.passwordVaultManager = passwordVaultManager ?? PasswordVaultManager.shared
         
         loadRecentArchivesFromStorage()
         RootFolderAccessManager.shared.restoreBookmarks()
