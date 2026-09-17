@@ -144,8 +144,12 @@ swift_library(
 macos_application(
     name = "TTZipApp",
     bundle_id = "com.metastudyline.ttzip",
+    bundle_name = "TTZip",
     infoplists = ["Sources/TTZipApp/Info.plist"],
     minimum_os_version = "14.0",
+    resources = [
+        "Sources/TTZipApp/Resources/AppIcon.icns",
+    ],
     visibility = ["//visibility:public"],
     deps = [
         ":TTZipAppLib",
@@ -170,4 +174,34 @@ xcodeproj(
         top_level_target(":PluginKitCLI", target_environments = ["device"]),
     ],
 )
+
+sh_binary(
+    name = "release_dmg",
+    srcs = ["scripts/bazel_release_dmg.sh"],
+    data = [
+        ":TTZipApp",
+        "Resources/dmg_background.png",
+        "Sources/TTZipApp/Info.plist",
+        "scripts/bundle_app.sh",
+        "scripts/create_dmg_installer.sh",
+    ],
+    tags = [
+        "local",
+        "no-sandbox",
+    ],
+)
+
+sh_binary(
+    name = "notarize_dmg",
+    srcs = ["scripts/bazel_notarize_dmg.sh"],
+    data = [
+        ":release_dmg",
+        "scripts/notarize_dmg.sh",
+    ],
+    tags = [
+        "local",
+        "no-sandbox",
+    ],
+)
+
 

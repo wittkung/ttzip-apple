@@ -8,14 +8,14 @@
         <item>
             <title>TTZip Version 0.1.0</title>
             <sparkle:releaseNotesLink>https://raw.githubusercontent.com/wittkung/ttzip-apple/main/RELEASE_NOTES.md</sparkle:releaseNotesLink>
-            <pubDate>Fri, 11 Sep 2026 23:19:25 +0000</pubDate>
+            <pubDate>Thu, 17 Sep 2026 03:46:21 +0000</pubDate>
             <enclosure
                 url="https://github.com/wittkung/ttzip-apple/releases/download/v0.1.0/TTZip-0.1.0.dmg"
                 sparkle:version="1000"
                 sparkle:shortVersionString="0.1.0"
-                sparkle:edSignature="H8XNBcEsvx+aVuF8+loWRZXI8vmNnqN1nQnz1VrlOBqgJVd9amO76vC1KMEc/5IPYeoH4/3MNsdEYcMvu/ssAw=="
+                sparkle:edSignature="7iQYlrYWxbvGzyjuBsZrRHUF5i4+HR1Qa8xx/+iPNffmNnf7Qog/o/BXEPPOP26clxyWPYlKiLBtDnV2ASxYAg=="
                 sparkle:minimumSystemVersion="14.0"
-                length="78783033"
+                length="33562071"
                 type="application/octet-stream"
             />
 
