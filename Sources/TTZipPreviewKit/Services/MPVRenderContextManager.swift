@@ -11,7 +11,8 @@ import AppKit
 import SwiftUI
 import OpenGL
 import OpenGL.GL3
-import CMPVBridge
+import CTTMpvBridge
+import TTMPVKit
 import TTZipUI
 
 import CoreVideo

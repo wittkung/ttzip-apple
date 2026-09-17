@@ -100,10 +100,11 @@ public struct CompressionProgressModalView: View {
                             .foregroundStyle(TTZipTheme.bambooGreen)
                     }
                     
-                    ProgressView(value: progress.fractionCompleted)
-                        .progressViewStyle(.linear)
-                        .tint(TTZipTheme.bambooGreen)
-                        .scaleEffect(x: 1, y: 1.5, anchor: .center)
+                    TTZipFluidProgressBar(
+                        value: progress.fractionCompleted,
+                        accentColor: TTZipTheme.bambooGreen,
+                        height: 6
+                    )
                 }
                 
                 VStack(spacing: 12) {

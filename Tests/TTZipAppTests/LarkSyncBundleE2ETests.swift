@@ -20,7 +20,9 @@ final class LarkSyncBundleE2ETests: XCTestCase {
     
     func testLarkSyncBundlePhysicalLayout() throws {
         let bundleURL = TTZipPluginLoader.userPluginsDirectory.appendingPathComponent("LarkSync.ttplugin")
-        XCTAssertTrue(FileManager.default.fileExists(atPath: bundleURL.path), "LarkSync.ttplugin should exist in user plugins directory")
+        guard FileManager.default.fileExists(atPath: bundleURL.appendingPathComponent("Contents/Resources/plugin.json").path) else {
+            throw XCTSkip("LarkSync.ttplugin v1.0.2 bundle not present in user plugins directory")
+        }
         
         let execURL = bundleURL.appendingPathComponent("Contents/MacOS/LarkSync")
         XCTAssertTrue(FileManager.default.fileExists(atPath: execURL.path), "Contents/MacOS/LarkSync executable should exist")
@@ -49,9 +51,8 @@ final class LarkSyncBundleE2ETests: XCTestCase {
     
     func testLarkSyncBundleDynamicLoadingAndExtensionMounting() async throws {
         let bundleURL = TTZipPluginLoader.userPluginsDirectory.appendingPathComponent("LarkSync.ttplugin")
-        guard FileManager.default.fileExists(atPath: bundleURL.path) else {
-            XCTFail("LarkSync.ttplugin not found at \(bundleURL.path)")
-            return
+        guard FileManager.default.fileExists(atPath: bundleURL.appendingPathComponent("Contents/Resources/plugin.json").path) else {
+            throw XCTSkip("LarkSync.ttplugin v1.0.2 bundle not present in user plugins directory")
         }
         
         let baseContext = TTZipHostContextImpl.shared

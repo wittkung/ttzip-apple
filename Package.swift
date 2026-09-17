@@ -79,6 +79,34 @@ let ttlogDependencyResolution: (dependency: Package.Dependency, packageName: Str
 let ttlogPackage = ttlogDependencyResolution.dependency
 let ttlogPackageName = ttlogDependencyResolution.packageName
 
+let ttkitDependencyResolution: (dependency: Package.Dependency, packageName: String) = {
+    // Tier 1: Explicit environment variable override
+    if let envPath = ProcessInfo.processInfo.environment["TTKIT_PATH"],
+       FileManager.default.fileExists(atPath: "\(envPath)/Package.swift") {
+        return (.package(path: envPath), "TTKit")
+    }
+
+    // Tier 2: Standard peer workspace probe (e.g. ../../../infra/ttkit or ../../infra/ttkit)
+    if ProcessInfo.processInfo.environment["TTZIP_USE_REMOTE_TTKIT"] != "1" {
+        let candidates = ["../../../infra/ttkit", "../../infra/ttkit"]
+        for relPath in candidates {
+            let manifestURL = URL(fileURLWithPath: #filePath)
+                .deletingLastPathComponent()
+                .appendingPathComponent("\(relPath)/Package.swift")
+                .standardized
+            if FileManager.default.fileExists(atPath: manifestURL.path) {
+                return (.package(path: relPath), "TTKit")
+            }
+        }
+    }
+
+    // Tier 3: Remote GitHub repository fallback for external machines and CI
+    return (.package(url: "https://github.com/wittkung/ttkit.git", branch: "main"), "TTKit")
+}()
+
+let ttkitPackage = ttkitDependencyResolution.dependency
+let ttkitPackageName = ttkitDependencyResolution.packageName
+
 let swiftSettings: [SwiftSetting] = [
     .define("GL_SILENCE_DEPRECATION"),
     .enableUpcomingFeature("StrictConcurrency")
@@ -105,38 +133,16 @@ let package = Package(
         coreDependency,
         mpvDependency,
         ttlogPackage,
+        ttkitPackage,
         .package(url: "https://github.com/sparkle-project/Sparkle", exact: "2.6.0")
     ],
     targets: [
         .target(
-            name: "CMPVBridge",
-            path: "Sources/CMPVBridge",
-            publicHeadersPath: "include",
-            cSettings: [
-                .headerSearchPath("include"),
-                .define("GL_SILENCE_DEPRECATION")
-            ],
-            linkerSettings: [
-                .linkedLibrary("mpv"),
-                .unsafeFlags([
-                    "-LFrameworks",
-                    "-Xlinker", "-rpath",
-                    "-Xlinker", "@loader_path/../../Frameworks",
-                    "-Xlinker", "-rpath",
-                    "-Xlinker", "@loader_path/../../../Frameworks",
-                    "-Xlinker", "-rpath",
-                    "-Xlinker", "@loader_path/../../../../Frameworks",
-                    "-Xlinker", "-rpath",
-                    "-Xlinker", "@loader_path/../../../Frameworks",
-                    "-Xlinker", "-rpath",
-                    "-Xlinker", "@executable_path/../Frameworks"
-                ])
-            ]
-        ),
-        .target(
             name: "TTZipUI",
             dependencies: [
-                .product(name: "TTZipCore", package: corePackageName)
+                .product(name: "TTZipCore", package: corePackageName),
+                .product(name: "TTKitDesign", package: ttkitPackageName),
+                .product(name: "TTKitFluid", package: ttkitPackageName)
             ],
             path: "Sources/TTZipUI",
             swiftSettings: swiftSettings
@@ -147,8 +153,7 @@ let package = Package(
                 .product(name: "TTZipCore", package: corePackageName),
                 .product(name: "TTMPVKit", package: mpvPackageName),
                 .product(name: "TTZipPluginKit", package: "TTZipPluginKit"),
-                "TTZipUI",
-                "CMPVBridge"
+                "TTZipUI"
             ],
             path: "Sources/TTZipPreviewKit",
             swiftSettings: swiftSettings
@@ -167,12 +172,14 @@ let package = Package(
             dependencies: [
                 .product(name: "TTZipCore", package: corePackageName),
                 .product(name: "TTLogKit", package: ttlogPackageName),
+                .product(name: "TTMPVKit", package: mpvPackageName),
+                .product(name: "TTKitDesign", package: ttkitPackageName),
+                .product(name: "TTKitFluid", package: ttkitPackageName),
                 .product(name: "Sparkle", package: "Sparkle"),
                 .product(name: "TTZipPluginKit", package: "TTZipPluginKit"),
                 "TTZipUI",
                 "TTZipPreviewKit",
-                "TTZipBenchmarkKit",
-                "CMPVBridge"
+                "TTZipBenchmarkKit"
             ],
             path: "Sources/TTZipApp",
             exclude: [
@@ -226,7 +233,7 @@ let package = Package(
                 "TTZipFinderSync",
                 "TTZipQuickLook",
                 "TTZipFileProvider",
-                "CMPVBridge",
+                .product(name: "TTMPVKit", package: mpvPackageName),
                 .product(name: "TTZipCore", package: corePackageName)
             ],
             path: "Tests/TTZipAppTests",

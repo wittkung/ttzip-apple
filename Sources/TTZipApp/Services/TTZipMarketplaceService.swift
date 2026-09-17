@@ -23,13 +23,13 @@ public final class TTZipAppMarketplaceService {
     
     private init() {}
     
-    /// Refreshes marketplace index.
+    /// Refreshes marketplace index with graceful fallback to official catalog.
     public func refreshIndex() async {
         isRefreshing = true
         defer { isRefreshing = false }
         
         let plugins = await TTZipMarketplaceService.shared.fetchMarketplaceIndex()
-        self.availablePlugins = plugins
+        self.availablePlugins = plugins.isEmpty ? TTZipMarketplaceService.officialCatalog : plugins
     }
     
     /// Installs a marketplace plugin dynamically.

@@ -1,4 +1,0 @@
-module CMPVBridge {
-    umbrella header "CMPVBridge.h"
-    export *
-}

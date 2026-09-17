@@ -8,7 +8,8 @@
 import SwiftUI
 import AppKit
 import Observation
-import CMPVBridge
+import CTTMpvBridge
+import TTMPVKit
 import TTZipCore
 import TTZipUI
 

@@ -7,7 +7,8 @@
 
 import Foundation
 import os
-import CMPVBridge
+import CTTMpvBridge
+import TTMPVKit
 
 /// C-Safe wakeup trampoline preventing Use-After-Free (UAF) across actor and thread boundaries.
 private final class MPVWakeupTrampoline: Sendable {

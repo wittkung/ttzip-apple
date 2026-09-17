@@ -11,6 +11,6 @@ import TTZipPluginKit
 @main
 struct PluginCLI {
     static func main() {
-        print("TTZipPluginKit Host CLI initialized.")
+        PluginKitLogger.info("TTZipPluginKit Host CLI initialized.")
     }
 }

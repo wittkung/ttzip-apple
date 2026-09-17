@@ -9,7 +9,8 @@ import AppKit
 import QuartzCore
 import OpenGL
 import OpenGL.GL3
-import CMPVBridge
+import CTTMpvBridge
+import TTMPVKit
 import TTZipUI
 
 /// Thread-safe weak proxy enabling Sendable closure invocation without retaining or capturing non-Sendable CALayers.
