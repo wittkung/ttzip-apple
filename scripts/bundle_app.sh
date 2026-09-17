@@ -264,6 +264,9 @@ if [ "${CHANNEL}" = "direct" ]; then
     # Fast deterministic Sparkle path lookup
     SPARKLE_SRC=""
     for candidate in \
+        "${BIN_DIR}/Sparkle.framework" \
+        "${BUILD_DIR}/out/Products/${BUILD_CONFIG}/Sparkle.framework" \
+        "${BUILD_DIR}/artifacts/sparkle/Sparkle/Sparkle.xcframework/macos-arm64_x86_64/Sparkle.framework" \
         "${BUILD_DIR}/artifacts/sparkle/Sparkle/Sparkle.framework" \
         "${BUILD_DIR}/artifacts/Sparkle/Sparkle.framework" \
         "${BUILD_DIR}/checkouts/Sparkle/Sparkle.framework" \
@@ -276,7 +279,7 @@ if [ "${CHANNEL}" = "direct" ]; then
     done
 
     if [ -z "${SPARKLE_SRC}" ]; then
-        SPARKLE_SRC="$(find "${BUILD_DIR}" "${REPO_ROOT}/.build" -maxdepth 4 -name "Sparkle.framework" -type d 2>/dev/null | grep -E "xcframework.*macos|release/Sparkle.framework|debug/Sparkle.framework" | head -n 1 || true)"
+        SPARKLE_SRC="$(find "${BUILD_DIR}" "${REPO_ROOT}/.build" -maxdepth 8 -name "Sparkle.framework" -type d 2>/dev/null | grep -E "xcframework.*macos|Products.*Sparkle.framework|release/Sparkle.framework|debug/Sparkle.framework" | head -n 1 || true)"
     fi
 
     if [ -n "${SPARKLE_SRC}" ] && [ -d "${SPARKLE_SRC}" ]; then

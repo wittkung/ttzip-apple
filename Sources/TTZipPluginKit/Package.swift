@@ -65,7 +65,8 @@ let package = Package(
             exclude: [
                 "README.md",
                 "README.zh-CN.md",
-                "Package.swift"
+                "Package.swift",
+                "Testing/PluginCLI.swift"
             ],
             swiftSettings: [
                 .define("GL_SILENCE_DEPRECATION"),

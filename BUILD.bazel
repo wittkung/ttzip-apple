@@ -91,12 +91,8 @@ cc_library(
     hdrs = glob(["Sources/CMPVBridge/include/**/*.h"]),
     aspect_hints = [":cmpvbridge_swift_interop"],
     includes = ["Sources/CMPVBridge/include"],
-    linkopts = [
-        "-L/opt/homebrew/lib",
-        "-lmpv",
-        "-Wl,-rpath,/opt/homebrew/lib",
-    ],
     tags = ["swift_module=CMPVBridge"],
+    deps = ["//third_party/mpv:mpv"],
 )
 
 swift_interop_hint(
