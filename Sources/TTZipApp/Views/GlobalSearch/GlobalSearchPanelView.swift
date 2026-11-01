@@ -168,7 +168,10 @@ private struct GlobalSearchResultRow: View {
     let item: GlobalSearchResultItem
     let isSelected: Bool
     let onSelect: () -> Void
-    private var l10n = AppLocalizationState.shared
+    /// Computed rather than stored: a `private` stored property would make the
+    /// synthesized memberwise initializer `private`, which is only callable from
+    /// inside this type on Swift toolchains before 6.2.
+    private var l10n: AppLocalizationState { .shared }
 
     var body: some View {
         Button {
