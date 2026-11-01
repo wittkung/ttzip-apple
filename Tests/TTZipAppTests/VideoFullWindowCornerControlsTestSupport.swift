@@ -11,8 +11,6 @@ import TTMediaKit
 import TTZipCore
 import XCTest
 @testable import TTZipApp
-@testable import TTZipAppServices
-@testable import TTZipAppViews
 @testable import TTZipPreviewKit
 
 // MARK: - Deterministic Media Test Clock & Main Queue Advancement

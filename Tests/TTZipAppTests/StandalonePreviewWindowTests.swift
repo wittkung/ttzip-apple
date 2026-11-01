@@ -9,7 +9,6 @@ import XCTest
 import TTZipCore
 import TTZipUI
 @testable import TTZipApp
-@testable import TTZipAppServices
 @testable import TTZipPreviewKit
 
 /// Headless lifecycle evidence; these tests intentionally do not create or order front a window.

@@ -7,7 +7,6 @@ import XCTest
 import TTZipCore
 import TTZipUI
 @testable import TTZipApp
-@testable import TTZipAppServices
 
 // MARK: - Bounded Async Observation Primitives (No Uncooperative TaskGroup Joins)
 
@@ -119,11 +118,11 @@ final class LifecycleRecordingUniFFIBinding: UniFFISemanticSearchEngineBindingPr
         log.recordDestroy(id: instanceID)
     }
 
-    func modelState() -> UniFFISemanticModelState {
+    func modelState() -> AppUniFFISemanticModelState {
         .notInstalled
     }
 
-    func registerScope(descriptor: UniFFISemanticScopeDescriptor) -> Bool {
+    func registerScope(descriptor: AppUniFFISemanticScopeDescriptor) -> Bool {
         false
     }
 
@@ -131,8 +130,8 @@ final class LifecycleRecordingUniFFIBinding: UniFFISemanticSearchEngineBindingPr
         false
     }
 
-    func startDirectoryIndexing(scopeId: String) -> UniFFISemanticIndexProgress {
-        UniFFISemanticIndexProgress(
+    func startDirectoryIndexing(scopeId: String) -> AppUniFFISemanticIndexProgress {
+        AppUniFFISemanticIndexProgress(
             scopeId: scopeId,
             phase: .degradedLexicalOnly,
             processedFiles: 0,
@@ -145,14 +144,14 @@ final class LifecycleRecordingUniFFIBinding: UniFFISemanticSearchEngineBindingPr
 
     func cancelIndexing(scopeId: String) {}
 
-    func scopeProgress(scopeId: String) -> UniFFISemanticIndexProgress? {
+    func scopeProgress(scopeId: String) -> AppUniFFISemanticIndexProgress? {
         nil
     }
 
     func upsertArchiveEntries(
         scopeId: String,
-        entries: [UniFFISemanticArchiveEntryInput]
-    ) -> UniFFISemanticIndexProgress {
+        entries: [AppUniFFISemanticArchiveEntryInput]
+    ) -> AppUniFFISemanticIndexProgress {
         startDirectoryIndexing(scopeId: scopeId)
     }
 
@@ -160,8 +159,8 @@ final class LifecycleRecordingUniFFIBinding: UniFFISemanticSearchEngineBindingPr
         false
     }
 
-    func search(request: UniFFISemanticSearchRequest) -> UniFFISemanticSearchResponse {
-        UniFFISemanticSearchResponse(
+    func search(request: AppUniFFISemanticSearchRequest) -> AppUniFFISemanticSearchResponse {
+        AppUniFFISemanticSearchResponse(
             requestId: request.requestId,
             windowId: request.windowId,
             isCancelled: false,
@@ -172,8 +171,8 @@ final class LifecycleRecordingUniFFIBinding: UniFFISemanticSearchEngineBindingPr
 
     func cancelSearch(requestId: UInt64) {}
 
-    func buildOpenRequest(hit: UniFFISemanticSearchHit) -> UniFFISemanticOpenRequest {
-        UniFFISemanticOpenRequest(
+    func buildOpenRequest(hit: AppUniFFISemanticSearchHit) -> AppUniFFISemanticOpenRequest {
+        AppUniFFISemanticOpenRequest(
             scopeId: hit.scopeId,
             sourceKind: hit.sourceKind,
             outerPath: hit.containerOrRootPath,

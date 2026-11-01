@@ -6,7 +6,6 @@ import XCTest
 #if SWIFT_PACKAGE
 @testable import TTZipApp
 #else
-@testable import TTZipAppServices
 #endif
 
 final class SemanticCancellationAdmissionGate: @unchecked Sendable {

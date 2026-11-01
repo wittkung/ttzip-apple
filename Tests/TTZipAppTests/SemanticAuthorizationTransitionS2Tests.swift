@@ -4,7 +4,6 @@
 import Foundation
 import XCTest
 @testable import TTZipApp
-@testable import TTZipAppServices
 import TTZipCore
 
 extension SemanticIndexingLifecycleS2Tests {
@@ -667,14 +666,14 @@ final class ControlledGenerationUniFFIDouble: UniFFISemanticSearchEngineBindingP
         tracker.recordDestroy(instanceID)
     }
 
-    func modelState() -> UniFFISemanticModelState {
+    func modelState() -> AppUniFFISemanticModelState {
         .notInstalled
     }
 
-    func prepareModelRuntime() -> UniFFISemanticModelState {
+    func prepareModelRuntime() -> AppUniFFISemanticModelState {
         tracker.recordPrepare(instanceID)
         return .ready(
-            info: UniFFISemanticModelInfo(
+            info: AppUniFFISemanticModelInfo(
                 modelId: PinnedSemanticModelConstants.modelId,
                 modelRevision: PinnedSemanticModelConstants.modelRevision,
                 ggufFilename: PinnedSemanticModelConstants.ggufFilename,
@@ -688,7 +687,7 @@ final class ControlledGenerationUniFFIDouble: UniFFISemanticSearchEngineBindingP
         )
     }
 
-    func registerScope(descriptor: UniFFISemanticScopeDescriptor) -> Bool {
+    func registerScope(descriptor: AppUniFFISemanticScopeDescriptor) -> Bool {
         tracker.recordRegister()
         return true
     }
@@ -697,9 +696,9 @@ final class ControlledGenerationUniFFIDouble: UniFFISemanticSearchEngineBindingP
         true
     }
 
-    func startDirectoryIndexing(scopeId: String) -> UniFFISemanticIndexProgress {
+    func startDirectoryIndexing(scopeId: String) -> AppUniFFISemanticIndexProgress {
         tracker.enterIndex(instanceID)
-        return UniFFISemanticIndexProgress(
+        return AppUniFFISemanticIndexProgress(
             scopeId: scopeId,
             phase: .completed,
             processedFiles: 1,
@@ -714,16 +713,16 @@ final class ControlledGenerationUniFFIDouble: UniFFISemanticSearchEngineBindingP
         tracker.eventLog.record("cancelIndex#\(instanceID)")
     }
 
-    func scopeProgress(scopeId: String) -> UniFFISemanticIndexProgress? {
+    func scopeProgress(scopeId: String) -> AppUniFFISemanticIndexProgress? {
         nil
     }
 
     func upsertArchiveEntries(
         scopeId: String,
-        entries: [UniFFISemanticArchiveEntryInput]
-    ) -> UniFFISemanticIndexProgress {
+        entries: [AppUniFFISemanticArchiveEntryInput]
+    ) -> AppUniFFISemanticIndexProgress {
         tracker.recordUpsert()
-        return UniFFISemanticIndexProgress(
+        return AppUniFFISemanticIndexProgress(
             scopeId: scopeId,
             phase: .completed,
             processedFiles: 1,
@@ -739,9 +738,9 @@ final class ControlledGenerationUniFFIDouble: UniFFISemanticSearchEngineBindingP
         return true
     }
 
-    func search(request: UniFFISemanticSearchRequest) -> UniFFISemanticSearchResponse {
+    func search(request: AppUniFFISemanticSearchRequest) -> AppUniFFISemanticSearchResponse {
         tracker.recordSearch()
-        return UniFFISemanticSearchResponse(
+        return AppUniFFISemanticSearchResponse(
             requestId: request.requestId,
             windowId: request.windowId,
             isCancelled: false,
@@ -754,8 +753,8 @@ final class ControlledGenerationUniFFIDouble: UniFFISemanticSearchEngineBindingP
         tracker.eventLog.record("cancelSearch#\(instanceID)")
     }
 
-    func buildOpenRequest(hit: UniFFISemanticSearchHit) -> UniFFISemanticOpenRequest {
-        UniFFISemanticOpenRequest(
+    func buildOpenRequest(hit: AppUniFFISemanticSearchHit) -> AppUniFFISemanticOpenRequest {
+        AppUniFFISemanticOpenRequest(
             scopeId: hit.scopeId,
             sourceKind: hit.sourceKind,
             outerPath: hit.containerOrRootPath,

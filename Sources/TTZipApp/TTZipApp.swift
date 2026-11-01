@@ -9,8 +9,6 @@ import TTZipUI
 import TTZipPreviewKit
 import TTZipBenchmarkKit
 #if !SWIFT_PACKAGE
-import TTZipAppServices
-import TTZipAppViews
 #endif
 
 public struct TTZipApp: App {

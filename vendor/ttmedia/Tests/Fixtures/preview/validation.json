@@ -1,0 +1,919 @@
+{
+  "scope": "Fixture integrity and structure; external decoder is an oracle, not TTZip playback proof",
+  "checked": 166,
+  "errors": [],
+  "results": [
+    {
+      "path": "text/sample.ass",
+      "integrity": "passed",
+      "visual_qa": "not-run"
+    },
+    {
+      "path": "text/sample.bash",
+      "integrity": "passed",
+      "visual_qa": "not-run"
+    },
+    {
+      "path": "text/sample.c",
+      "integrity": "passed",
+      "visual_qa": "not-run"
+    },
+    {
+      "path": "text/sample.cfg",
+      "integrity": "passed",
+      "visual_qa": "not-run"
+    },
+    {
+      "path": "text/sample.conf",
+      "integrity": "passed",
+      "visual_qa": "not-run"
+    },
+    {
+      "path": "text/sample.cpp",
+      "integrity": "passed",
+      "visual_qa": "not-run"
+    },
+    {
+      "path": "text/sample.cs",
+      "integrity": "passed",
+      "visual_qa": "not-run"
+    },
+    {
+      "path": "text/sample.css",
+      "integrity": "passed",
+      "visual_qa": "not-run"
+    },
+    {
+      "path": "text/sample.env",
+      "integrity": "passed",
+      "visual_qa": "not-run"
+    },
+    {
+      "path": "text/sample.fish",
+      "integrity": "passed",
+      "visual_qa": "not-run"
+    },
+    {
+      "path": "text/sample.go",
+      "integrity": "passed",
+      "visual_qa": "not-run"
+    },
+    {
+      "path": "text/sample.gradle",
+      "integrity": "passed",
+      "visual_qa": "not-run"
+    },
+    {
+      "path": "text/sample.h",
+      "integrity": "passed",
+      "visual_qa": "not-run"
+    },
+    {
+      "path": "text/sample.hpp",
+      "integrity": "passed",
+      "visual_qa": "not-run"
+    },
+    {
+      "path": "text/sample.ini",
+      "integrity": "passed",
+      "visual_qa": "not-run"
+    },
+    {
+      "path": "text/sample.ipynb",
+      "integrity": "passed",
+      "visual_qa": "not-run"
+    },
+    {
+      "path": "text/sample.java",
+      "integrity": "passed",
+      "visual_qa": "not-run"
+    },
+    {
+      "path": "text/sample.js",
+      "integrity": "passed",
+      "visual_qa": "not-run"
+    },
+    {
+      "path": "text/sample.json",
+      "integrity": "passed",
+      "visual_qa": "not-run"
+    },
+    {
+      "path": "text/sample.jsx",
+      "integrity": "passed",
+      "visual_qa": "not-run"
+    },
+    {
+      "path": "text/sample.kt",
+      "integrity": "passed",
+      "visual_qa": "not-run"
+    },
+    {
+      "path": "text/sample.kts",
+      "integrity": "passed",
+      "visual_qa": "not-run"
+    },
+    {
+      "path": "text/sample.log",
+      "integrity": "passed",
+      "visual_qa": "not-run"
+    },
+    {
+      "path": "text/sample.lrc",
+      "integrity": "passed",
+      "visual_qa": "not-run"
+    },
+    {
+      "path": "text/sample.m",
+      "integrity": "passed",
+      "visual_qa": "not-run"
+    },
+    {
+      "path": "text/sample.mm",
+      "integrity": "passed",
+      "visual_qa": "not-run"
+    },
+    {
+      "path": "text/sample.php",
+      "integrity": "passed",
+      "visual_qa": "not-run"
+    },
+    {
+      "path": "text/sample.plist",
+      "integrity": "passed",
+      "visual_qa": "not-run",
+      "structure": "xml-parsed"
+    },
+    {
+      "path": "text/sample.properties",
+      "integrity": "passed",
+      "visual_qa": "not-run"
+    },
+    {
+      "path": "text/sample.py",
+      "integrity": "passed",
+      "visual_qa": "not-run"
+    },
+    {
+      "path": "text/sample.rb",
+      "integrity": "passed",
+      "visual_qa": "not-run"
+    },
+    {
+      "path": "text/sample.rs",
+      "integrity": "passed",
+      "visual_qa": "not-run"
+    },
+    {
+      "path": "text/sample.sh",
+      "integrity": "passed",
+      "visual_qa": "not-run"
+    },
+    {
+      "path": "text/sample.sql",
+      "integrity": "passed",
+      "visual_qa": "not-run"
+    },
+    {
+      "path": "text/sample.srt",
+      "integrity": "passed",
+      "visual_qa": "not-run"
+    },
+    {
+      "path": "text/sample.sub",
+      "integrity": "passed",
+      "visual_qa": "not-run"
+    },
+    {
+      "path": "text/sample.svelte",
+      "integrity": "passed",
+      "visual_qa": "not-run"
+    },
+    {
+      "path": "text/sample.swift",
+      "integrity": "passed",
+      "visual_qa": "not-run"
+    },
+    {
+      "path": "text/sample.toml",
+      "integrity": "passed",
+      "visual_qa": "not-run"
+    },
+    {
+      "path": "text/sample.ts",
+      "integrity": "passed",
+      "visual_qa": "not-run"
+    },
+    {
+      "path": "text/sample.tsx",
+      "integrity": "passed",
+      "visual_qa": "not-run"
+    },
+    {
+      "path": "text/sample.txt",
+      "integrity": "passed",
+      "visual_qa": "not-run"
+    },
+    {
+      "path": "text/sample.vtt",
+      "integrity": "passed",
+      "visual_qa": "not-run"
+    },
+    {
+      "path": "text/sample.vue",
+      "integrity": "passed",
+      "visual_qa": "not-run"
+    },
+    {
+      "path": "text/sample.xml",
+      "integrity": "passed",
+      "visual_qa": "not-run",
+      "structure": "xml-parsed"
+    },
+    {
+      "path": "text/sample.yaml",
+      "integrity": "passed",
+      "visual_qa": "not-run"
+    },
+    {
+      "path": "text/sample.yml",
+      "integrity": "passed",
+      "visual_qa": "not-run"
+    },
+    {
+      "path": "text/sample.zsh",
+      "integrity": "passed",
+      "visual_qa": "not-run"
+    },
+    {
+      "path": "markdown/sample.markdown",
+      "integrity": "passed",
+      "visual_qa": "not-run"
+    },
+    {
+      "path": "markdown/sample.md",
+      "integrity": "passed",
+      "visual_qa": "not-run"
+    },
+    {
+      "path": "markdown/sample.mdown",
+      "integrity": "passed",
+      "visual_qa": "not-run"
+    },
+    {
+      "path": "markdown/sample.mdtext",
+      "integrity": "passed",
+      "visual_qa": "not-run"
+    },
+    {
+      "path": "markdown/sample.mdtxt",
+      "integrity": "passed",
+      "visual_qa": "not-run"
+    },
+    {
+      "path": "markdown/sample.mkd",
+      "integrity": "passed",
+      "visual_qa": "not-run"
+    },
+    {
+      "path": "markdown/sample.mkdn",
+      "integrity": "passed",
+      "visual_qa": "not-run"
+    },
+    {
+      "path": "tables/sample.csv",
+      "integrity": "passed",
+      "visual_qa": "not-run",
+      "structure": "quoted-multiline-table-passed"
+    },
+    {
+      "path": "tables/sample.tsv",
+      "integrity": "passed",
+      "visual_qa": "not-run",
+      "structure": "quoted-multiline-table-passed"
+    },
+    {
+      "path": "tables/sample.tab",
+      "integrity": "passed",
+      "visual_qa": "not-run",
+      "structure": "quoted-multiline-table-passed"
+    },
+    {
+      "path": "tables/sample.psv",
+      "integrity": "passed",
+      "visual_qa": "not-run",
+      "structure": "quoted-multiline-table-passed"
+    },
+    {
+      "path": "tables/sample.ssv",
+      "integrity": "passed",
+      "visual_qa": "not-run",
+      "structure": "quoted-multiline-table-passed"
+    },
+    {
+      "path": "edge-cases/utf16le.txt",
+      "integrity": "passed",
+      "visual_qa": "not-run"
+    },
+    {
+      "path": "edge-cases/gb18030.txt",
+      "integrity": "passed",
+      "visual_qa": "not-run"
+    },
+    {
+      "path": "edge-cases/empty.txt",
+      "integrity": "passed",
+      "visual_qa": "not-run",
+      "structure": "intentional-negative-fixture"
+    },
+    {
+      "path": "edge-cases/corrupt.pdf",
+      "integrity": "passed",
+      "visual_qa": "not-run",
+      "structure": "intentional-negative-fixture"
+    },
+    {
+      "path": "edge-cases/中文 空格.txt",
+      "integrity": "passed",
+      "visual_qa": "not-run"
+    },
+    {
+      "path": "web/sample.html",
+      "integrity": "passed",
+      "visual_qa": "not-run"
+    },
+    {
+      "path": "web/sample.htm",
+      "integrity": "passed",
+      "visual_qa": "not-run"
+    },
+    {
+      "path": "web/sample.xhtml",
+      "integrity": "passed",
+      "visual_qa": "not-run",
+      "structure": "xml-parsed"
+    },
+    {
+      "path": "web/sample.svg",
+      "integrity": "passed",
+      "visual_qa": "not-run",
+      "structure": "xml-parsed"
+    },
+    {
+      "path": "web/sample.svgz",
+      "integrity": "passed",
+      "visual_qa": "not-run",
+      "structure": "decompression-passed"
+    },
+    {
+      "path": "web/sample.mhtml",
+      "integrity": "passed",
+      "visual_qa": "not-run"
+    },
+    {
+      "path": "images/sample.png",
+      "integrity": "passed",
+      "visual_qa": "not-run"
+    },
+    {
+      "path": "images/sample.jpg",
+      "integrity": "passed",
+      "visual_qa": "not-run"
+    },
+    {
+      "path": "images/sample.jpeg",
+      "integrity": "passed",
+      "visual_qa": "not-run"
+    },
+    {
+      "path": "images/sample.gif",
+      "integrity": "passed",
+      "visual_qa": "not-run"
+    },
+    {
+      "path": "images/sample.bmp",
+      "integrity": "passed",
+      "visual_qa": "not-run"
+    },
+    {
+      "path": "images/sample.tiff",
+      "integrity": "passed",
+      "visual_qa": "not-run"
+    },
+    {
+      "path": "images/sample.ico",
+      "integrity": "passed",
+      "visual_qa": "not-run"
+    },
+    {
+      "path": "images/sample.webp",
+      "integrity": "passed",
+      "visual_qa": "not-run"
+    },
+    {
+      "path": "edge-cases/large-detail.png",
+      "integrity": "passed",
+      "visual_qa": "not-run"
+    },
+    {
+      "path": "edge-cases/animated.gif",
+      "integrity": "passed",
+      "visual_qa": "not-run"
+    },
+    {
+      "path": "audio/tone.wav",
+      "integrity": "passed",
+      "visual_qa": "not-run",
+      "external_decode": "ffmpeg-full-stream-passed"
+    },
+    {
+      "path": "audio/tone.mp3",
+      "integrity": "passed",
+      "visual_qa": "not-run",
+      "external_decode": "ffmpeg-full-stream-passed"
+    },
+    {
+      "path": "audio/tone.m4a",
+      "integrity": "passed",
+      "visual_qa": "not-run",
+      "external_decode": "ffmpeg-full-stream-passed"
+    },
+    {
+      "path": "audio/tone.m4b",
+      "integrity": "passed",
+      "visual_qa": "not-run",
+      "external_decode": "ffmpeg-full-stream-passed"
+    },
+    {
+      "path": "audio/tone.m4r",
+      "integrity": "passed",
+      "visual_qa": "not-run",
+      "external_decode": "ffmpeg-full-stream-passed"
+    },
+    {
+      "path": "audio/tone.aac",
+      "integrity": "passed",
+      "visual_qa": "not-run",
+      "external_decode": "ffmpeg-full-stream-passed"
+    },
+    {
+      "path": "audio/tone.flac",
+      "integrity": "passed",
+      "visual_qa": "not-run",
+      "external_decode": "ffmpeg-full-stream-passed"
+    },
+    {
+      "path": "audio/tone.ogg",
+      "integrity": "passed",
+      "visual_qa": "not-run",
+      "external_decode": "ffmpeg-full-stream-passed"
+    },
+    {
+      "path": "audio/tone.oga",
+      "integrity": "passed",
+      "visual_qa": "not-run",
+      "external_decode": "ffmpeg-full-stream-passed"
+    },
+    {
+      "path": "audio/tone.opus",
+      "integrity": "passed",
+      "visual_qa": "not-run",
+      "external_decode": "ffmpeg-full-stream-passed"
+    },
+    {
+      "path": "audio/tone.aiff",
+      "integrity": "passed",
+      "visual_qa": "not-run",
+      "external_decode": "ffmpeg-full-stream-passed"
+    },
+    {
+      "path": "audio/tone.aif",
+      "integrity": "passed",
+      "visual_qa": "not-run",
+      "external_decode": "ffmpeg-full-stream-passed"
+    },
+    {
+      "path": "audio/tone.aifc",
+      "integrity": "passed",
+      "visual_qa": "not-run",
+      "external_decode": "ffmpeg-full-stream-passed"
+    },
+    {
+      "path": "audio/tone.caf",
+      "integrity": "passed",
+      "visual_qa": "not-run",
+      "external_decode": "ffmpeg-full-stream-passed"
+    },
+    {
+      "path": "audio/tone.au",
+      "integrity": "passed",
+      "visual_qa": "not-run",
+      "external_decode": "ffmpeg-full-stream-passed"
+    },
+    {
+      "path": "audio/tone.snd",
+      "integrity": "passed",
+      "visual_qa": "not-run",
+      "external_decode": "ffmpeg-full-stream-passed"
+    },
+    {
+      "path": "audio/tone.ac3",
+      "integrity": "passed",
+      "visual_qa": "not-run",
+      "external_decode": "ffmpeg-full-stream-passed"
+    },
+    {
+      "path": "audio/tone.eac3",
+      "integrity": "passed",
+      "visual_qa": "not-run",
+      "external_decode": "ffmpeg-full-stream-passed"
+    },
+    {
+      "path": "audio/tone.wma",
+      "integrity": "passed",
+      "visual_qa": "not-run",
+      "external_decode": "ffmpeg-full-stream-passed"
+    },
+    {
+      "path": "audio/tone.wv",
+      "integrity": "passed",
+      "visual_qa": "not-run",
+      "external_decode": "ffmpeg-full-stream-passed"
+    },
+    {
+      "path": "audio/tone.tta",
+      "integrity": "passed",
+      "visual_qa": "not-run",
+      "external_decode": "ffmpeg-full-stream-passed"
+    },
+    {
+      "path": "audio/tone.voc",
+      "integrity": "passed",
+      "visual_qa": "not-run",
+      "external_decode": "ffmpeg-full-stream-passed"
+    },
+    {
+      "path": "audio/tone.ra",
+      "integrity": "passed",
+      "visual_qa": "not-run",
+      "external_decode": "ffmpeg-full-stream-passed"
+    },
+    {
+      "path": "edge-cases/silence.wav",
+      "integrity": "passed",
+      "visual_qa": "not-run",
+      "external_decode": "ffmpeg-full-stream-passed"
+    },
+    {
+      "path": "audio/notes.mid",
+      "integrity": "passed",
+      "visual_qa": "not-run",
+      "structure": "MIDI-event-container-passed"
+    },
+    {
+      "path": "audio/notes.midi",
+      "integrity": "passed",
+      "visual_qa": "not-run",
+      "structure": "MIDI-event-container-passed"
+    },
+    {
+      "path": "video/clip.mp4",
+      "integrity": "passed",
+      "visual_qa": "not-run",
+      "external_decode": "ffmpeg-full-stream-passed"
+    },
+    {
+      "path": "video/clip.mov",
+      "integrity": "passed",
+      "visual_qa": "not-run",
+      "external_decode": "ffmpeg-full-stream-passed"
+    },
+    {
+      "path": "video/clip.m4v",
+      "integrity": "passed",
+      "visual_qa": "not-run",
+      "external_decode": "ffmpeg-full-stream-passed"
+    },
+    {
+      "path": "video/clip.qt",
+      "integrity": "passed",
+      "visual_qa": "not-run",
+      "external_decode": "ffmpeg-full-stream-passed"
+    },
+    {
+      "path": "video/clip.mkv",
+      "integrity": "passed",
+      "visual_qa": "not-run",
+      "external_decode": "ffmpeg-full-stream-passed"
+    },
+    {
+      "path": "video/clip.avi",
+      "integrity": "passed",
+      "visual_qa": "not-run",
+      "external_decode": "ffmpeg-full-stream-passed"
+    },
+    {
+      "path": "video/clip.divx",
+      "integrity": "passed",
+      "visual_qa": "not-run",
+      "external_decode": "ffmpeg-full-stream-passed"
+    },
+    {
+      "path": "video/clip.webm",
+      "integrity": "passed",
+      "visual_qa": "not-run",
+      "external_decode": "ffmpeg-full-stream-passed"
+    },
+    {
+      "path": "video/clip.flv",
+      "integrity": "passed",
+      "visual_qa": "not-run",
+      "external_decode": "ffmpeg-full-stream-passed"
+    },
+    {
+      "path": "video/clip.3gp",
+      "integrity": "passed",
+      "visual_qa": "not-run",
+      "external_decode": "ffmpeg-full-stream-passed"
+    },
+    {
+      "path": "video/clip.3g2",
+      "integrity": "passed",
+      "visual_qa": "not-run",
+      "external_decode": "ffmpeg-full-stream-passed"
+    },
+    {
+      "path": "video/clip.ts",
+      "integrity": "passed",
+      "visual_qa": "not-run",
+      "external_decode": "ffmpeg-full-stream-passed"
+    },
+    {
+      "path": "video/clip.mts",
+      "integrity": "passed",
+      "visual_qa": "not-run",
+      "external_decode": "ffmpeg-full-stream-passed"
+    },
+    {
+      "path": "video/clip.m2ts",
+      "integrity": "passed",
+      "visual_qa": "not-run",
+      "external_decode": "ffmpeg-full-stream-passed"
+    },
+    {
+      "path": "video/clip.m2t",
+      "integrity": "passed",
+      "visual_qa": "not-run",
+      "external_decode": "ffmpeg-full-stream-passed"
+    },
+    {
+      "path": "video/clip.wmv",
+      "integrity": "passed",
+      "visual_qa": "not-run",
+      "external_decode": "ffmpeg-full-stream-passed"
+    },
+    {
+      "path": "video/clip.asf",
+      "integrity": "passed",
+      "visual_qa": "not-run",
+      "external_decode": "ffmpeg-full-stream-passed"
+    },
+    {
+      "path": "video/clip.f4v",
+      "integrity": "passed",
+      "visual_qa": "not-run",
+      "external_decode": "ffmpeg-full-stream-passed"
+    },
+    {
+      "path": "video/clip.mpg",
+      "integrity": "passed",
+      "visual_qa": "not-run",
+      "external_decode": "ffmpeg-full-stream-passed"
+    },
+    {
+      "path": "video/clip.mpeg",
+      "integrity": "passed",
+      "visual_qa": "not-run",
+      "external_decode": "ffmpeg-full-stream-passed"
+    },
+    {
+      "path": "video/clip.mpe",
+      "integrity": "passed",
+      "visual_qa": "not-run",
+      "external_decode": "ffmpeg-full-stream-passed"
+    },
+    {
+      "path": "video/clip.vob",
+      "integrity": "passed",
+      "visual_qa": "not-run",
+      "external_decode": "ffmpeg-full-stream-passed"
+    },
+    {
+      "path": "video/clip.dat",
+      "integrity": "passed",
+      "visual_qa": "not-run",
+      "external_decode": "ffmpeg-full-stream-passed"
+    },
+    {
+      "path": "video/clip.nut",
+      "integrity": "passed",
+      "visual_qa": "not-run",
+      "external_decode": "ffmpeg-full-stream-passed"
+    },
+    {
+      "path": "video/clip.rm",
+      "integrity": "passed",
+      "visual_qa": "not-run",
+      "external_decode": "ffmpeg-full-stream-passed"
+    },
+    {
+      "path": "video/clip.y4m",
+      "integrity": "passed",
+      "visual_qa": "not-run",
+      "external_decode": "ffmpeg-full-stream-passed"
+    },
+    {
+      "path": "video/clip.m2v",
+      "integrity": "passed",
+      "visual_qa": "not-run",
+      "external_decode": "ffmpeg-full-stream-passed"
+    },
+    {
+      "path": "video/clip.mpv",
+      "integrity": "passed",
+      "visual_qa": "not-run",
+      "external_decode": "ffmpeg-full-stream-passed"
+    },
+    {
+      "path": "documents/sample.docx",
+      "integrity": "passed",
+      "visual_qa": "not-run",
+      "structure": "package-CRC-and-XML-passed"
+    },
+    {
+      "path": "documents/sample.odt",
+      "integrity": "passed",
+      "visual_qa": "not-run",
+      "structure": "package-CRC-and-XML-passed"
+    },
+    {
+      "path": "documents/sample.pptx",
+      "integrity": "passed",
+      "visual_qa": "not-run",
+      "structure": "package-CRC-and-XML-passed"
+    },
+    {
+      "path": "documents/sample.epub",
+      "integrity": "passed",
+      "visual_qa": "not-run",
+      "structure": "package-CRC-and-XML-passed"
+    },
+    {
+      "path": "documents/sample.rtf",
+      "integrity": "passed",
+      "visual_qa": "not-run"
+    },
+    {
+      "path": "documents/sample.doc",
+      "integrity": "passed",
+      "visual_qa": "not-run"
+    },
+    {
+      "path": "documents/sample.fb2",
+      "integrity": "passed",
+      "visual_qa": "not-run",
+      "structure": "xml-parsed"
+    },
+    {
+      "path": "documents/sample.pdf",
+      "integrity": "passed",
+      "visual_qa": "not-run"
+    },
+    {
+      "path": "documents/sample.xlsx",
+      "integrity": "passed",
+      "visual_qa": "not-run",
+      "structure": "package-CRC-and-XML-passed"
+    },
+    {
+      "path": "documents/sample.ods",
+      "integrity": "passed",
+      "visual_qa": "not-run",
+      "structure": "package-CRC-and-XML-passed"
+    },
+    {
+      "path": "archives/sample.zip",
+      "integrity": "passed",
+      "visual_qa": "not-run",
+      "structure": "package-CRC-and-XML-passed"
+    },
+    {
+      "path": "archives/sample.cbz",
+      "integrity": "passed",
+      "visual_qa": "not-run",
+      "structure": "package-CRC-and-XML-passed"
+    },
+    {
+      "path": "archives/sample.tar",
+      "integrity": "passed",
+      "visual_qa": "not-run"
+    },
+    {
+      "path": "archives/sample.tar.gz",
+      "integrity": "passed",
+      "visual_qa": "not-run",
+      "structure": "decompression-passed"
+    },
+    {
+      "path": "archives/stream.gz",
+      "integrity": "passed",
+      "visual_qa": "not-run",
+      "structure": "decompression-passed"
+    },
+    {
+      "path": "archives/sample.tar.bz2",
+      "integrity": "passed",
+      "visual_qa": "not-run",
+      "structure": "decompression-passed"
+    },
+    {
+      "path": "archives/stream.bz2",
+      "integrity": "passed",
+      "visual_qa": "not-run",
+      "structure": "decompression-passed"
+    },
+    {
+      "path": "archives/sample.tar.xz",
+      "integrity": "passed",
+      "visual_qa": "not-run",
+      "structure": "decompression-passed"
+    },
+    {
+      "path": "archives/stream.xz",
+      "integrity": "passed",
+      "visual_qa": "not-run",
+      "structure": "decompression-passed"
+    },
+    {
+      "path": "archives/sample.7z",
+      "integrity": "passed",
+      "visual_qa": "not-run"
+    },
+    {
+      "path": "archives/sample.wim",
+      "integrity": "passed",
+      "visual_qa": "not-run"
+    },
+    {
+      "path": "archives/sample.tar.zst",
+      "integrity": "passed",
+      "visual_qa": "not-run"
+    },
+    {
+      "path": "archives/sample.tar.lz4",
+      "integrity": "passed",
+      "visual_qa": "not-run"
+    },
+    {
+      "path": "archives/sample.tar.br",
+      "integrity": "passed",
+      "visual_qa": "not-run"
+    },
+    {
+      "path": "archives/sample.tar.lz",
+      "integrity": "passed",
+      "visual_qa": "not-run"
+    },
+    {
+      "path": "archives/sample.tar.lrz",
+      "integrity": "passed",
+      "visual_qa": "not-run"
+    },
+    {
+      "path": "archives/sample.tgz",
+      "integrity": "passed",
+      "visual_qa": "not-run",
+      "structure": "decompression-passed"
+    },
+    {
+      "path": "binary/sample.bin",
+      "integrity": "passed",
+      "visual_qa": "not-run"
+    },
+    {
+      "path": "binary/sample.dat",
+      "integrity": "passed",
+      "visual_qa": "not-run"
+    },
+    {
+      "path": "binary/sample.wasm",
+      "integrity": "passed",
+      "visual_qa": "not-run"
+    },
+    {
+      "path": "images/sample.heic",
+      "integrity": "passed",
+      "visual_qa": "not-run"
+    }
+  ]
+}

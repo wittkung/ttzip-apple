@@ -4,7 +4,6 @@
 import Foundation
 import XCTest
 @testable import TTZipApp
-@testable import TTZipAppServices
 
 // MARK: - Deterministic doubles
 //

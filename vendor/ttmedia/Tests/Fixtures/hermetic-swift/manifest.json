@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "provenance": "Synthesised locally with ffmpeg lavfi; no personal media, no network",
+  "generator": "infra/ttmedia/tools/generate_hermetic_swift_corpus.py",
+  "ffmpeg_version": "9.0.1",
+  "entries": [
+    {
+      "path": "hermetic_ac3_6ch.mkv",
+      "bytes": 106475,
+      "sha256": "dc49172b7ab0361600636a0fe033d4e78872c70f18d3af75b2245bffd3817241",
+      "purpose": "AC-3 6ch production-chain corpus; decodable Dolby bitstream, non-playable decoy track"
+    },
+    {
+      "path": "hermetic_eac3_6ch.mkv",
+      "bytes": 89381,
+      "sha256": "b9f70d50e444cbf1702aad7fe40931edbf9e84fb9c37e29080bb79aaa63c2986",
+      "purpose": "E-AC-3 6ch production-chain corpus; decodable Dolby bitstream"
+    },
+    {
+      "path": "hermetic_ac3_5ch.mkv",
+      "bytes": 106475,
+      "sha256": "d2ca5be56e0e19ce6d046282dfa0d7b9318e4123ce77d4c4af10d0445c75747b",
+      "purpose": "AC-3 5ch production-chain corpus; decodable Dolby bitstream, non-playable decoy track"
+    }
+  ]
+}

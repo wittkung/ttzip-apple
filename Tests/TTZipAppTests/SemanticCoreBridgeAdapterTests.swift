@@ -4,7 +4,6 @@
 import XCTest
 import TTZipCore
 @testable import TTZipApp
-@testable import TTZipAppServices
 
 extension SemanticSearchTests {
 
@@ -241,7 +240,7 @@ extension SemanticSearchTests {
 final class RecordingUniFFISemanticSearchEngine: UniFFISemanticSearchEngineBindingProtocol, @unchecked Sendable {
     let missingModel: Bool
     let useTestDoubleFingerprint: Bool
-    var registeredScopes: [String: UniFFISemanticScopeDescriptor] = [:]
+    var registeredScopes: [String: AppUniFFISemanticScopeDescriptor] = [:]
     var lastCancelledIndexingScope: String?
     var lastRemovedPath: String?
     var cancelledRequestIds: Set<UInt64> = []
@@ -251,12 +250,12 @@ final class RecordingUniFFISemanticSearchEngine: UniFFISemanticSearchEngineBindi
         self.useTestDoubleFingerprint = useTestDoubleFingerprint
     }
 
-    func modelState() -> UniFFISemanticModelState {
+    func modelState() -> AppUniFFISemanticModelState {
         if missingModel {
             return .notInstalled
         }
         return .ready(
-            info: UniFFISemanticModelInfo(
+            info: AppUniFFISemanticModelInfo(
                 modelId: PinnedSemanticModelConstants.modelId,
                 modelRevision: PinnedSemanticModelConstants.modelRevision,
                 ggufFilename: PinnedSemanticModelConstants.ggufFilename,
@@ -272,7 +271,7 @@ final class RecordingUniFFISemanticSearchEngine: UniFFISemanticSearchEngineBindi
         )
     }
 
-    func registerScope(descriptor: UniFFISemanticScopeDescriptor) -> Bool {
+    func registerScope(descriptor: AppUniFFISemanticScopeDescriptor) -> Bool {
         registeredScopes[descriptor.scopeId] = descriptor
         return !missingModel
     }
@@ -281,8 +280,8 @@ final class RecordingUniFFISemanticSearchEngine: UniFFISemanticSearchEngineBindi
         registeredScopes.removeValue(forKey: scopeId) != nil
     }
 
-    func startDirectoryIndexing(scopeId: String) -> UniFFISemanticIndexProgress {
-        UniFFISemanticIndexProgress(
+    func startDirectoryIndexing(scopeId: String) -> AppUniFFISemanticIndexProgress {
+        AppUniFFISemanticIndexProgress(
             scopeId: scopeId,
             phase: missingModel ? .degradedLexicalOnly : .completed,
             processedFiles: missingModel ? 1 : 3,
@@ -297,15 +296,15 @@ final class RecordingUniFFISemanticSearchEngine: UniFFISemanticSearchEngineBindi
         lastCancelledIndexingScope = scopeId
     }
 
-    func scopeProgress(scopeId: String) -> UniFFISemanticIndexProgress? {
+    func scopeProgress(scopeId: String) -> AppUniFFISemanticIndexProgress? {
         startDirectoryIndexing(scopeId: scopeId)
     }
 
     func upsertArchiveEntries(
         scopeId: String,
-        entries: [UniFFISemanticArchiveEntryInput]
-    ) -> UniFFISemanticIndexProgress {
-        UniFFISemanticIndexProgress(
+        entries: [AppUniFFISemanticArchiveEntryInput]
+    ) -> AppUniFFISemanticIndexProgress {
+        AppUniFFISemanticIndexProgress(
             scopeId: scopeId,
             phase: missingModel ? .degradedLexicalOnly : .completed,
             processedFiles: UInt32(entries.count),
@@ -321,9 +320,9 @@ final class RecordingUniFFISemanticSearchEngine: UniFFISemanticSearchEngineBindi
         return true
     }
 
-    func search(request: UniFFISemanticSearchRequest) -> UniFFISemanticSearchResponse {
+    func search(request: AppUniFFISemanticSearchRequest) -> AppUniFFISemanticSearchResponse {
         let hit = makeHit()
-        return UniFFISemanticSearchResponse(
+        return AppUniFFISemanticSearchResponse(
             requestId: request.requestId,
             windowId: request.windowId,
             isCancelled: cancelledRequestIds.contains(request.requestId),
@@ -332,9 +331,9 @@ final class RecordingUniFFISemanticSearchEngine: UniFFISemanticSearchEngineBindi
         )
     }
 
-    private func makeHit() -> UniFFISemanticSearchHit {
+    private func makeHit() -> AppUniFFISemanticSearchHit {
         if missingModel {
-            return UniFFISemanticSearchHit(
+            return AppUniFFISemanticSearchHit(
                 scopeId: "scope_missing_model",
                 sourceKind: .authorizedDirectory,
                 containerOrRootPath: "/Volumes/Work/docs",
@@ -352,7 +351,7 @@ final class RecordingUniFFISemanticSearchEngine: UniFFISemanticSearchEngineBindi
             )
         }
         if useTestDoubleFingerprint {
-            return UniFFISemanticSearchHit(
+            return AppUniFFISemanticSearchHit(
                 scopeId: "scope_arch",
                 sourceKind: .openArchive,
                 containerOrRootPath: "/Volumes/Data/bundle.zip",
@@ -369,7 +368,7 @@ final class RecordingUniFFISemanticSearchEngine: UniFFISemanticSearchEngineBindi
                 modelFingerprint: PinnedSemanticModelConstants.testDoubleModelFingerprint
             )
         }
-        return UniFFISemanticSearchHit(
+        return AppUniFFISemanticSearchHit(
             scopeId: "arch_1",
             sourceKind: .openArchive,
             containerOrRootPath: "/Volumes/Work/bundle.zip",
@@ -391,8 +390,8 @@ final class RecordingUniFFISemanticSearchEngine: UniFFISemanticSearchEngineBindi
         cancelledRequestIds.insert(requestId)
     }
 
-    func buildOpenRequest(hit: UniFFISemanticSearchHit) -> UniFFISemanticOpenRequest {
-        UniFFISemanticOpenRequest(
+    func buildOpenRequest(hit: AppUniFFISemanticSearchHit) -> AppUniFFISemanticOpenRequest {
+        AppUniFFISemanticOpenRequest(
             scopeId: hit.scopeId,
             sourceKind: hit.sourceKind,
             outerPath: hit.containerOrRootPath,

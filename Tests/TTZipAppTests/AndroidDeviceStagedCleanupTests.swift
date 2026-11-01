@@ -4,7 +4,7 @@
 import XCTest
 import Foundation
 import Darwin
-@testable import TTZipAppServices
+@testable import TTZipApp
 
 /// Observability of the staged-file cleanup performed on a deterministic ADB commit refusal.
 ///

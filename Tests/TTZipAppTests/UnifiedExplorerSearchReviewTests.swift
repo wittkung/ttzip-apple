@@ -6,12 +6,7 @@ import Darwin
 import Foundation
 import SwiftUI
 import XCTest
-@testable import TTZipAppCommon
 @testable import TTZipApp
-@testable import TTZipAppModels
-@testable import TTZipAppServices
-@testable import TTZipAppViewModels
-@testable import TTZipAppViews
 import TTZipCore
 import TTZipUI
 

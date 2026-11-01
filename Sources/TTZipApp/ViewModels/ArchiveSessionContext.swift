@@ -8,7 +8,6 @@ import TTZipCore
 import TTZipUI
 import TTZipPreviewKit
 #if canImport(TTZipAppServices)
-import TTZipAppServices
 #endif
 
 /// Independent per-window / per-tab archive workspace session state machine.

@@ -7,7 +7,7 @@ import TTZipCore
 extension UniFFIRustSemanticCoreBridge {
     // MARK: - 1-to-1 UniFFI Type Mappings
 
-    static func mapBackend(_ b: UniFFISemanticComputeBackend) -> SemanticComputeBackendKind {
+    static func mapBackend(_ b: AppUniFFISemanticComputeBackend) -> SemanticComputeBackendKind {
         switch b {
         case .metal: return .metal
         case .cpuFallback: return .cpuFallback
@@ -15,7 +15,7 @@ extension UniFFIRustSemanticCoreBridge {
         }
     }
 
-    static func mapModelState(_ s: UniFFISemanticModelState) -> SemanticModelInstallState {
+    static func mapModelState(_ s: AppUniFFISemanticModelState) -> SemanticModelInstallState {
         switch s {
         case .notInstalled:
             return .notInstalled
@@ -42,14 +42,14 @@ extension UniFFIRustSemanticCoreBridge {
         }
     }
 
-    static func toUniFFIScopeKind(_ k: SemanticScopeKind) -> UniFFISemanticScopeKind {
+    static func toUniFFIScopeKind(_ k: SemanticScopeKind) -> AppUniFFISemanticScopeKind {
         switch k {
         case .authorizedDirectory: return .authorizedDirectory
         case .openArchive: return .openArchive
         }
     }
 
-    static func mapScopeKind(_ k: UniFFISemanticScopeKind) -> SemanticScopeKind {
+    static func mapScopeKind(_ k: AppUniFFISemanticScopeKind) -> SemanticScopeKind {
         switch k {
         case .authorizedDirectory: return .authorizedDirectory
         case .openArchive: return .openArchive
@@ -58,8 +58,8 @@ extension UniFFIRustSemanticCoreBridge {
 
     static func toUniFFIScope(
         _ d: SemanticScopeDescriptor
-    ) -> UniFFISemanticScopeDescriptor {
-        UniFFISemanticScopeDescriptor(
+    ) -> AppUniFFISemanticScopeDescriptor {
+        AppUniFFISemanticScopeDescriptor(
             scopeId: d.scopeId,
             kind: toUniFFIScopeKind(d.kind),
             rootPath: d.rootPath,
@@ -68,7 +68,7 @@ extension UniFFIRustSemanticCoreBridge {
         )
     }
 
-    static func mapPhase(_ p: UniFFISemanticIngestPhase) -> SemanticIngestPhaseKind {
+    static func mapPhase(_ p: AppUniFFISemanticIngestPhase) -> SemanticIngestPhaseKind {
         switch p {
         case .idle: return .idle
         case .scanning: return .scanning
@@ -105,7 +105,7 @@ extension UniFFIRustSemanticCoreBridge {
         )
     }
 
-    static func mapProgress(_ p: UniFFISemanticIndexProgress) -> SemanticIndexProgress {
+    static func mapProgress(_ p: AppUniFFISemanticIndexProgress) -> SemanticIndexProgress {
         SemanticIndexProgress(
             scopeId: p.scopeId,
             phase: mapPhase(p.phase),
@@ -117,7 +117,7 @@ extension UniFFIRustSemanticCoreBridge {
         )
     }
 
-    static func mapMatchKind(_ m: UniFFISemanticMatchKind) -> SemanticMatchKind {
+    static func mapMatchKind(_ m: AppUniFFISemanticMatchKind) -> SemanticMatchKind {
         switch m {
         case .lexicalOnly: return .lexicalOnly
         case .pathSemantic: return .pathSemantic
@@ -128,8 +128,8 @@ extension UniFFIRustSemanticCoreBridge {
 
     static func toUniFFISearchRequest(
         _ r: SemanticSearchRequest
-    ) -> UniFFISemanticSearchRequest {
-        UniFFISemanticSearchRequest(
+    ) -> AppUniFFISemanticSearchRequest {
+        AppUniFFISemanticSearchRequest(
             requestId: r.requestId,
             windowId: r.windowId,
             query: r.query,
@@ -140,7 +140,7 @@ extension UniFFIRustSemanticCoreBridge {
         )
     }
 
-    static func mapSearchHit(_ h: UniFFISemanticSearchHit) -> SemanticSearchHit {
+    static func mapSearchHit(_ h: AppUniFFISemanticSearchHit) -> SemanticSearchHit {
         SemanticSearchHit(
             scopeId: h.scopeId,
             sourceKind: mapScopeKind(h.sourceKind),
@@ -160,7 +160,7 @@ extension UniFFIRustSemanticCoreBridge {
     }
 
     static func mapSearchResponse(
-        _ r: UniFFISemanticSearchResponse
+        _ r: AppUniFFISemanticSearchResponse
     ) -> SemanticSearchResponse {
         SemanticSearchResponse(
             requestId: r.requestId,

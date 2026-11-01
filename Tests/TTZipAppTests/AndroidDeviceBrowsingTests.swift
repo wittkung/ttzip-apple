@@ -5,9 +5,6 @@ import XCTest
 import Foundation
 import TTZipAppCore
 @testable import TTZipApp
-@testable import TTZipAppViewModels
-@testable import TTZipAppServices
-@testable import TTZipAppViews
 
 @MainActor
 final class AndroidDeviceBrowsingTests: XCTestCase {

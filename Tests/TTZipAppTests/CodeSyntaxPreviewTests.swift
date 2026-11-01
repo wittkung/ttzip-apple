@@ -15,8 +15,6 @@ final class CodeSyntaxPreviewTests: XCTestCase {
     
     func testStreamingTokenizerYieldsPriorityBatchFirst() async {
         let code = """
-        import SwiftUI
-        import AppKit
         
         // Priority header
         public struct MainView: View {

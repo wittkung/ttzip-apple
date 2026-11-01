@@ -1,0 +1,3425 @@
+{
+  "schema_version": 1,
+  "provenance": "Synthetic fixtures; no downloaded user content",
+  "entries": [
+    {
+      "path": "text/sample.ass",
+      "category": "text",
+      "extension": "ass",
+      "expected_mode": "text",
+      "origin": "synthetic:generate_preview_corpus.py",
+      "bytes": 179,
+      "sha256": "12c1404bd9325773bb051b2f2ea0348b2af19c68244e460c2b0fcc8624d3aad3",
+      "render_verified": false
+    },
+    {
+      "path": "text/sample.bash",
+      "category": "text",
+      "extension": "bash",
+      "expected_mode": "text",
+      "origin": "synthetic:generate_preview_corpus.py",
+      "bytes": 145,
+      "sha256": "64d6121c9b88022951c3a226b41463dc5d3e1dac67a93f16787386579bfc9b7f",
+      "render_verified": false
+    },
+    {
+      "path": "text/sample.c",
+      "category": "text",
+      "extension": "c",
+      "expected_mode": "text",
+      "origin": "synthetic:generate_preview_corpus.py",
+      "bytes": 147,
+      "sha256": "4dcadf6e61957bcbdb1a8f069c8b788152436e2d819dfead97d9a371fdd288f0",
+      "render_verified": false
+    },
+    {
+      "path": "text/sample.cfg",
+      "category": "text",
+      "extension": "cfg",
+      "expected_mode": "text",
+      "origin": "synthetic:generate_preview_corpus.py",
+      "bytes": 60,
+      "sha256": "def6ca119b7d3b174d20f26dda7b7ead75670996054002229af268a383f425a8",
+      "render_verified": false
+    },
+    {
+      "path": "text/sample.conf",
+      "category": "text",
+      "extension": "conf",
+      "expected_mode": "text",
+      "origin": "synthetic:generate_preview_corpus.py",
+      "bytes": 60,
+      "sha256": "def6ca119b7d3b174d20f26dda7b7ead75670996054002229af268a383f425a8",
+      "render_verified": false
+    },
+    {
+      "path": "text/sample.cpp",
+      "category": "text",
+      "extension": "cpp",
+      "expected_mode": "text",
+      "origin": "synthetic:generate_preview_corpus.py",
+      "bytes": 147,
+      "sha256": "4dcadf6e61957bcbdb1a8f069c8b788152436e2d819dfead97d9a371fdd288f0",
+      "render_verified": false
+    },
+    {
+      "path": "text/sample.cs",
+      "category": "text",
+      "extension": "cs",
+      "expected_mode": "text",
+      "origin": "synthetic:generate_preview_corpus.py",
+      "bytes": 147,
+      "sha256": "4dcadf6e61957bcbdb1a8f069c8b788152436e2d819dfead97d9a371fdd288f0",
+      "render_verified": false
+    },
+    {
+      "path": "text/sample.css",
+      "category": "text",
+      "extension": "css",
+      "expected_mode": "text",
+      "origin": "synthetic:generate_preview_corpus.py",
+      "bytes": 60,
+      "sha256": "def6ca119b7d3b174d20f26dda7b7ead75670996054002229af268a383f425a8",
+      "render_verified": false
+    },
+    {
+      "path": "text/sample.env",
+      "category": "text",
+      "extension": "env",
+      "expected_mode": "text",
+      "origin": "synthetic:generate_preview_corpus.py",
+      "bytes": 21,
+      "sha256": "9e70ab90e5ed0a7d570efc07bf4ffea57cdf415b8fd4763a360fe79dbaeae81f",
+      "render_verified": false
+    },
+    {
+      "path": "text/sample.fish",
+      "category": "text",
+      "extension": "fish",
+      "expected_mode": "text",
+      "origin": "synthetic:generate_preview_corpus.py",
+      "bytes": 145,
+      "sha256": "64d6121c9b88022951c3a226b41463dc5d3e1dac67a93f16787386579bfc9b7f",
+      "render_verified": false
+    },
+    {
+      "path": "text/sample.go",
+      "category": "text",
+      "extension": "go",
+      "expected_mode": "text",
+      "origin": "synthetic:generate_preview_corpus.py",
+      "bytes": 147,
+      "sha256": "4dcadf6e61957bcbdb1a8f069c8b788152436e2d819dfead97d9a371fdd288f0",
+      "render_verified": false
+    },
+    {
+      "path": "text/sample.gradle",
+      "category": "text",
+      "extension": "gradle",
+      "expected_mode": "text",
+      "origin": "synthetic:generate_preview_corpus.py",
+      "bytes": 60,
+      "sha256": "def6ca119b7d3b174d20f26dda7b7ead75670996054002229af268a383f425a8",
+      "render_verified": false
+    },
+    {
+      "path": "text/sample.h",
+      "category": "text",
+      "extension": "h",
+      "expected_mode": "text",
+      "origin": "synthetic:generate_preview_corpus.py",
+      "bytes": 147,
+      "sha256": "4dcadf6e61957bcbdb1a8f069c8b788152436e2d819dfead97d9a371fdd288f0",
+      "render_verified": false
+    },
+    {
+      "path": "text/sample.hpp",
+      "category": "text",
+      "extension": "hpp",
+      "expected_mode": "text",
+      "origin": "synthetic:generate_preview_corpus.py",
+      "bytes": 147,
+      "sha256": "4dcadf6e61957bcbdb1a8f069c8b788152436e2d819dfead97d9a371fdd288f0",
+      "render_verified": false
+    },
+    {
+      "path": "text/sample.ini",
+      "category": "text",
+      "extension": "ini",
+      "expected_mode": "text",
+      "origin": "synthetic:generate_preview_corpus.py",
+      "bytes": 60,
+      "sha256": "def6ca119b7d3b174d20f26dda7b7ead75670996054002229af268a383f425a8",
+      "render_verified": false
+    },
+    {
+      "path": "text/sample.ipynb",
+      "category": "text",
+      "extension": "ipynb",
+      "expected_mode": "text",
+      "origin": "synthetic:generate_preview_corpus.py",
+      "bytes": 58,
+      "sha256": "ce65c2f4ffc92bc8f49e73ccdb5930b62bb014d1c70b33f66318bb97c228b39e",
+      "render_verified": false
+    },
+    {
+      "path": "text/sample.java",
+      "category": "text",
+      "extension": "java",
+      "expected_mode": "text",
+      "origin": "synthetic:generate_preview_corpus.py",
+      "bytes": 147,
+      "sha256": "4dcadf6e61957bcbdb1a8f069c8b788152436e2d819dfead97d9a371fdd288f0",
+      "render_verified": false
+    },
+    {
+      "path": "text/sample.js",
+      "category": "text",
+      "extension": "js",
+      "expected_mode": "text",
+      "origin": "synthetic:generate_preview_corpus.py",
+      "bytes": 147,
+      "sha256": "4dcadf6e61957bcbdb1a8f069c8b788152436e2d819dfead97d9a371fdd288f0",
+      "render_verified": false
+    },
+    {
+      "path": "text/sample.json",
+      "category": "text",
+      "extension": "json",
+      "expected_mode": "text",
+      "origin": "synthetic:generate_preview_corpus.py",
+      "bytes": 43,
+      "sha256": "366fe96b4be7a2780ba849ac27bbeee3e51e7ec7e451d2429a8bce9bf46572e3",
+      "render_verified": false
+    },
+    {
+      "path": "text/sample.jsx",
+      "category": "text",
+      "extension": "jsx",
+      "expected_mode": "text",
+      "origin": "synthetic:generate_preview_corpus.py",
+      "bytes": 147,
+      "sha256": "4dcadf6e61957bcbdb1a8f069c8b788152436e2d819dfead97d9a371fdd288f0",
+      "render_verified": false
+    },
+    {
+      "path": "text/sample.kt",
+      "category": "text",
+      "extension": "kt",
+      "expected_mode": "text",
+      "origin": "synthetic:generate_preview_corpus.py",
+      "bytes": 147,
+      "sha256": "4dcadf6e61957bcbdb1a8f069c8b788152436e2d819dfead97d9a371fdd288f0",
+      "render_verified": false
+    },
+    {
+      "path": "text/sample.kts",
+      "category": "text",
+      "extension": "kts",
+      "expected_mode": "text",
+      "origin": "synthetic:generate_preview_corpus.py",
+      "bytes": 147,
+      "sha256": "4dcadf6e61957bcbdb1a8f069c8b788152436e2d819dfead97d9a371fdd288f0",
+      "render_verified": false
+    },
+    {
+      "path": "text/sample.log",
+      "category": "text",
+      "extension": "log",
+      "expected_mode": "text",
+      "origin": "synthetic:generate_preview_corpus.py",
+      "bytes": 60,
+      "sha256": "def6ca119b7d3b174d20f26dda7b7ead75670996054002229af268a383f425a8",
+      "render_verified": false
+    },
+    {
+      "path": "text/sample.lrc",
+      "category": "text",
+      "extension": "lrc",
+      "expected_mode": "text",
+      "origin": "synthetic:generate_preview_corpus.py",
+      "bytes": 23,
+      "sha256": "5a92a1b6707e426bc9557dccd67975488c4bea19641e9bcc519d69b6d91f685b",
+      "render_verified": false
+    },
+    {
+      "path": "text/sample.m",
+      "category": "text",
+      "extension": "m",
+      "expected_mode": "text",
+      "origin": "synthetic:generate_preview_corpus.py",
+      "bytes": 147,
+      "sha256": "4dcadf6e61957bcbdb1a8f069c8b788152436e2d819dfead97d9a371fdd288f0",
+      "render_verified": false
+    },
+    {
+      "path": "text/sample.mm",
+      "category": "text",
+      "extension": "mm",
+      "expected_mode": "text",
+      "origin": "synthetic:generate_preview_corpus.py",
+      "bytes": 147,
+      "sha256": "4dcadf6e61957bcbdb1a8f069c8b788152436e2d819dfead97d9a371fdd288f0",
+      "render_verified": false
+    },
+    {
+      "path": "text/sample.php",
+      "category": "text",
+      "extension": "php",
+      "expected_mode": "text",
+      "origin": "synthetic:generate_preview_corpus.py",
+      "bytes": 60,
+      "sha256": "def6ca119b7d3b174d20f26dda7b7ead75670996054002229af268a383f425a8",
+      "render_verified": false
+    },
+    {
+      "path": "text/sample.plist",
+      "category": "text",
+      "extension": "plist",
+      "expected_mode": "text",
+      "origin": "synthetic:generate_preview_corpus.py",
+      "bytes": 102,
+      "sha256": "1b07d34bf43c8dece6b68f1ec7f52f758d27aace7fc62ba8e1ca4631bc0de975",
+      "render_verified": false
+    },
+    {
+      "path": "text/sample.properties",
+      "category": "text",
+      "extension": "properties",
+      "expected_mode": "text",
+      "origin": "synthetic:generate_preview_corpus.py",
+      "bytes": 60,
+      "sha256": "def6ca119b7d3b174d20f26dda7b7ead75670996054002229af268a383f425a8",
+      "render_verified": false
+    },
+    {
+      "path": "text/sample.py",
+      "category": "text",
+      "extension": "py",
+      "expected_mode": "text",
+      "origin": "synthetic:generate_preview_corpus.py",
+      "bytes": 102,
+      "sha256": "25ca87af650f038bfc069e3536535e8b19986b57cde39bc9e93567b73d6baf81",
+      "render_verified": false
+    },
+    {
+      "path": "text/sample.rb",
+      "category": "text",
+      "extension": "rb",
+      "expected_mode": "text",
+      "origin": "synthetic:generate_preview_corpus.py",
+      "bytes": 145,
+      "sha256": "64d6121c9b88022951c3a226b41463dc5d3e1dac67a93f16787386579bfc9b7f",
+      "render_verified": false
+    },
+    {
+      "path": "text/sample.rs",
+      "category": "text",
+      "extension": "rs",
+      "expected_mode": "text",
+      "origin": "synthetic:generate_preview_corpus.py",
+      "bytes": 122,
+      "sha256": "fdf563c613e605b54a4fd5e7fe4a0e75e87bbaf638f3ce7e300f31b80486e21f",
+      "render_verified": false
+    },
+    {
+      "path": "text/sample.sh",
+      "category": "text",
+      "extension": "sh",
+      "expected_mode": "text",
+      "origin": "synthetic:generate_preview_corpus.py",
+      "bytes": 145,
+      "sha256": "64d6121c9b88022951c3a226b41463dc5d3e1dac67a93f16787386579bfc9b7f",
+      "render_verified": false
+    },
+    {
+      "path": "text/sample.sql",
+      "category": "text",
+      "extension": "sql",
+      "expected_mode": "text",
+      "origin": "synthetic:generate_preview_corpus.py",
+      "bytes": 113,
+      "sha256": "484439138b17859bc0164a3971de308bc5a43721f07cb06ff303c60e38da77f8",
+      "render_verified": false
+    },
+    {
+      "path": "text/sample.srt",
+      "category": "text",
+      "extension": "srt",
+      "expected_mode": "text",
+      "origin": "synthetic:generate_preview_corpus.py",
+      "bytes": 45,
+      "sha256": "0e89c100e64270fdc2184aaa8dbe4afe6da35c54a80b8a35071da73fe52a7915",
+      "render_verified": false
+    },
+    {
+      "path": "text/sample.sub",
+      "category": "text",
+      "extension": "sub",
+      "expected_mode": "text",
+      "origin": "synthetic:generate_preview_corpus.py",
+      "bytes": 24,
+      "sha256": "2a82aaf623f8f4ffa172725300e592087ed94ef3ff35c95fc3ca7f71cdede264",
+      "render_verified": false
+    },
+    {
+      "path": "text/sample.svelte",
+      "category": "text",
+      "extension": "svelte",
+      "expected_mode": "text",
+      "origin": "synthetic:generate_preview_corpus.py",
+      "bytes": 60,
+      "sha256": "def6ca119b7d3b174d20f26dda7b7ead75670996054002229af268a383f425a8",
+      "render_verified": false
+    },
+    {
+      "path": "text/sample.swift",
+      "category": "text",
+      "extension": "swift",
+      "expected_mode": "text",
+      "origin": "synthetic:generate_preview_corpus.py",
+      "bytes": 108,
+      "sha256": "9173bbb25a069a6a40dc30896d1e41ee2ca6520f0604d3ad25014abf95e3b06b",
+      "render_verified": false
+    },
+    {
+      "path": "text/sample.toml",
+      "category": "text",
+      "extension": "toml",
+      "expected_mode": "text",
+      "origin": "synthetic:generate_preview_corpus.py",
+      "bytes": 102,
+      "sha256": "25ca87af650f038bfc069e3536535e8b19986b57cde39bc9e93567b73d6baf81",
+      "render_verified": false
+    },
+    {
+      "path": "text/sample.ts",
+      "category": "text",
+      "extension": "ts",
+      "expected_mode": "text",
+      "origin": "synthetic:generate_preview_corpus.py",
+      "bytes": 119,
+      "sha256": "002f11ec52b82a55cf1cd4b728cce3a232ef5a506af9efe342ee59c09df4869a",
+      "render_verified": false
+    },
+    {
+      "path": "text/sample.tsx",
+      "category": "text",
+      "extension": "tsx",
+      "expected_mode": "text",
+      "origin": "synthetic:generate_preview_corpus.py",
+      "bytes": 147,
+      "sha256": "4dcadf6e61957bcbdb1a8f069c8b788152436e2d819dfead97d9a371fdd288f0",
+      "render_verified": false
+    },
+    {
+      "path": "text/sample.txt",
+      "category": "text",
+      "extension": "txt",
+      "expected_mode": "text",
+      "origin": "synthetic:generate_preview_corpus.py",
+      "bytes": 60,
+      "sha256": "def6ca119b7d3b174d20f26dda7b7ead75670996054002229af268a383f425a8",
+      "render_verified": false
+    },
+    {
+      "path": "text/sample.vtt",
+      "category": "text",
+      "extension": "vtt",
+      "expected_mode": "text",
+      "origin": "synthetic:generate_preview_corpus.py",
+      "bytes": 45,
+      "sha256": "ced5b306105b0e6edf97be6d10cf8fd05dcc218317dd36373a6f6a4ac7a2b73f",
+      "render_verified": false
+    },
+    {
+      "path": "text/sample.vue",
+      "category": "text",
+      "extension": "vue",
+      "expected_mode": "text",
+      "origin": "synthetic:generate_preview_corpus.py",
+      "bytes": 60,
+      "sha256": "def6ca119b7d3b174d20f26dda7b7ead75670996054002229af268a383f425a8",
+      "render_verified": false
+    },
+    {
+      "path": "text/sample.xml",
+      "category": "text",
+      "extension": "xml",
+      "expected_mode": "text",
+      "origin": "synthetic:generate_preview_corpus.py",
+      "bytes": 60,
+      "sha256": "217888f158e362572a9875fcaf3d0d5c5593c90e65717801fbf5907728a025fd",
+      "render_verified": false
+    },
+    {
+      "path": "text/sample.yaml",
+      "category": "text",
+      "extension": "yaml",
+      "expected_mode": "text",
+      "origin": "synthetic:generate_preview_corpus.py",
+      "bytes": 29,
+      "sha256": "dcaccc6971db9d0c9f6ed26f6a31efbe0b1cb976077b86e69ecff4ab8cafc9e0",
+      "render_verified": false
+    },
+    {
+      "path": "text/sample.yml",
+      "category": "text",
+      "extension": "yml",
+      "expected_mode": "text",
+      "origin": "synthetic:generate_preview_corpus.py",
+      "bytes": 14,
+      "sha256": "5bc693d7cbd2cf187edf1e4114c7f4d774c470f3a4d6c47004a7f38b52eea150",
+      "render_verified": false
+    },
+    {
+      "path": "text/sample.zsh",
+      "category": "text",
+      "extension": "zsh",
+      "expected_mode": "text",
+      "origin": "synthetic:generate_preview_corpus.py",
+      "bytes": 145,
+      "sha256": "64d6121c9b88022951c3a226b41463dc5d3e1dac67a93f16787386579bfc9b7f",
+      "render_verified": false
+    },
+    {
+      "path": "markdown/sample.markdown",
+      "category": "markdown",
+      "extension": "markdown",
+      "expected_mode": "markdown",
+      "origin": "synthetic:generate_preview_corpus.py",
+      "bytes": 103,
+      "sha256": "cd9b9a10e1826f9307362f03ced16cb618374141f3b693dbc832d35b0667a2e4",
+      "render_verified": false
+    },
+    {
+      "path": "markdown/sample.md",
+      "category": "markdown",
+      "extension": "md",
+      "expected_mode": "markdown",
+      "origin": "synthetic:generate_preview_corpus.py",
+      "bytes": 103,
+      "sha256": "cd9b9a10e1826f9307362f03ced16cb618374141f3b693dbc832d35b0667a2e4",
+      "render_verified": false
+    },
+    {
+      "path": "markdown/sample.mdown",
+      "category": "markdown",
+      "extension": "mdown",
+      "expected_mode": "markdown",
+      "origin": "synthetic:generate_preview_corpus.py",
+      "bytes": 103,
+      "sha256": "cd9b9a10e1826f9307362f03ced16cb618374141f3b693dbc832d35b0667a2e4",
+      "render_verified": false
+    },
+    {
+      "path": "markdown/sample.mdtext",
+      "category": "markdown",
+      "extension": "mdtext",
+      "expected_mode": "markdown",
+      "origin": "synthetic:generate_preview_corpus.py",
+      "bytes": 103,
+      "sha256": "cd9b9a10e1826f9307362f03ced16cb618374141f3b693dbc832d35b0667a2e4",
+      "render_verified": false
+    },
+    {
+      "path": "markdown/sample.mdtxt",
+      "category": "markdown",
+      "extension": "mdtxt",
+      "expected_mode": "markdown",
+      "origin": "synthetic:generate_preview_corpus.py",
+      "bytes": 103,
+      "sha256": "cd9b9a10e1826f9307362f03ced16cb618374141f3b693dbc832d35b0667a2e4",
+      "render_verified": false
+    },
+    {
+      "path": "markdown/sample.mkd",
+      "category": "markdown",
+      "extension": "mkd",
+      "expected_mode": "markdown",
+      "origin": "synthetic:generate_preview_corpus.py",
+      "bytes": 103,
+      "sha256": "cd9b9a10e1826f9307362f03ced16cb618374141f3b693dbc832d35b0667a2e4",
+      "render_verified": false
+    },
+    {
+      "path": "markdown/sample.mkdn",
+      "category": "markdown",
+      "extension": "mkdn",
+      "expected_mode": "markdown",
+      "origin": "synthetic:generate_preview_corpus.py",
+      "bytes": 103,
+      "sha256": "cd9b9a10e1826f9307362f03ced16cb618374141f3b693dbc832d35b0667a2e4",
+      "render_verified": false
+    },
+    {
+      "path": "tables/sample.csv",
+      "category": "tables",
+      "extension": "csv",
+      "expected_mode": "spreadsheetTable",
+      "origin": "synthetic:generate_preview_corpus.py",
+      "bytes": 37,
+      "sha256": "98a78ac96351199877ccb3393de19643dca698dd11d8b1348044a65dbf9ef768",
+      "render_verified": false
+    },
+    {
+      "path": "tables/sample.tsv",
+      "category": "tables",
+      "extension": "tsv",
+      "expected_mode": "spreadsheetTable",
+      "origin": "synthetic:generate_preview_corpus.py",
+      "bytes": 37,
+      "sha256": "07c7e77833c2b09e10bf43a997eec7f80d29f75b3fa6fead75124feddc05a9b9",
+      "render_verified": false
+    },
+    {
+      "path": "tables/sample.tab",
+      "category": "tables",
+      "extension": "tab",
+      "expected_mode": "spreadsheetTable",
+      "origin": "synthetic:generate_preview_corpus.py",
+      "bytes": 37,
+      "sha256": "07c7e77833c2b09e10bf43a997eec7f80d29f75b3fa6fead75124feddc05a9b9",
+      "render_verified": false
+    },
+    {
+      "path": "tables/sample.psv",
+      "category": "tables",
+      "extension": "psv",
+      "expected_mode": "spreadsheetTable",
+      "origin": "synthetic:generate_preview_corpus.py",
+      "bytes": 37,
+      "sha256": "10339137a47cccd4170ac32cfe776d6bc3a124639d0d0b182e718bd650d3a7c2",
+      "render_verified": false
+    },
+    {
+      "path": "tables/sample.ssv",
+      "category": "tables",
+      "extension": "ssv",
+      "expected_mode": "spreadsheetTable",
+      "origin": "synthetic:generate_preview_corpus.py",
+      "bytes": 37,
+      "sha256": "a459bc263147c0e7d02e712197d33601b5f89bd98cd70bc462c405ecb16ee0b9",
+      "render_verified": false
+    },
+    {
+      "path": "edge-cases/utf16le.txt",
+      "category": "edge-cases",
+      "extension": "txt",
+      "expected_mode": "text",
+      "origin": "synthetic:generate_preview_corpus.py",
+      "bytes": 102,
+      "sha256": "3868cb9b43b44c2dc96cc76076ec047967e9989b52730409e640a290c53697cb",
+      "render_verified": false
+    },
+    {
+      "path": "edge-cases/gb18030.txt",
+      "category": "edge-cases",
+      "extension": "txt",
+      "expected_mode": "text",
+      "origin": "synthetic:generate_preview_corpus.py",
+      "bytes": 55,
+      "sha256": "2aeecdfaaa1d38b4eecf042f12a281c90332e35c661698ba6061d625b930cd5b",
+      "render_verified": false
+    },
+    {
+      "path": "edge-cases/empty.txt",
+      "category": "edge-cases",
+      "extension": "txt",
+      "expected_mode": "empty-file-feedback",
+      "origin": "synthetic:generate_preview_corpus.py",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "render_verified": false
+    },
+    {
+      "path": "edge-cases/corrupt.pdf",
+      "category": "edge-cases",
+      "extension": "pdf",
+      "expected_mode": "error-feedback",
+      "origin": "synthetic:generate_preview_corpus.py",
+      "bytes": 18,
+      "sha256": "3ce978566f5162e026abf554be3cbc43114309ea9df7c25c31b6c0283b1dcc6a",
+      "render_verified": false
+    },
+    {
+      "path": "edge-cases/中文 空格.txt",
+      "category": "edge-cases",
+      "extension": "txt",
+      "expected_mode": "text",
+      "origin": "synthetic:generate_preview_corpus.py",
+      "bytes": 60,
+      "sha256": "def6ca119b7d3b174d20f26dda7b7ead75670996054002229af268a383f425a8",
+      "render_verified": false
+    },
+    {
+      "path": "web/sample.html",
+      "category": "web",
+      "extension": "html",
+      "expected_mode": "htmlWeb",
+      "origin": "synthetic:generate_preview_corpus.py",
+      "bytes": 151,
+      "sha256": "101ec328f02302f8b7a7d983c03d3155736b4680a029b579b3b18be910530961",
+      "render_verified": false
+    },
+    {
+      "path": "web/sample.htm",
+      "category": "web",
+      "extension": "htm",
+      "expected_mode": "htmlWeb",
+      "origin": "synthetic:generate_preview_corpus.py",
+      "bytes": 151,
+      "sha256": "101ec328f02302f8b7a7d983c03d3155736b4680a029b579b3b18be910530961",
+      "render_verified": false
+    },
+    {
+      "path": "web/sample.xhtml",
+      "category": "web",
+      "extension": "xhtml",
+      "expected_mode": "htmlWeb",
+      "origin": "synthetic:generate_preview_corpus.py",
+      "bytes": 151,
+      "sha256": "3d19769ee4cdd5fc5fc062c061b6b19713fc5b79e98ad47ada9702421e2ce816",
+      "render_verified": false
+    },
+    {
+      "path": "web/sample.svg",
+      "category": "web",
+      "extension": "svg",
+      "expected_mode": "htmlWeb-or-image",
+      "origin": "synthetic:generate_preview_corpus.py",
+      "bytes": 188,
+      "sha256": "e3872d3c73c2ade8142e17bdf5ce0cae0c7f8bfd463312bf239d68e9807b2940",
+      "render_verified": false
+    },
+    {
+      "path": "web/sample.svgz",
+      "category": "web",
+      "extension": "svgz",
+      "expected_mode": "htmlWeb-or-image",
+      "origin": "synthetic:generate_preview_corpus.py",
+      "bytes": 167,
+      "sha256": "031869f8cc2e94f86ebcb59d5ccd5a96bdd86322b2c9958e4a41c6a34edd5436",
+      "render_verified": false
+    },
+    {
+      "path": "web/sample.mhtml",
+      "category": "web",
+      "extension": "mhtml",
+      "expected_mode": "htmlWeb",
+      "origin": "synthetic:generate_preview_corpus.py",
+      "bytes": 332,
+      "sha256": "ac212f0f4c879aa7c0b2551c5fb3110bbf27b6234b037d949a91a6111095eec7",
+      "render_verified": false
+    },
+    {
+      "path": "images/sample.png",
+      "category": "images",
+      "extension": "png",
+      "expected_mode": "image",
+      "origin": "synthetic:ffmpeg -v error -y -f lavfi -i testsrc2=size=320x240:rate=1 -frames:v 1 <corpus>/images/sample.png",
+      "bytes": 9086,
+      "sha256": "ad2a76388ce39e32bdde9601c625b2ec428bc423082e2636cd8f94134a2d5bec",
+      "render_verified": false
+    },
+    {
+      "path": "images/sample.jpg",
+      "category": "images",
+      "extension": "jpg",
+      "expected_mode": "image",
+      "origin": "synthetic:ffmpeg -v error -y -f lavfi -i testsrc2=size=320x240:rate=1 -frames:v 1 <corpus>/images/sample.jpg",
+      "bytes": 9453,
+      "sha256": "50b765ac13d1819d4f0671f5d4cc0504154a5601f103dc7e0fe9f2bc3e9bd2ba",
+      "render_verified": false
+    },
+    {
+      "path": "images/sample.jpeg",
+      "category": "images",
+      "extension": "jpeg",
+      "expected_mode": "image",
+      "origin": "synthetic:ffmpeg -v error -y -f lavfi -i testsrc2=size=320x240:rate=1 -frames:v 1 <corpus>/images/sample.jpeg",
+      "bytes": 9453,
+      "sha256": "50b765ac13d1819d4f0671f5d4cc0504154a5601f103dc7e0fe9f2bc3e9bd2ba",
+      "render_verified": false
+    },
+    {
+      "path": "images/sample.gif",
+      "category": "images",
+      "extension": "gif",
+      "expected_mode": "image",
+      "origin": "synthetic:ffmpeg -v error -y -f lavfi -i testsrc2=size=320x240:rate=1 -frames:v 1 <corpus>/images/sample.gif",
+      "bytes": 9393,
+      "sha256": "cace86cd24f7ec37ae379e7f079ec57ec32d82789e94f7b7b00c4755bd3f53cf",
+      "render_verified": false
+    },
+    {
+      "path": "images/sample.bmp",
+      "category": "images",
+      "extension": "bmp",
+      "expected_mode": "image",
+      "origin": "synthetic:ffmpeg -v error -y -f lavfi -i testsrc2=size=320x240:rate=1 -frames:v 1 <corpus>/images/sample.bmp",
+      "bytes": 230454,
+      "sha256": "cbe4fc0783ca0a00ab501b050b63a586630995ea2acc77e8d7313535fd075665",
+      "render_verified": false
+    },
+    {
+      "path": "images/sample.tiff",
+      "category": "images",
+      "extension": "tiff",
+      "expected_mode": "image",
+      "origin": "synthetic:ffmpeg -v error -y -f lavfi -i testsrc2=size=320x240:rate=1 -frames:v 1 <corpus>/images/sample.tiff",
+      "bytes": 96867,
+      "sha256": "0c6c686bef0f85779ec37492b2870c98d0b73186f6f08935d69cfb88ba4702b8",
+      "render_verified": false
+    },
+    {
+      "path": "images/sample.ico",
+      "category": "images",
+      "extension": "ico",
+      "expected_mode": "image",
+      "origin": "synthetic:ffmpeg -v error -y -f lavfi -i testsrc2=size=128x128:rate=1 -frames:v 1 <corpus>/images/sample.ico",
+      "bytes": 51374,
+      "sha256": "31735ea92761b89e8618795348a2036f6322bfabaabbd969ab86990f71d6cb4a",
+      "render_verified": false
+    },
+    {
+      "path": "images/sample.webp",
+      "category": "images",
+      "extension": "webp",
+      "expected_mode": "image",
+      "origin": "synthetic:cwebp -quiet <corpus>/images/sample.png -o <corpus>/images/sample.webp",
+      "bytes": 4382,
+      "sha256": "5eb0da0f6a22c43ad793c23772274062c8202d80c933b66c23625b47ed25a59b",
+      "render_verified": false
+    },
+    {
+      "path": "edge-cases/large-detail.png",
+      "category": "edge-cases",
+      "extension": "png",
+      "expected_mode": "image-zoom-detail",
+      "origin": "synthetic:ffmpeg -v error -y -f lavfi -i testsrc2=size=6000x4000:rate=1 -frames:v 1 <corpus>/edge-cases/large-detail.png",
+      "bytes": 2278583,
+      "sha256": "2f92d18457a1f48af6bd8249f2007ea6a9b0978cb00e1a1fe5105e5761ae6b24",
+      "render_verified": false
+    },
+    {
+      "path": "edge-cases/animated.gif",
+      "category": "edge-cases",
+      "extension": "gif",
+      "expected_mode": "image-animation",
+      "origin": "synthetic:ffmpeg -v error -y -f lavfi -i testsrc2=size=160x120:rate=4 -t 1 <corpus>/edge-cases/animated.gif",
+      "bytes": 13742,
+      "sha256": "ba88ee758bce2514bad3813b17668142c89f1bfc1992ee898461295a940ec627",
+      "render_verified": false
+    },
+    {
+      "path": "audio/tone.wav",
+      "category": "audio",
+      "extension": "wav",
+      "expected_mode": "audio",
+      "origin": "synthetic:ffmpeg -v error -y -f lavfi -i sine=frequency=440:sample_rate=48000 -t 1 -ac 1 -strict experimental -c:a pcm_s16le -f wav <corpus>/audio/tone.wav",
+      "bytes": 96078,
+      "sha256": "bf6ee9b267cc34c946f1c251dd93c8aedb87e1bbb061cb2d334727cf19121c42",
+      "render_verified": false
+    },
+    {
+      "path": "audio/tone.mp3",
+      "category": "audio",
+      "extension": "mp3",
+      "expected_mode": "audio",
+      "origin": "synthetic:ffmpeg -v error -y -f lavfi -i sine=frequency=440:sample_rate=48000 -t 1 -ac 1 -strict experimental -c:a libmp3lame -f mp3 <corpus>/audio/tone.mp3",
+      "bytes": 8492,
+      "sha256": "1eddf3518ca836d430c9cf620132717dc67ca46462d922689891f6968eee0008",
+      "render_verified": false
+    },
+    {
+      "path": "audio/tone.m4a",
+      "category": "audio",
+      "extension": "m4a",
+      "expected_mode": "audio",
+      "origin": "synthetic:ffmpeg -v error -y -f lavfi -i sine=frequency=440:sample_rate=48000 -t 1 -ac 1 -strict experimental -c:a aac -f ipod <corpus>/audio/tone.m4a",
+      "bytes": 9994,
+      "sha256": "e29af99fa4c06e7673920574189830d2e554693b85b88501d4f23420e8412e70",
+      "render_verified": false
+    },
+    {
+      "path": "audio/tone.m4b",
+      "category": "audio",
+      "extension": "m4b",
+      "expected_mode": "audio",
+      "origin": "synthetic:ffmpeg -v error -y -f lavfi -i sine=frequency=440:sample_rate=48000 -t 1 -ac 1 -strict experimental -c:a aac -f ipod <corpus>/audio/tone.m4b",
+      "bytes": 9994,
+      "sha256": "e29af99fa4c06e7673920574189830d2e554693b85b88501d4f23420e8412e70",
+      "render_verified": false
+    },
+    {
+      "path": "audio/tone.m4r",
+      "category": "audio",
+      "extension": "m4r",
+      "expected_mode": "audio",
+      "origin": "synthetic:ffmpeg -v error -y -f lavfi -i sine=frequency=440:sample_rate=48000 -t 1 -ac 1 -strict experimental -c:a aac -f ipod <corpus>/audio/tone.m4r",
+      "bytes": 9994,
+      "sha256": "e29af99fa4c06e7673920574189830d2e554693b85b88501d4f23420e8412e70",
+      "render_verified": false
+    },
+    {
+      "path": "audio/tone.aac",
+      "category": "audio",
+      "extension": "aac",
+      "expected_mode": "audio",
+      "origin": "synthetic:ffmpeg -v error -y -f lavfi -i sine=frequency=440:sample_rate=48000 -t 1 -ac 1 -strict experimental -c:a aac -f adts <corpus>/audio/tone.aac",
+      "bytes": 9332,
+      "sha256": "317bee01ede76f2168c5403a3111429eaa4919b5600bef31e2219b7c5738f0d0",
+      "render_verified": false
+    },
+    {
+      "path": "audio/tone.flac",
+      "category": "audio",
+      "extension": "flac",
+      "expected_mode": "audio",
+      "origin": "synthetic:ffmpeg -v error -y -f lavfi -i sine=frequency=440:sample_rate=48000 -t 1 -ac 1 -strict experimental -c:a flac -f flac <corpus>/audio/tone.flac",
+      "bytes": 25256,
+      "sha256": "292c0893dc349daefca279c5b8ee757d0e1adaf6d8c3307b60bc704ad95ca2d6",
+      "render_verified": false
+    },
+    {
+      "path": "audio/tone.ogg",
+      "category": "audio",
+      "extension": "ogg",
+      "expected_mode": "audio",
+      "origin": "synthetic:ffmpeg -v error -y -f lavfi -i sine=frequency=440:sample_rate=48000 -t 1 -ac 2 -strict experimental -c:a vorbis -f ogg <corpus>/audio/tone.ogg",
+      "bytes": 7585,
+      "sha256": "a33a76f0cba6925d57266135869d282cbb4728a90ec4dd401a41458bcba8a854",
+      "render_verified": false
+    },
+    {
+      "path": "audio/tone.oga",
+      "category": "audio",
+      "extension": "oga",
+      "expected_mode": "audio",
+      "origin": "synthetic:ffmpeg -v error -y -f lavfi -i sine=frequency=440:sample_rate=48000 -t 1 -ac 2 -strict experimental -c:a vorbis -f ogg <corpus>/audio/tone.oga",
+      "bytes": 7585,
+      "sha256": "f245e0d75476faeb7ca788d6a51ade9f2a7086ed78723e4495b50c33416ee359",
+      "render_verified": false
+    },
+    {
+      "path": "audio/tone.opus",
+      "category": "audio",
+      "extension": "opus",
+      "expected_mode": "audio",
+      "origin": "synthetic:ffmpeg -v error -y -f lavfi -i sine=frequency=440:sample_rate=48000 -t 1 -ac 1 -strict experimental -c:a libopus -f opus <corpus>/audio/tone.opus",
+      "bytes": 10060,
+      "sha256": "c9203e8f9907045e9459e0aa00fee1f19e61d94bdcaf35a697863023d31d9e08",
+      "render_verified": false
+    },
+    {
+      "path": "audio/tone.aiff",
+      "category": "audio",
+      "extension": "aiff",
+      "expected_mode": "audio",
+      "origin": "synthetic:ffmpeg -v error -y -f lavfi -i sine=frequency=440:sample_rate=48000 -t 1 -ac 1 -strict experimental -c:a pcm_s16be -f aiff <corpus>/audio/tone.aiff",
+      "bytes": 96054,
+      "sha256": "d4ec35311f17d7e5b19888b7c9691e55451aea949f67bc018e2d1751a9895eb7",
+      "render_verified": false
+    },
+    {
+      "path": "audio/tone.aif",
+      "category": "audio",
+      "extension": "aif",
+      "expected_mode": "audio",
+      "origin": "synthetic:ffmpeg -v error -y -f lavfi -i sine=frequency=440:sample_rate=48000 -t 1 -ac 1 -strict experimental -c:a pcm_s16be -f aiff <corpus>/audio/tone.aif",
+      "bytes": 96054,
+      "sha256": "d4ec35311f17d7e5b19888b7c9691e55451aea949f67bc018e2d1751a9895eb7",
+      "render_verified": false
+    },
+    {
+      "path": "audio/tone.aifc",
+      "category": "audio",
+      "extension": "aifc",
+      "expected_mode": "audio",
+      "origin": "synthetic:ffmpeg -v error -y -f lavfi -i sine=frequency=440:sample_rate=48000 -t 1 -ac 1 -strict experimental -c:a pcm_s16le -f aiff <corpus>/audio/tone.aifc",
+      "bytes": 96072,
+      "sha256": "c031d5a40982d18d023ba9e9a32a114f87677f1a95249bc99b64850d2c0bebb2",
+      "render_verified": false
+    },
+    {
+      "path": "audio/tone.caf",
+      "category": "audio",
+      "extension": "caf",
+      "expected_mode": "audio",
+      "origin": "synthetic:ffmpeg -v error -y -f lavfi -i sine=frequency=440:sample_rate=48000 -t 1 -ac 1 -strict experimental -c:a pcm_s16le -f caf <corpus>/audio/tone.caf",
+      "bytes": 96129,
+      "sha256": "731a7392266d6467f41f7807e42863f67fcf9170ea608528e23b9e2c0b722549",
+      "render_verified": false
+    },
+    {
+      "path": "audio/tone.au",
+      "category": "audio",
+      "extension": "au",
+      "expected_mode": "audio",
+      "origin": "synthetic:ffmpeg -v error -y -f lavfi -i sine=frequency=440:sample_rate=48000 -t 1 -ac 1 -strict experimental -c:a pcm_s16be -f au <corpus>/audio/tone.au",
+      "bytes": 96032,
+      "sha256": "3e68598e2bb292d92d19948d8f7e455a489bbd49706bff6327c2cfc14f66a2d2",
+      "render_verified": false
+    },
+    {
+      "path": "audio/tone.snd",
+      "category": "audio",
+      "extension": "snd",
+      "expected_mode": "audio",
+      "origin": "synthetic:ffmpeg -v error -y -f lavfi -i sine=frequency=440:sample_rate=48000 -t 1 -ac 1 -strict experimental -c:a pcm_s16be -f au <corpus>/audio/tone.snd",
+      "bytes": 96032,
+      "sha256": "3e68598e2bb292d92d19948d8f7e455a489bbd49706bff6327c2cfc14f66a2d2",
+      "render_verified": false
+    },
+    {
+      "path": "audio/tone.ac3",
+      "category": "audio",
+      "extension": "ac3",
+      "expected_mode": "audio",
+      "origin": "synthetic:ffmpeg -v error -y -f lavfi -i sine=frequency=440:sample_rate=48000 -t 1 -ac 1 -strict experimental -c:a ac3 -f ac3 <corpus>/audio/tone.ac3",
+      "bytes": 12288,
+      "sha256": "9080160a3b6e9e8d83b07d976d0f5f9e0e60a6ed7df76be4c8c02a474db034ea",
+      "render_verified": false
+    },
+    {
+      "path": "audio/tone.eac3",
+      "category": "audio",
+      "extension": "eac3",
+      "expected_mode": "audio",
+      "origin": "synthetic:ffmpeg -v error -y -f lavfi -i sine=frequency=440:sample_rate=48000 -t 1 -ac 1 -strict experimental -c:a eac3 -f eac3 <corpus>/audio/tone.eac3",
+      "bytes": 12288,
+      "sha256": "ae423e81e9ccaadb05a1f2af3202bc10c117010da7df3d6c1f17459ad7c22078",
+      "render_verified": false
+    },
+    {
+      "path": "audio/tone.wma",
+      "category": "audio",
+      "extension": "wma",
+      "expected_mode": "audio",
+      "origin": "synthetic:ffmpeg -v error -y -f lavfi -i sine=frequency=440:sample_rate=48000 -t 1 -ac 1 -strict experimental -c:a wmav2 -f asf <corpus>/audio/tone.wma",
+      "bytes": 19742,
+      "sha256": "773d9769c0b45a5c14bf0a417bebfd9639f62c0894e0ffc9d77866e1b4708f7d",
+      "render_verified": false
+    },
+    {
+      "path": "audio/tone.wv",
+      "category": "audio",
+      "extension": "wv",
+      "expected_mode": "audio",
+      "origin": "synthetic:ffmpeg -v error -y -f lavfi -i sine=frequency=440:sample_rate=48000 -t 1 -ac 1 -strict experimental -c:a wavpack -f wv <corpus>/audio/tone.wv",
+      "bytes": 26200,
+      "sha256": "fea967d154874991b637a80addbd65947e9b8e2e70a77b94b79de9e30decda24",
+      "render_verified": false
+    },
+    {
+      "path": "audio/tone.tta",
+      "category": "audio",
+      "extension": "tta",
+      "expected_mode": "audio",
+      "origin": "synthetic:ffmpeg -v error -y -f lavfi -i sine=frequency=440:sample_rate=48000 -t 1 -ac 1 -strict experimental -c:a tta -f tta <corpus>/audio/tone.tta",
+      "bytes": 15853,
+      "sha256": "171fcbae9d3fb54dafebc00bb74260bade7e4d5098672f89f09523eab17676dc",
+      "render_verified": false
+    },
+    {
+      "path": "audio/tone.voc",
+      "category": "audio",
+      "extension": "voc",
+      "expected_mode": "audio",
+      "origin": "synthetic:ffmpeg -v error -y -f lavfi -i sine=frequency=440:sample_rate=48000 -t 1 -ac 1 -strict experimental -c:a pcm_u8 -f voc <corpus>/audio/tone.voc",
+      "bytes": 48217,
+      "sha256": "ac197b4b49834e0a0d00d8e3df77555b4b5278a1af661c9250de3fbde78e313f",
+      "render_verified": false
+    },
+    {
+      "path": "audio/tone.ra",
+      "category": "audio",
+      "extension": "ra",
+      "expected_mode": "audio",
+      "origin": "synthetic:ffmpeg -v error -y -f lavfi -i sine=frequency=440:sample_rate=8000 -t 1 -ac 1 -strict experimental -c:a real_144 -f rm <corpus>/audio/tone.ra",
+      "bytes": 1899,
+      "sha256": "b210e4d19478f7b135e686f697103a576464f92e7bc3d65dcafc3e1578c6d979",
+      "render_verified": false
+    },
+    {
+      "path": "edge-cases/silence.wav",
+      "category": "edge-cases",
+      "extension": "wav",
+      "expected_mode": "audio-silent-waveform",
+      "origin": "synthetic:one second digital silence",
+      "bytes": 96044,
+      "sha256": "0a8f76d89c709043814cb74f331a4578d17ff61256303bd0019a263d053f86e8",
+      "render_verified": false
+    },
+    {
+      "path": "audio/notes.mid",
+      "category": "audio",
+      "extension": "mid",
+      "expected_mode": "audio-sequencer",
+      "origin": "synthetic:generate_preview_corpus.py",
+      "bytes": 34,
+      "sha256": "3d3191a0845b7b4e0f0a80e6ea314e25325a48e32c451f65777913aca3672c65",
+      "render_verified": false
+    },
+    {
+      "path": "audio/notes.midi",
+      "category": "audio",
+      "extension": "midi",
+      "expected_mode": "audio-sequencer",
+      "origin": "synthetic:generate_preview_corpus.py",
+      "bytes": 34,
+      "sha256": "3d3191a0845b7b4e0f0a80e6ea314e25325a48e32c451f65777913aca3672c65",
+      "render_verified": false
+    },
+    {
+      "path": "video/clip.mp4",
+      "category": "video",
+      "extension": "mp4",
+      "expected_mode": "video",
+      "origin": "synthetic:ffmpeg -v error -y -f lavfi -i testsrc2=size=320x240:rate=25 -f lavfi -i sine=frequency=440:sample_rate=48000 -t 1 -c:v libx264 -c:a aac -pix_fmt yuv420p -f mp4 <corpus>/video/clip.mp4",
+      "bytes": 47068,
+      "sha256": "960be7d8419708882be89f052fb2485847946992a54a67761b47ea00a108175a",
+      "render_verified": false
+    },
+    {
+      "path": "video/clip.mov",
+      "category": "video",
+      "extension": "mov",
+      "expected_mode": "video",
+      "origin": "synthetic:ffmpeg -v error -y -f lavfi -i testsrc2=size=320x240:rate=25 -f lavfi -i sine=frequency=440:sample_rate=48000 -t 1 -c:v libx264 -c:a aac -pix_fmt yuv420p -f mov <corpus>/video/clip.mov",
+      "bytes": 47119,
+      "sha256": "f3086f2036743eda1b432ecc2351d872ebdf0b70ac4a1be9a50c45a14bae945f",
+      "render_verified": false
+    },
+    {
+      "path": "video/clip.m4v",
+      "category": "video",
+      "extension": "m4v",
+      "expected_mode": "video",
+      "origin": "synthetic:ffmpeg -v error -y -f lavfi -i testsrc2=size=320x240:rate=25 -f lavfi -i sine=frequency=440:sample_rate=48000 -t 1 -c:v libx264 -c:a aac -pix_fmt yuv420p -f ipod <corpus>/video/clip.m4v",
+      "bytes": 47056,
+      "sha256": "e10f1f5c995b53780ae2af284714b9d7c2f13f3f447c8d2d4c545589a284261b",
+      "render_verified": false
+    },
+    {
+      "path": "video/clip.qt",
+      "category": "video",
+      "extension": "qt",
+      "expected_mode": "video",
+      "origin": "synthetic:ffmpeg -v error -y -f lavfi -i testsrc2=size=320x240:rate=25 -f lavfi -i sine=frequency=440:sample_rate=48000 -t 1 -c:v libx264 -c:a aac -pix_fmt yuv420p -f mov <corpus>/video/clip.qt",
+      "bytes": 47119,
+      "sha256": "f3086f2036743eda1b432ecc2351d872ebdf0b70ac4a1be9a50c45a14bae945f",
+      "render_verified": false
+    },
+    {
+      "path": "video/clip.mkv",
+      "category": "video",
+      "extension": "mkv",
+      "expected_mode": "video",
+      "origin": "synthetic:ffmpeg -v error -y -f lavfi -i testsrc2=size=320x240:rate=25 -f lavfi -i sine=frequency=440:sample_rate=48000 -t 1 -c:v libx264 -c:a aac -pix_fmt yuv420p -f matroska <corpus>/video/clip.mkv",
+      "bytes": 46188,
+      "sha256": "b284b508405ae44f1f9a93fdd4f63bf0a3606074da7cf7bcc289727449512c30",
+      "render_verified": false
+    },
+    {
+      "path": "video/clip.avi",
+      "category": "video",
+      "extension": "avi",
+      "expected_mode": "video",
+      "origin": "synthetic:ffmpeg -v error -y -f lavfi -i testsrc2=size=320x240:rate=25 -f lavfi -i sine=frequency=440:sample_rate=48000 -t 1 -c:v mpeg4 -c:a libmp3lame -pix_fmt yuv420p -f avi <corpus>/video/clip.avi",
+      "bytes": 103896,
+      "sha256": "34e26c276d72e0d796e0f0d2136a3c399df9c285e954a9fcc7b85c76629eeed5",
+      "render_verified": false
+    },
+    {
+      "path": "video/clip.divx",
+      "category": "video",
+      "extension": "divx",
+      "expected_mode": "video",
+      "origin": "synthetic:ffmpeg -v error -y -f lavfi -i testsrc2=size=320x240:rate=25 -f lavfi -i sine=frequency=440:sample_rate=48000 -t 1 -c:v mpeg4 -c:a libmp3lame -pix_fmt yuv420p -f avi <corpus>/video/clip.divx",
+      "bytes": 103896,
+      "sha256": "34e26c276d72e0d796e0f0d2136a3c399df9c285e954a9fcc7b85c76629eeed5",
+      "render_verified": false
+    },
+    {
+      "path": "video/clip.webm",
+      "category": "video",
+      "extension": "webm",
+      "expected_mode": "video",
+      "origin": "synthetic:ffmpeg -v error -y -f lavfi -i testsrc2=size=320x240:rate=25 -f lavfi -i sine=frequency=440:sample_rate=48000 -t 1 -c:v libvpx-vp9 -c:a libopus -pix_fmt yuv420p -f webm <corpus>/video/clip.webm",
+      "bytes": 50215,
+      "sha256": "499823cce06d5c202ca7ea912c53b4cf232f1e084cc5f873ed2a059de8acc5b7",
+      "render_verified": false
+    },
+    {
+      "path": "video/clip.flv",
+      "category": "video",
+      "extension": "flv",
+      "expected_mode": "video",
+      "origin": "synthetic:ffmpeg -v error -y -f lavfi -i testsrc2=size=320x240:rate=25 -f lavfi -i sine=frequency=440:sample_rate=48000 -t 1 -c:v flv -c:a libmp3lame -pix_fmt yuv420p -f flv <corpus>/video/clip.flv",
+      "bytes": 98529,
+      "sha256": "1f27b4ca425a07e2dd5b5f0d75db4f298763ad5c158409c1919d2b029fc3055f",
+      "render_verified": false
+    },
+    {
+      "path": "video/clip.3gp",
+      "category": "video",
+      "extension": "3gp",
+      "expected_mode": "video",
+      "origin": "synthetic:ffmpeg -v error -y -f lavfi -i testsrc2=size=176x144:rate=25 -f lavfi -i sine=frequency=440:sample_rate=48000 -t 1 -c:v h263 -c:a aac -pix_fmt yuv420p -f 3gp <corpus>/video/clip.3gp",
+      "bytes": 81868,
+      "sha256": "565398f4332e75822a59175cafca32051f510afb0bc0c1df673053d9bc2b459c",
+      "render_verified": false
+    },
+    {
+      "path": "video/clip.3g2",
+      "category": "video",
+      "extension": "3g2",
+      "expected_mode": "video",
+      "origin": "synthetic:ffmpeg -v error -y -f lavfi -i testsrc2=size=176x144:rate=25 -f lavfi -i sine=frequency=440:sample_rate=48000 -t 1 -c:v h263 -c:a aac -pix_fmt yuv420p -f 3g2 <corpus>/video/clip.3g2",
+      "bytes": 81868,
+      "sha256": "967487da0dd2370422f2b63b174d57f3ab857e9bf99772a1595c19d35ae99e05",
+      "render_verified": false
+    },
+    {
+      "path": "video/clip.ts",
+      "category": "video",
+      "extension": "ts",
+      "expected_mode": "video",
+      "origin": "synthetic:ffmpeg -v error -y -f lavfi -i testsrc2=size=320x240:rate=25 -f lavfi -i sine=frequency=440:sample_rate=48000 -t 1 -c:v libx264 -c:a aac -pix_fmt yuv420p -f mpegts <corpus>/video/clip.ts",
+      "bytes": 53392,
+      "sha256": "a5cd108d8dee1d856c8c38a9d588f3c99db18f45d84f177d988d81afd6a3d365",
+      "render_verified": false
+    },
+    {
+      "path": "video/clip.mts",
+      "category": "video",
+      "extension": "mts",
+      "expected_mode": "video",
+      "origin": "synthetic:ffmpeg -v error -y -f lavfi -i testsrc2=size=320x240:rate=25 -f lavfi -i sine=frequency=440:sample_rate=48000 -t 1 -c:v libx264 -c:a aac -pix_fmt yuv420p -f mpegts <corpus>/video/clip.mts",
+      "bytes": 53392,
+      "sha256": "a5cd108d8dee1d856c8c38a9d588f3c99db18f45d84f177d988d81afd6a3d365",
+      "render_verified": false
+    },
+    {
+      "path": "video/clip.m2ts",
+      "category": "video",
+      "extension": "m2ts",
+      "expected_mode": "video",
+      "origin": "synthetic:ffmpeg -v error -y -f lavfi -i testsrc2=size=320x240:rate=25 -f lavfi -i sine=frequency=440:sample_rate=48000 -t 1 -c:v libx264 -c:a aac -pix_fmt yuv420p -mpegts_m2ts_mode 1 -f mpegts <corpus>/video/clip.m2ts",
+      "bytes": 55296,
+      "sha256": "b1ed6a35b1f1ee5a0270c3cb51def5735d154466ed190a85c00b9c458770231f",
+      "render_verified": false
+    },
+    {
+      "path": "video/clip.m2t",
+      "category": "video",
+      "extension": "m2t",
+      "expected_mode": "video",
+      "origin": "synthetic:ffmpeg -v error -y -f lavfi -i testsrc2=size=320x240:rate=25 -f lavfi -i sine=frequency=440:sample_rate=48000 -t 1 -c:v libx264 -c:a aac -pix_fmt yuv420p -f mpegts <corpus>/video/clip.m2t",
+      "bytes": 53392,
+      "sha256": "a5cd108d8dee1d856c8c38a9d588f3c99db18f45d84f177d988d81afd6a3d365",
+      "render_verified": false
+    },
+    {
+      "path": "video/clip.wmv",
+      "category": "video",
+      "extension": "wmv",
+      "expected_mode": "video",
+      "origin": "synthetic:ffmpeg -v error -y -f lavfi -i testsrc2=size=320x240:rate=25 -f lavfi -i sine=frequency=440:sample_rate=48000 -t 1 -c:v wmv2 -c:a wmav2 -pix_fmt yuv420p -f asf <corpus>/video/clip.wmv",
+      "bytes": 109699,
+      "sha256": "22bf4c5ffad95586a91b2e75d06f87022fdf4a2afa37bb54fd55e689e27085f2",
+      "render_verified": false
+    },
+    {
+      "path": "video/clip.asf",
+      "category": "video",
+      "extension": "asf",
+      "expected_mode": "video",
+      "origin": "synthetic:ffmpeg -v error -y -f lavfi -i testsrc2=size=320x240:rate=25 -f lavfi -i sine=frequency=440:sample_rate=48000 -t 1 -c:v wmv2 -c:a wmav2 -pix_fmt yuv420p -f asf <corpus>/video/clip.asf",
+      "bytes": 109699,
+      "sha256": "22bf4c5ffad95586a91b2e75d06f87022fdf4a2afa37bb54fd55e689e27085f2",
+      "render_verified": false
+    },
+    {
+      "path": "video/clip.f4v",
+      "category": "video",
+      "extension": "f4v",
+      "expected_mode": "video",
+      "origin": "synthetic:ffmpeg -v error -y -f lavfi -i testsrc2=size=320x240:rate=25 -f lavfi -i sine=frequency=440:sample_rate=48000 -t 1 -c:v libx264 -c:a aac -pix_fmt yuv420p -f f4v <corpus>/video/clip.f4v",
+      "bytes": 47052,
+      "sha256": "1740cb6ab596f719c59af8d2074a1c996434fb91db072d5f9a89442167b90165",
+      "render_verified": false
+    },
+    {
+      "path": "video/clip.mpg",
+      "category": "video",
+      "extension": "mpg",
+      "expected_mode": "video",
+      "origin": "synthetic:ffmpeg -v error -y -f lavfi -i testsrc2=size=320x240:rate=25 -f lavfi -i sine=frequency=440:sample_rate=48000 -t 1 -c:v mpeg2video -c:a mp2 -pix_fmt yuv420p -f mpeg <corpus>/video/clip.mpg",
+      "bytes": 137216,
+      "sha256": "42c2c9773cbde14d588f247ff53bbca724649dc03acd1fd37340e94d2c9a057e",
+      "render_verified": false
+    },
+    {
+      "path": "video/clip.mpeg",
+      "category": "video",
+      "extension": "mpeg",
+      "expected_mode": "video",
+      "origin": "synthetic:ffmpeg -v error -y -f lavfi -i testsrc2=size=320x240:rate=25 -f lavfi -i sine=frequency=440:sample_rate=48000 -t 1 -c:v mpeg2video -c:a mp2 -pix_fmt yuv420p -f mpeg <corpus>/video/clip.mpeg",
+      "bytes": 137216,
+      "sha256": "42c2c9773cbde14d588f247ff53bbca724649dc03acd1fd37340e94d2c9a057e",
+      "render_verified": false
+    },
+    {
+      "path": "video/clip.mpe",
+      "category": "video",
+      "extension": "mpe",
+      "expected_mode": "video",
+      "origin": "synthetic:ffmpeg -v error -y -f lavfi -i testsrc2=size=320x240:rate=25 -f lavfi -i sine=frequency=440:sample_rate=48000 -t 1 -c:v mpeg2video -c:a mp2 -pix_fmt yuv420p -f mpeg <corpus>/video/clip.mpe",
+      "bytes": 137216,
+      "sha256": "42c2c9773cbde14d588f247ff53bbca724649dc03acd1fd37340e94d2c9a057e",
+      "render_verified": false
+    },
+    {
+      "path": "video/clip.vob",
+      "category": "video",
+      "extension": "vob",
+      "expected_mode": "video",
+      "origin": "synthetic:ffmpeg -v error -y -f lavfi -i testsrc2=size=320x240:rate=25 -f lavfi -i sine=frequency=440:sample_rate=48000 -t 1 -c:v mpeg2video -c:a mp2 -pix_fmt yuv420p -f vob <corpus>/video/clip.vob",
+      "bytes": 137216,
+      "sha256": "cad193afaee73ad4cff0ae8e131edae0180e1045706ab3f8c3c746f7c1b58ab8",
+      "render_verified": false
+    },
+    {
+      "path": "video/clip.dat",
+      "category": "video",
+      "extension": "dat",
+      "expected_mode": "video",
+      "origin": "synthetic:ffmpeg -v error -y -f lavfi -i testsrc2=size=320x240:rate=25 -f lavfi -i sine=frequency=440:sample_rate=48000 -t 1 -c:v mpeg1video -c:a mp2 -pix_fmt yuv420p -f mpeg <corpus>/video/clip.dat",
+      "bytes": 137216,
+      "sha256": "9ec8f92934d840f1cccda92fdf06f74e97e080e6b2e28d235a6f2a9611d383b5",
+      "render_verified": false
+    },
+    {
+      "path": "video/clip.nut",
+      "category": "video",
+      "extension": "nut",
+      "expected_mode": "video",
+      "origin": "synthetic:ffmpeg -v error -y -f lavfi -i testsrc2=size=320x240:rate=25 -f lavfi -i sine=frequency=440:sample_rate=48000 -t 1 -c:v ffv1 -c:a pcm_s16le -pix_fmt yuv420p -f nut <corpus>/video/clip.nut",
+      "bytes": 284294,
+      "sha256": "dcc7352a53cd6c99ae3f68564a2c8ff70b3b8e4969a2e6850d1e43262b8c5053",
+      "render_verified": false
+    },
+    {
+      "path": "video/clip.rm",
+      "category": "video",
+      "extension": "rm",
+      "expected_mode": "video",
+      "origin": "synthetic:ffmpeg -v error -y -f lavfi -i testsrc2=size=320x240:rate=25 -f lavfi -i sine=frequency=440:sample_rate=48000 -t 1 -c:v rv10 -c:a ac3 -pix_fmt yuv420p -f rm <corpus>/video/clip.rm",
+      "bytes": 102350,
+      "sha256": "ee392aee1c5a81659f969c42b37569d9f4aed326e8fe4f4d93ba86aa57143d0a",
+      "render_verified": false
+    },
+    {
+      "path": "video/clip.y4m",
+      "category": "video",
+      "extension": "y4m",
+      "expected_mode": "video",
+      "origin": "synthetic:ffmpeg -v error -y -f lavfi -i testsrc2=size=320x240:rate=25 -t 1 -c:v rawvideo -f yuv4mpegpipe <corpus>/video/clip.y4m",
+      "bytes": 2880208,
+      "sha256": "4338d086d83a89e52ad8cee57c48f388cc27033b8b52658d18b8111aa565cf43",
+      "render_verified": false
+    },
+    {
+      "path": "video/clip.m2v",
+      "category": "video",
+      "extension": "m2v",
+      "expected_mode": "video",
+      "origin": "synthetic:ffmpeg -v error -y -f lavfi -i testsrc2=size=320x240:rate=25 -t 1 -c:v mpeg2video -f mpeg2video <corpus>/video/clip.m2v",
+      "bytes": 86783,
+      "sha256": "bb9949c469b2eade4e1f38e2f11ba298b225a8040bfdb99e33a4f18a81aa49ea",
+      "render_verified": false
+    },
+    {
+      "path": "video/clip.mpv",
+      "category": "video",
+      "extension": "mpv",
+      "expected_mode": "video",
+      "origin": "synthetic:ffmpeg -v error -y -f lavfi -i testsrc2=size=320x240:rate=25 -t 1 -c:v mpeg2video -f mpeg2video <corpus>/video/clip.mpv",
+      "bytes": 86783,
+      "sha256": "bb9949c469b2eade4e1f38e2f11ba298b225a8040bfdb99e33a4f18a81aa49ea",
+      "render_verified": false
+    },
+    {
+      "path": "documents/sample.docx",
+      "category": "documents",
+      "extension": "docx",
+      "expected_mode": "quickLook",
+      "origin": "synthetic:pandoc <corpus>/markdown/sample.md --metadata title=TTMedia fixture -o <corpus>/documents/sample.docx",
+      "bytes": 10781,
+      "sha256": "89d127be76a43cbd4ef5aa6c3f0430df530fa49b01ba84e5a49658a468b6a440",
+      "render_verified": false
+    },
+    {
+      "path": "documents/sample.odt",
+      "category": "documents",
+      "extension": "odt",
+      "expected_mode": "quickLook",
+      "origin": "synthetic:pandoc <corpus>/markdown/sample.md --metadata title=TTMedia fixture -o <corpus>/documents/sample.odt",
+      "bytes": 7287,
+      "sha256": "a08e753fd4749f2a37fa74c18e76aa5027be8b86d79f17b345160fbf37ed0de5",
+      "render_verified": false
+    },
+    {
+      "path": "documents/sample.pptx",
+      "category": "documents",
+      "extension": "pptx",
+      "expected_mode": "quickLook",
+      "origin": "synthetic:pandoc <corpus>/markdown/sample.md --metadata title=TTMedia fixture -o <corpus>/documents/sample.pptx",
+      "bytes": 28872,
+      "sha256": "347beea4e6cea1d2d519966a18e6f38b95ce6e1025bd76d5bf7c07a0c81ef1f4",
+      "render_verified": false
+    },
+    {
+      "path": "documents/sample.epub",
+      "category": "documents",
+      "extension": "epub",
+      "expected_mode": "epubBook",
+      "origin": "synthetic:pandoc <corpus>/markdown/sample.md --metadata title=TTMedia fixture -o <corpus>/documents/sample.epub",
+      "bytes": 6033,
+      "sha256": "f38af803ba66eba6315f58cf8aaf3895d53b0b0036e2f0a9065411d7f56edc1f",
+      "render_verified": false
+    },
+    {
+      "path": "documents/sample.rtf",
+      "category": "documents",
+      "extension": "rtf",
+      "expected_mode": "quickLook",
+      "origin": "synthetic:textutil -convert rtf -output <corpus>/documents/sample.rtf <corpus>/text/sample.txt",
+      "bytes": 408,
+      "sha256": "b1663d1e077f2866d0627ea626ff86ac0d3c6efaf58eb6dde9324c69b4864d78",
+      "render_verified": false
+    },
+    {
+      "path": "documents/sample.doc",
+      "category": "documents",
+      "extension": "doc",
+      "expected_mode": "quickLook",
+      "origin": "synthetic:textutil -convert doc -output <corpus>/documents/sample.doc <corpus>/text/sample.txt",
+      "bytes": 19456,
+      "sha256": "e605858d8f1188bc474cbcc16b6515b378840e0fb74e73a5f23cb8cea57efc22",
+      "render_verified": false
+    },
+    {
+      "path": "documents/sample.fb2",
+      "category": "documents",
+      "extension": "fb2",
+      "expected_mode": "ebook-content",
+      "origin": "synthetic:generate_preview_corpus.py",
+      "bytes": 401,
+      "sha256": "2fd6008d17f360bbbb4a6d5e7b65e136a5dcd3097c79aa70660719e964c30bef",
+      "render_verified": false
+    },
+    {
+      "path": "documents/sample.pdf",
+      "category": "documents",
+      "extension": "pdf",
+      "expected_mode": "pdf",
+      "origin": "synthetic:minimal PDF 1.4",
+      "bytes": 594,
+      "sha256": "9e1d2dcc24ec1c0dd61757eb73f4195d84e5b233af1656e090accfb9b212d826",
+      "render_verified": false
+    },
+    {
+      "path": "documents/sample.xlsx",
+      "category": "documents",
+      "extension": "xlsx",
+      "expected_mode": "quickLook",
+      "origin": "synthetic:OOXML workbook with formula and cached result",
+      "bytes": 1451,
+      "sha256": "5f19fdcf78f2114f9ea27eda6c5f7a757a1e914aff38cb1c42347423f1e79ace",
+      "render_verified": false
+    },
+    {
+      "path": "documents/sample.ods",
+      "category": "documents",
+      "extension": "ods",
+      "expected_mode": "quickLook",
+      "origin": "synthetic:OpenDocument spreadsheet",
+      "bytes": 1178,
+      "sha256": "9bfc3bd5fea79f10571377feb407fd3b0a845e213ec0176a6756f1392f4cd95f",
+      "render_verified": false
+    },
+    {
+      "path": "archives/sample.zip",
+      "category": "archives",
+      "extension": "zip",
+      "expected_mode": "archiveBrowse",
+      "origin": "synthetic:zipfile",
+      "bytes": 181,
+      "sha256": "17105dde5f51c1104796c8a26e69c781d502c0156833ea829fcf6ce40e25ca60",
+      "render_verified": false
+    },
+    {
+      "path": "archives/sample.cbz",
+      "category": "archives",
+      "extension": "cbz",
+      "expected_mode": "ebook-comic",
+      "origin": "synthetic:zipfile",
+      "bytes": 8816,
+      "sha256": "57e0dbf4be35345e876e9747cd499a11d285716a05b7eb7579de607be71846ba",
+      "render_verified": false
+    },
+    {
+      "path": "archives/sample.tar",
+      "category": "archives",
+      "extension": "tar",
+      "expected_mode": "archiveBrowse",
+      "origin": "synthetic:tarfile",
+      "bytes": 10240,
+      "sha256": "7e3e7ee3df983b792ba319f1eb946fed517edbf379bf1c1225ecca35879475a5",
+      "render_verified": false
+    },
+    {
+      "path": "archives/sample.tar.gz",
+      "category": "archives",
+      "extension": "gz",
+      "expected_mode": "archiveBrowse",
+      "origin": "synthetic:generate_preview_corpus.py",
+      "bytes": 268,
+      "sha256": "ec952b946a02da59691db44742f48417d4e7464bfc828257ba5a29eccec5895d",
+      "render_verified": false
+    },
+    {
+      "path": "archives/stream.gz",
+      "category": "archives",
+      "extension": "gz",
+      "expected_mode": "archiveBrowse",
+      "origin": "synthetic:generate_preview_corpus.py",
+      "bytes": 81,
+      "sha256": "ffbddcda838ba624d529f7f8f819b306621e51920a00958bb6aa05b0f8767a9a",
+      "render_verified": false
+    },
+    {
+      "path": "archives/sample.tar.bz2",
+      "category": "archives",
+      "extension": "bz2",
+      "expected_mode": "archiveBrowse",
+      "origin": "synthetic:generate_preview_corpus.py",
+      "bytes": 281,
+      "sha256": "6acbf7b4503168552730c6e1a68d1f73ee1189c16147e07db3fb6903af1780f1",
+      "render_verified": false
+    },
+    {
+      "path": "archives/stream.bz2",
+      "category": "archives",
+      "extension": "bz2",
+      "expected_mode": "archiveBrowse",
+      "origin": "synthetic:generate_preview_corpus.py",
+      "bytes": 119,
+      "sha256": "ec5b82053dad597e7f2e8c1ff039c27b9c0164247ec3a01e72ac49e9eb80a4d0",
+      "render_verified": false
+    },
+    {
+      "path": "archives/sample.tar.xz",
+      "category": "archives",
+      "extension": "xz",
+      "expected_mode": "archiveBrowse",
+      "origin": "synthetic:generate_preview_corpus.py",
+      "bytes": 308,
+      "sha256": "3ced6892420cd7e231df4df195f421e33e7ab99cfd1d1127026078f24c0b1b2a",
+      "render_verified": false
+    },
+    {
+      "path": "archives/stream.xz",
+      "category": "archives",
+      "extension": "xz",
+      "expected_mode": "archiveBrowse",
+      "origin": "synthetic:generate_preview_corpus.py",
+      "bytes": 116,
+      "sha256": "d1e60a903212b2ca955fc7f13fb9e53bbe2da4a71ee33e71ce9aa186092b6b7c",
+      "render_verified": false
+    },
+    {
+      "path": "archives/sample.7z",
+      "category": "archives",
+      "extension": "7z",
+      "expected_mode": "archiveBrowse",
+      "origin": "synthetic:7zz a -y <corpus>/archives/sample.7z <corpus>/text/sample.txt",
+      "bytes": 194,
+      "sha256": "306ff6547751eabcf239577e36cd798ece6a2fcdd7b6dd07da89c57814c2b740",
+      "render_verified": false
+    },
+    {
+      "path": "archives/sample.wim",
+      "category": "archives",
+      "extension": "wim",
+      "expected_mode": "archiveBrowse",
+      "origin": "synthetic:7zz a -twim -y <corpus>/archives/sample.wim <corpus>/text/sample.txt",
+      "bytes": 1316,
+      "sha256": "2c90b2ec4f21a8f76ef73602cb73cdfebe02c5bff6b5003890dd87a05a32d774",
+      "render_verified": false
+    },
+    {
+      "path": "archives/sample.tar.zst",
+      "category": "archives",
+      "extension": "zst",
+      "expected_mode": "archiveBrowse",
+      "origin": "synthetic:zstd -f <corpus>/archives/sample.tar -o <corpus>/archives/sample.tar.zst",
+      "bytes": 245,
+      "sha256": "307568e9882886ab0a20f961c0bd7b4300f4298e527df8de2d070a24348831f6",
+      "render_verified": false
+    },
+    {
+      "path": "archives/sample.tar.lz4",
+      "category": "archives",
+      "extension": "lz4",
+      "expected_mode": "archiveBrowse",
+      "origin": "synthetic:lz4 -f <corpus>/archives/sample.tar <corpus>/archives/sample.tar.lz4",
+      "bytes": 330,
+      "sha256": "59132593fcba18ca752abf26b428c517a7e215245adb5a6178c80ed136e479bf",
+      "render_verified": false
+    },
+    {
+      "path": "archives/sample.tar.br",
+      "category": "archives",
+      "extension": "br",
+      "expected_mode": "archiveBrowse",
+      "origin": "synthetic:brotli -f <corpus>/archives/sample.tar -o <corpus>/archives/sample.tar.br",
+      "bytes": 188,
+      "sha256": "5895ab2b40dab0ca632f85de0dbb41284564a62ae2c55b18b226c7208a9bd3ca",
+      "render_verified": false
+    },
+    {
+      "path": "archives/sample.tar.lz",
+      "category": "archives",
+      "extension": "lz",
+      "expected_mode": "archiveBrowse",
+      "origin": "synthetic:lzip -f -o <corpus>/archives/sample.tar.lz <corpus>/archives/sample.tar",
+      "bytes": 277,
+      "sha256": "70b0ebe58b485b40cfd73a51a733c8e7ac944ae086672fb5f17026ba033c2a1a",
+      "render_verified": false
+    },
+    {
+      "path": "archives/sample.tar.lrz",
+      "category": "archives",
+      "extension": "lrz",
+      "expected_mode": "archiveBrowse",
+      "origin": "synthetic:lrzip -f -o <corpus>/archives/sample.tar.lrz <corpus>/archives/sample.tar",
+      "bytes": 328,
+      "sha256": "d5e8923948fca4ad7cc8e816c84025a7fd9843e295513fd3d13d0fc9ba1636ac",
+      "render_verified": false
+    },
+    {
+      "path": "archives/sample.tgz",
+      "category": "archives",
+      "extension": "tgz",
+      "expected_mode": "archiveBrowse",
+      "origin": "alias:same gzip-compressed TAR format",
+      "bytes": 268,
+      "sha256": "ec952b946a02da59691db44742f48417d4e7464bfc828257ba5a29eccec5895d",
+      "render_verified": false
+    },
+    {
+      "path": "binary/sample.bin",
+      "category": "binary",
+      "extension": "bin",
+      "expected_mode": "hexViewer",
+      "origin": "synthetic:generate_preview_corpus.py",
+      "bytes": 256,
+      "sha256": "40aff2e9d2d8922e47afd4648e6967497158785fbd1da870e7110266bf944880",
+      "render_verified": false
+    },
+    {
+      "path": "binary/sample.dat",
+      "category": "binary",
+      "extension": "dat",
+      "expected_mode": "hexViewer",
+      "origin": "synthetic:generate_preview_corpus.py",
+      "bytes": 256,
+      "sha256": "40aff2e9d2d8922e47afd4648e6967497158785fbd1da870e7110266bf944880",
+      "render_verified": false
+    },
+    {
+      "path": "binary/sample.wasm",
+      "category": "binary",
+      "extension": "wasm",
+      "expected_mode": "hexViewer",
+      "origin": "synthetic:generate_preview_corpus.py",
+      "bytes": 8,
+      "sha256": "93a44bbb96c751218e4c00d479e4c14358122a389acca16205b1e4d0dc5f9476",
+      "render_verified": false
+    },
+    {
+      "path": "images/sample.heic",
+      "category": "images",
+      "extension": "heic",
+      "expected_mode": "image",
+      "origin": "synthetic:sips ImageIO HEIC encoder; generated outside execution sandbox",
+      "bytes": 6212,
+      "sha256": "77ccbfa1409be1ced3c0305f2b0470dbe39b99fe4acecbd4ced2f23679a383a3",
+      "render_verified": false
+    }
+  ],
+  "coverage": [
+    {
+      "category": "htmlWeb",
+      "extension": "htm",
+      "samples": [
+        "web/sample.htm"
+      ],
+      "status": "sample-present-unverified",
+      "note": "A sample is not proof of renderer support; raw/proprietary variants need authentic inputs."
+    },
+    {
+      "category": "htmlWeb",
+      "extension": "html",
+      "samples": [
+        "web/sample.html"
+      ],
+      "status": "sample-present-unverified",
+      "note": "A sample is not proof of renderer support; raw/proprietary variants need authentic inputs."
+    },
+    {
+      "category": "htmlWeb",
+      "extension": "mhtml",
+      "samples": [
+        "web/sample.mhtml"
+      ],
+      "status": "sample-present-unverified",
+      "note": "A sample is not proof of renderer support; raw/proprietary variants need authentic inputs."
+    },
+    {
+      "category": "htmlWeb",
+      "extension": "svg",
+      "samples": [
+        "web/sample.svg"
+      ],
+      "status": "sample-present-unverified",
+      "note": "A sample is not proof of renderer support; raw/proprietary variants need authentic inputs."
+    },
+    {
+      "category": "htmlWeb",
+      "extension": "svgz",
+      "samples": [
+        "web/sample.svgz"
+      ],
+      "status": "sample-present-unverified",
+      "note": "A sample is not proof of renderer support; raw/proprietary variants need authentic inputs."
+    },
+    {
+      "category": "htmlWeb",
+      "extension": "xhtml",
+      "samples": [
+        "web/sample.xhtml"
+      ],
+      "status": "sample-present-unverified",
+      "note": "A sample is not proof of renderer support; raw/proprietary variants need authentic inputs."
+    },
+    {
+      "category": "markdown",
+      "extension": "markdown",
+      "samples": [
+        "markdown/sample.markdown"
+      ],
+      "status": "sample-present-unverified",
+      "note": "A sample is not proof of renderer support; raw/proprietary variants need authentic inputs."
+    },
+    {
+      "category": "markdown",
+      "extension": "md",
+      "samples": [
+        "markdown/sample.md"
+      ],
+      "status": "sample-present-unverified",
+      "note": "A sample is not proof of renderer support; raw/proprietary variants need authentic inputs."
+    },
+    {
+      "category": "markdown",
+      "extension": "mdown",
+      "samples": [
+        "markdown/sample.mdown"
+      ],
+      "status": "sample-present-unverified",
+      "note": "A sample is not proof of renderer support; raw/proprietary variants need authentic inputs."
+    },
+    {
+      "category": "markdown",
+      "extension": "mdtext",
+      "samples": [
+        "markdown/sample.mdtext"
+      ],
+      "status": "sample-present-unverified",
+      "note": "A sample is not proof of renderer support; raw/proprietary variants need authentic inputs."
+    },
+    {
+      "category": "markdown",
+      "extension": "mdtxt",
+      "samples": [
+        "markdown/sample.mdtxt"
+      ],
+      "status": "sample-present-unverified",
+      "note": "A sample is not proof of renderer support; raw/proprietary variants need authentic inputs."
+    },
+    {
+      "category": "markdown",
+      "extension": "mkd",
+      "samples": [
+        "markdown/sample.mkd"
+      ],
+      "status": "sample-present-unverified",
+      "note": "A sample is not proof of renderer support; raw/proprietary variants need authentic inputs."
+    },
+    {
+      "category": "markdown",
+      "extension": "mkdn",
+      "samples": [
+        "markdown/sample.mkdn"
+      ],
+      "status": "sample-present-unverified",
+      "note": "A sample is not proof of renderer support; raw/proprietary variants need authentic inputs."
+    },
+    {
+      "category": "spreadsheet",
+      "extension": "csv",
+      "samples": [
+        "tables/sample.csv"
+      ],
+      "status": "sample-present-unverified",
+      "note": "A sample is not proof of renderer support; raw/proprietary variants need authentic inputs."
+    },
+    {
+      "category": "spreadsheet",
+      "extension": "ods",
+      "samples": [
+        "documents/sample.ods"
+      ],
+      "status": "sample-present-unverified",
+      "note": "A sample is not proof of renderer support; raw/proprietary variants need authentic inputs."
+    },
+    {
+      "category": "spreadsheet",
+      "extension": "psv",
+      "samples": [
+        "tables/sample.psv"
+      ],
+      "status": "sample-present-unverified",
+      "note": "A sample is not proof of renderer support; raw/proprietary variants need authentic inputs."
+    },
+    {
+      "category": "spreadsheet",
+      "extension": "ssv",
+      "samples": [
+        "tables/sample.ssv"
+      ],
+      "status": "sample-present-unverified",
+      "note": "A sample is not proof of renderer support; raw/proprietary variants need authentic inputs."
+    },
+    {
+      "category": "spreadsheet",
+      "extension": "tab",
+      "samples": [
+        "tables/sample.tab"
+      ],
+      "status": "sample-present-unverified",
+      "note": "A sample is not proof of renderer support; raw/proprietary variants need authentic inputs."
+    },
+    {
+      "category": "spreadsheet",
+      "extension": "tsv",
+      "samples": [
+        "tables/sample.tsv"
+      ],
+      "status": "sample-present-unverified",
+      "note": "A sample is not proof of renderer support; raw/proprietary variants need authentic inputs."
+    },
+    {
+      "category": "spreadsheet",
+      "extension": "xls",
+      "samples": [],
+      "status": "missing-authentic-fixture",
+      "note": "A sample is not proof of renderer support; raw/proprietary variants need authentic inputs."
+    },
+    {
+      "category": "spreadsheet",
+      "extension": "xlsx",
+      "samples": [
+        "documents/sample.xlsx"
+      ],
+      "status": "sample-present-unverified",
+      "note": "A sample is not proof of renderer support; raw/proprietary variants need authentic inputs."
+    },
+    {
+      "category": "docx",
+      "extension": "doc",
+      "samples": [
+        "documents/sample.doc"
+      ],
+      "status": "sample-present-unverified",
+      "note": "A sample is not proof of renderer support; raw/proprietary variants need authentic inputs."
+    },
+    {
+      "category": "docx",
+      "extension": "docx",
+      "samples": [
+        "documents/sample.docx"
+      ],
+      "status": "sample-present-unverified",
+      "note": "A sample is not proof of renderer support; raw/proprietary variants need authentic inputs."
+    },
+    {
+      "category": "docx",
+      "extension": "odt",
+      "samples": [
+        "documents/sample.odt"
+      ],
+      "status": "sample-present-unverified",
+      "note": "A sample is not proof of renderer support; raw/proprietary variants need authentic inputs."
+    },
+    {
+      "category": "docx",
+      "extension": "rtf",
+      "samples": [
+        "documents/sample.rtf"
+      ],
+      "status": "sample-present-unverified",
+      "note": "A sample is not proof of renderer support; raw/proprietary variants need authentic inputs."
+    },
+    {
+      "category": "presentation",
+      "extension": "key",
+      "samples": [],
+      "status": "missing-authentic-fixture",
+      "note": "A sample is not proof of renderer support; raw/proprietary variants need authentic inputs."
+    },
+    {
+      "category": "presentation",
+      "extension": "odp",
+      "samples": [],
+      "status": "missing-authentic-fixture",
+      "note": "A sample is not proof of renderer support; raw/proprietary variants need authentic inputs."
+    },
+    {
+      "category": "presentation",
+      "extension": "ppt",
+      "samples": [],
+      "status": "missing-authentic-fixture",
+      "note": "A sample is not proof of renderer support; raw/proprietary variants need authentic inputs."
+    },
+    {
+      "category": "presentation",
+      "extension": "pptx",
+      "samples": [
+        "documents/sample.pptx"
+      ],
+      "status": "sample-present-unverified",
+      "note": "A sample is not proof of renderer support; raw/proprietary variants need authentic inputs."
+    },
+    {
+      "category": "ebook",
+      "extension": "azw",
+      "samples": [],
+      "status": "missing-authentic-fixture",
+      "note": "A sample is not proof of renderer support; raw/proprietary variants need authentic inputs."
+    },
+    {
+      "category": "ebook",
+      "extension": "azw3",
+      "samples": [],
+      "status": "missing-authentic-fixture",
+      "note": "A sample is not proof of renderer support; raw/proprietary variants need authentic inputs."
+    },
+    {
+      "category": "ebook",
+      "extension": "cbr",
+      "samples": [],
+      "status": "missing-authentic-fixture",
+      "note": "A sample is not proof of renderer support; raw/proprietary variants need authentic inputs."
+    },
+    {
+      "category": "ebook",
+      "extension": "cbz",
+      "samples": [
+        "archives/sample.cbz"
+      ],
+      "status": "sample-present-unverified",
+      "note": "A sample is not proof of renderer support; raw/proprietary variants need authentic inputs."
+    },
+    {
+      "category": "ebook",
+      "extension": "epub",
+      "samples": [
+        "documents/sample.epub"
+      ],
+      "status": "sample-present-unverified",
+      "note": "A sample is not proof of renderer support; raw/proprietary variants need authentic inputs."
+    },
+    {
+      "category": "ebook",
+      "extension": "fb2",
+      "samples": [
+        "documents/sample.fb2"
+      ],
+      "status": "sample-present-unverified",
+      "note": "A sample is not proof of renderer support; raw/proprietary variants need authentic inputs."
+    },
+    {
+      "category": "ebook",
+      "extension": "ibooks",
+      "samples": [],
+      "status": "missing-authentic-fixture",
+      "note": "A sample is not proof of renderer support; raw/proprietary variants need authentic inputs."
+    },
+    {
+      "category": "ebook",
+      "extension": "mobi",
+      "samples": [],
+      "status": "missing-authentic-fixture",
+      "note": "A sample is not proof of renderer support; raw/proprietary variants need authentic inputs."
+    },
+    {
+      "category": "pdf",
+      "extension": "pdf",
+      "samples": [
+        "documents/sample.pdf"
+      ],
+      "status": "sample-present-unverified",
+      "note": "A sample is not proof of renderer support; raw/proprietary variants need authentic inputs."
+    },
+    {
+      "category": "image",
+      "extension": "arw",
+      "samples": [],
+      "status": "missing-authentic-fixture",
+      "note": "A sample is not proof of renderer support; raw/proprietary variants need authentic inputs."
+    },
+    {
+      "category": "image",
+      "extension": "bmp",
+      "samples": [
+        "images/sample.bmp"
+      ],
+      "status": "sample-present-unverified",
+      "note": "A sample is not proof of renderer support; raw/proprietary variants need authentic inputs."
+    },
+    {
+      "category": "image",
+      "extension": "cr3",
+      "samples": [],
+      "status": "missing-authentic-fixture",
+      "note": "A sample is not proof of renderer support; raw/proprietary variants need authentic inputs."
+    },
+    {
+      "category": "image",
+      "extension": "dng",
+      "samples": [],
+      "status": "missing-authentic-fixture",
+      "note": "A sample is not proof of renderer support; raw/proprietary variants need authentic inputs."
+    },
+    {
+      "category": "image",
+      "extension": "gif",
+      "samples": [
+        "images/sample.gif"
+      ],
+      "status": "sample-present-unverified",
+      "note": "A sample is not proof of renderer support; raw/proprietary variants need authentic inputs."
+    },
+    {
+      "category": "image",
+      "extension": "heic",
+      "samples": [
+        "images/sample.heic"
+      ],
+      "status": "sample-present-unverified",
+      "note": "A sample is not proof of renderer support; raw/proprietary variants need authentic inputs."
+    },
+    {
+      "category": "image",
+      "extension": "ico",
+      "samples": [
+        "images/sample.ico"
+      ],
+      "status": "sample-present-unverified",
+      "note": "A sample is not proof of renderer support; raw/proprietary variants need authentic inputs."
+    },
+    {
+      "category": "image",
+      "extension": "jpeg",
+      "samples": [
+        "images/sample.jpeg"
+      ],
+      "status": "sample-present-unverified",
+      "note": "A sample is not proof of renderer support; raw/proprietary variants need authentic inputs."
+    },
+    {
+      "category": "image",
+      "extension": "jpg",
+      "samples": [
+        "images/sample.jpg"
+      ],
+      "status": "sample-present-unverified",
+      "note": "A sample is not proof of renderer support; raw/proprietary variants need authentic inputs."
+    },
+    {
+      "category": "image",
+      "extension": "nef",
+      "samples": [],
+      "status": "missing-authentic-fixture",
+      "note": "A sample is not proof of renderer support; raw/proprietary variants need authentic inputs."
+    },
+    {
+      "category": "image",
+      "extension": "png",
+      "samples": [
+        "images/sample.png"
+      ],
+      "status": "sample-present-unverified",
+      "note": "A sample is not proof of renderer support; raw/proprietary variants need authentic inputs."
+    },
+    {
+      "category": "image",
+      "extension": "tiff",
+      "samples": [
+        "images/sample.tiff"
+      ],
+      "status": "sample-present-unverified",
+      "note": "A sample is not proof of renderer support; raw/proprietary variants need authentic inputs."
+    },
+    {
+      "category": "image",
+      "extension": "webp",
+      "samples": [
+        "images/sample.webp"
+      ],
+      "status": "sample-present-unverified",
+      "note": "A sample is not proof of renderer support; raw/proprietary variants need authentic inputs."
+    },
+    {
+      "category": "video",
+      "extension": "3g2",
+      "samples": [
+        "video/clip.3g2"
+      ],
+      "status": "sample-present-unverified",
+      "note": "A sample is not proof of renderer support; raw/proprietary variants need authentic inputs."
+    },
+    {
+      "category": "video",
+      "extension": "3gp",
+      "samples": [
+        "video/clip.3gp"
+      ],
+      "status": "sample-present-unverified",
+      "note": "A sample is not proof of renderer support; raw/proprietary variants need authentic inputs."
+    },
+    {
+      "category": "video",
+      "extension": "asf",
+      "samples": [
+        "video/clip.asf"
+      ],
+      "status": "sample-present-unverified",
+      "note": "A sample is not proof of renderer support; raw/proprietary variants need authentic inputs."
+    },
+    {
+      "category": "video",
+      "extension": "avi",
+      "samples": [
+        "video/clip.avi"
+      ],
+      "status": "sample-present-unverified",
+      "note": "A sample is not proof of renderer support; raw/proprietary variants need authentic inputs."
+    },
+    {
+      "category": "video",
+      "extension": "dat",
+      "samples": [
+        "video/clip.dat",
+        "binary/sample.dat"
+      ],
+      "status": "sample-present-unverified",
+      "note": "A sample is not proof of renderer support; raw/proprietary variants need authentic inputs."
+    },
+    {
+      "category": "video",
+      "extension": "divx",
+      "samples": [
+        "video/clip.divx"
+      ],
+      "status": "sample-present-unverified",
+      "note": "A sample is not proof of renderer support; raw/proprietary variants need authentic inputs."
+    },
+    {
+      "category": "video",
+      "extension": "dv",
+      "samples": [],
+      "status": "missing-authentic-fixture",
+      "note": "A sample is not proof of renderer support; raw/proprietary variants need authentic inputs."
+    },
+    {
+      "category": "video",
+      "extension": "f4v",
+      "samples": [
+        "video/clip.f4v"
+      ],
+      "status": "sample-present-unverified",
+      "note": "A sample is not proof of renderer support; raw/proprietary variants need authentic inputs."
+    },
+    {
+      "category": "video",
+      "extension": "flv",
+      "samples": [
+        "video/clip.flv"
+      ],
+      "status": "sample-present-unverified",
+      "note": "A sample is not proof of renderer support; raw/proprietary variants need authentic inputs."
+    },
+    {
+      "category": "video",
+      "extension": "m2t",
+      "samples": [
+        "video/clip.m2t"
+      ],
+      "status": "sample-present-unverified",
+      "note": "A sample is not proof of renderer support; raw/proprietary variants need authentic inputs."
+    },
+    {
+      "category": "video",
+      "extension": "m2ts",
+      "samples": [
+        "video/clip.m2ts"
+      ],
+      "status": "sample-present-unverified",
+      "note": "A sample is not proof of renderer support; raw/proprietary variants need authentic inputs."
+    },
+    {
+      "category": "video",
+      "extension": "m2v",
+      "samples": [
+        "video/clip.m2v"
+      ],
+      "status": "sample-present-unverified",
+      "note": "A sample is not proof of renderer support; raw/proprietary variants need authentic inputs."
+    },
+    {
+      "category": "video",
+      "extension": "m4v",
+      "samples": [
+        "video/clip.m4v"
+      ],
+      "status": "sample-present-unverified",
+      "note": "A sample is not proof of renderer support; raw/proprietary variants need authentic inputs."
+    },
+    {
+      "category": "video",
+      "extension": "mkv",
+      "samples": [
+        "video/clip.mkv"
+      ],
+      "status": "sample-present-unverified",
+      "note": "A sample is not proof of renderer support; raw/proprietary variants need authentic inputs."
+    },
+    {
+      "category": "video",
+      "extension": "mov",
+      "samples": [
+        "video/clip.mov"
+      ],
+      "status": "sample-present-unverified",
+      "note": "A sample is not proof of renderer support; raw/proprietary variants need authentic inputs."
+    },
+    {
+      "category": "video",
+      "extension": "mp4",
+      "samples": [
+        "video/clip.mp4"
+      ],
+      "status": "sample-present-unverified",
+      "note": "A sample is not proof of renderer support; raw/proprietary variants need authentic inputs."
+    },
+    {
+      "category": "video",
+      "extension": "mpe",
+      "samples": [
+        "video/clip.mpe"
+      ],
+      "status": "sample-present-unverified",
+      "note": "A sample is not proof of renderer support; raw/proprietary variants need authentic inputs."
+    },
+    {
+      "category": "video",
+      "extension": "mpeg",
+      "samples": [
+        "video/clip.mpeg"
+      ],
+      "status": "sample-present-unverified",
+      "note": "A sample is not proof of renderer support; raw/proprietary variants need authentic inputs."
+    },
+    {
+      "category": "video",
+      "extension": "mpg",
+      "samples": [
+        "video/clip.mpg"
+      ],
+      "status": "sample-present-unverified",
+      "note": "A sample is not proof of renderer support; raw/proprietary variants need authentic inputs."
+    },
+    {
+      "category": "video",
+      "extension": "mpv",
+      "samples": [
+        "video/clip.mpv"
+      ],
+      "status": "sample-present-unverified",
+      "note": "A sample is not proof of renderer support; raw/proprietary variants need authentic inputs."
+    },
+    {
+      "category": "video",
+      "extension": "mts",
+      "samples": [
+        "video/clip.mts"
+      ],
+      "status": "sample-present-unverified",
+      "note": "A sample is not proof of renderer support; raw/proprietary variants need authentic inputs."
+    },
+    {
+      "category": "video",
+      "extension": "mxf",
+      "samples": [],
+      "status": "missing-authentic-fixture",
+      "note": "A sample is not proof of renderer support; raw/proprietary variants need authentic inputs."
+    },
+    {
+      "category": "video",
+      "extension": "nut",
+      "samples": [
+        "video/clip.nut"
+      ],
+      "status": "sample-present-unverified",
+      "note": "A sample is not proof of renderer support; raw/proprietary variants need authentic inputs."
+    },
+    {
+      "category": "video",
+      "extension": "ogv",
+      "samples": [],
+      "status": "missing-authentic-fixture",
+      "note": "A sample is not proof of renderer support; raw/proprietary variants need authentic inputs."
+    },
+    {
+      "category": "video",
+      "extension": "qt",
+      "samples": [
+        "video/clip.qt"
+      ],
+      "status": "sample-present-unverified",
+      "note": "A sample is not proof of renderer support; raw/proprietary variants need authentic inputs."
+    },
+    {
+      "category": "video",
+      "extension": "rm",
+      "samples": [
+        "video/clip.rm"
+      ],
+      "status": "sample-present-unverified",
+      "note": "A sample is not proof of renderer support; raw/proprietary variants need authentic inputs."
+    },
+    {
+      "category": "video",
+      "extension": "rmvb",
+      "samples": [],
+      "status": "missing-authentic-fixture",
+      "note": "A sample is not proof of renderer support; raw/proprietary variants need authentic inputs."
+    },
+    {
+      "category": "video",
+      "extension": "ts",
+      "samples": [
+        "text/sample.ts",
+        "video/clip.ts"
+      ],
+      "status": "sample-present-unverified",
+      "note": "A sample is not proof of renderer support; raw/proprietary variants need authentic inputs."
+    },
+    {
+      "category": "video",
+      "extension": "vob",
+      "samples": [
+        "video/clip.vob"
+      ],
+      "status": "sample-present-unverified",
+      "note": "A sample is not proof of renderer support; raw/proprietary variants need authentic inputs."
+    },
+    {
+      "category": "video",
+      "extension": "vro",
+      "samples": [],
+      "status": "missing-authentic-fixture",
+      "note": "A sample is not proof of renderer support; raw/proprietary variants need authentic inputs."
+    },
+    {
+      "category": "video",
+      "extension": "webm",
+      "samples": [
+        "video/clip.webm"
+      ],
+      "status": "sample-present-unverified",
+      "note": "A sample is not proof of renderer support; raw/proprietary variants need authentic inputs."
+    },
+    {
+      "category": "video",
+      "extension": "wmv",
+      "samples": [
+        "video/clip.wmv"
+      ],
+      "status": "sample-present-unverified",
+      "note": "A sample is not proof of renderer support; raw/proprietary variants need authentic inputs."
+    },
+    {
+      "category": "video",
+      "extension": "y4m",
+      "samples": [
+        "video/clip.y4m"
+      ],
+      "status": "sample-present-unverified",
+      "note": "A sample is not proof of renderer support; raw/proprietary variants need authentic inputs."
+    },
+    {
+      "category": "audio",
+      "extension": "aac",
+      "samples": [
+        "audio/tone.aac"
+      ],
+      "status": "sample-present-unverified",
+      "note": "A sample is not proof of renderer support; raw/proprietary variants need authentic inputs."
+    },
+    {
+      "category": "audio",
+      "extension": "ac3",
+      "samples": [
+        "audio/tone.ac3"
+      ],
+      "status": "sample-present-unverified",
+      "note": "A sample is not proof of renderer support; raw/proprietary variants need authentic inputs."
+    },
+    {
+      "category": "audio",
+      "extension": "aif",
+      "samples": [
+        "audio/tone.aif"
+      ],
+      "status": "sample-present-unverified",
+      "note": "A sample is not proof of renderer support; raw/proprietary variants need authentic inputs."
+    },
+    {
+      "category": "audio",
+      "extension": "aifc",
+      "samples": [
+        "audio/tone.aifc"
+      ],
+      "status": "sample-present-unverified",
+      "note": "A sample is not proof of renderer support; raw/proprietary variants need authentic inputs."
+    },
+    {
+      "category": "audio",
+      "extension": "aiff",
+      "samples": [
+        "audio/tone.aiff"
+      ],
+      "status": "sample-present-unverified",
+      "note": "A sample is not proof of renderer support; raw/proprietary variants need authentic inputs."
+    },
+    {
+      "category": "audio",
+      "extension": "alac",
+      "samples": [],
+      "status": "missing-authentic-fixture",
+      "note": "A sample is not proof of renderer support; raw/proprietary variants need authentic inputs."
+    },
+    {
+      "category": "audio",
+      "extension": "amr",
+      "samples": [],
+      "status": "missing-authentic-fixture",
+      "note": "A sample is not proof of renderer support; raw/proprietary variants need authentic inputs."
+    },
+    {
+      "category": "audio",
+      "extension": "ape",
+      "samples": [],
+      "status": "missing-authentic-fixture",
+      "note": "A sample is not proof of renderer support; raw/proprietary variants need authentic inputs."
+    },
+    {
+      "category": "audio",
+      "extension": "au",
+      "samples": [
+        "audio/tone.au"
+      ],
+      "status": "sample-present-unverified",
+      "note": "A sample is not proof of renderer support; raw/proprietary variants need authentic inputs."
+    },
+    {
+      "category": "audio",
+      "extension": "caf",
+      "samples": [
+        "audio/tone.caf"
+      ],
+      "status": "sample-present-unverified",
+      "note": "A sample is not proof of renderer support; raw/proprietary variants need authentic inputs."
+    },
+    {
+      "category": "audio",
+      "extension": "dff",
+      "samples": [],
+      "status": "missing-authentic-fixture",
+      "note": "A sample is not proof of renderer support; raw/proprietary variants need authentic inputs."
+    },
+    {
+      "category": "audio",
+      "extension": "dsd",
+      "samples": [],
+      "status": "missing-authentic-fixture",
+      "note": "A sample is not proof of renderer support; raw/proprietary variants need authentic inputs."
+    },
+    {
+      "category": "audio",
+      "extension": "dsf",
+      "samples": [],
+      "status": "missing-authentic-fixture",
+      "note": "A sample is not proof of renderer support; raw/proprietary variants need authentic inputs."
+    },
+    {
+      "category": "audio",
+      "extension": "dts",
+      "samples": [],
+      "status": "missing-authentic-fixture",
+      "note": "A sample is not proof of renderer support; raw/proprietary variants need authentic inputs."
+    },
+    {
+      "category": "audio",
+      "extension": "eac3",
+      "samples": [
+        "audio/tone.eac3"
+      ],
+      "status": "sample-present-unverified",
+      "note": "A sample is not proof of renderer support; raw/proprietary variants need authentic inputs."
+    },
+    {
+      "category": "audio",
+      "extension": "flac",
+      "samples": [
+        "audio/tone.flac"
+      ],
+      "status": "sample-present-unverified",
+      "note": "A sample is not proof of renderer support; raw/proprietary variants need authentic inputs."
+    },
+    {
+      "category": "audio",
+      "extension": "gsm",
+      "samples": [],
+      "status": "missing-authentic-fixture",
+      "note": "A sample is not proof of renderer support; raw/proprietary variants need authentic inputs."
+    },
+    {
+      "category": "audio",
+      "extension": "m4a",
+      "samples": [
+        "audio/tone.m4a"
+      ],
+      "status": "sample-present-unverified",
+      "note": "A sample is not proof of renderer support; raw/proprietary variants need authentic inputs."
+    },
+    {
+      "category": "audio",
+      "extension": "m4b",
+      "samples": [
+        "audio/tone.m4b"
+      ],
+      "status": "sample-present-unverified",
+      "note": "A sample is not proof of renderer support; raw/proprietary variants need authentic inputs."
+    },
+    {
+      "category": "audio",
+      "extension": "m4r",
+      "samples": [
+        "audio/tone.m4r"
+      ],
+      "status": "sample-present-unverified",
+      "note": "A sample is not proof of renderer support; raw/proprietary variants need authentic inputs."
+    },
+    {
+      "category": "audio",
+      "extension": "mid",
+      "samples": [
+        "audio/notes.mid"
+      ],
+      "status": "sample-present-unverified",
+      "note": "A sample is not proof of renderer support; raw/proprietary variants need authentic inputs."
+    },
+    {
+      "category": "audio",
+      "extension": "midi",
+      "samples": [
+        "audio/notes.midi"
+      ],
+      "status": "sample-present-unverified",
+      "note": "A sample is not proof of renderer support; raw/proprietary variants need authentic inputs."
+    },
+    {
+      "category": "audio",
+      "extension": "mka",
+      "samples": [],
+      "status": "missing-authentic-fixture",
+      "note": "A sample is not proof of renderer support; raw/proprietary variants need authentic inputs."
+    },
+    {
+      "category": "audio",
+      "extension": "mp3",
+      "samples": [
+        "audio/tone.mp3"
+      ],
+      "status": "sample-present-unverified",
+      "note": "A sample is not proof of renderer support; raw/proprietary variants need authentic inputs."
+    },
+    {
+      "category": "audio",
+      "extension": "mpc",
+      "samples": [],
+      "status": "missing-authentic-fixture",
+      "note": "A sample is not proof of renderer support; raw/proprietary variants need authentic inputs."
+    },
+    {
+      "category": "audio",
+      "extension": "oga",
+      "samples": [
+        "audio/tone.oga"
+      ],
+      "status": "sample-present-unverified",
+      "note": "A sample is not proof of renderer support; raw/proprietary variants need authentic inputs."
+    },
+    {
+      "category": "audio",
+      "extension": "ogg",
+      "samples": [
+        "audio/tone.ogg"
+      ],
+      "status": "sample-present-unverified",
+      "note": "A sample is not proof of renderer support; raw/proprietary variants need authentic inputs."
+    },
+    {
+      "category": "audio",
+      "extension": "opus",
+      "samples": [
+        "audio/tone.opus"
+      ],
+      "status": "sample-present-unverified",
+      "note": "A sample is not proof of renderer support; raw/proprietary variants need authentic inputs."
+    },
+    {
+      "category": "audio",
+      "extension": "ra",
+      "samples": [
+        "audio/tone.ra"
+      ],
+      "status": "sample-present-unverified",
+      "note": "A sample is not proof of renderer support; raw/proprietary variants need authentic inputs."
+    },
+    {
+      "category": "audio",
+      "extension": "snd",
+      "samples": [
+        "audio/tone.snd"
+      ],
+      "status": "sample-present-unverified",
+      "note": "A sample is not proof of renderer support; raw/proprietary variants need authentic inputs."
+    },
+    {
+      "category": "audio",
+      "extension": "spx",
+      "samples": [],
+      "status": "missing-authentic-fixture",
+      "note": "A sample is not proof of renderer support; raw/proprietary variants need authentic inputs."
+    },
+    {
+      "category": "audio",
+      "extension": "tak",
+      "samples": [],
+      "status": "missing-authentic-fixture",
+      "note": "A sample is not proof of renderer support; raw/proprietary variants need authentic inputs."
+    },
+    {
+      "category": "audio",
+      "extension": "tta",
+      "samples": [
+        "audio/tone.tta"
+      ],
+      "status": "sample-present-unverified",
+      "note": "A sample is not proof of renderer support; raw/proprietary variants need authentic inputs."
+    },
+    {
+      "category": "audio",
+      "extension": "voc",
+      "samples": [
+        "audio/tone.voc"
+      ],
+      "status": "sample-present-unverified",
+      "note": "A sample is not proof of renderer support; raw/proprietary variants need authentic inputs."
+    },
+    {
+      "category": "audio",
+      "extension": "wav",
+      "samples": [
+        "audio/tone.wav"
+      ],
+      "status": "sample-present-unverified",
+      "note": "A sample is not proof of renderer support; raw/proprietary variants need authentic inputs."
+    },
+    {
+      "category": "audio",
+      "extension": "wma",
+      "samples": [
+        "audio/tone.wma"
+      ],
+      "status": "sample-present-unverified",
+      "note": "A sample is not proof of renderer support; raw/proprietary variants need authentic inputs."
+    },
+    {
+      "category": "audio",
+      "extension": "wv",
+      "samples": [
+        "audio/tone.wv"
+      ],
+      "status": "sample-present-unverified",
+      "note": "A sample is not proof of renderer support; raw/proprietary variants need authentic inputs."
+    },
+    {
+      "category": "binary",
+      "extension": "a",
+      "samples": [],
+      "status": "missing-authentic-fixture",
+      "note": "A sample is not proof of renderer support; raw/proprietary variants need authentic inputs."
+    },
+    {
+      "category": "binary",
+      "extension": "bin",
+      "samples": [
+        "binary/sample.bin"
+      ],
+      "status": "sample-present-unverified",
+      "note": "A sample is not proof of renderer support; raw/proprietary variants need authentic inputs."
+    },
+    {
+      "category": "binary",
+      "extension": "class",
+      "samples": [],
+      "status": "missing-authentic-fixture",
+      "note": "A sample is not proof of renderer support; raw/proprietary variants need authentic inputs."
+    },
+    {
+      "category": "binary",
+      "extension": "dat",
+      "samples": [
+        "video/clip.dat",
+        "binary/sample.dat"
+      ],
+      "status": "sample-present-unverified",
+      "note": "A sample is not proof of renderer support; raw/proprietary variants need authentic inputs."
+    },
+    {
+      "category": "binary",
+      "extension": "dex",
+      "samples": [],
+      "status": "missing-authentic-fixture",
+      "note": "A sample is not proof of renderer support; raw/proprietary variants need authentic inputs."
+    },
+    {
+      "category": "binary",
+      "extension": "dll",
+      "samples": [],
+      "status": "missing-authentic-fixture",
+      "note": "A sample is not proof of renderer support; raw/proprietary variants need authentic inputs."
+    },
+    {
+      "category": "binary",
+      "extension": "dylib",
+      "samples": [],
+      "status": "missing-authentic-fixture",
+      "note": "A sample is not proof of renderer support; raw/proprietary variants need authentic inputs."
+    },
+    {
+      "category": "binary",
+      "extension": "elf",
+      "samples": [],
+      "status": "missing-authentic-fixture",
+      "note": "A sample is not proof of renderer support; raw/proprietary variants need authentic inputs."
+    },
+    {
+      "category": "binary",
+      "extension": "exe",
+      "samples": [],
+      "status": "missing-authentic-fixture",
+      "note": "A sample is not proof of renderer support; raw/proprietary variants need authentic inputs."
+    },
+    {
+      "category": "binary",
+      "extension": "hex",
+      "samples": [],
+      "status": "missing-authentic-fixture",
+      "note": "A sample is not proof of renderer support; raw/proprietary variants need authentic inputs."
+    },
+    {
+      "category": "binary",
+      "extension": "lib",
+      "samples": [],
+      "status": "missing-authentic-fixture",
+      "note": "A sample is not proof of renderer support; raw/proprietary variants need authentic inputs."
+    },
+    {
+      "category": "binary",
+      "extension": "o",
+      "samples": [],
+      "status": "missing-authentic-fixture",
+      "note": "A sample is not proof of renderer support; raw/proprietary variants need authentic inputs."
+    },
+    {
+      "category": "binary",
+      "extension": "obj",
+      "samples": [],
+      "status": "missing-authentic-fixture",
+      "note": "A sample is not proof of renderer support; raw/proprietary variants need authentic inputs."
+    },
+    {
+      "category": "binary",
+      "extension": "pyc",
+      "samples": [],
+      "status": "missing-authentic-fixture",
+      "note": "A sample is not proof of renderer support; raw/proprietary variants need authentic inputs."
+    },
+    {
+      "category": "binary",
+      "extension": "rom",
+      "samples": [],
+      "status": "missing-authentic-fixture",
+      "note": "A sample is not proof of renderer support; raw/proprietary variants need authentic inputs."
+    },
+    {
+      "category": "binary",
+      "extension": "so",
+      "samples": [],
+      "status": "missing-authentic-fixture",
+      "note": "A sample is not proof of renderer support; raw/proprietary variants need authentic inputs."
+    },
+    {
+      "category": "binary",
+      "extension": "wasm",
+      "samples": [
+        "binary/sample.wasm"
+      ],
+      "status": "sample-present-unverified",
+      "note": "A sample is not proof of renderer support; raw/proprietary variants need authentic inputs."
+    },
+    {
+      "category": "text",
+      "extension": "ass",
+      "samples": [
+        "text/sample.ass"
+      ],
+      "status": "sample-present-unverified",
+      "note": "A sample is not proof of renderer support; raw/proprietary variants need authentic inputs."
+    },
+    {
+      "category": "text",
+      "extension": "bash",
+      "samples": [
+        "text/sample.bash"
+      ],
+      "status": "sample-present-unverified",
+      "note": "A sample is not proof of renderer support; raw/proprietary variants need authentic inputs."
+    },
+    {
+      "category": "text",
+      "extension": "c",
+      "samples": [
+        "text/sample.c"
+      ],
+      "status": "sample-present-unverified",
+      "note": "A sample is not proof of renderer support; raw/proprietary variants need authentic inputs."
+    },
+    {
+      "category": "text",
+      "extension": "cfg",
+      "samples": [
+        "text/sample.cfg"
+      ],
+      "status": "sample-present-unverified",
+      "note": "A sample is not proof of renderer support; raw/proprietary variants need authentic inputs."
+    },
+    {
+      "category": "text",
+      "extension": "conf",
+      "samples": [
+        "text/sample.conf"
+      ],
+      "status": "sample-present-unverified",
+      "note": "A sample is not proof of renderer support; raw/proprietary variants need authentic inputs."
+    },
+    {
+      "category": "text",
+      "extension": "cpp",
+      "samples": [
+        "text/sample.cpp"
+      ],
+      "status": "sample-present-unverified",
+      "note": "A sample is not proof of renderer support; raw/proprietary variants need authentic inputs."
+    },
+    {
+      "category": "text",
+      "extension": "cs",
+      "samples": [
+        "text/sample.cs"
+      ],
+      "status": "sample-present-unverified",
+      "note": "A sample is not proof of renderer support; raw/proprietary variants need authentic inputs."
+    },
+    {
+      "category": "text",
+      "extension": "css",
+      "samples": [
+        "text/sample.css"
+      ],
+      "status": "sample-present-unverified",
+      "note": "A sample is not proof of renderer support; raw/proprietary variants need authentic inputs."
+    },
+    {
+      "category": "text",
+      "extension": "env",
+      "samples": [
+        "text/sample.env"
+      ],
+      "status": "sample-present-unverified",
+      "note": "A sample is not proof of renderer support; raw/proprietary variants need authentic inputs."
+    },
+    {
+      "category": "text",
+      "extension": "fish",
+      "samples": [
+        "text/sample.fish"
+      ],
+      "status": "sample-present-unverified",
+      "note": "A sample is not proof of renderer support; raw/proprietary variants need authentic inputs."
+    },
+    {
+      "category": "text",
+      "extension": "go",
+      "samples": [
+        "text/sample.go"
+      ],
+      "status": "sample-present-unverified",
+      "note": "A sample is not proof of renderer support; raw/proprietary variants need authentic inputs."
+    },
+    {
+      "category": "text",
+      "extension": "gradle",
+      "samples": [
+        "text/sample.gradle"
+      ],
+      "status": "sample-present-unverified",
+      "note": "A sample is not proof of renderer support; raw/proprietary variants need authentic inputs."
+    },
+    {
+      "category": "text",
+      "extension": "h",
+      "samples": [
+        "text/sample.h"
+      ],
+      "status": "sample-present-unverified",
+      "note": "A sample is not proof of renderer support; raw/proprietary variants need authentic inputs."
+    },
+    {
+      "category": "text",
+      "extension": "hpp",
+      "samples": [
+        "text/sample.hpp"
+      ],
+      "status": "sample-present-unverified",
+      "note": "A sample is not proof of renderer support; raw/proprietary variants need authentic inputs."
+    },
+    {
+      "category": "text",
+      "extension": "ini",
+      "samples": [
+        "text/sample.ini"
+      ],
+      "status": "sample-present-unverified",
+      "note": "A sample is not proof of renderer support; raw/proprietary variants need authentic inputs."
+    },
+    {
+      "category": "text",
+      "extension": "ipynb",
+      "samples": [
+        "text/sample.ipynb"
+      ],
+      "status": "sample-present-unverified",
+      "note": "A sample is not proof of renderer support; raw/proprietary variants need authentic inputs."
+    },
+    {
+      "category": "text",
+      "extension": "java",
+      "samples": [
+        "text/sample.java"
+      ],
+      "status": "sample-present-unverified",
+      "note": "A sample is not proof of renderer support; raw/proprietary variants need authentic inputs."
+    },
+    {
+      "category": "text",
+      "extension": "js",
+      "samples": [
+        "text/sample.js"
+      ],
+      "status": "sample-present-unverified",
+      "note": "A sample is not proof of renderer support; raw/proprietary variants need authentic inputs."
+    },
+    {
+      "category": "text",
+      "extension": "json",
+      "samples": [
+        "text/sample.json"
+      ],
+      "status": "sample-present-unverified",
+      "note": "A sample is not proof of renderer support; raw/proprietary variants need authentic inputs."
+    },
+    {
+      "category": "text",
+      "extension": "jsx",
+      "samples": [
+        "text/sample.jsx"
+      ],
+      "status": "sample-present-unverified",
+      "note": "A sample is not proof of renderer support; raw/proprietary variants need authentic inputs."
+    },
+    {
+      "category": "text",
+      "extension": "kt",
+      "samples": [
+        "text/sample.kt"
+      ],
+      "status": "sample-present-unverified",
+      "note": "A sample is not proof of renderer support; raw/proprietary variants need authentic inputs."
+    },
+    {
+      "category": "text",
+      "extension": "kts",
+      "samples": [
+        "text/sample.kts"
+      ],
+      "status": "sample-present-unverified",
+      "note": "A sample is not proof of renderer support; raw/proprietary variants need authentic inputs."
+    },
+    {
+      "category": "text",
+      "extension": "log",
+      "samples": [
+        "text/sample.log"
+      ],
+      "status": "sample-present-unverified",
+      "note": "A sample is not proof of renderer support; raw/proprietary variants need authentic inputs."
+    },
+    {
+      "category": "text",
+      "extension": "lrc",
+      "samples": [
+        "text/sample.lrc"
+      ],
+      "status": "sample-present-unverified",
+      "note": "A sample is not proof of renderer support; raw/proprietary variants need authentic inputs."
+    },
+    {
+      "category": "text",
+      "extension": "m",
+      "samples": [
+        "text/sample.m"
+      ],
+      "status": "sample-present-unverified",
+      "note": "A sample is not proof of renderer support; raw/proprietary variants need authentic inputs."
+    },
+    {
+      "category": "text",
+      "extension": "mm",
+      "samples": [
+        "text/sample.mm"
+      ],
+      "status": "sample-present-unverified",
+      "note": "A sample is not proof of renderer support; raw/proprietary variants need authentic inputs."
+    },
+    {
+      "category": "text",
+      "extension": "php",
+      "samples": [
+        "text/sample.php"
+      ],
+      "status": "sample-present-unverified",
+      "note": "A sample is not proof of renderer support; raw/proprietary variants need authentic inputs."
+    },
+    {
+      "category": "text",
+      "extension": "plist",
+      "samples": [
+        "text/sample.plist"
+      ],
+      "status": "sample-present-unverified",
+      "note": "A sample is not proof of renderer support; raw/proprietary variants need authentic inputs."
+    },
+    {
+      "category": "text",
+      "extension": "properties",
+      "samples": [
+        "text/sample.properties"
+      ],
+      "status": "sample-present-unverified",
+      "note": "A sample is not proof of renderer support; raw/proprietary variants need authentic inputs."
+    },
+    {
+      "category": "text",
+      "extension": "py",
+      "samples": [
+        "text/sample.py"
+      ],
+      "status": "sample-present-unverified",
+      "note": "A sample is not proof of renderer support; raw/proprietary variants need authentic inputs."
+    },
+    {
+      "category": "text",
+      "extension": "rb",
+      "samples": [
+        "text/sample.rb"
+      ],
+      "status": "sample-present-unverified",
+      "note": "A sample is not proof of renderer support; raw/proprietary variants need authentic inputs."
+    },
+    {
+      "category": "text",
+      "extension": "rs",
+      "samples": [
+        "text/sample.rs"
+      ],
+      "status": "sample-present-unverified",
+      "note": "A sample is not proof of renderer support; raw/proprietary variants need authentic inputs."
+    },
+    {
+      "category": "text",
+      "extension": "sh",
+      "samples": [
+        "text/sample.sh"
+      ],
+      "status": "sample-present-unverified",
+      "note": "A sample is not proof of renderer support; raw/proprietary variants need authentic inputs."
+    },
+    {
+      "category": "text",
+      "extension": "sql",
+      "samples": [
+        "text/sample.sql"
+      ],
+      "status": "sample-present-unverified",
+      "note": "A sample is not proof of renderer support; raw/proprietary variants need authentic inputs."
+    },
+    {
+      "category": "text",
+      "extension": "srt",
+      "samples": [
+        "text/sample.srt"
+      ],
+      "status": "sample-present-unverified",
+      "note": "A sample is not proof of renderer support; raw/proprietary variants need authentic inputs."
+    },
+    {
+      "category": "text",
+      "extension": "sub",
+      "samples": [
+        "text/sample.sub"
+      ],
+      "status": "sample-present-unverified",
+      "note": "A sample is not proof of renderer support; raw/proprietary variants need authentic inputs."
+    },
+    {
+      "category": "text",
+      "extension": "svelte",
+      "samples": [
+        "text/sample.svelte"
+      ],
+      "status": "sample-present-unverified",
+      "note": "A sample is not proof of renderer support; raw/proprietary variants need authentic inputs."
+    },
+    {
+      "category": "text",
+      "extension": "swift",
+      "samples": [
+        "text/sample.swift"
+      ],
+      "status": "sample-present-unverified",
+      "note": "A sample is not proof of renderer support; raw/proprietary variants need authentic inputs."
+    },
+    {
+      "category": "text",
+      "extension": "toml",
+      "samples": [
+        "text/sample.toml"
+      ],
+      "status": "sample-present-unverified",
+      "note": "A sample is not proof of renderer support; raw/proprietary variants need authentic inputs."
+    },
+    {
+      "category": "text",
+      "extension": "ts",
+      "samples": [
+        "text/sample.ts",
+        "video/clip.ts"
+      ],
+      "status": "sample-present-unverified",
+      "note": "A sample is not proof of renderer support; raw/proprietary variants need authentic inputs."
+    },
+    {
+      "category": "text",
+      "extension": "tsx",
+      "samples": [
+        "text/sample.tsx"
+      ],
+      "status": "sample-present-unverified",
+      "note": "A sample is not proof of renderer support; raw/proprietary variants need authentic inputs."
+    },
+    {
+      "category": "text",
+      "extension": "txt",
+      "samples": [
+        "text/sample.txt"
+      ],
+      "status": "sample-present-unverified",
+      "note": "A sample is not proof of renderer support; raw/proprietary variants need authentic inputs."
+    },
+    {
+      "category": "text",
+      "extension": "vtt",
+      "samples": [
+        "text/sample.vtt"
+      ],
+      "status": "sample-present-unverified",
+      "note": "A sample is not proof of renderer support; raw/proprietary variants need authentic inputs."
+    },
+    {
+      "category": "text",
+      "extension": "vue",
+      "samples": [
+        "text/sample.vue"
+      ],
+      "status": "sample-present-unverified",
+      "note": "A sample is not proof of renderer support; raw/proprietary variants need authentic inputs."
+    },
+    {
+      "category": "text",
+      "extension": "xml",
+      "samples": [
+        "text/sample.xml"
+      ],
+      "status": "sample-present-unverified",
+      "note": "A sample is not proof of renderer support; raw/proprietary variants need authentic inputs."
+    },
+    {
+      "category": "text",
+      "extension": "yaml",
+      "samples": [
+        "text/sample.yaml"
+      ],
+      "status": "sample-present-unverified",
+      "note": "A sample is not proof of renderer support; raw/proprietary variants need authentic inputs."
+    },
+    {
+      "category": "text",
+      "extension": "yml",
+      "samples": [
+        "text/sample.yml"
+      ],
+      "status": "sample-present-unverified",
+      "note": "A sample is not proof of renderer support; raw/proprietary variants need authentic inputs."
+    },
+    {
+      "category": "text",
+      "extension": "zsh",
+      "samples": [
+        "text/sample.zsh"
+      ],
+      "status": "sample-present-unverified",
+      "note": "A sample is not proof of renderer support; raw/proprietary variants need authentic inputs."
+    },
+    {
+      "category": "archive",
+      "extension": "001",
+      "samples": [],
+      "status": "missing-authentic-fixture",
+      "note": "A sample is not proof of renderer support; raw/proprietary variants need authentic inputs."
+    },
+    {
+      "category": "archive",
+      "extension": "002",
+      "samples": [],
+      "status": "missing-authentic-fixture",
+      "note": "A sample is not proof of renderer support; raw/proprietary variants need authentic inputs."
+    },
+    {
+      "category": "archive",
+      "extension": "003",
+      "samples": [],
+      "status": "missing-authentic-fixture",
+      "note": "A sample is not proof of renderer support; raw/proprietary variants need authentic inputs."
+    },
+    {
+      "category": "archive",
+      "extension": "7z",
+      "samples": [
+        "archives/sample.7z"
+      ],
+      "status": "sample-present-unverified",
+      "note": "A sample is not proof of renderer support; raw/proprietary variants need authentic inputs."
+    },
+    {
+      "category": "archive",
+      "extension": "bz2",
+      "samples": [
+        "archives/sample.tar.bz2",
+        "archives/stream.bz2"
+      ],
+      "status": "sample-present-unverified",
+      "note": "A sample is not proof of renderer support; raw/proprietary variants need authentic inputs."
+    },
+    {
+      "category": "archive",
+      "extension": "gz",
+      "samples": [
+        "archives/sample.tar.gz",
+        "archives/stream.gz"
+      ],
+      "status": "sample-present-unverified",
+      "note": "A sample is not proof of renderer support; raw/proprietary variants need authentic inputs."
+    },
+    {
+      "category": "archive",
+      "extension": "iso",
+      "samples": [],
+      "status": "missing-authentic-fixture",
+      "note": "A sample is not proof of renderer support; raw/proprietary variants need authentic inputs."
+    },
+    {
+      "category": "archive",
+      "extension": "rar",
+      "samples": [],
+      "status": "missing-authentic-fixture",
+      "note": "A sample is not proof of renderer support; raw/proprietary variants need authentic inputs."
+    },
+    {
+      "category": "archive",
+      "extension": "tar",
+      "samples": [
+        "archives/sample.tar"
+      ],
+      "status": "sample-present-unverified",
+      "note": "A sample is not proof of renderer support; raw/proprietary variants need authentic inputs."
+    },
+    {
+      "category": "archive",
+      "extension": "tgz",
+      "samples": [
+        "archives/sample.tgz"
+      ],
+      "status": "sample-present-unverified",
+      "note": "A sample is not proof of renderer support; raw/proprietary variants need authentic inputs."
+    },
+    {
+      "category": "archive",
+      "extension": "xz",
+      "samples": [
+        "archives/sample.tar.xz",
+        "archives/stream.xz"
+      ],
+      "status": "sample-present-unverified",
+      "note": "A sample is not proof of renderer support; raw/proprietary variants need authentic inputs."
+    },
+    {
+      "category": "archive",
+      "extension": "z01",
+      "samples": [],
+      "status": "missing-authentic-fixture",
+      "note": "A sample is not proof of renderer support; raw/proprietary variants need authentic inputs."
+    },
+    {
+      "category": "archive",
+      "extension": "z02",
+      "samples": [],
+      "status": "missing-authentic-fixture",
+      "note": "A sample is not proof of renderer support; raw/proprietary variants need authentic inputs."
+    },
+    {
+      "category": "archive",
+      "extension": "z03",
+      "samples": [],
+      "status": "missing-authentic-fixture",
+      "note": "A sample is not proof of renderer support; raw/proprietary variants need authentic inputs."
+    },
+    {
+      "category": "archive",
+      "extension": "zip",
+      "samples": [
+        "archives/sample.zip"
+      ],
+      "status": "sample-present-unverified",
+      "note": "A sample is not proof of renderer support; raw/proprietary variants need authentic inputs."
+    },
+    {
+      "category": "archive",
+      "extension": "zst",
+      "samples": [
+        "archives/sample.tar.zst"
+      ],
+      "status": "sample-present-unverified",
+      "note": "A sample is not proof of renderer support; raw/proprietary variants need authentic inputs."
+    }
+  ],
+  "generation_failures": [
+    {
+      "path": "audio/tone.spx",
+      "reason": "[aost#0:0 @ 0x7592c38000] Unknown encoder 'libspeex'\n[aost#0:0 @ 0x7592c38000] Error selecting an encoder\nError opening output file <corpus>/audio/tone.spx.\nError opening output files: Encoder not found\n"
+    },
+    {
+      "path": "audio/tone.gsm",
+      "reason": "[aost#0:0 @ 0x7b2d030000] Unknown encoder 'libgsm'\n[aost#0:0 @ 0x7b2d030000] Error selecting an encoder\nError opening output file <corpus>/audio/tone.gsm.\nError opening output files: Encoder not found\n"
+    },
+    {
+      "path": "video/clip.ogv",
+      "reason": "[vost#0:0 @ 0x78d2c3c000] Unknown encoder 'libtheora'\n[vost#0:0 @ 0x78d2c3c000] Error selecting an encoder\nError opening output file <corpus>/video/clip.ogv.\nError opening output files: Encoder not found\n"
+    }
+  ],
+  "tools": {
+    "ffmpeg": [
+      "ffmpeg version 9.0.1 Copyright (c) 2000-2026 the FFmpeg developers",
+      "built with Apple clang version 21.0.0 (clang-2100.1.1.101)",
+      "configuration: --prefix=/opt/homebrew/Cellar/ffmpeg/9.0.1_1 --enable-shared --enable-pthreads --enable-version3 --cc=clang --host-cflags= --host-ldflags= --enable-ffplay --enable-gpl --enable-libsvtav1 --enable-libopus --enable-libx264 --enable-libmp3lame --enable-libdav1d --enable-libvmaf --enable-libvpx --enable-libx265 --enable-openssl --enable-videotoolbox --enable-audiotoolbox --enable-neon"
+    ],
+    "ffprobe": [
+      "ffprobe version 9.0.1 Copyright (c) 2007-2026 the FFmpeg developers",
+      "built with Apple clang version 21.0.0 (clang-2100.1.1.101)",
+      "configuration: --prefix=/opt/homebrew/Cellar/ffmpeg/9.0.1_1 --enable-shared --enable-pthreads --enable-version3 --cc=clang --host-cflags= --host-ldflags= --enable-ffplay --enable-gpl --enable-libsvtav1 --enable-libopus --enable-libx264 --enable-libmp3lame --enable-libdav1d --enable-libvmaf --enable-libvpx --enable-libx265 --enable-openssl --enable-videotoolbox --enable-audiotoolbox --enable-neon"
+    ],
+    "pandoc": [
+      "pandoc 3.10.1",
+      "Features: +server +lua",
+      "Scripting engine: Lua 5.4"
+    ],
+    "7zz": [
+      "",
+      "7-Zip (z) 26.02 (arm64) : Copyright (c) 1999-2026 Igor Pavlov : 2026-06-25",
+      " 64-bit arm_v:8.5-A locale=C.UTF-8 Threads:18 OPEN_MAX:1048575, ASM"
+    ]
+  }
+}

@@ -6,8 +6,6 @@ import Foundation
 import TTZipUI
 @testable import TTZipCore
 @testable import TTZipApp
-@testable import TTZipAppViewModels
-@testable import TTZipAppServices
 
 // MM48 — ownership of the shared password cache.
 //

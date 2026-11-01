@@ -6,8 +6,6 @@ import XCTest
 import os
 @testable import TTZipApp
 #if !SWIFT_PACKAGE
-@testable import TTZipAppServices
-@testable import TTZipAppViews
 #endif
 
 /// Exercises real Swift wrappers with count-only native operations and zero-node views.

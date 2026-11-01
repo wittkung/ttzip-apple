@@ -6,7 +6,6 @@ import Foundation
 import XCTest
 import TTZipCore
 @testable import TTZipApp
-@testable import TTZipAppServices
 
 // MARK: - Controlled Bridge for Lifecycle Termination Tests
 

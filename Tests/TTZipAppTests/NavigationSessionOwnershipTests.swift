@@ -3,9 +3,9 @@
 
 import Foundation
 import XCTest
-import TTZipAppModels
+import TTZipApp
 import TTZipUI
-@testable import TTZipAppViewModels
+@testable import TTZipApp
 
 @MainActor
 final class NavigationSessionOwnershipTests: XCTestCase {

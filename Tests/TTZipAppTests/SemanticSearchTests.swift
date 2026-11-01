@@ -4,7 +4,6 @@
 import XCTest
 import TTZipCore
 @testable import TTZipApp
-@testable import TTZipAppServices
 
 final class SemanticSearchTests: XCTestCase {
 

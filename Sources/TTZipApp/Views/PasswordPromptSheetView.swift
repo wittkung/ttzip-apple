@@ -5,10 +5,8 @@ import SwiftUI
 import TTZipCore
 import TTZipUI
 #if canImport(TTZipAppViewModels)
-import TTZipAppViewModels
 #endif
 #if canImport(TTZipAppServices)
-import TTZipAppServices
 #endif
 
 public struct PasswordPromptSheetView: View {

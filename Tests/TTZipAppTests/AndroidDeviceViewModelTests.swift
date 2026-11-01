@@ -6,8 +6,6 @@ import Foundation
 import CryptoKit
 import Darwin
 @testable import TTZipApp
-@testable import TTZipAppViewModels
-@testable import TTZipAppServices
 
 private struct MockMtpBridgeProvider: MtpTransferBridgeProvider {
     var onPull: (@Sendable (String, UInt32, UInt32, String, URL) throws -> MtpDownloadBridgeOutcome)? = nil

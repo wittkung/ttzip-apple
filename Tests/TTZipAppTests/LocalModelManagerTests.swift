@@ -7,7 +7,6 @@ import Foundation
 import XCTest
 import TTZipCore
 @testable import TTZipApp
-@testable import TTZipAppServices
 
 // MARK: - Controlled Test Doubles for LocalModelManager & SemanticCoreBridging
 

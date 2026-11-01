@@ -1,0 +1,17 @@
+{
+  "hevc-ac3.mkv": {
+    "bytes": 33777,
+    "sha256": "ae2d1b44dd77344365c17fedb25c6f883469fb2511b7395ba79cdb68b4cf42eb",
+    "purpose": "synthetic demux contract; not decoder/playback evidence"
+  },
+  "hevc-eac3.mkv": {
+    "bytes": 33778,
+    "sha256": "b64ba8aab01ba8a24caec0053c7f21daef1723b8fcb68fa6c53adfb41c621bc6",
+    "purpose": "synthetic demux contract; not decoder/playback evidence"
+  },
+  "avc-ac3.mkv": {
+    "bytes": 33627,
+    "sha256": "cff6ed64f4ab223e3c1f5d500fbc69c7aba6c186b3555fb92568b2629d68b8e4",
+    "purpose": "synthetic demux contract; not decoder/playback evidence"
+  }
+}

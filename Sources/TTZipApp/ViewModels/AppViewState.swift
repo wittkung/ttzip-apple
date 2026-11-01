@@ -9,7 +9,6 @@ import TTZipCore
 import TTZipUI
 import TTZipPreviewKit
 #if canImport(TTZipAppServices)
-import TTZipAppServices
 #endif
 
 /// TTZip GUI main view ViewModel coordinating UI interactions with decoupled domain state trees.

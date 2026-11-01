@@ -2,12 +2,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
 import Foundation
-@testable import TTZipAppCommon
 @testable import TTZipApp
-@testable import TTZipAppModels
-@testable import TTZipAppServices
-@testable import TTZipAppViewModels
-@testable import TTZipAppViews
 import TTZipCore
 
 // MARK: - Deterministic Synchronization Gates & Lifecycle Test Doubles
@@ -336,12 +331,12 @@ final class S2LifecycleUniFFIDouble: UniFFISemanticSearchEngineBindingProtocol, 
         lock.withLock { scopeEpochs[scopeId] != nil }
     }
 
-    func modelState() -> UniFFISemanticModelState {
+    func modelState() -> AppUniFFISemanticModelState {
         guard isModelInstalled else {
             return .notInstalled
         }
         return .ready(
-            info: UniFFISemanticModelInfo(
+            info: AppUniFFISemanticModelInfo(
                 modelId: PinnedSemanticModelConstants.modelId,
                 modelRevision: PinnedSemanticModelConstants.modelRevision,
                 ggufFilename: PinnedSemanticModelConstants.ggufFilename,
@@ -355,7 +350,7 @@ final class S2LifecycleUniFFIDouble: UniFFISemanticSearchEngineBindingProtocol, 
         )
     }
 
-    func registerScope(descriptor: UniFFISemanticScopeDescriptor) -> Bool {
+    func registerScope(descriptor: AppUniFFISemanticScopeDescriptor) -> Bool {
         lock.withLock {
             nextSequence &+= 1
             scopeEpochs[descriptor.scopeId] = nextSequence
@@ -376,11 +371,11 @@ final class S2LifecycleUniFFIDouble: UniFFISemanticSearchEngineBindingProtocol, 
         }
     }
 
-    func startDirectoryIndexing(scopeId: String) -> UniFFISemanticIndexProgress {
+    func startDirectoryIndexing(scopeId: String) -> AppUniFFISemanticIndexProgress {
         onIndexingStarted?()
         if !isModelInstalled {
             onIndexingFinished?()
-            return UniFFISemanticIndexProgress(
+            return AppUniFFISemanticIndexProgress(
                 scopeId: scopeId,
                 phase: .degradedLexicalOnly,
                 processedFiles: 0,
@@ -412,7 +407,7 @@ final class S2LifecycleUniFFIDouble: UniFFISemanticSearchEngineBindingProtocol, 
         }
         onIndexingFinished?()
         guard committed else {
-            return UniFFISemanticIndexProgress(
+            return AppUniFFISemanticIndexProgress(
                 scopeId: scopeId,
                 phase: .cancelled,
                 processedFiles: 0,
@@ -422,7 +417,7 @@ final class S2LifecycleUniFFIDouble: UniFFISemanticSearchEngineBindingProtocol, 
                 errorMessage: nil
             )
         }
-        return UniFFISemanticIndexProgress(
+        return AppUniFFISemanticIndexProgress(
             scopeId: scopeId,
             phase: .completed,
             processedFiles: 2,
@@ -441,13 +436,13 @@ final class S2LifecycleUniFFIDouble: UniFFISemanticSearchEngineBindingProtocol, 
         onCancelIndexingCalled?()
     }
 
-    func scopeProgress(scopeId: String) -> UniFFISemanticIndexProgress? {
+    func scopeProgress(scopeId: String) -> AppUniFFISemanticIndexProgress? {
         let segsOpt: UInt32? = lock.withLock {
             guard scopeEpochs[scopeId] != nil else { return nil }
             return scopeSegments[scopeId] ?? 0
         }
         guard let segs = segsOpt else { return nil }
-        return UniFFISemanticIndexProgress(
+        return AppUniFFISemanticIndexProgress(
             scopeId: scopeId,
             phase: segs > 0 ? .completed : .idle,
             processedFiles: segs > 0 ? 2 : 0,
@@ -458,11 +453,11 @@ final class S2LifecycleUniFFIDouble: UniFFISemanticSearchEngineBindingProtocol, 
         )
     }
 
-    func upsertArchiveEntries(scopeId: String, entries: [UniFFISemanticArchiveEntryInput]) -> UniFFISemanticIndexProgress {
+    func upsertArchiveEntries(scopeId: String, entries: [AppUniFFISemanticArchiveEntryInput]) -> AppUniFFISemanticIndexProgress {
         lock.withLock {
             scopeSegments[scopeId] = UInt32(entries.count)
         }
-        return UniFFISemanticIndexProgress(
+        return AppUniFFISemanticIndexProgress(
             scopeId: scopeId,
             phase: .completed,
             processedFiles: UInt32(entries.count),
@@ -477,13 +472,13 @@ final class S2LifecycleUniFFIDouble: UniFFISemanticSearchEngineBindingProtocol, 
         true
     }
 
-    func search(request: UniFFISemanticSearchRequest) -> UniFFISemanticSearchResponse {
+    func search(request: AppUniFFISemanticSearchRequest) -> AppUniFFISemanticSearchResponse {
         mutexGate?.searchAcquireMutex()
         let (isCancelled, activeScopes) = lock.withLock {
             (_cancelledSearchIds.contains(request.requestId), scopeSegments.filter { $0.value > 0 })
         }
         if isCancelled {
-            return UniFFISemanticSearchResponse(
+            return AppUniFFISemanticSearchResponse(
                 requestId: request.requestId,
                 windowId: request.windowId,
                 isCancelled: true,
@@ -492,7 +487,7 @@ final class S2LifecycleUniFFIDouble: UniFFISemanticSearchEngineBindingProtocol, 
             )
         }
         if !isModelInstalled {
-            return UniFFISemanticSearchResponse(
+            return AppUniFFISemanticSearchResponse(
                 requestId: request.requestId,
                 windowId: request.windowId,
                 isCancelled: false,
@@ -501,7 +496,7 @@ final class S2LifecycleUniFFIDouble: UniFFISemanticSearchEngineBindingProtocol, 
             )
         }
         guard let firstScope = activeScopes.first else {
-            return UniFFISemanticSearchResponse(
+            return AppUniFFISemanticSearchResponse(
                 requestId: request.requestId,
                 windowId: request.windowId,
                 isCancelled: false,
@@ -510,7 +505,7 @@ final class S2LifecycleUniFFIDouble: UniFFISemanticSearchEngineBindingProtocol, 
             )
         }
         let rootPath = firstScope.key.replacingOccurrences(of: "dir:", with: "")
-        let hit = UniFFISemanticSearchHit(
+        let hit = AppUniFFISemanticSearchHit(
             scopeId: firstScope.key,
             sourceKind: .authorizedDirectory,
             containerOrRootPath: rootPath,
@@ -526,7 +521,7 @@ final class S2LifecycleUniFFIDouble: UniFFISemanticSearchEngineBindingProtocol, 
             indexGeneration: 2,
             modelFingerprint: PinnedSemanticModelConstants.testDoubleModelFingerprint
         )
-        return UniFFISemanticSearchResponse(
+        return AppUniFFISemanticSearchResponse(
             requestId: request.requestId,
             windowId: request.windowId,
             isCancelled: false,
@@ -541,8 +536,8 @@ final class S2LifecycleUniFFIDouble: UniFFISemanticSearchEngineBindingProtocol, 
         }
     }
 
-    func buildOpenRequest(hit: UniFFISemanticSearchHit) -> UniFFISemanticOpenRequest {
-        UniFFISemanticOpenRequest(
+    func buildOpenRequest(hit: AppUniFFISemanticSearchHit) -> AppUniFFISemanticOpenRequest {
+        AppUniFFISemanticOpenRequest(
             scopeId: hit.scopeId,
             sourceKind: hit.sourceKind,
             outerPath: hit.containerOrRootPath,

@@ -79,10 +79,11 @@ open dist/TTZip.app
 `apple/Package.swift` automatically adapts to your workflow:
 
 1. **Standalone Mode (Default)**:
-   - When cloned independently, SPM automatically resolves `TTZipCore` from the official Git repository (`https://github.com/wittkung/ttzip-core.git`), linking against the precompiled Universal (`arm64` + `x86_64`) `TTZipVendor.xcframework`. Zero local Rust setup required.
-2. **Local Co-Development Mode (Automatic)**:
-   - If a sibling `../core` repository exists locally, `Package.swift` automatically uses `.package(path: "../core")` for instant sub-second local Rust ↔ Swift iteration.
-   - To force remote resolution even when `../core` exists, set `TTZIP_USE_REMOTE_CORE=1 swift build`.
+   - SPM resolves `TTZipCore` from the official Git repository (`https://github.com/wittkung/ttzip-core.git`) and links the precompiled `arm64` `TTZipVendor.xcframework` that the package ships. Zero local Rust setup required.
+2. **Local Co-Development Mode**:
+   - To build against a local checkout of `ttzip-core`, replace the remote dependency in `Package.swift` with `.package(path: "../ttzip-core")`.
+3. **Swift Package Notes**:
+   - The SwiftPM package compiles the application as one target, while the internal build compiles it as several modules. The behavioural test suite asserts on the boundaries between those modules, so it is not part of this package; the test sources stay in `Tests/TTZipAppTests`.
 
 ---
 

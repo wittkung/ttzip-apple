@@ -189,7 +189,7 @@ final class SemanticBindingSessionBox: @unchecked Sendable {
         body(engine)
     }
 
-    func prepareOnNativeLane() -> UniFFISemanticModelState? {
+    func prepareOnNativeLane() -> AppUniFFISemanticModelState? {
         guard let borrowed = beginRunningBorrow() else { return nil }
         let state = Self.invokePrepareScoped(engine: borrowed, session: self)
         endRunningBorrow()
@@ -199,7 +199,7 @@ final class SemanticBindingSessionBox: @unchecked Sendable {
     private static func invokePrepareScoped(
         engine: any UniFFISemanticSearchEngineBindingProtocol,
         session: SemanticBindingSessionBox
-    ) -> UniFFISemanticModelState? {
+    ) -> AppUniFFISemanticModelState? {
         guard !session.isMarkedRetiring else { return nil }
         let state = engine.prepareModelRuntime()
         if case .ready = state {

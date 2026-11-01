@@ -9,14 +9,11 @@ import TTZipUI
 @testable import TTZipPreviewKit
 @testable import TTZipApp
 #if !SWIFT_PACKAGE
-@testable import TTZipAppViews
 #endif
 @testable import TTZipCore
 #if canImport(TTZipAppServices)
-@testable import TTZipAppServices
 #endif
 #if canImport(TTZipAppViewModels)
-@testable import TTZipAppViewModels
 #endif
 
 @MainActor

@@ -153,23 +153,6 @@ let package = Package(
             ],
             swiftSettings: swiftSettings
         ),
-        .testTarget(
-            name: "TTZipAppTests",
-            dependencies: [
-                "TTZipApp",
-                "TTZipUI",
-                "TTZipPreviewKit",
-                "TTZipBenchmarkKit",
-                "TTZipFinderSync",
-                "TTZipQuickLook",
-                .product(name: "TTMediaKit", package: ttmediaPackageName),
-                .product(name: "TTZipCore", package: corePackageName),
-                .product(name: "TTZipAppCore", package: appCorePackageName),
-                .product(name: "CTTZipAppCoreBridge", package: appCorePackageName)
-            ],
-            path: "Tests/TTZipAppTests",
-            swiftSettings: swiftSettings
-        )
     ],
     swiftLanguageModes: [.v6]
 )

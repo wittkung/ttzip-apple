@@ -5,7 +5,6 @@ import AppKit
 import SwiftUI
 import XCTest
 @testable import TTZipApp
-@testable import TTZipAppServices
 @testable import TTZipPreviewKit
 import TTMediaKit
 import TTZipCore

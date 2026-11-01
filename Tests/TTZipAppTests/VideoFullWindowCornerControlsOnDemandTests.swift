@@ -9,8 +9,6 @@ import TTMediaKit
 import TTZipCore
 import XCTest
 @testable import TTZipApp
-@testable import TTZipAppServices
-@testable import TTZipAppViews
 @testable import TTZipPreviewKit
 
 @MainActor
@@ -487,7 +485,7 @@ final class VideoFullWindowCornerControlsOnDemandTests: XCTestCase {
         var prevCount = 0
         var nextCount = 0
         let item = ImmersiveMediaItem(url: videoURL, name: videoURL.lastPathComponent)
-        let browserView = TTZipAppViews.ImmersiveMediaBrowserView(
+        let browserView = ImmersiveMediaBrowserView(
             item: item,
             onClose: {
                 closeCount += 1

@@ -34,10 +34,17 @@ let package = Package(
     ],
     dependencies: packageDependencies,
     targets: [
-        .systemLibrary(name: "TTMediaDemux", path: "include"),
+        .systemLibrary(
+            name: "TTMediaDemux",
+            path: "include"
+        ),
+        .binaryTarget(
+            name: "TTMediaVendor",
+            path: "Frameworks/TTMediaVendor.xcframework"
+        ),
         .target(
             name: "TTMediaKit",
-            dependencies: targetDependencies + ["TTMediaDemux"],
+            dependencies: targetDependencies + ["TTMediaDemux", "TTMediaVendor"],
             path: "Sources/TTMediaKit",
             resources: [
                 .process("Shaders")

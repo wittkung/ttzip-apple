@@ -5,10 +5,8 @@ import SwiftUI
 import TTZipCore
 import TTZipUI
 #if canImport(TTZipAppServices)
-import TTZipAppServices
 #endif
 #if canImport(TTZipAppViewModels)
-import TTZipAppViewModels
 #endif
 
 /// Reactive SwiftUI Commands struct for macOS native menu bar integration.

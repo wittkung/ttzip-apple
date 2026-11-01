@@ -68,9 +68,13 @@ extension XCTestCase {
         }
         var cursor = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
         for _ in 0..<8 {
-            let candidate = cursor.appendingPathComponent("infra/ttmedia/Tests/Fixtures/preview")
+            let candidate = cursor.appendingPathComponent("vendor/ttmedia/Tests/Fixtures/preview")
             if FileManager.default.fileExists(atPath: candidate.path) {
                 return candidate
+            }
+            let monorepoCandidate = cursor.appendingPathComponent("infra/ttmedia/Tests/Fixtures/preview")
+            if FileManager.default.fileExists(atPath: monorepoCandidate.path) {
+                return monorepoCandidate
             }
             cursor.deleteLastPathComponent()
         }

@@ -3,8 +3,8 @@
 
 import Foundation
 import XCTest
-import TTZipAppServices
-@testable import TTZipAppViewModels
+import TTZipApp
+@testable import TTZipApp
 import TTZipCore
 
 private final class RecordingArchiveCredentialStore: ArchiveScopedCredentialStore, @unchecked Sendable {

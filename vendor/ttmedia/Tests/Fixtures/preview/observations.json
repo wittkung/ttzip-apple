@@ -1,0 +1,1788 @@
+{
+  "observations" : [
+    {
+      "disk_route" : "text",
+      "expected" : "text",
+      "image_frames" : 0,
+      "path" : "text\/sample.ass",
+      "visual_qa" : "not-run"
+    },
+    {
+      "disk_route" : "text",
+      "expected" : "text",
+      "image_frames" : 0,
+      "path" : "text\/sample.bash",
+      "visual_qa" : "not-run"
+    },
+    {
+      "disk_route" : "text",
+      "expected" : "text",
+      "image_frames" : 0,
+      "path" : "text\/sample.c",
+      "visual_qa" : "not-run"
+    },
+    {
+      "disk_route" : "text",
+      "expected" : "text",
+      "image_frames" : 0,
+      "path" : "text\/sample.cfg",
+      "visual_qa" : "not-run"
+    },
+    {
+      "disk_route" : "text",
+      "expected" : "text",
+      "image_frames" : 0,
+      "path" : "text\/sample.conf",
+      "visual_qa" : "not-run"
+    },
+    {
+      "disk_route" : "text",
+      "expected" : "text",
+      "image_frames" : 0,
+      "path" : "text\/sample.cpp",
+      "visual_qa" : "not-run"
+    },
+    {
+      "disk_route" : "text",
+      "expected" : "text",
+      "image_frames" : 0,
+      "path" : "text\/sample.cs",
+      "visual_qa" : "not-run"
+    },
+    {
+      "disk_route" : "text",
+      "expected" : "text",
+      "image_frames" : 0,
+      "path" : "text\/sample.css",
+      "visual_qa" : "not-run"
+    },
+    {
+      "disk_route" : "text",
+      "expected" : "text",
+      "image_frames" : 0,
+      "path" : "text\/sample.env",
+      "visual_qa" : "not-run"
+    },
+    {
+      "disk_route" : "text",
+      "expected" : "text",
+      "image_frames" : 0,
+      "path" : "text\/sample.fish",
+      "visual_qa" : "not-run"
+    },
+    {
+      "disk_route" : "text",
+      "expected" : "text",
+      "image_frames" : 0,
+      "path" : "text\/sample.go",
+      "visual_qa" : "not-run"
+    },
+    {
+      "disk_route" : "text",
+      "expected" : "text",
+      "image_frames" : 0,
+      "path" : "text\/sample.gradle",
+      "visual_qa" : "not-run"
+    },
+    {
+      "disk_route" : "text",
+      "expected" : "text",
+      "image_frames" : 0,
+      "path" : "text\/sample.h",
+      "visual_qa" : "not-run"
+    },
+    {
+      "disk_route" : "text",
+      "expected" : "text",
+      "image_frames" : 0,
+      "path" : "text\/sample.hpp",
+      "visual_qa" : "not-run"
+    },
+    {
+      "disk_route" : "text",
+      "expected" : "text",
+      "image_frames" : 0,
+      "path" : "text\/sample.ini",
+      "visual_qa" : "not-run"
+    },
+    {
+      "disk_route" : "text",
+      "expected" : "text",
+      "image_frames" : 0,
+      "path" : "text\/sample.ipynb",
+      "visual_qa" : "not-run"
+    },
+    {
+      "disk_route" : "text",
+      "expected" : "text",
+      "image_frames" : 0,
+      "path" : "text\/sample.java",
+      "visual_qa" : "not-run"
+    },
+    {
+      "disk_route" : "text",
+      "expected" : "text",
+      "image_frames" : 0,
+      "path" : "text\/sample.js",
+      "visual_qa" : "not-run"
+    },
+    {
+      "disk_route" : "text",
+      "expected" : "text",
+      "image_frames" : 0,
+      "path" : "text\/sample.json",
+      "visual_qa" : "not-run"
+    },
+    {
+      "disk_route" : "text",
+      "expected" : "text",
+      "image_frames" : 0,
+      "path" : "text\/sample.jsx",
+      "visual_qa" : "not-run"
+    },
+    {
+      "disk_route" : "text",
+      "expected" : "text",
+      "image_frames" : 0,
+      "path" : "text\/sample.kt",
+      "visual_qa" : "not-run"
+    },
+    {
+      "disk_route" : "text",
+      "expected" : "text",
+      "image_frames" : 0,
+      "path" : "text\/sample.kts",
+      "visual_qa" : "not-run"
+    },
+    {
+      "disk_route" : "text",
+      "expected" : "text",
+      "image_frames" : 0,
+      "path" : "text\/sample.log",
+      "visual_qa" : "not-run"
+    },
+    {
+      "disk_route" : "text",
+      "expected" : "text",
+      "image_frames" : 0,
+      "path" : "text\/sample.lrc",
+      "visual_qa" : "not-run"
+    },
+    {
+      "disk_route" : "text",
+      "expected" : "text",
+      "image_frames" : 0,
+      "path" : "text\/sample.m",
+      "visual_qa" : "not-run"
+    },
+    {
+      "disk_route" : "text",
+      "expected" : "text",
+      "image_frames" : 0,
+      "path" : "text\/sample.mm",
+      "visual_qa" : "not-run"
+    },
+    {
+      "disk_route" : "text",
+      "expected" : "text",
+      "image_frames" : 0,
+      "path" : "text\/sample.php",
+      "visual_qa" : "not-run"
+    },
+    {
+      "disk_route" : "text",
+      "expected" : "text",
+      "image_frames" : 0,
+      "path" : "text\/sample.plist",
+      "visual_qa" : "not-run"
+    },
+    {
+      "disk_route" : "text",
+      "expected" : "text",
+      "image_frames" : 0,
+      "path" : "text\/sample.properties",
+      "visual_qa" : "not-run"
+    },
+    {
+      "disk_route" : "text",
+      "expected" : "text",
+      "image_frames" : 0,
+      "path" : "text\/sample.py",
+      "visual_qa" : "not-run"
+    },
+    {
+      "disk_route" : "text",
+      "expected" : "text",
+      "image_frames" : 0,
+      "path" : "text\/sample.rb",
+      "visual_qa" : "not-run"
+    },
+    {
+      "disk_route" : "text",
+      "expected" : "text",
+      "image_frames" : 0,
+      "path" : "text\/sample.rs",
+      "visual_qa" : "not-run"
+    },
+    {
+      "disk_route" : "text",
+      "expected" : "text",
+      "image_frames" : 0,
+      "path" : "text\/sample.sh",
+      "visual_qa" : "not-run"
+    },
+    {
+      "disk_route" : "text",
+      "expected" : "text",
+      "image_frames" : 0,
+      "path" : "text\/sample.sql",
+      "visual_qa" : "not-run"
+    },
+    {
+      "disk_route" : "text",
+      "expected" : "text",
+      "image_frames" : 0,
+      "path" : "text\/sample.srt",
+      "visual_qa" : "not-run"
+    },
+    {
+      "disk_route" : "text",
+      "expected" : "text",
+      "image_frames" : 0,
+      "path" : "text\/sample.sub",
+      "visual_qa" : "not-run"
+    },
+    {
+      "disk_route" : "text",
+      "expected" : "text",
+      "image_frames" : 0,
+      "path" : "text\/sample.svelte",
+      "visual_qa" : "not-run"
+    },
+    {
+      "disk_route" : "text",
+      "expected" : "text",
+      "image_frames" : 0,
+      "path" : "text\/sample.swift",
+      "visual_qa" : "not-run"
+    },
+    {
+      "disk_route" : "text",
+      "expected" : "text",
+      "image_frames" : 0,
+      "path" : "text\/sample.toml",
+      "visual_qa" : "not-run"
+    },
+    {
+      "disk_route" : "text",
+      "expected" : "text",
+      "image_frames" : 0,
+      "path" : "text\/sample.ts",
+      "visual_qa" : "not-run"
+    },
+    {
+      "disk_route" : "text",
+      "expected" : "text",
+      "image_frames" : 0,
+      "path" : "text\/sample.tsx",
+      "visual_qa" : "not-run"
+    },
+    {
+      "disk_route" : "text",
+      "expected" : "text",
+      "image_frames" : 0,
+      "path" : "text\/sample.txt",
+      "visual_qa" : "not-run"
+    },
+    {
+      "disk_route" : "text",
+      "expected" : "text",
+      "image_frames" : 0,
+      "path" : "text\/sample.vtt",
+      "visual_qa" : "not-run"
+    },
+    {
+      "disk_route" : "text",
+      "expected" : "text",
+      "image_frames" : 0,
+      "path" : "text\/sample.vue",
+      "visual_qa" : "not-run"
+    },
+    {
+      "disk_route" : "text",
+      "expected" : "text",
+      "image_frames" : 0,
+      "path" : "text\/sample.xml",
+      "visual_qa" : "not-run"
+    },
+    {
+      "disk_route" : "text",
+      "expected" : "text",
+      "image_frames" : 0,
+      "path" : "text\/sample.yaml",
+      "visual_qa" : "not-run"
+    },
+    {
+      "disk_route" : "text",
+      "expected" : "text",
+      "image_frames" : 0,
+      "path" : "text\/sample.yml",
+      "visual_qa" : "not-run"
+    },
+    {
+      "disk_route" : "text",
+      "expected" : "text",
+      "image_frames" : 0,
+      "path" : "text\/sample.zsh",
+      "visual_qa" : "not-run"
+    },
+    {
+      "disk_route" : "markdown",
+      "expected" : "markdown",
+      "image_frames" : 0,
+      "path" : "markdown\/sample.markdown",
+      "visual_qa" : "not-run"
+    },
+    {
+      "disk_route" : "markdown",
+      "expected" : "markdown",
+      "image_frames" : 0,
+      "path" : "markdown\/sample.md",
+      "visual_qa" : "not-run"
+    },
+    {
+      "disk_route" : "markdown",
+      "expected" : "markdown",
+      "image_frames" : 0,
+      "path" : "markdown\/sample.mdown",
+      "visual_qa" : "not-run"
+    },
+    {
+      "disk_route" : "markdown",
+      "expected" : "markdown",
+      "image_frames" : 0,
+      "path" : "markdown\/sample.mdtext",
+      "visual_qa" : "not-run"
+    },
+    {
+      "disk_route" : "markdown",
+      "expected" : "markdown",
+      "image_frames" : 0,
+      "path" : "markdown\/sample.mdtxt",
+      "visual_qa" : "not-run"
+    },
+    {
+      "disk_route" : "markdown",
+      "expected" : "markdown",
+      "image_frames" : 0,
+      "path" : "markdown\/sample.mkd",
+      "visual_qa" : "not-run"
+    },
+    {
+      "disk_route" : "markdown",
+      "expected" : "markdown",
+      "image_frames" : 0,
+      "path" : "markdown\/sample.mkdn",
+      "visual_qa" : "not-run"
+    },
+    {
+      "disk_route" : "spreadsheetTable",
+      "expected" : "spreadsheetTable",
+      "image_frames" : 0,
+      "path" : "tables\/sample.csv",
+      "visual_qa" : "not-run"
+    },
+    {
+      "disk_route" : "spreadsheetTable",
+      "expected" : "spreadsheetTable",
+      "image_frames" : 0,
+      "path" : "tables\/sample.tsv",
+      "visual_qa" : "not-run"
+    },
+    {
+      "disk_route" : "spreadsheetTable",
+      "expected" : "spreadsheetTable",
+      "image_frames" : 0,
+      "path" : "tables\/sample.tab",
+      "visual_qa" : "not-run"
+    },
+    {
+      "disk_route" : "spreadsheetTable",
+      "expected" : "spreadsheetTable",
+      "image_frames" : 0,
+      "path" : "tables\/sample.psv",
+      "visual_qa" : "not-run"
+    },
+    {
+      "disk_route" : "spreadsheetTable",
+      "expected" : "spreadsheetTable",
+      "image_frames" : 0,
+      "path" : "tables\/sample.ssv",
+      "visual_qa" : "not-run"
+    },
+    {
+      "disk_route" : "text",
+      "expected" : "text",
+      "image_frames" : 0,
+      "path" : "edge-cases\/utf16le.txt",
+      "visual_qa" : "not-run"
+    },
+    {
+      "disk_route" : "text",
+      "expected" : "text",
+      "image_frames" : 0,
+      "path" : "edge-cases\/gb18030.txt",
+      "visual_qa" : "not-run"
+    },
+    {
+      "disk_route" : "unsupported",
+      "expected" : "empty-file-feedback",
+      "image_frames" : 0,
+      "path" : "edge-cases\/empty.txt",
+      "visual_qa" : "not-run"
+    },
+    {
+      "disk_route" : "pdf",
+      "expected" : "error-feedback",
+      "image_frames" : 0,
+      "path" : "edge-cases\/corrupt.pdf",
+      "pdf_pages" : 0,
+      "visual_qa" : "not-run"
+    },
+    {
+      "disk_route" : "text",
+      "expected" : "text",
+      "image_frames" : 0,
+      "path" : "edge-cases\/中文 空格.txt",
+      "visual_qa" : "not-run"
+    },
+    {
+      "disk_route" : "htmlWeb",
+      "expected" : "htmlWeb",
+      "image_frames" : 0,
+      "path" : "web\/sample.html",
+      "visual_qa" : "not-run"
+    },
+    {
+      "disk_route" : "htmlWeb",
+      "expected" : "htmlWeb",
+      "image_frames" : 0,
+      "path" : "web\/sample.htm",
+      "visual_qa" : "not-run"
+    },
+    {
+      "disk_route" : "htmlWeb",
+      "expected" : "htmlWeb",
+      "image_frames" : 0,
+      "path" : "web\/sample.xhtml",
+      "visual_qa" : "not-run"
+    },
+    {
+      "disk_route" : "htmlWeb",
+      "expected" : "htmlWeb-or-image",
+      "image_frames" : 0,
+      "path" : "web\/sample.svg",
+      "visual_qa" : "not-run"
+    },
+    {
+      "disk_route" : "htmlWeb",
+      "expected" : "htmlWeb-or-image",
+      "image_frames" : 0,
+      "path" : "web\/sample.svgz",
+      "visual_qa" : "not-run"
+    },
+    {
+      "disk_route" : "text",
+      "expected" : "htmlWeb",
+      "image_frames" : 0,
+      "path" : "web\/sample.mhtml",
+      "visual_qa" : "not-run"
+    },
+    {
+      "disk_route" : "image",
+      "expected" : "image",
+      "image_frames" : 1,
+      "path" : "images\/sample.png",
+      "preview_pixels" : [
+        320,
+        240
+      ],
+      "source_pixels" : [
+        320,
+        240
+      ],
+      "visual_qa" : "not-run"
+    },
+    {
+      "disk_route" : "image",
+      "expected" : "image",
+      "image_frames" : 1,
+      "path" : "images\/sample.jpg",
+      "preview_pixels" : [
+        320,
+        240
+      ],
+      "source_pixels" : [
+        320,
+        240
+      ],
+      "visual_qa" : "not-run"
+    },
+    {
+      "disk_route" : "image",
+      "expected" : "image",
+      "image_frames" : 1,
+      "path" : "images\/sample.jpeg",
+      "preview_pixels" : [
+        320,
+        240
+      ],
+      "source_pixels" : [
+        320,
+        240
+      ],
+      "visual_qa" : "not-run"
+    },
+    {
+      "disk_route" : "image",
+      "expected" : "image",
+      "image_frames" : 1,
+      "path" : "images\/sample.gif",
+      "preview_pixels" : [
+        320,
+        240
+      ],
+      "source_pixels" : [
+        320,
+        240
+      ],
+      "visual_qa" : "not-run"
+    },
+    {
+      "disk_route" : "image",
+      "expected" : "image",
+      "image_frames" : 1,
+      "path" : "images\/sample.bmp",
+      "preview_pixels" : [
+        320,
+        240
+      ],
+      "source_pixels" : [
+        320,
+        240
+      ],
+      "visual_qa" : "not-run"
+    },
+    {
+      "disk_route" : "hexViewer",
+      "expected" : "image",
+      "image_frames" : 1,
+      "path" : "images\/sample.tiff",
+      "visual_qa" : "not-run"
+    },
+    {
+      "disk_route" : "image",
+      "expected" : "image",
+      "image_frames" : 1,
+      "path" : "images\/sample.ico",
+      "preview_pixels" : [
+        128,
+        128
+      ],
+      "source_pixels" : [
+        128,
+        128
+      ],
+      "visual_qa" : "not-run"
+    },
+    {
+      "disk_route" : "image",
+      "expected" : "image",
+      "image_frames" : 1,
+      "path" : "images\/sample.webp",
+      "preview_pixels" : [
+        320,
+        240
+      ],
+      "source_pixels" : [
+        320,
+        240
+      ],
+      "visual_qa" : "not-run"
+    },
+    {
+      "disk_route" : "image",
+      "expected" : "image-zoom-detail",
+      "image_frames" : 1,
+      "path" : "edge-cases\/large-detail.png",
+      "preview_pixels" : [
+        2048,
+        1365
+      ],
+      "source_pixels" : [
+        6000,
+        4000
+      ],
+      "visual_qa" : "not-run"
+    },
+    {
+      "disk_route" : "image",
+      "expected" : "image-animation",
+      "image_frames" : 4,
+      "path" : "edge-cases\/animated.gif",
+      "preview_pixels" : [
+        160,
+        120
+      ],
+      "source_pixels" : [
+        160,
+        120
+      ],
+      "visual_qa" : "not-run"
+    },
+    {
+      "audio_constructed" : true,
+      "audio_duration" : 1,
+      "audio_prepared" : true,
+      "codec_name" : "Linear PCM (pcm_s16le)",
+      "container_format" : "RIFF WAVE",
+      "disk_route" : "audio",
+      "engine_loaded" : true,
+      "expected" : "audio",
+      "image_frames" : 0,
+      "is_verified_digital_silence" : false,
+      "natural_completion_verified" : true,
+      "path" : "audio\/tone.wav",
+      "playback_lifecycle_verified" : true,
+      "playback_start_verified" : true,
+      "test_system" : "macOS-arm64",
+      "timing_metrics_ms" : {
+        "data_fallback" : 0,
+        "first_play" : 51.457500000000003,
+        "prepare" : 6.5369580000000003,
+        "total_load" : 7.0798750000000004,
+        "url_init" : 0.29275000000000001
+      },
+      "visual_qa" : "not-run",
+      "waveform_extracted" : true,
+      "waveform_peak_max" : 1,
+      "waveform_sample_count" : 1600,
+      "waveform_sampling_mode" : "exhaustiveBucketPeak",
+      "within_16ms_stage_budget" : false
+    },
+    {
+      "audio_constructed" : true,
+      "audio_duration" : 1.032,
+      "audio_prepared" : true,
+      "codec_name" : "MPEG-1 Layer III",
+      "container_format" : "MPEG Audio",
+      "disk_route" : "audio",
+      "engine_loaded" : true,
+      "expected" : "audio",
+      "image_frames" : 0,
+      "is_verified_digital_silence" : false,
+      "natural_completion_verified" : true,
+      "path" : "audio\/tone.mp3",
+      "playback_lifecycle_verified" : true,
+      "playback_start_verified" : true,
+      "test_system" : "macOS-arm64",
+      "timing_metrics_ms" : {
+        "data_fallback" : 0,
+        "first_play" : 1.930167,
+        "prepare" : 6.1444580000000002,
+        "total_load" : 6.4884170000000001,
+        "url_init" : 0.25654199999999999
+      },
+      "visual_qa" : "not-run",
+      "waveform_extracted" : true,
+      "waveform_peak_max" : 1,
+      "waveform_sample_count" : 1600,
+      "waveform_sampling_mode" : "exhaustiveBucketPeak",
+      "within_16ms_stage_budget" : true
+    },
+    {
+      "audio_constructed" : true,
+      "audio_duration" : 1,
+      "audio_prepared" : true,
+      "codec_name" : "AAC LC",
+      "container_format" : "MPEG-4 Part 14 (M4A)",
+      "disk_route" : "audio",
+      "engine_loaded" : true,
+      "expected" : "audio",
+      "image_frames" : 0,
+      "is_verified_digital_silence" : false,
+      "natural_completion_verified" : true,
+      "path" : "audio\/tone.m4a",
+      "playback_lifecycle_verified" : true,
+      "playback_start_verified" : true,
+      "test_system" : "macOS-arm64",
+      "timing_metrics_ms" : {
+        "data_fallback" : 0,
+        "first_play" : 10.111124999999999,
+        "prepare" : 6.3256249999999996,
+        "total_load" : 6.7684170000000003,
+        "url_init" : 0.35341699999999998
+      },
+      "visual_qa" : "not-run",
+      "waveform_extracted" : true,
+      "waveform_peak_max" : 1,
+      "waveform_sample_count" : 1600,
+      "waveform_sampling_mode" : "exhaustiveBucketPeak",
+      "within_16ms_stage_budget" : true
+    },
+    {
+      "audio_constructed" : true,
+      "audio_duration" : 1,
+      "audio_prepared" : true,
+      "codec_name" : "AAC LC",
+      "container_format" : "MPEG-4 Audiobook (M4B)",
+      "disk_route" : "audio",
+      "engine_loaded" : true,
+      "expected" : "audio",
+      "image_frames" : 0,
+      "is_verified_digital_silence" : false,
+      "natural_completion_verified" : true,
+      "path" : "audio\/tone.m4b",
+      "playback_lifecycle_verified" : true,
+      "playback_start_verified" : true,
+      "test_system" : "macOS-arm64",
+      "timing_metrics_ms" : {
+        "data_fallback" : 0,
+        "first_play" : 10.5305,
+        "prepare" : 6.3110419999999996,
+        "total_load" : 6.7727079999999997,
+        "url_init" : 0.36391699999999999
+      },
+      "visual_qa" : "not-run",
+      "waveform_extracted" : true,
+      "waveform_peak_max" : 1,
+      "waveform_sample_count" : 1600,
+      "waveform_sampling_mode" : "exhaustiveBucketPeak",
+      "within_16ms_stage_budget" : true
+    },
+    {
+      "audio_constructed" : true,
+      "audio_duration" : 1,
+      "audio_prepared" : true,
+      "codec_name" : "AAC LC",
+      "container_format" : "MPEG-4 Ringtone (M4R)",
+      "disk_route" : "audio",
+      "engine_loaded" : true,
+      "expected" : "audio",
+      "image_frames" : 0,
+      "is_verified_digital_silence" : false,
+      "natural_completion_verified" : true,
+      "path" : "audio\/tone.m4r",
+      "playback_lifecycle_verified" : true,
+      "playback_start_verified" : true,
+      "test_system" : "macOS-arm64",
+      "timing_metrics_ms" : {
+        "data_fallback" : 0,
+        "first_play" : 11.739417,
+        "prepare" : 6.4994160000000001,
+        "total_load" : 6.9736669999999998,
+        "url_init" : 0.36258299999999999
+      },
+      "visual_qa" : "not-run",
+      "waveform_extracted" : true,
+      "waveform_peak_max" : 1,
+      "waveform_sample_count" : 1600,
+      "waveform_sampling_mode" : "exhaustiveBucketPeak",
+      "within_16ms_stage_budget" : true
+    },
+    {
+      "audio_constructed" : true,
+      "audio_duration" : 1.024,
+      "audio_prepared" : true,
+      "codec_name" : "AAC LC",
+      "container_format" : "ADTS AAC",
+      "disk_route" : "audio",
+      "engine_loaded" : true,
+      "expected" : "audio",
+      "image_frames" : 0,
+      "is_verified_digital_silence" : false,
+      "natural_completion_verified" : true,
+      "path" : "audio\/tone.aac",
+      "playback_lifecycle_verified" : true,
+      "playback_start_verified" : true,
+      "test_system" : "macOS-arm64",
+      "timing_metrics_ms" : {
+        "data_fallback" : 0,
+        "first_play" : 2.1851250000000002,
+        "prepare" : 6.3420839999999998,
+        "total_load" : 6.7879170000000002,
+        "url_init" : 0.34237499999999998
+      },
+      "visual_qa" : "not-run",
+      "waveform_extracted" : true,
+      "waveform_peak_max" : 1,
+      "waveform_sample_count" : 1600,
+      "waveform_sampling_mode" : "windowedSampledEnvelope",
+      "within_16ms_stage_budget" : true
+    },
+    {
+      "audio_constructed" : true,
+      "audio_duration" : 1,
+      "audio_prepared" : true,
+      "codec_name" : "FLAC Lossless",
+      "container_format" : "FLAC Native",
+      "disk_route" : "audio",
+      "engine_loaded" : true,
+      "expected" : "audio",
+      "image_frames" : 0,
+      "is_verified_digital_silence" : false,
+      "natural_completion_verified" : true,
+      "path" : "audio\/tone.flac",
+      "playback_lifecycle_verified" : true,
+      "playback_start_verified" : true,
+      "test_system" : "macOS-arm64",
+      "timing_metrics_ms" : {
+        "data_fallback" : 0,
+        "first_play" : 9.9382079999999995,
+        "prepare" : 6.1875419999999997,
+        "total_load" : 6.6053329999999999,
+        "url_init" : 0.33041599999999999
+      },
+      "visual_qa" : "not-run",
+      "waveform_extracted" : true,
+      "waveform_peak_max" : 1,
+      "waveform_sample_count" : 1600,
+      "waveform_sampling_mode" : "exhaustiveBucketPeak",
+      "within_16ms_stage_budget" : true
+    },
+    {
+      "audio_constructed" : true,
+      "audio_duration" : 1,
+      "audio_prepared" : false,
+      "codec_name" : "Vorbis",
+      "container_format" : "Ogg Container",
+      "disk_route" : "audio",
+      "engine_diagnostic" : "AVAudioPlayer.play() returned false",
+      "engine_error" : "音频输出引擎无法启动播放。",
+      "engine_loaded" : true,
+      "expected" : "audio",
+      "image_frames" : 0,
+      "is_verified_digital_silence" : false,
+      "natural_completion_verified" : false,
+      "path" : "audio\/tone.ogg",
+      "playback_lifecycle_verified" : false,
+      "playback_start_verified" : false,
+      "test_system" : "macOS-arm64",
+      "timing_metrics_ms" : {
+        "data_fallback" : 0,
+        "first_play" : 1.647459,
+        "prepare" : 1.7697080000000001,
+        "total_load" : 2.3367499999999999,
+        "url_init" : 0.48362500000000003
+      },
+      "visual_qa" : "not-run",
+      "waveform_extracted" : true,
+      "waveform_peak_max" : 1,
+      "waveform_sample_count" : 1600,
+      "waveform_sampling_mode" : "exhaustiveBucketPeak",
+      "within_16ms_stage_budget" : true
+    },
+    {
+      "audio_constructed" : true,
+      "audio_duration" : 1,
+      "audio_prepared" : false,
+      "codec_name" : "Vorbis \/ FLAC",
+      "container_format" : "Ogg Audio",
+      "disk_route" : "audio",
+      "engine_diagnostic" : "AVAudioPlayer.play() returned false",
+      "engine_error" : "音频输出引擎无法启动播放。",
+      "engine_loaded" : true,
+      "expected" : "audio",
+      "image_frames" : 0,
+      "is_verified_digital_silence" : false,
+      "natural_completion_verified" : false,
+      "path" : "audio\/tone.oga",
+      "playback_lifecycle_verified" : false,
+      "playback_start_verified" : false,
+      "test_system" : "macOS-arm64",
+      "timing_metrics_ms" : {
+        "data_fallback" : 0,
+        "first_play" : 1.8165,
+        "prepare" : 1.6403749999999999,
+        "total_load" : 2.2763749999999998,
+        "url_init" : 0.548292
+      },
+      "visual_qa" : "not-run",
+      "waveform_extracted" : true,
+      "waveform_peak_max" : 1,
+      "waveform_sample_count" : 1600,
+      "waveform_sampling_mode" : "exhaustiveBucketPeak",
+      "within_16ms_stage_budget" : true
+    },
+    {
+      "audio_constructed" : true,
+      "audio_duration" : 1,
+      "audio_prepared" : false,
+      "codec_name" : "Opus",
+      "container_format" : "Ogg Opus",
+      "disk_route" : "audio",
+      "engine_diagnostic" : "AVAudioPlayer.play() returned false",
+      "engine_error" : "音频输出引擎无法启动播放。",
+      "engine_loaded" : true,
+      "expected" : "audio",
+      "image_frames" : 0,
+      "is_verified_digital_silence" : false,
+      "natural_completion_verified" : false,
+      "path" : "audio\/tone.opus",
+      "playback_lifecycle_verified" : false,
+      "playback_start_verified" : false,
+      "test_system" : "macOS-arm64",
+      "timing_metrics_ms" : {
+        "data_fallback" : 0,
+        "first_play" : 0.72145800000000004,
+        "prepare" : 0.59266700000000005,
+        "total_load" : 0.89549999999999996,
+        "url_init" : 0.23016700000000001
+      },
+      "visual_qa" : "not-run",
+      "waveform_extracted" : true,
+      "waveform_peak_max" : 1,
+      "waveform_sample_count" : 1600,
+      "waveform_sampling_mode" : "exhaustiveBucketPeak",
+      "within_16ms_stage_budget" : true
+    },
+    {
+      "audio_constructed" : true,
+      "audio_duration" : 1,
+      "audio_prepared" : true,
+      "codec_name" : "Linear PCM (pcm_s16be)",
+      "container_format" : "Audio IFF",
+      "disk_route" : "audio",
+      "engine_loaded" : true,
+      "expected" : "audio",
+      "image_frames" : 0,
+      "is_verified_digital_silence" : false,
+      "natural_completion_verified" : true,
+      "path" : "audio\/tone.aiff",
+      "playback_lifecycle_verified" : true,
+      "playback_start_verified" : true,
+      "test_system" : "macOS-arm64",
+      "timing_metrics_ms" : {
+        "data_fallback" : 0,
+        "first_play" : 6.0280420000000001,
+        "prepare" : 5.9501660000000003,
+        "total_load" : 6.3058339999999999,
+        "url_init" : 0.25674999999999998
+      },
+      "visual_qa" : "not-run",
+      "waveform_extracted" : true,
+      "waveform_peak_max" : 1,
+      "waveform_sample_count" : 1600,
+      "waveform_sampling_mode" : "exhaustiveBucketPeak",
+      "within_16ms_stage_budget" : true
+    },
+    {
+      "audio_constructed" : true,
+      "audio_duration" : 1,
+      "audio_prepared" : true,
+      "codec_name" : "Linear PCM (pcm_s16be)",
+      "container_format" : "Audio IFF",
+      "disk_route" : "audio",
+      "engine_loaded" : true,
+      "expected" : "audio",
+      "image_frames" : 0,
+      "is_verified_digital_silence" : false,
+      "natural_completion_verified" : true,
+      "path" : "audio\/tone.aif",
+      "playback_lifecycle_verified" : true,
+      "playback_start_verified" : true,
+      "test_system" : "macOS-arm64",
+      "timing_metrics_ms" : {
+        "data_fallback" : 0,
+        "first_play" : 5.0811250000000001,
+        "prepare" : 8.2893340000000002,
+        "total_load" : 8.6538749999999993,
+        "url_init" : 0.26250000000000001
+      },
+      "visual_qa" : "not-run",
+      "waveform_extracted" : true,
+      "waveform_peak_max" : 1,
+      "waveform_sample_count" : 1600,
+      "waveform_sampling_mode" : "exhaustiveBucketPeak",
+      "within_16ms_stage_budget" : true
+    },
+    {
+      "audio_constructed" : true,
+      "audio_duration" : 1,
+      "audio_prepared" : true,
+      "codec_name" : "Linear PCM \/ IMA4",
+      "container_format" : "Compressed Audio IFF",
+      "disk_route" : "audio",
+      "engine_loaded" : true,
+      "expected" : "audio",
+      "image_frames" : 0,
+      "is_verified_digital_silence" : false,
+      "natural_completion_verified" : true,
+      "path" : "audio\/tone.aifc",
+      "playback_lifecycle_verified" : true,
+      "playback_start_verified" : true,
+      "test_system" : "macOS-arm64",
+      "timing_metrics_ms" : {
+        "data_fallback" : 0,
+        "first_play" : 3.486958,
+        "prepare" : 5.9978340000000001,
+        "total_load" : 6.4305830000000004,
+        "url_init" : 0.30562499999999998
+      },
+      "visual_qa" : "not-run",
+      "waveform_extracted" : true,
+      "waveform_peak_max" : 1,
+      "waveform_sample_count" : 1600,
+      "waveform_sampling_mode" : "exhaustiveBucketPeak",
+      "within_16ms_stage_budget" : true
+    },
+    {
+      "audio_constructed" : true,
+      "audio_duration" : 1,
+      "audio_prepared" : true,
+      "codec_name" : "Linear PCM",
+      "container_format" : "Apple CoreAudio Format",
+      "disk_route" : "audio",
+      "engine_loaded" : true,
+      "expected" : "audio",
+      "image_frames" : 0,
+      "is_verified_digital_silence" : false,
+      "natural_completion_verified" : true,
+      "path" : "audio\/tone.caf",
+      "playback_lifecycle_verified" : true,
+      "playback_start_verified" : true,
+      "test_system" : "macOS-arm64",
+      "timing_metrics_ms" : {
+        "data_fallback" : 0,
+        "first_play" : 27.622792,
+        "prepare" : 6.0810409999999999,
+        "total_load" : 6.52475,
+        "url_init" : 0.34449999999999997
+      },
+      "visual_qa" : "not-run",
+      "waveform_extracted" : true,
+      "waveform_peak_max" : 1,
+      "waveform_sample_count" : 1600,
+      "waveform_sampling_mode" : "exhaustiveBucketPeak",
+      "within_16ms_stage_budget" : false
+    },
+    {
+      "audio_constructed" : true,
+      "audio_duration" : 1,
+      "audio_prepared" : true,
+      "codec_name" : "Linear PCM (pcm_s16be)",
+      "container_format" : "Sun\/NeXT AU",
+      "disk_route" : "audio",
+      "engine_loaded" : true,
+      "expected" : "audio",
+      "image_frames" : 0,
+      "is_verified_digital_silence" : false,
+      "natural_completion_verified" : true,
+      "path" : "audio\/tone.au",
+      "playback_lifecycle_verified" : true,
+      "playback_start_verified" : true,
+      "test_system" : "macOS-arm64",
+      "timing_metrics_ms" : {
+        "data_fallback" : 0,
+        "first_play" : 6.5610840000000001,
+        "prepare" : 5.9810829999999999,
+        "total_load" : 6.2789999999999999,
+        "url_init" : 0.2155
+      },
+      "visual_qa" : "not-run",
+      "waveform_extracted" : true,
+      "waveform_peak_max" : 1,
+      "waveform_sample_count" : 1600,
+      "waveform_sampling_mode" : "exhaustiveBucketPeak",
+      "within_16ms_stage_budget" : true
+    },
+    {
+      "audio_constructed" : true,
+      "audio_duration" : 1,
+      "audio_prepared" : true,
+      "codec_name" : "Linear PCM (pcm_s16be)",
+      "container_format" : "Sun\/NeXT SND",
+      "disk_route" : "audio",
+      "engine_loaded" : true,
+      "expected" : "audio",
+      "image_frames" : 0,
+      "is_verified_digital_silence" : false,
+      "natural_completion_verified" : true,
+      "path" : "audio\/tone.snd",
+      "playback_lifecycle_verified" : true,
+      "playback_start_verified" : true,
+      "test_system" : "macOS-arm64",
+      "timing_metrics_ms" : {
+        "data_fallback" : 0,
+        "first_play" : 10.388792,
+        "prepare" : 5.8470409999999999,
+        "total_load" : 6.2537909999999997,
+        "url_init" : 0.29304200000000002
+      },
+      "visual_qa" : "not-run",
+      "waveform_extracted" : true,
+      "waveform_peak_max" : 1,
+      "waveform_sample_count" : 1600,
+      "waveform_sampling_mode" : "exhaustiveBucketPeak",
+      "within_16ms_stage_budget" : true
+    },
+    {
+      "audio_constructed" : true,
+      "audio_duration" : 1.024,
+      "audio_prepared" : true,
+      "codec_name" : "ATSC A\/52A (AC-3)",
+      "container_format" : "Dolby Digital AC-3",
+      "disk_route" : "audio",
+      "engine_loaded" : true,
+      "expected" : "audio",
+      "image_frames" : 0,
+      "is_verified_digital_silence" : false,
+      "natural_completion_verified" : true,
+      "path" : "audio\/tone.ac3",
+      "playback_lifecycle_verified" : true,
+      "playback_start_verified" : true,
+      "test_system" : "macOS-arm64",
+      "timing_metrics_ms" : {
+        "data_fallback" : 0,
+        "first_play" : 10.235374999999999,
+        "prepare" : 6.4186249999999996,
+        "total_load" : 6.7421670000000002,
+        "url_init" : 0.24845800000000001
+      },
+      "visual_qa" : "not-run",
+      "waveform_extracted" : true,
+      "waveform_peak_max" : 1,
+      "waveform_sample_count" : 1600,
+      "waveform_sampling_mode" : "windowedSampledEnvelope",
+      "within_16ms_stage_budget" : true
+    },
+    {
+      "audio_constructed" : true,
+      "audio_duration" : 1.024,
+      "audio_prepared" : true,
+      "codec_name" : "ATSC A\/52B (E-AC-3)",
+      "container_format" : "Dolby Digital Plus",
+      "disk_route" : "audio",
+      "engine_loaded" : true,
+      "expected" : "audio",
+      "image_frames" : 0,
+      "is_verified_digital_silence" : false,
+      "natural_completion_verified" : true,
+      "path" : "audio\/tone.eac3",
+      "playback_lifecycle_verified" : true,
+      "playback_start_verified" : true,
+      "test_system" : "macOS-arm64",
+      "timing_metrics_ms" : {
+        "data_fallback" : 0,
+        "first_play" : 11.899333,
+        "prepare" : 6.2531670000000004,
+        "total_load" : 6.7572919999999996,
+        "url_init" : 0.40712500000000001
+      },
+      "visual_qa" : "not-run",
+      "waveform_extracted" : true,
+      "waveform_peak_max" : 1,
+      "waveform_sample_count" : 1600,
+      "waveform_sampling_mode" : "windowedSampledEnvelope",
+      "within_16ms_stage_budget" : true
+    },
+    {
+      "audio_constructed" : false,
+      "audio_error" : "The operation couldn’t be completed. (OSStatus error 1954115647.)",
+      "disk_route" : "audio",
+      "engine_diagnostic" : "Fast-failed non-native extension .wma",
+      "engine_error" : "原生 macOS CoreAudio 暂不支持 Windows Media Audio (WMA)（.wma）编码格式，请使用外部播放器打开。",
+      "engine_loaded" : false,
+      "expected" : "audio",
+      "image_frames" : 0,
+      "is_verified_digital_silence" : false,
+      "natural_completion_verified" : false,
+      "path" : "audio\/tone.wma",
+      "playback_lifecycle_verified" : false,
+      "playback_start_verified" : false,
+      "visual_qa" : "not-run",
+      "waveform_extracted" : false,
+      "waveform_peak_max" : 0,
+      "waveform_sample_count" : 0,
+      "waveform_sampling_mode" : "none"
+    },
+    {
+      "audio_constructed" : false,
+      "audio_error" : "The operation couldn’t be completed. (OSStatus error 1954115647.)",
+      "disk_route" : "audio",
+      "engine_diagnostic" : "Fast-failed non-native extension .wv",
+      "engine_error" : "原生 macOS CoreAudio 暂不支持 WavPack（.wv）编码格式，请使用外部播放器打开。",
+      "engine_loaded" : false,
+      "expected" : "audio",
+      "image_frames" : 0,
+      "is_verified_digital_silence" : false,
+      "natural_completion_verified" : false,
+      "path" : "audio\/tone.wv",
+      "playback_lifecycle_verified" : false,
+      "playback_start_verified" : false,
+      "visual_qa" : "not-run",
+      "waveform_extracted" : false,
+      "waveform_peak_max" : 0,
+      "waveform_sample_count" : 0,
+      "waveform_sampling_mode" : "none"
+    },
+    {
+      "audio_constructed" : false,
+      "audio_error" : "The operation couldn’t be completed. (OSStatus error 1954115647.)",
+      "disk_route" : "audio",
+      "engine_diagnostic" : "Fast-failed non-native extension .tta",
+      "engine_error" : "原生 macOS CoreAudio 暂不支持 True Audio (TTA)（.tta）编码格式，请使用外部播放器打开。",
+      "engine_loaded" : false,
+      "expected" : "audio",
+      "image_frames" : 0,
+      "is_verified_digital_silence" : false,
+      "natural_completion_verified" : false,
+      "path" : "audio\/tone.tta",
+      "playback_lifecycle_verified" : false,
+      "playback_start_verified" : false,
+      "visual_qa" : "not-run",
+      "waveform_extracted" : false,
+      "waveform_peak_max" : 0,
+      "waveform_sample_count" : 0,
+      "waveform_sampling_mode" : "none"
+    },
+    {
+      "audio_constructed" : false,
+      "audio_error" : "The operation couldn’t be completed. (OSStatus error 1954115647.)",
+      "disk_route" : "audio",
+      "engine_diagnostic" : "Fast-failed non-native extension .voc",
+      "engine_error" : "原生 macOS CoreAudio 暂不支持 Creative Voice (VOC)（.voc）编码格式，请使用外部播放器打开。",
+      "engine_loaded" : false,
+      "expected" : "audio",
+      "image_frames" : 0,
+      "is_verified_digital_silence" : false,
+      "natural_completion_verified" : false,
+      "path" : "audio\/tone.voc",
+      "playback_lifecycle_verified" : false,
+      "playback_start_verified" : false,
+      "visual_qa" : "not-run",
+      "waveform_extracted" : false,
+      "waveform_peak_max" : 0,
+      "waveform_sample_count" : 0,
+      "waveform_sampling_mode" : "none"
+    },
+    {
+      "audio_constructed" : false,
+      "audio_error" : "The operation couldn’t be completed. (OSStatus error 1954115647.)",
+      "disk_route" : "audio",
+      "engine_diagnostic" : "Fast-failed non-native extension .ra",
+      "engine_error" : "原生 macOS CoreAudio 暂不支持 RealAudio（.ra）编码格式，请使用外部播放器打开。",
+      "engine_loaded" : false,
+      "expected" : "audio",
+      "image_frames" : 0,
+      "is_verified_digital_silence" : false,
+      "natural_completion_verified" : false,
+      "path" : "audio\/tone.ra",
+      "playback_lifecycle_verified" : false,
+      "playback_start_verified" : false,
+      "visual_qa" : "not-run",
+      "waveform_extracted" : false,
+      "waveform_peak_max" : 0,
+      "waveform_sample_count" : 0,
+      "waveform_sampling_mode" : "none"
+    },
+    {
+      "audio_constructed" : true,
+      "audio_duration" : 1,
+      "audio_prepared" : true,
+      "codec_name" : "Linear PCM (pcm_s16le)",
+      "container_format" : "RIFF WAVE",
+      "disk_route" : "audio",
+      "engine_loaded" : true,
+      "expected" : "audio-silent-waveform",
+      "image_frames" : 0,
+      "is_verified_digital_silence" : true,
+      "natural_completion_verified" : true,
+      "path" : "edge-cases\/silence.wav",
+      "playback_lifecycle_verified" : true,
+      "playback_start_verified" : true,
+      "silence_waveform_max" : 0,
+      "silence_waveform_min" : 0,
+      "test_system" : "macOS-arm64",
+      "timing_metrics_ms" : {
+        "data_fallback" : 0,
+        "first_play" : 9.6906250000000007,
+        "prepare" : 5.9323750000000004,
+        "total_load" : 6.1585830000000001,
+        "url_init" : 0.14224999999999999
+      },
+      "visual_qa" : "not-run",
+      "waveform_extracted" : true,
+      "waveform_peak_max" : 0,
+      "waveform_sample_count" : 1600,
+      "waveform_sampling_mode" : "exhaustiveBucketPeak",
+      "within_16ms_stage_budget" : true
+    },
+    {
+      "audio_constructed" : false,
+      "audio_error" : "The operation couldn’t be completed. (OSStatus error 1954115647.)",
+      "disk_route" : "audio",
+      "engine_diagnostic" : "Fast-failed non-native extension .mid",
+      "engine_error" : "MIDI（.mid）属于符号乐谱事件序列，需要 SoundFont 合成器，无法作为 PCM 音频流直接解码。",
+      "engine_loaded" : false,
+      "expected" : "audio-sequencer",
+      "image_frames" : 0,
+      "is_verified_digital_silence" : false,
+      "natural_completion_verified" : false,
+      "path" : "audio\/notes.mid",
+      "playback_lifecycle_verified" : false,
+      "playback_start_verified" : false,
+      "visual_qa" : "not-run",
+      "waveform_extracted" : false,
+      "waveform_peak_max" : 0,
+      "waveform_sample_count" : 0,
+      "waveform_sampling_mode" : "none"
+    },
+    {
+      "audio_constructed" : false,
+      "audio_error" : "The operation couldn’t be completed. (OSStatus error 1954115647.)",
+      "disk_route" : "audio",
+      "engine_diagnostic" : "Fast-failed non-native extension .midi",
+      "engine_error" : "MIDI（.midi）属于符号乐谱事件序列，需要 SoundFont 合成器，无法作为 PCM 音频流直接解码。",
+      "engine_loaded" : false,
+      "expected" : "audio-sequencer",
+      "image_frames" : 0,
+      "is_verified_digital_silence" : false,
+      "natural_completion_verified" : false,
+      "path" : "audio\/notes.midi",
+      "playback_lifecycle_verified" : false,
+      "playback_start_verified" : false,
+      "visual_qa" : "not-run",
+      "waveform_extracted" : false,
+      "waveform_peak_max" : 0,
+      "waveform_sample_count" : 0,
+      "waveform_sampling_mode" : "none"
+    },
+    {
+      "disk_route" : "video",
+      "expected" : "video",
+      "image_frames" : 0,
+      "path" : "video\/clip.mp4",
+      "visual_qa" : "not-run"
+    },
+    {
+      "disk_route" : "video",
+      "expected" : "video",
+      "image_frames" : 0,
+      "path" : "video\/clip.mov",
+      "visual_qa" : "not-run"
+    },
+    {
+      "disk_route" : "video",
+      "expected" : "video",
+      "image_frames" : 0,
+      "path" : "video\/clip.m4v",
+      "visual_qa" : "not-run"
+    },
+    {
+      "disk_route" : "video",
+      "expected" : "video",
+      "image_frames" : 0,
+      "path" : "video\/clip.qt",
+      "visual_qa" : "not-run"
+    },
+    {
+      "disk_route" : "video",
+      "expected" : "video",
+      "image_frames" : 0,
+      "path" : "video\/clip.mkv",
+      "visual_qa" : "not-run"
+    },
+    {
+      "disk_route" : "video",
+      "expected" : "video",
+      "image_frames" : 0,
+      "path" : "video\/clip.avi",
+      "visual_qa" : "not-run"
+    },
+    {
+      "disk_route" : "video",
+      "expected" : "video",
+      "image_frames" : 0,
+      "path" : "video\/clip.divx",
+      "visual_qa" : "not-run"
+    },
+    {
+      "disk_route" : "video",
+      "expected" : "video",
+      "image_frames" : 0,
+      "path" : "video\/clip.webm",
+      "visual_qa" : "not-run"
+    },
+    {
+      "disk_route" : "video",
+      "expected" : "video",
+      "image_frames" : 0,
+      "path" : "video\/clip.flv",
+      "visual_qa" : "not-run"
+    },
+    {
+      "disk_route" : "video",
+      "expected" : "video",
+      "image_frames" : 0,
+      "path" : "video\/clip.3gp",
+      "visual_qa" : "not-run"
+    },
+    {
+      "disk_route" : "video",
+      "expected" : "video",
+      "image_frames" : 0,
+      "path" : "video\/clip.3g2",
+      "visual_qa" : "not-run"
+    },
+    {
+      "disk_route" : "video",
+      "expected" : "video",
+      "image_frames" : 0,
+      "path" : "video\/clip.ts",
+      "visual_qa" : "not-run"
+    },
+    {
+      "disk_route" : "video",
+      "expected" : "video",
+      "image_frames" : 0,
+      "path" : "video\/clip.mts",
+      "visual_qa" : "not-run"
+    },
+    {
+      "disk_route" : "video",
+      "expected" : "video",
+      "image_frames" : 0,
+      "path" : "video\/clip.m2ts",
+      "visual_qa" : "not-run"
+    },
+    {
+      "disk_route" : "video",
+      "expected" : "video",
+      "image_frames" : 0,
+      "path" : "video\/clip.m2t",
+      "visual_qa" : "not-run"
+    },
+    {
+      "disk_route" : "video",
+      "expected" : "video",
+      "image_frames" : 0,
+      "path" : "video\/clip.wmv",
+      "visual_qa" : "not-run"
+    },
+    {
+      "disk_route" : "video",
+      "expected" : "video",
+      "image_frames" : 0,
+      "path" : "video\/clip.asf",
+      "visual_qa" : "not-run"
+    },
+    {
+      "disk_route" : "video",
+      "expected" : "video",
+      "image_frames" : 0,
+      "path" : "video\/clip.f4v",
+      "visual_qa" : "not-run"
+    },
+    {
+      "disk_route" : "video",
+      "expected" : "video",
+      "image_frames" : 0,
+      "path" : "video\/clip.mpg",
+      "visual_qa" : "not-run"
+    },
+    {
+      "disk_route" : "video",
+      "expected" : "video",
+      "image_frames" : 0,
+      "path" : "video\/clip.mpeg",
+      "visual_qa" : "not-run"
+    },
+    {
+      "disk_route" : "video",
+      "expected" : "video",
+      "image_frames" : 0,
+      "path" : "video\/clip.mpe",
+      "visual_qa" : "not-run"
+    },
+    {
+      "disk_route" : "video",
+      "expected" : "video",
+      "image_frames" : 0,
+      "path" : "video\/clip.vob",
+      "visual_qa" : "not-run"
+    },
+    {
+      "disk_route" : "video",
+      "expected" : "video",
+      "image_frames" : 0,
+      "path" : "video\/clip.dat",
+      "visual_qa" : "not-run"
+    },
+    {
+      "disk_route" : "video",
+      "expected" : "video",
+      "image_frames" : 0,
+      "path" : "video\/clip.nut",
+      "visual_qa" : "not-run"
+    },
+    {
+      "disk_route" : "video",
+      "expected" : "video",
+      "image_frames" : 0,
+      "path" : "video\/clip.rm",
+      "visual_qa" : "not-run"
+    },
+    {
+      "disk_route" : "video",
+      "expected" : "video",
+      "image_frames" : 0,
+      "path" : "video\/clip.y4m",
+      "visual_qa" : "not-run"
+    },
+    {
+      "disk_route" : "video",
+      "expected" : "video",
+      "image_frames" : 0,
+      "path" : "video\/clip.m2v",
+      "visual_qa" : "not-run"
+    },
+    {
+      "disk_route" : "video",
+      "expected" : "video",
+      "image_frames" : 0,
+      "path" : "video\/clip.mpv",
+      "visual_qa" : "not-run"
+    },
+    {
+      "disk_route" : "quickLook",
+      "expected" : "quickLook",
+      "image_frames" : 0,
+      "memory_route" : "quickLook",
+      "path" : "documents\/sample.docx",
+      "visual_qa" : "not-run"
+    },
+    {
+      "disk_route" : "quickLook",
+      "expected" : "quickLook",
+      "image_frames" : 0,
+      "path" : "documents\/sample.odt",
+      "visual_qa" : "not-run"
+    },
+    {
+      "disk_route" : "quickLook",
+      "expected" : "quickLook",
+      "image_frames" : 0,
+      "path" : "documents\/sample.pptx",
+      "visual_qa" : "not-run"
+    },
+    {
+      "disk_route" : "ebook",
+      "expected" : "epubBook",
+      "image_frames" : 0,
+      "path" : "documents\/sample.epub",
+      "visual_qa" : "not-run"
+    },
+    {
+      "disk_route" : "quickLook",
+      "expected" : "quickLook",
+      "image_frames" : 0,
+      "path" : "documents\/sample.rtf",
+      "visual_qa" : "not-run"
+    },
+    {
+      "disk_route" : "quickLook",
+      "expected" : "quickLook",
+      "image_frames" : 0,
+      "path" : "documents\/sample.doc",
+      "visual_qa" : "not-run"
+    },
+    {
+      "disk_route" : "ebook",
+      "expected" : "ebook-content",
+      "image_frames" : 0,
+      "path" : "documents\/sample.fb2",
+      "visual_qa" : "not-run"
+    },
+    {
+      "disk_route" : "pdf",
+      "expected" : "pdf",
+      "image_frames" : 1,
+      "path" : "documents\/sample.pdf",
+      "pdf_pages" : 1,
+      "visual_qa" : "not-run"
+    },
+    {
+      "disk_route" : "quickLook",
+      "expected" : "quickLook",
+      "image_frames" : 0,
+      "memory_route" : "quickLook",
+      "path" : "documents\/sample.xlsx",
+      "visual_qa" : "not-run"
+    },
+    {
+      "disk_route" : "quickLook",
+      "expected" : "quickLook",
+      "image_frames" : 0,
+      "memory_route" : "quickLook",
+      "path" : "documents\/sample.ods",
+      "visual_qa" : "not-run"
+    },
+    {
+      "disk_route" : "unsupported",
+      "expected" : "archiveBrowse",
+      "image_frames" : 0,
+      "path" : "archives\/sample.zip",
+      "visual_qa" : "not-run"
+    },
+    {
+      "disk_route" : "unsupported",
+      "expected" : "ebook-comic",
+      "image_frames" : 0,
+      "path" : "archives\/sample.cbz",
+      "visual_qa" : "not-run"
+    },
+    {
+      "disk_route" : "unsupported",
+      "expected" : "archiveBrowse",
+      "image_frames" : 0,
+      "path" : "archives\/sample.tar",
+      "visual_qa" : "not-run"
+    },
+    {
+      "disk_route" : "unsupported",
+      "expected" : "archiveBrowse",
+      "image_frames" : 0,
+      "path" : "archives\/sample.tar.gz",
+      "visual_qa" : "not-run"
+    },
+    {
+      "disk_route" : "unsupported",
+      "expected" : "archiveBrowse",
+      "image_frames" : 0,
+      "path" : "archives\/stream.gz",
+      "visual_qa" : "not-run"
+    },
+    {
+      "disk_route" : "unsupported",
+      "expected" : "archiveBrowse",
+      "image_frames" : 0,
+      "path" : "archives\/sample.tar.bz2",
+      "visual_qa" : "not-run"
+    },
+    {
+      "disk_route" : "unsupported",
+      "expected" : "archiveBrowse",
+      "image_frames" : 0,
+      "path" : "archives\/stream.bz2",
+      "visual_qa" : "not-run"
+    },
+    {
+      "disk_route" : "unsupported",
+      "expected" : "archiveBrowse",
+      "image_frames" : 0,
+      "path" : "archives\/sample.tar.xz",
+      "visual_qa" : "not-run"
+    },
+    {
+      "disk_route" : "unsupported",
+      "expected" : "archiveBrowse",
+      "image_frames" : 0,
+      "path" : "archives\/stream.xz",
+      "visual_qa" : "not-run"
+    },
+    {
+      "disk_route" : "unsupported",
+      "expected" : "archiveBrowse",
+      "image_frames" : 0,
+      "path" : "archives\/sample.7z",
+      "visual_qa" : "not-run"
+    },
+    {
+      "disk_route" : "unsupported",
+      "expected" : "archiveBrowse",
+      "image_frames" : 0,
+      "path" : "archives\/sample.wim",
+      "visual_qa" : "not-run"
+    },
+    {
+      "disk_route" : "unsupported",
+      "expected" : "archiveBrowse",
+      "image_frames" : 0,
+      "path" : "archives\/sample.tar.zst",
+      "visual_qa" : "not-run"
+    },
+    {
+      "disk_route" : "unsupported",
+      "expected" : "archiveBrowse",
+      "image_frames" : 0,
+      "path" : "archives\/sample.tar.lz4",
+      "visual_qa" : "not-run"
+    },
+    {
+      "disk_route" : "unsupported",
+      "expected" : "archiveBrowse",
+      "image_frames" : 0,
+      "path" : "archives\/sample.tar.br",
+      "visual_qa" : "not-run"
+    },
+    {
+      "disk_route" : "unsupported",
+      "expected" : "archiveBrowse",
+      "image_frames" : 0,
+      "path" : "archives\/sample.tar.lz",
+      "visual_qa" : "not-run"
+    },
+    {
+      "disk_route" : "unsupported",
+      "expected" : "archiveBrowse",
+      "image_frames" : 0,
+      "path" : "archives\/sample.tar.lrz",
+      "visual_qa" : "not-run"
+    },
+    {
+      "disk_route" : "unsupported",
+      "expected" : "archiveBrowse",
+      "image_frames" : 0,
+      "path" : "archives\/sample.tgz",
+      "visual_qa" : "not-run"
+    },
+    {
+      "disk_route" : "hexViewer",
+      "expected" : "hexViewer",
+      "image_frames" : 1,
+      "path" : "binary\/sample.bin",
+      "visual_qa" : "not-run"
+    },
+    {
+      "disk_route" : "hexViewer",
+      "expected" : "hexViewer",
+      "image_frames" : 1,
+      "path" : "binary\/sample.dat",
+      "visual_qa" : "not-run"
+    },
+    {
+      "disk_route" : "hexViewer",
+      "expected" : "hexViewer",
+      "image_frames" : 0,
+      "path" : "binary\/sample.wasm",
+      "visual_qa" : "not-run"
+    },
+    {
+      "disk_route" : "image",
+      "expected" : "image",
+      "image_frames" : 1,
+      "path" : "images\/sample.heic",
+      "preview_pixels" : [
+        320,
+        240
+      ],
+      "source_pixels" : [
+        320,
+        240
+      ],
+      "visual_qa" : "not-run"
+    }
+  ],
+  "scope" : "TTMediaKit standalone detector and native decoders; application EPUB parser injection and GUI not loaded"
+}

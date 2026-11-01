@@ -6,8 +6,6 @@ import XCTest
 import TTZipUI
 @testable import TTZipCore
 @testable import TTZipApp
-@testable import TTZipAppViewModels
-@testable import TTZipAppServices
 
 /// Exercises real session acceptance, reusing the production plaintext-payload evidence rule.
 @MainActor
