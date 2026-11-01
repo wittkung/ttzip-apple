@@ -1,0 +1,203 @@
+// Copyright 2026 MetastudyLine. All rights reserved.
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+import SwiftUI
+import TTZipCore
+import TTZipUI
+
+/// Preset workspace central configuration view.
+public struct PresetWorkspaceView: View {
+    private var l10n = AppLocalizationState.shared
+    @State private var viewModel: PresetWorkspaceViewModel
+    
+    @MainActor
+    public init(viewModel: PresetWorkspaceViewModel? = nil) {
+        self._viewModel = State(initialValue: viewModel ?? PresetWorkspaceViewModel())
+    }
+    
+    public var body: some View {
+        TTZipWorkspaceScaffold(
+            title: l10n.t(L10n.Sidebar.presets),
+            isCardEnclosed: false
+        ) {
+            HStack(spacing: 8) {
+                if viewModel.presets.first(where: { $0.id == viewModel.selectedPresetID }) != nil {
+                    Button(action: { viewModel.undoDraft() }) {
+                        HStack(spacing: 4) {
+                            Image(systemName: "arrow.uturn.backward.circle")
+                            Text(l10n.t(L10n.Presets.undo) + " (⌘Z)")
+                        }
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundStyle(viewModel.canUndoDraft ? TTZipTheme.kintsugiGold : Color.gray)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(TTZipTheme.kintsugiGold.opacity(viewModel.canUndoDraft ? 0.12 : 0.05))
+                        .clipShape(Capsule())
+                    }
+                    .disabled(!viewModel.canUndoDraft)
+                    .buttonStyle(.plain)
+                    
+                    Button(action: { viewModel.redoDraft() }) {
+                        HStack(spacing: 4) {
+                            Image(systemName: "arrow.uturn.forward.circle")
+                            Text(l10n.t(L10n.Presets.redo) + " (⇧⌘Z)")
+                        }
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundStyle(viewModel.canRedoDraft ? TTZipTheme.kintsugiGold : Color.gray)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(TTZipTheme.kintsugiGold.opacity(viewModel.canRedoDraft ? 0.12 : 0.05))
+                        .clipShape(Capsule())
+                    }
+                    .disabled(!viewModel.canRedoDraft)
+                    .buttonStyle(.plain)
+                    
+                    Button(action: { viewModel.discardDraft() }) {
+                        HStack(spacing: 4) {
+                            Image(systemName: "xmark.circle")
+                            Text(l10n.t(L10n.Common.cancel))
+                        }
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundStyle(TTZipTheme.cinnabarRed)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(TTZipTheme.cinnabarRed.opacity(0.1))
+                        .clipShape(Capsule())
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+        } content: {
+            HStack(spacing: 16) {
+                PresetMasterListView(
+                    presets: viewModel.presets,
+                    selectedPresetID: $viewModel.selectedPresetID,
+                    onSelectPreset: { preset in viewModel.loadPresetIntoEditor(preset) },
+                    onCreateNewPreset: { viewModel.createNewPreset() },
+                    onDuplicatePreset: { preset in viewModel.duplicatePreset(id: preset.id) },
+                    onResetToDefaults: { viewModel.resetToDefaults() }
+                )
+                
+                if let _ = viewModel.presets.first(where: { $0.id == viewModel.selectedPresetID }) {
+                    VStack(alignment: .leading, spacing: 0) {
+                        HStack {
+                            Text(l10n.uiString(zh: "编辑：\(viewModel.editorName)", en: "Edit: \(viewModel.editorName)"))
+                                .font(.system(size: 14, weight: .bold, design: .serif))
+                                .foregroundStyle(.primary)
+                            Spacer()
+                        }
+                        .padding(.horizontal, 20)
+                        .padding(.vertical, 12)
+                        
+                        Divider()
+                        
+                        ScrollView {
+                            VStack(alignment: .leading, spacing: 20) {
+                                VStack(alignment: .leading, spacing: 6) {
+                                    Text(l10n.t(L10n.Presets.name))
+                                        .font(.system(size: 11, weight: .semibold))
+                                        .foregroundStyle(.secondary)
+                                    TextField(l10n.t(L10n.Presets.presetNamePlaceholder), text: $viewModel.editorName)
+                                        .textFieldStyle(.plain)
+                                        .font(.system(size: 13, weight: .medium))
+                                        .padding(.horizontal, 10)
+                                        .padding(.vertical, 6)
+                                        .background(Color.primary.opacity(0.04))
+                                        .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+                                }
+                                
+                                PresetEditorCardView(
+                                    editorFormat: $viewModel.editorFormat,
+                                    editorLevel: $viewModel.editorLevel,
+                                    editorSplitVolumeOption: $viewModel.editorSplitVolumeOption,
+                                    editorSkipMacJunk: $viewModel.editorSkipMacJunk,
+                                    editorSkipGitDirectory: $viewModel.editorSkipGitDirectory
+                                )
+                                
+                                VStack(alignment: .leading, spacing: 6) {
+                                    Text(l10n.uiString(zh: "默认密码（可选）", en: "Default Password (Optional)"))
+                                        .font(.system(size: 11, weight: .semibold))
+                                        .foregroundStyle(.secondary)
+                                    TTSecureTextField(l10n.t(L10n.Vault.passwordPlaceholder), text: $viewModel.editorDefaultPassword)
+                                        .font(.system(size: 12.5))
+                                        .padding(.horizontal, 10)
+                                        .padding(.vertical, 6)
+                                        .background(Color.primary.opacity(0.04))
+                                        .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+                                }
+                            }
+                            .padding(16)
+                        }
+                        
+                        Divider()
+                        
+                        HStack(spacing: 10) {
+                            Button(action: { viewModel.deleteSelectedPreset() }) {
+                                HStack(spacing: 4) {
+                                    Image(systemName: "trash.fill")
+                                    Text(l10n.t(L10n.Common.delete))
+                                }
+                                .font(.system(size: 11, weight: .medium))
+                                .foregroundStyle(TTZipTheme.cinnabarRed)
+                                .padding(.horizontal, 10)
+                                .padding(.vertical, 6)
+                                .background(TTZipTheme.cinnabarRed.opacity(0.1))
+                                .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+                            }
+                            .buttonStyle(.plain)
+                            
+                            Button(action: { viewModel.duplicateSelectedPreset() }) {
+                                HStack(spacing: 4) {
+                                    Image(systemName: "doc.on.doc.fill")
+                                    Text(l10n.t(L10n.Presets.duplicate))
+                                }
+                                .font(.system(size: 11, weight: .medium))
+                                .foregroundStyle(TTZipTheme.kintsugiGold)
+                                .padding(.horizontal, 10)
+                                .padding(.vertical, 6)
+                                .background(TTZipTheme.kintsugiGold.opacity(0.12))
+                                .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+                            }
+                            .buttonStyle(.plain)
+                            
+                            Spacer()
+                            
+                            if !viewModel.statusMessage.isEmpty {
+                                Text(viewModel.statusMessage)
+                                    .font(.system(size: 11, weight: .medium))
+                                    .foregroundStyle(TTZipTheme.bambooGreen)
+                                    .transition(.opacity)
+                            }
+                            
+                            Button(action: { viewModel.saveActivePreset() }) {
+                                HStack(spacing: 6) {
+                                    Image(systemName: "checkmark.circle.fill")
+                                        .font(.system(size: 12, weight: .bold))
+                                    Text(l10n.t(L10n.Presets.saveDraft))
+                                        .font(.system(size: 12, weight: .bold))
+                                }
+                                .foregroundStyle(.white)
+                                .padding(.horizontal, 16)
+                                .padding(.vertical, 7)
+                                .background(TTZipTheme.bambooGradient)
+                                .clipShape(Capsule())
+                                .shadow(color: TTZipTheme.bambooGreen.opacity(0.25), radius: 4, x: 0, y: 2)
+                            }
+                            .buttonStyle(.plain)
+                        }
+                        .padding(.horizontal, 20)
+                        .padding(.vertical, 12)
+                        .background(Color.primary.opacity(0.02))
+                    }
+                    .background(Color.primary.opacity(0.015))
+                    .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 16, style: .continuous)
+                            .strokeBorder(Color.primary.opacity(0.07), lineWidth: 0.5)
+                    )
+                }
+            }
+            .padding(.top, 16)
+        }
+    }
+}

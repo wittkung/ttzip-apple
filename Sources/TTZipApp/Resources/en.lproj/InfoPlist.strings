@@ -1,0 +1,18 @@
+/* Bundle & Process Names */
+CFBundleDisplayName = "TTZip";
+CFBundleName = "TTZip";
+NSHumanReadableCopyright = "Copyright © 2026 Witt Kung. All rights reserved.";
+
+/* Document Types */
+"CFBundleTypeName" = "All Supported Compressed Archives";
+"All Supported Compressed Archives" = "All Supported Compressed Archives";
+
+/* Uniform Type Identifiers (UTIs) */
+"org.7-zip.7-zip-archive" = "7-Zip Archive";
+"org.7-zip.7-zip-split-archive" = "Split Archive Volume";
+"org.facebook.zstd-archive" = "Zstandard Archive";
+"org.lz4.lz4-archive" = "LZ4 Compressed Archive";
+"7-Zip Archive" = "7-Zip Archive";
+"Split Archive Volume" = "Split Archive Volume";
+"Zstandard Archive" = "Zstandard Archive";
+"LZ4 Compressed Archive" = "LZ4 Compressed Archive";

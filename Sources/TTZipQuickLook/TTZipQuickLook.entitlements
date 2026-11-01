@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- App Sandbox Mandatory Isolation for QuickLook App Extension -->
+	<key>com.apple.security.app-sandbox</key>
+	<true/>
+
+	<!-- App Group Container for Shared Localization & Preferences (TTZipPreferencesStore) -->
+	<key>com.apple.security.application-groups</key>
+	<array>
+		<string>group.com.metastudyline.ttzip</string>
+	</array>
+</dict>
+</plist>

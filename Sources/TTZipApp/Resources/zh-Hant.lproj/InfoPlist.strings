@@ -1,0 +1,18 @@
+/* Bundle & Process Names */
+CFBundleDisplayName = "TTZip";
+CFBundleName = "TTZip";
+NSHumanReadableCopyright = "Copyright © 2026 Witt Kung. 保留所有權利。";
+
+/* Document Types */
+"CFBundleTypeName" = "所有支援的壓縮檔";
+"All Supported Compressed Archives" = "所有支援的壓縮檔";
+
+/* Uniform Type Identifiers (UTIs) */
+"org.7-zip.7-zip-archive" = "7-Zip 壓縮檔";
+"org.7-zip.7-zip-split-archive" = "分卷壓縮檔";
+"org.facebook.zstd-archive" = "Zstandard 壓縮檔";
+"org.lz4.lz4-archive" = "LZ4 壓縮檔";
+"7-Zip Archive" = "7-Zip 壓縮檔";
+"Split Archive Volume" = "分卷壓縮檔";
+"Zstandard Archive" = "Zstandard 壓縮檔";
+"LZ4 Compressed Archive" = "LZ4 壓縮檔";

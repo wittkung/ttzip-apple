@@ -1,0 +1,128 @@
+// Copyright 2026 MetastudyLine. All rights reserved.
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+import XCTest
+import SwiftUI
+import AVFoundation
+import CoreMedia
+import TTZipUI
+import TTZipPreviewKit
+import TTZipBenchmarkKit
+import TTMediaKit
+@testable import TTZipCore
+@testable import TTZipApp
+
+@MainActor
+final class VideoPlaybackZeroKickoutTests: XCTestCase {
+    
+    private let allSixteenContainers: [(ext: String, magic: [UInt8])] = [
+        ("mkv", [0x1A, 0x45, 0xDF, 0xA3, 0x01, 0x00, 0x00, 0x00, 0x83, 0x81, 0x01]),
+        ("mp4", [0x00, 0x00, 0x00, 0x18, 0x66, 0x74, 0x79, 0x70, 0x6D, 0x70, 0x34, 0x32]),
+        ("webm", [0x1A, 0x45, 0xDF, 0xA3, 0x9F, 0x42, 0x86, 0x81, 0x83, 0x81, 0x01]),
+        ("avi", [0x52, 0x49, 0x46, 0x46, 0x24, 0x00, 0x00, 0x00, 0x41, 0x56, 0x49, 0x20]),
+        ("flv", [0x46, 0x4C, 0x56, 0x01, 0x05, 0x00, 0x00, 0x00, 0x09]),
+        ("ts", [0x47, 0x40, 0x00, 0x10, 0x00, 0x00, 0xB0, 0x0D]),
+        ("wmv", [
+            0x30, 0x26, 0xB2, 0x75, 0x8E, 0x66, 0xCF, 0x11, 0xA6, 0xD9,
+            0xC0, 0xEF, 0x19, 0xBC, 0x4D, 0x5B, 0xCF, 0x11, 0xA8, 0xFD, 0x00, 0x80, 0x5F, 0x5C, 0x44, 0x2B
+        ]),
+        ("vob", [0x00, 0x00, 0x01, 0xBA, 0x44, 0x00, 0x04, 0x00]),
+        ("rmvb", [0x2E, 0x52, 0x4D, 0x46, 0x00, 0x00, 0x00, 0x12] + Array("video/x-pn-realvideo".utf8)),
+        ("ogv", [0x4F, 0x67, 0x67, 0x53, 0x00, 0x02, 0x00, 0x00, 0x80] + Array("theora".utf8)),
+        ("3gp", [0x00, 0x00, 0x00, 0x14, 0x66, 0x74, 0x79, 0x70, 0x33, 0x67, 0x70, 0x34]),
+        ("m2ts", [0x47, 0x40, 0x00, 0x10, 0x00, 0x00, 0xB0, 0x0D]),
+        ("mov", [0x00, 0x00, 0x00, 0x14, 0x66, 0x74, 0x79, 0x70, 0x71, 0x74, 0x20, 0x20]),
+        ("m4v", [0x00, 0x00, 0x00, 0x1C, 0x66, 0x74, 0x79, 0x70, 0x4D, 0x34, 0x56, 0x20]),
+        ("f4v", [0x00, 0x00, 0x00, 0x18, 0x66, 0x74, 0x79, 0x70, 0x66, 0x34, 0x76, 0x20]),
+        ("asf", [
+            0x30, 0x26, 0xB2, 0x75, 0x8E, 0x66, 0xCF, 0x11, 0xA6, 0xD9,
+            0xC0, 0xEF, 0x19, 0xBC, 0x4D, 0x5B, 0xCF, 0x11, 0xA8, 0xFD, 0x00, 0x80, 0x5F, 0x5C, 0x44, 0x2B
+        ])
+    ]
+    
+    // MARK: - Test 1: Full 16-Container Matrix Detection & View Hierarchy Mount
+    
+    @MainActor
+    func testAllSixteenVideoContainersMatrixCoverage() async throws {
+        let tempDir = try makeTemporaryDirectory()
+        for item in allSixteenContainers {
+            let ext = item.ext
+            let videoURL = tempDir.appendingPathComponent("sample_video.\(ext)")
+            var payload = Data(item.magic)
+            payload.append(Data(repeating: 0x00, count: 1024))
+            try payload.write(to: videoURL)
+            
+            // 1. Synchronous type detection
+            let syncType = MediaPreviewFactory.detectType(url: videoURL)
+            switch syncType {
+            case .video(let detectedURL):
+                XCTAssertEqual(detectedURL, videoURL, "Format .\(ext) sync detection mismatch")
+            default:
+                XCTFail("Format .\(ext) must detect as .video, got: \(syncType)")
+            }
+            
+            // 2. Asynchronous type detection
+            let asyncType = await MediaPreviewFactory.detectTypeAsync(url: videoURL)
+            switch asyncType {
+            case .video(let detectedURL):
+                XCTAssertEqual(detectedURL, videoURL, "Format .\(ext) async detection mismatch")
+            default:
+                XCTFail("Format .\(ext) must asynchronously detect as .video, got: \(asyncType)")
+            }
+            
+            // 3. Icon name (content-resolved for ambiguous .ts, extension-resolved for unambiguous video)
+            let resolvedIcon = ext == "ts"
+                ? TTMediaCapabilityMatrix.resolveDescriptor(
+                    for: "sample.\(ext)",
+                    magic: .video(mime: "video/mp2t"),
+                    isBinaryContent: true
+                )?.iconName
+                : MediaPreviewFactory.iconName(for: "sample.\(ext)")
+            XCTAssertEqual(resolvedIcon, "film.fill")
+            
+            // 4. View generation and UI mount
+            let previewView = MediaPreviewFactory.makePreviewView(
+                type: .video(videoURL),
+                fileName: "sample_video.\(ext)",
+                fileURL: videoURL
+            )
+            XCTAssertNotNil(previewView, "makePreviewView must return non-nil view for .\(ext)")
+            
+            // 5. Mount in UIHierarchyInspector and assert clean rendering tree
+            let inspector = UIHierarchyInspector(rootView: previewView, size: CGSize(width: 360, height: 280))
+            let subviews = inspector.allSubviews()
+            XCTAssertFalse(subviews.isEmpty, "View hierarchy for .\(ext) must contain subviews")
+            inspector.assertNoOccludingModalCard()
+        }
+    }
+    
+    // MARK: - Test 2: AVSampleBufferPlayerCoordinator Lifecycle and Unified Engine Routing
+    
+    @MainActor
+    func testSharedVideoPlayerStoreLifecycle() throws {
+        let tempDirURL = try makeTemporaryDirectory(prefix: "ZeroKickout")
+        let mkvURL = tempDirURL.appendingPathComponent("movie_trailer.mkv")
+        try Data("mock ebml mkv video stream".utf8).write(to: mkvURL)
+        
+        XCTAssertEqual(UnifiedVideoPlayerView.resolveEngine(for: mkvURL), .avSampleBuffer)
+        let coordinator = AVSampleBufferPlayerCoordinator()
+        coordinator.prepare(duration: CMTime(seconds: 120.0, preferredTimescale: 600))
+        XCTAssertTrue(coordinator.isReady)
+        XCTAssertFalse(coordinator.isPlaying)
+        
+        coordinator.togglePlayPause()
+        XCTAssertTrue(coordinator.isPlaying)
+        coordinator.togglePlayPause()
+        XCTAssertFalse(coordinator.isPlaying)
+        
+        coordinator.seek(to: CMTime(seconds: 15.0, preferredTimescale: 600), preroll: false)
+        XCTAssertEqual(CMTimeGetSeconds(coordinator.currentTime), 15.0, accuracy: 0.01)
+        coordinator.seek(by: 5.0, preroll: false)
+        XCTAssertEqual(CMTimeGetSeconds(coordinator.currentTime), 20.0, accuracy: 0.01)
+        
+        coordinator.teardown()
+        XCTAssertFalse(coordinator.isReady)
+        XCTAssertFalse(coordinator.isPlaying)
+    }
+}
+

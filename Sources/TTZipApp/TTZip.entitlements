@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- App Sandbox Mandatory Isolation -->
+	<key>com.apple.security.app-sandbox</key>
+	<true/>
+	
+	<!-- User-Selected Files Read/Write -->
+	<key>com.apple.security.files.user-selected.read-write</key>
+	<true/>
+	
+	<!-- Persistent Security-Scoped Bookmarks for Recent / Pinned Folders -->
+	<key>com.apple.security.files.bookmarks.app-scope</key>
+	<true/>
+	
+	<!-- Standard User Folders Read/Write for Workspace Navigation -->
+	<key>com.apple.security.files.downloads.read-write</key>
+	<true/>
+	<key>com.apple.security.files.documents.read-write</key>
+	<true/>
+	<key>com.apple.security.files.desktop.read-write</key>
+	<true/>
+	<key>com.apple.security.assets.pictures.read-write</key>
+	<true/>
+	<key>com.apple.security.assets.movies.read-write</key>
+	<true/>
+	<key>com.apple.security.assets.music.read-write</key>
+	<true/>
+	
+	<!-- Removable Media Read/Write for SD Cards and External Drives -->
+	<key>com.apple.security.files.all-mounted-removable-media</key>
+	<true/>
+	
+	<!-- Outgoing Network Connections (Required for WebKit out-of-process WebContent architecture) -->
+	<key>com.apple.security.network.client</key>
+	<true/>
+	
+	<!-- App Group Container for Extension Spooling and IPC -->
+	<key>com.apple.security.application-groups</key>
+	<array>
+		<string>group.com.metastudyline.ttzip</string>
+		<string>group.com.metastudyline.ttuniverse</string>
+	</array>
+</dict>
+</plist>

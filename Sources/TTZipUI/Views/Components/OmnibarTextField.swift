@@ -1,0 +1,193 @@
+// Copyright 2026 MetastudyLine. All rights reserved.
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+import SwiftUI
+import AppKit
+
+/// AppKit-backed custom text field for Omnibar navigation with zero IME interference.
+public struct OmnibarTextField: NSViewRepresentable {
+    @Binding public var text: String
+    public var placeholder: String
+    @Binding public var isFocused: Bool
+    public var onCommit: () -> Void
+    public var onCancel: () -> Void
+    public var onTab: () -> Bool
+    public var onMoveDown: () -> Bool
+    public var onMoveUp: () -> Bool
+    public var onTextChange: (String) -> Void
+    
+    public init(
+        text: Binding<String>,
+        placeholder: String = "Enter path or search...",
+        isFocused: Binding<Bool> = .constant(false),
+        onCommit: @escaping () -> Void,
+        onCancel: @escaping () -> Void,
+        onTab: @escaping () -> Bool = { false },
+        onMoveDown: @escaping () -> Bool = { false },
+        onMoveUp: @escaping () -> Bool = { false },
+        onTextChange: @escaping (String) -> Void = { _ in }
+    ) {
+        self._text = text
+        self.placeholder = placeholder
+        self._isFocused = isFocused
+        self.onCommit = onCommit
+        self.onCancel = onCancel
+        self.onTab = onTab
+        self.onMoveDown = onMoveDown
+        self.onMoveUp = onMoveUp
+        self.onTextChange = onTextChange
+    }
+    
+    public func makeCoordinator() -> Coordinator {
+        Coordinator(self)
+    }
+    
+    public func makeNSView(context: Context) -> CustomNSTextField {
+        let textField = CustomNSTextField()
+        textField.delegate = context.coordinator
+        textField.isBordered = false
+        textField.drawsBackground = false
+        textField.focusRingType = .none
+        textField.cell?.focusRingType = .none
+        textField.font = NSFont.monospacedSystemFont(ofSize: 11.5, weight: .medium)
+        textField.textColor = NSColor.labelColor
+        textField.placeholderString = placeholder
+        textField.cell?.wraps = false
+        textField.cell?.isScrollable = true
+        textField.stringValue = text
+        textField.coordinator = context.coordinator
+        return textField
+    }
+    
+    public func updateNSView(_ nsView: CustomNSTextField, context: Context) {
+        context.coordinator.parent = self
+        
+        let hasMarked = (nsView.currentEditor() as? NSTextView)?.hasMarkedText() ?? false
+        if nsView.stringValue != text && !hasMarked {
+            nsView.stringValue = text
+        }
+        
+        nsView.setFocusRequested(isFocused)
+    }
+    
+    public final class CustomNSTextField: NSTextField {
+        weak var coordinator: Coordinator?
+        private var focusRequested = false
+        private var needsInitialTailPosition = false
+
+        func setFocusRequested(_ requested: Bool) {
+            if requested != focusRequested {
+                needsInitialTailPosition = requested
+            }
+            focusRequested = requested
+            reconcileRequestedFocus()
+        }
+
+        public override func viewDidMoveToWindow() {
+            super.viewDidMoveToWindow()
+            reconcileRequestedFocus()
+        }
+
+        public override func layout() {
+            super.layout()
+            reconcileRequestedFocus()
+        }
+
+        private func reconcileRequestedFocus() {
+            guard let window else { return }
+            let editor = currentEditor()
+            let isCurrentResponder = window.firstResponder === self || (editor != nil && window.firstResponder === editor)
+            guard focusRequested else {
+                if isCurrentResponder { window.makeFirstResponder(nil) }
+                return
+            }
+            if !isCurrentResponder && !window.makeFirstResponder(self) { return }
+            guard needsInitialTailPosition, bounds.width > 0,
+                  let editor = currentEditor() as? NSTextView, !editor.hasMarkedText() else { return }
+            if let container = editor.textContainer { editor.layoutManager?.ensureLayout(for: container) }
+            let end = NSRange(location: (stringValue as NSString).length, length: 0)
+            editor.setSelectedRange(end)
+            editor.scrollRangeToVisible(end)
+            needsInitialTailPosition = false
+        }
+        
+        public override var focusRingType: NSFocusRingType {
+            get { .none }
+            set {}
+        }
+        
+        public override var focusRingMaskBounds: NSRect {
+            .zero
+        }
+
+        public override func performKeyEquivalent(with event: NSEvent) -> Bool {
+            // Let Tab and Escape be processed by coordinator commands
+            if event.keyCode == 48 || event.keyCode == 53 { // 48 is Tab, 53 is Esc
+                return false
+            }
+            return super.performKeyEquivalent(with: event)
+        }
+    }
+    
+    public final class Coordinator: NSObject, NSTextFieldDelegate {
+        var parent: OmnibarTextField
+        
+        init(_ parent: OmnibarTextField) {
+            self.parent = parent
+        }
+        
+        public func controlTextDidBeginEditing(_ obj: Notification) {
+            if !parent.isFocused {
+                parent.isFocused = true
+            }
+        }
+        
+        public func controlTextDidEndEditing(_ obj: Notification) {
+            if parent.isFocused {
+                parent.isFocused = false
+            }
+        }
+        
+        public func controlTextDidChange(_ obj: Notification) {
+            guard let textField = obj.object as? NSTextField else { return }
+            let newValue = textField.stringValue
+            if parent.text != newValue {
+                parent.text = newValue
+                parent.onTextChange(newValue)
+            }
+        }
+        
+        public func control(_ control: NSControl, textView: NSTextView, doCommandBy commandSelector: Selector) -> Bool {
+            // CRITICAL: IME / TSM Immunity - if marked text exists, let macOS input method handle candidate selection
+            if textView.hasMarkedText() {
+                return false
+            }
+            
+            switch commandSelector {
+            case #selector(NSResponder.insertNewline(_:)):
+                parent.onCommit()
+                return true
+            case #selector(NSResponder.cancelOperation(_:)):
+                parent.onCancel()
+                return true
+            case #selector(NSResponder.insertTab(_:)):
+                if parent.onTab() {
+                    return true
+                }
+                return false
+            case #selector(NSResponder.moveDown(_:)):
+                if parent.onMoveDown() {
+                    return true
+                }
+                return false
+            case #selector(NSResponder.moveUp(_:)):
+                if parent.onMoveUp() {
+                    return true
+                }
+                return false
+            default:
+                return false
+            }
+        }
+    }
+}

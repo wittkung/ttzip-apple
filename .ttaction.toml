@@ -1,0 +1,33 @@
+[project]
+name = "ttzip-apple"
+description = "Native macOS SwiftUI application & extensions"
+
+[project.min_tools]
+swift = "6.0"
+xcode = "16.0"
+
+[env]
+MACOSX_DEPLOYMENT_TARGET = "14.0"
+
+[[stage]]
+name = "lint-loc"
+description = "Single-file LOC gate (≤800 LOC)"
+run = "./scripts/lint_loc_gate.sh"
+sources = ["Sources/**/*.swift", "Tests/**/*.swift"]
+platforms = ["macos"]
+
+[[stage]]
+name = "swift-build"
+description = "Swift 6 strict concurrency debug build"
+run = "swift build -Xswiftc -warnings-as-errors -Xcc -DGL_SILENCE_DEPRECATION"
+depends_on = ["lint-loc"]
+sources = ["Sources/**/*.swift", "Package.swift"]
+platforms = ["macos"]
+
+[[stage]]
+name = "swift-test"
+description = "Swift unit test suite"
+run = "swift test -Xcc -DGL_SILENCE_DEPRECATION"
+depends_on = ["swift-build"]
+sources = ["Sources/**/*.swift", "Tests/**/*.swift", "Package.swift"]
+platforms = ["macos"]

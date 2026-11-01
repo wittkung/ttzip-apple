@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle" xmlns:dc="http://purl.org/dc/elements/1.1/">
+    <channel>
+        <title>TTZip Changelog &amp; Updates</title>
+        <link>https://github.com/wittkung/ttzip-apple</link>
+        <description>Most recent changes with links to updates.</description>
+        <language>en</language>
+        <item>
+            <title>TTZip Version 0.1.0</title>
+            <sparkle:releaseNotesLink>https://raw.githubusercontent.com/wittkung/ttzip-apple/main/RELEASE_NOTES.md</sparkle:releaseNotesLink>
+            <pubDate>Thu, 17 Sep 2026 03:46:21 +0000</pubDate>
+            <enclosure
+                url="https://github.com/wittkung/ttzip-apple/releases/download/v0.1.0/TTZip-0.1.0.dmg"
+                sparkle:version="1000"
+                sparkle:shortVersionString="0.1.0"
+                sparkle:edSignature="7iQYlrYWxbvGzyjuBsZrRHUF5i4+HR1Qa8xx/+iPNffmNnf7Qog/o/BXEPPOP26clxyWPYlKiLBtDnV2ASxYAg=="
+                sparkle:minimumSystemVersion="14.0"
+                length="33562071"
+                type="application/octet-stream"
+            />
+
+        </item>
+    </channel>
+</rss>

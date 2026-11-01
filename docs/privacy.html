@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>隐私政策 (Privacy Policy) — TTZip</title>
+    <meta name="description" content="TTZip 隐私政策：坚守 100% 本地运算、零网络请求、零数据收集与 Apple App Sandbox 强制沙盒安全准则。">
+    <link rel="icon" type="image/png" href="assets/AppIcon.png">
+    <style>
+        :root {
+            --bg: #FBFBFD;
+            --surface: rgba(255, 255, 255, 0.75);
+            --surface-elevated: rgba(255, 255, 255, 0.94);
+            --border: rgba(0, 0, 0, 0.07);
+            --text-primary: #1C1C1E;
+            --text-secondary: #58585D;
+            --text-tertiary: #86868B;
+            --accent-green: #2E8B57;
+            --kintsugi-gold: #D4AF37;
+            --kintsugi-gold-light: rgba(212, 175, 55, 0.14);
+            --kintsugi-gold-border: rgba(212, 175, 55, 0.35);
+            --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Helvetica Neue", "PingFang SC", sans-serif;
+            --font-mono: "SF Mono", Monaco, Menlo, Consolas, monospace;
+            --shadow-md: 0 10px 30px rgba(0,0,0,0.05);
+            --radius-lg: 20px;
+        }
+
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --bg: #0B0B0D;
+                --surface: rgba(22, 22, 28, 0.70);
+                --surface-elevated: rgba(30, 30, 38, 0.90);
+                --border: rgba(255, 255, 255, 0.08);
+                --text-primary: #F5F5F7;
+                --text-secondary: #A1A1A6;
+                --text-tertiary: #6E6E73;
+                --accent-green: #34C759;
+                --kintsugi-gold: #E5C158;
+                --kintsugi-gold-light: rgba(229, 193, 88, 0.18);
+                --kintsugi-gold-border: rgba(229, 193, 88, 0.4);
+                --shadow-md: 0 10px 30px rgba(0,0,0,0.45);
+            }
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: var(--font-sans);
+            background-color: var(--bg);
+            color: var(--text-primary);
+            line-height: 1.8;
+            -webkit-font-smoothing: antialiased;
+            overflow-x: hidden;
+            position: relative;
+        }
+
+        .fluid-canvas-container {
+            position: fixed;
+            top: 0; left: 0; width: 100vw; height: 100vh;
+            pointer-events: none; overflow: hidden; z-index: 0;
+            opacity: 0.52; transition: opacity 0.7s ease;
+        }
+        @media (prefers-color-scheme: dark) {
+            .fluid-canvas-container { opacity: 0.34; }
+        }
+        #fluidCanvas {
+            width: 100%; height: 100%; filter: blur(52px); -webkit-filter: blur(52px);
+            transform: scale(1.20); transform-origin: center;
+        }
+
+        .content-wrapper { position: relative; z-index: 1; }
+
+        nav {
+            position: sticky; top: 0; z-index: 100;
+            background-color: transparent; backdrop-filter: none; -webkit-backdrop-filter: none;
+            border-bottom: none; padding: 18px 32px;
+        }
+        .nav-container {
+            max-width: 920px; margin: 0 auto;
+            display: flex; align-items: center; justify-content: space-between;
+        }
+        .brand {
+            display: flex; align-items: center; gap: 12px;
+            font-weight: 700; font-size: 18px; text-decoration: none;
+            color: var(--text-primary); letter-spacing: -0.02em;
+        }
+        .brand img {
+            width: 34px; height: 34px; border-radius: 9px;
+            box-shadow: 0 3px 12px rgba(0,0,0,0.12);
+        }
+        .nav-links {
+            display: flex; gap: 20px; align-items: center; font-size: 14px; font-weight: 500;
+        }
+        .nav-links a { color: var(--text-secondary); text-decoration: none; transition: color 0.2s; }
+        .nav-links a:hover { color: var(--text-primary); }
+
+        .legal-container {
+            max-width: 920px; margin: 40px auto 80px; padding: 40px;
+            background-color: var(--surface); backdrop-filter: blur(24px) saturate(160%);
+            -webkit-backdrop-filter: blur(24px) saturate(160%);
+            border: 1px solid var(--border); border-radius: var(--radius-lg);
+            box-shadow: var(--shadow-md);
+        }
+        .golden-tag {
+            font-size: 10px; font-weight: 700; text-transform: uppercase;
+            letter-spacing: 2px; color: var(--kintsugi-gold);
+            font-family: var(--font-mono); display: inline-block; margin-bottom: 8px;
+        }
+        h1 { font-size: 36px; font-weight: 800; letter-spacing: -0.025em; margin-bottom: 12px; }
+        h2 { font-size: 20px; font-weight: 700; margin-top: 36px; margin-bottom: 12px; color: var(--text-primary); }
+        p, ul { color: var(--text-secondary); font-size: 15px; margin-bottom: 16px; }
+        ul { padding-left: 24px; }
+        li { margin-bottom: 8px; }
+        a { color: var(--kintsugi-gold); text-decoration: none; font-weight: 600; }
+        a:hover { text-decoration: underline; }
+
+        footer {
+            border-top: none; padding: 40px 24px 70px; text-align: center;
+            color: var(--text-tertiary); font-size: 13px; background-color: transparent;
+        }
+        .footer-links {
+            display: flex; justify-content: center; gap: 26px; margin-bottom: 16px; flex-wrap: wrap;
+        }
+        .footer-links a { color: var(--text-secondary); text-decoration: none; }
+        .footer-links a:hover { color: var(--text-primary); }
+    </style>
+</head>
+<body>
+
+    <div class="fluid-canvas-container" aria-hidden="true">
+        <canvas id="fluidCanvas" width="480" height="320"></canvas>
+    </div>
+
+    <div class="content-wrapper">
+        <nav>
+            <div class="nav-container">
+                <a href="index.html" class="brand">
+                    <img src="assets/AppIcon.png" alt="TTZip Icon">
+                    <span>TTZip</span>
+                </a>
+                <div class="nav-links">
+                    <a href="index.html">返回首页</a>
+                    <a href="performance.html">实测性能</a>
+                    <a href="cli.html">CLI 说明</a>
+                    <a href="formats.html">16 种格式</a>
+                    <a href="terms.html">服务条款</a>
+                </div>
+            </div>
+        </nav>
+
+        <div class="legal-container">
+            <span class="golden-tag">100% On-Device · Zero Telemetry</span>
+            <h1>TTZip 隐私政策 (Privacy Policy)</h1>
+            <p style="font-size: 13px; color: var(--text-tertiary); margin-bottom: 28px;">最后修订生效日期：2026年8月18日</p>
+
+            <h2>1. 核心隐私承诺</h2>
+            <p>TTZip 是一款运行在您本地 Mac 计算机上的原生归档与解压工具软件。我们坚信用户的隐私权不可侵犯，因此 TTZip 对所有文件处理遵循<strong>“100% 本地运算、零文件内容上传、零行为遥测追踪”</strong>的隐私安全准则。</p>
+
+            <h2>2. 文件处理与归档操作（100% 本地执行）</h2>
+            <ul>
+                <li><strong>无个人信息收集与遥测</strong>：TTZip 不收集您的姓名、电子邮箱、设备标识符或使用行为统计数据，未集成任何第三方统计、遥测或广告分析 SDK。</li>
+                <li><strong>无文件内容或元数据上传</strong>：您压缩、解压、加密或预览的所有文件、文件名、目录结构、密码及哈希校验，全部在您本地内存与磁盘中由原生 Rust + C/C++ 微内核引擎与受沙盒隔离的本地进程处理，绝不上传至任何外部服务器。</li>
+            </ul>
+
+            <h2>3. 分发渠道与更新检查说明</h2>
+            <p>不同分发渠道的构建版本在网络请求行为上存在明确区分：</p>
+            <ul>
+                <li><strong>Mac App Store 与 Steam 商店版本</strong>：不包含任何第三方更新框架（完全移除 Sparkle），应用自身<strong>不发起任何软件更新网络请求</strong>。版本更新与购买验证分别由 Apple Mac App Store 与 Valve Steam 平台按各自隐私规范独立处理。</li>
+                <li><strong>Direct（官网 / GitHub Release）与社区版本</strong>：内置开源更新框架 <strong>Sparkle 2</strong>，仅用于向 GitHub 官方托管源（<code>raw.githubusercontent.com</code> / <code>github.com</code>）查询经 Ed25519 数字签名认证的更新清单（<code>appcast.xml</code>）及下载更新包。许可证激活校验采用本地离线 Ed25519 公钥签名算法，不发起联网验证。</li>
+            </ul>
+
+            <h2>4. 系统权限、沙盒与 Required Reason APIs 说明</h2>
+            <p>为了在 macOS App Sandbox 沙盒规范下完成归档管理与本地预览，TTZip 仅按实际功能需要调用以下系统权限与接口：</p>
+            <ul>
+                <li><strong>用户选择的文件与常用目录读写权限</strong>：通过 <code>NSOpenPanel</code> / <code>NSSavePanel</code>、拖拽授权及标准用户目录权限（Downloads / Documents / Desktop / Pictures / Movies / Music 及外置移动存储卷），支持工作区浏览、跨目录压缩与原位解压。</li>
+                <li><strong>安全作用域书签 (Security-Scoped Bookmarks)</strong>：用于在您授权后持久化保存已固定的工作区文件夹与最近访问路径，避免重启应用后重复弹窗授权。</li>
+                <li><strong>本地 WebKit 预览渲染 (<code>com.apple.security.network.client</code>)</strong>：仅用于满足 macOS <code>WKWebView</code> 进程外渲染服务（<code>com.apple.WebKit.WebContent</code> XPC 进程）在 App Sandbox 下的系统级进程初始化要求：其中 Quick Look 扩展（<code>QuickLookPreviewViewController</code>）通过 <code>loadHTMLString(..., baseURL: nil)</code> 渲染归档结构预览；主应用富文档预览（<code>HTMLWebRichPreviewView</code>、<code>EPUBNativeWKWebView</code>）使用本地文件/归档资源并受 <code>TTWebPreviewContentPolicy</code> 导航与离线内容策略约束，阻断外部网络请求。</li>
+                <li><strong>Apple Required Reason APIs 声明</strong>：
+                    <ul>
+                        <li><code>NSPrivacyAccessedAPICategoryFileTimestamp</code> (<code>C617.1</code>, <code>3B52.1</code>)：在浏览、打包或解压归档时读取与还原文件的创建和修改时间戳。</li>
+                        <li><code>NSPrivacyAccessedAPICategoryUserDefaults</code> (<code>CA92.1</code>, <code>1C8F.1</code>)：读写应用自身偏好设置（<code>CA92.1</code>）及主应用与 Finder Sync / Quick Look 扩展共享的 App Group (<code>group.com.metastudyline.ttzip</code>) 配置（<code>1C8F.1</code>）。</li>
+                        <li><code>NSPrivacyAccessedAPICategoryDiskSpace</code> (<code>E174.1</code>, <code>85F4.1</code>)：在工作区存储检查器中向用户展示磁盘卷状态，并在写入/解压前检查目标卷挂载属性与可用空间以防磁盘写满。</li>
+                        <li><code>NSPrivacyAccessedAPICategorySystemBootTime</code> (<code>35F9.1</code>)：使用单调时钟（<code>systemUptime</code> / <code>mach_absolute_time</code>）测量应用内操作耗时、权限缓存 TTL 及主线程卡顿诊断看门狗时间间隔。</li>
+                    </ul>
+                </li>
+            </ul>
+
+            <h2>5. 密码保险箱安全性</h2>
+            <p>您保存在密码保险箱中的解压密码均采用硬件级 AES-256 加密与 600,000 轮 OWASP 强化 PBKDF2-SHA256 派生存储于您本地的 Keychain 与安全存储区。密码在内存使用完毕后均通过 volatile 指针执行物理强制清零（防 Dead-Store 消除），绝无泄露风险。</p>
+
+            <h2>6. 联系与支持</h2>
+            <p>如果您对本隐私政策有任何疑问或建议，欢迎通过 GitHub 提交反馈：<a href="https://github.com/wittkung/TTZip/issues" target="_blank">TTZip GitHub Issues</a> 或发送邮件至 <a href="mailto:witt.w.kung@gmail.com">witt.w.kung@gmail.com</a>。</p>
+        </div>
+
+        <footer>
+            <div class="footer-links">
+                <a href="index.html">返回首页</a>
+                <a href="performance.html">实测性能</a>
+                <a href="cli.html">CLI 说明</a>
+                <a href="formats.html">16 种格式</a>
+                <a href="terms.html">服务条款 (EULA)</a>
+            </div>
+            <p>TTZip — 禅意极简美学 × Apple Silicon 原生架构。</p>
+            <p style="margin-top: 10px; font-size: 12px;">© 2026 Witt Kung. All rights reserved.</p>
+        </footer>
+    </div>
+
+    <script>
+        (function() {
+            const canvas = document.getElementById('fluidCanvas');
+            if (!canvas) return;
+            const ctx = canvas.getContext('2d');
+            if (!ctx) return;
+            let phase = Math.random() * 100, lastTime = performance.now();
+            const speed = 0.3;
+            const isDarkMode = () => window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+            function render(now) {
+                const delta = (now - lastTime) / 1000;
+                if (delta >= 0.03) {
+                    phase += Math.min(delta, 0.1) * speed;
+                    lastTime = now;
+                    const w = canvas.width, h = canvas.height;
+                    ctx.clearRect(0, 0, w, h);
+                    const isDark = isDarkMode();
+                    const x1 = w / 2 + Math.cos(phase * 0.65) * (w * 0.3), y1 = h / 2 + Math.sin(phase * 1.05) * (h * 0.2);
+                    const x2 = w / 2 + Math.sin(phase * 0.45) * (w * 0.4), y2 = h / 2 + Math.cos(phase * 0.95) * (h * 0.3);
+                    const x3 = w / 2 + Math.cos(phase * 0.35) * (w * 0.25), y3 = h / 2 + Math.sin(phase * 0.55) * (h * 0.4);
+                    const radius = Math.min(w, h) * 0.6;
+                    const bambooColor = isDark ? "#34C759" : "#3D7A50";
+                    const goldColor = isDark ? "#E5C158" : "#C89D2B";
+                    ctx.globalAlpha = 0.95; ctx.fillStyle = bambooColor; ctx.beginPath(); ctx.arc(x1, y1, radius * 0.52, 0, Math.PI * 2); ctx.fill();
+                    ctx.globalAlpha = 0.75; ctx.fillStyle = bambooColor; ctx.beginPath(); ctx.arc(x2, y2, radius * 0.46, 0, Math.PI * 2); ctx.fill();
+                    ctx.globalAlpha = 0.68; ctx.fillStyle = goldColor; ctx.beginPath(); ctx.arc(x3, y3, radius * 0.44, 0, Math.PI * 2); ctx.fill();
+                    ctx.globalAlpha = 1.0;
+                }
+                requestAnimationFrame(render);
+            }
+            requestAnimationFrame(render);
+        })();
+    </script>
+</body>
+</html>

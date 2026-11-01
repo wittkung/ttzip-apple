@@ -1,0 +1,34 @@
+# macOS & System Clutter
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+# SwiftPM & Xcode
+.build/
+.build_*/
+.swiftpm/
+.cache/
+DerivedData/
+xcuserdata/
+*.xcuserstate
+*.xcworkspace
+*.dSYM/
+*.app
+*.ipa
+
+# Distribution & Packaging Artifacts
+dist/
+*.dmg
+*.pkg
+# vendor/ holds the vendored first-party Swift packages and MUST stay tracked.
+upstream/
+
+# Editor & Temporary
+.vscode/
+.idea/
+*.swp
+*.swo
+*.orig
+*.tmp
+*.log
