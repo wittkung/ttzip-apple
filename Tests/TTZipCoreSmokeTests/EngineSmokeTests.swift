@@ -4,7 +4,7 @@
 import Foundation
 import XCTest
 
-@testable import TTZipCore
+import TTZipCore
 
 /// Proves that the prebuilt engine framework shipped with this package is
 /// linked and that its Rust code runs. The engine is the only part of the
