@@ -153,6 +153,13 @@ let package = Package(
             ],
             swiftSettings: swiftSettings
         ),
+        .testTarget(
+            name: "TTZipCoreSmokeTests",
+            dependencies: [
+                .product(name: "TTZipCore", package: corePackageName)
+            ],
+            path: "Tests/TTZipCoreSmokeTests"
+        ),
     ],
     swiftLanguageModes: [.v6]
 )
