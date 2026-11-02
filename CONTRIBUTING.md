@@ -24,13 +24,14 @@ cd ttzip-apple
 swift build
 swift build -c release
 
-# 3. Run all UI, state machine, and integration tests
+# 3. Verify the repository: the single-file LOC gate and the Swift package test suite
+ttaction run
+
+# ... or run the same two stages directly
+./scripts/lint_loc_gate.sh
 swift test
 
-# 4. Run the single-file LOC architecture gate (Hard limit: <= 800 LOC)
-./scripts/lint_loc_gate.sh
-
-# 5. Assemble and test the .app bundle locally
+# 4. Assemble and test the .app bundle locally
 ./scripts/bundle_app.sh --channel direct --open
 ```
 
@@ -49,7 +50,7 @@ swift test
 ## 🛡 Pull Request Quality Checklist
 
 Before submitting a PR, ensure all gates pass:
-1. `swift test` passes 100% with 0 failures.
+1. `ttaction run` passes: the single-file LOC gate and `swift test` with 0 failures.
 2. `./scripts/lint_loc_gate.sh` passes with all files $\le 800$ LOC.
 3. `./scripts/bundle_app.sh --channel direct` successfully builds and signs `dist/TTZip.app`.
 4. All new Swift source files include the standard dual-license SPDX header:

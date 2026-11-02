@@ -56,11 +56,12 @@ cd ttzip-apple
 # Build release binary (SPM automatically downloads prebuilt TTZipCore SDK)
 swift build -c release
 
-# Run the full unit & integration test suite (170 tests)
-swift test
+# Verify the repository: the single-file LOC gate and the Swift package test suite
+ttaction run
 
-# Run single-file LOC architecture gate (Hard threshold: 800 LOC)
+# ... or run the same two stages directly
 ./scripts/lint_loc_gate.sh
+swift test
 ```
 
 ### 2. Package Fully Signed macOS Application (`.app`)
