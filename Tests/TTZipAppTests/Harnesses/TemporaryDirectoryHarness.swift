@@ -2,8 +2,96 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
 import Foundation
+import ObjectiveC
 import XCTest
 import TTMediaKit
+
+/// Per-process isolated `UserDefaults` harness for XCTest executions.
+///
+/// Redirects `UserDefaults.standard` to a file-backed plist domain inside `TEST_TMPDIR`
+/// (or `NSTemporaryDirectory()`) before any test runs, preventing XCTest suites from reading
+/// or polluting host `~/Library/Preferences/<TestBundle>.plist` via `cfprefsd`.
+///
+/// This composes with `tools/ci/isolated_test_home.sh` instead of replacing it. That script owns
+/// the host-isolation boundary: it points `CFFIXED_USER_HOME` at a throwaway home and interposes
+/// `cfprefsd`, so preferences writes never reach the host account. This harness adds the
+/// in-process half: it rewrites the `UserDefaults.standard` getter so every read and write
+/// resolves to the temporary plist domain. The script keeps the writes off the host, the harness
+/// keeps the test process pointed at the temporary domain; neither subsumes the other.
+public enum IsolatedTestPreferencesHarness {
+    public static let suitePath: String = {
+        let baseDir: URL
+        if let testTmp = ProcessInfo.processInfo.environment["TEST_TMPDIR"], !testTmp.isEmpty {
+            baseDir = URL(fileURLWithPath: testTmp, isDirectory: true)
+        } else {
+            baseDir = FileManager.default.temporaryDirectory
+        }
+        let dir = baseDir.appendingPathComponent(
+            "ttzip-isolated-prefs-\(ProcessInfo.processInfo.processIdentifier)",
+            isDirectory: true
+        )
+        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        return dir.appendingPathComponent("standard_defaults").path
+    }()
+
+    nonisolated(unsafe) public static let sharedDefaults: UserDefaults = {
+        guard let defaults = UserDefaults(suiteName: suitePath) else {
+            preconditionFailure("Failed to create file-backed isolated UserDefaults at \(suitePath)")
+        }
+        return defaults
+    }()
+
+    private static let installOnce: Void = {
+        let defaults = sharedDefaults
+        guard let method = class_getClassMethod(UserDefaults.self, #selector(getter: UserDefaults.standard)) else {
+            return
+        }
+        let block: @convention(block) (AnyObject) -> UserDefaults = { _ in
+            defaults
+        }
+        let imp = imp_implementationWithBlock(block)
+        method_setImplementation(method, imp)
+    }()
+
+    /// `true` only when the isolation was installed by `IsolatedTestPreferencesBootstrap`
+    /// during XCTest discovery.
+    ///
+    /// Test code calling `installIfNeeded()` never flips this flag. That asymmetry is the whole
+    /// point: it keeps a discovery bootstrap that silently stops running observable, instead of
+    /// letting a test install the harness on its own behalf and mask the loss.
+    nonisolated(unsafe) public static private(set) var installedByDiscoveryBootstrap: Bool = false
+
+    /// Installs the isolated `UserDefaults` for the current process.
+    ///
+    /// Idempotent, and deliberately does not mark the installation as bootstrap-provided.
+    public static func installIfNeeded() {
+        _ = installOnce
+    }
+
+    /// Installs the isolated `UserDefaults` and records that the discovery bootstrap did it.
+    ///
+    /// Reserved for `IsolatedTestPreferencesBootstrap`. Test bodies must use `installIfNeeded()`
+    /// so that a missing bootstrap stays visible to assertions.
+    public static func installForDiscoveryBootstrap() {
+        _ = installOnce
+        installedByDiscoveryBootstrap = true
+    }
+}
+
+/// Early XCTest discovery bootstrap that installs `IsolatedTestPreferencesHarness`
+/// during `+defaultTestSuite` enumeration before any test case `setUp` or body executes.
+///
+/// The empty suite is intentional. XCTest enumerates every `XCTestCase` subclass in the test
+/// bundle during discovery and asks each one for its default suite, so overriding
+/// `+defaultTestSuite` turns that enumeration step into a one-shot hook that runs before any
+/// test body. Returning an empty suite keeps this class from contributing tests of its own —
+/// it exists purely for its discovery-time side effect.
+public final class IsolatedTestPreferencesBootstrap: XCTestCase {
+    override public class var defaultTestSuite: XCTestSuite {
+        IsolatedTestPreferencesHarness.installForDiscoveryBootstrap()
+        return XCTestSuite(name: "IsolatedTestPreferencesBootstrap")
+    }
+}
 
 public enum PreviewCorpusSampleError: Error, Equatable {
     case missingPreviewFixturesRoot

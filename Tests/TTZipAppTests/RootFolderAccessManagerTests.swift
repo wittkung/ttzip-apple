@@ -404,4 +404,89 @@ final class RootFolderAccessManagerTests: XCTestCase {
             )
         }
     }
+
+    /// Guards the process-wide `UserDefaults.standard` replacement that
+    /// `IsolatedTestPreferencesBootstrap` performs during XCTest discovery.
+    ///
+    /// The first assertion is what makes this a regression guard. It never installs the harness
+    /// itself: if the discovery bootstrap stops running, the marker stays unset and this test
+    /// fails, instead of the test quietly re-installing the harness and hiding the loss.
+    @MainActor
+    func test_isolated_test_preferences_harness_prevents_host_preference_pollution() {
+        XCTAssertTrue(
+            IsolatedTestPreferencesHarness.installedByDiscoveryBootstrap,
+            "Isolated test preferences must be installed by the XCTest discovery bootstrap"
+        )
+        XCTAssertTrue(
+            UserDefaults.standard === IsolatedTestPreferencesHarness.sharedDefaults,
+            "UserDefaults.standard in XCTest must resolve to IsolatedTestPreferencesHarness.sharedDefaults"
+        )
+        XCTAssertFalse(
+            IsolatedTestPreferencesHarness.suitePath.contains("/Library/Preferences/"),
+            "Isolated test preferences suite path must reside in temporary test storage, never host Preferences"
+        )
+    }
+
+    @MainActor
+    func test_historical_bookmark_load_restores_once_explicitly_and_preserves_leases_across_repeated_windows() throws {
+        // Fail fast instead of installing the harness here: without the discovery bootstrap this
+        // test would keep running against the host preferences domain and keep writing to it.
+        guard IsolatedTestPreferencesHarness.installedByDiscoveryBootstrap else {
+            XCTFail("Bookmark test must run against the discovery-bootstrapped isolated preferences domain")
+            return
+        }
+        let manager = RootFolderAccessManager.shared
+        let recentKey = "TTZipRecentArchivesKey"
+        let originalBookmarks = UserDefaults.standard.data(forKey: testBookmarksKey)
+        let originalRecents = UserDefaults.standard.data(forKey: recentKey)
+        let originalStart = manager.startSecurityScopedAccess
+        let originalStop = manager.stopSecurityScopedAccess
+        defer {
+            manager.startSecurityScopedAccess = originalStart
+            manager.stopSecurityScopedAccess = originalStop
+            UserDefaults.standard.set(originalBookmarks, forKey: testBookmarksKey)
+            UserDefaults.standard.set(originalRecents, forKey: recentKey)
+            manager.restoreBookmarks()
+        }
+        UserDefaults.standard.removeObject(forKey: recentKey)
+
+        var historicalLoad: [String: Data] = [:]
+        for idx in 0..<500 {
+            let url = URL(fileURLWithPath: "/Volumes/SyntheticOfflineDrive/Batch_\(idx)")
+            historicalLoad[manager.canonicalDirectoryURL(for: url).path] = Data("offline-bm-\(idx)".utf8)
+        }
+        UserDefaults.standard.set(try PropertyListEncoder().encode(historicalLoad), forKey: testBookmarksKey)
+        manager.restoreBookmarks()
+        XCTAssertTrue(manager.hasPersistedBookmark(for: URL(fileURLWithPath: "/Volumes/SyntheticOfflineDrive/Batch_0")))
+
+        var stopCount = 0
+        manager.startSecurityScopedAccess = { _ in true }
+        manager.stopSecurityScopedAccess = { _ in stopCount += 1 }
+        let activeDir = try makeTemporaryDirectory(prefix: "HistoricalLoadLease")
+        let activeLease = try XCTUnwrap(manager.acquireLease(for: activeDir))
+        defer { activeLease.release() }
+        XCTAssertEqual(manager.activeLeaseCount(for: activeDir), 1)
+
+        let externalURL = URL(fileURLWithPath: "/Volumes/SyntheticOfflineDrive/ExternalUnrestored")
+        historicalLoad[manager.canonicalDirectoryURL(for: externalURL).path] = Data("external-unrestored".utf8)
+        UserDefaults.standard.set(try PropertyListEncoder().encode(historicalLoad), forKey: testBookmarksKey)
+
+        // Budget check: 8 measured runs of this 10-window construction took 1.48–2.10 ms, so the
+        // 2 s ceiling leaves roughly a 1000x margin and only trips on a real regression.
+        let windowStart = ContinuousClock.now
+        let windows = (0..<10).map { _ in AppViewState(fileViewer: NoOpFileViewer()) }
+        XCTAssertEqual(windows.count, 10)
+        XCTAssertLessThan(ContinuousClock.now - windowStart, .seconds(2))
+        XCTAssertFalse(manager.hasPersistedBookmark(for: externalURL))
+        XCTAssertEqual(manager.activeLeaseCount(for: activeDir), 1)
+        XCTAssertEqual(stopCount, 0)
+
+        manager.restoreBookmarks()
+        XCTAssertTrue(manager.hasPersistedBookmark(for: externalURL))
+        XCTAssertEqual(manager.activeLeaseCount(for: activeDir), 0)
+        XCTAssertEqual(manager.retiringLeaseCount(forKey: activeLease.leaseKey), 1)
+        activeLease.release()
+        XCTAssertEqual(manager.retiringLeaseCount(forKey: activeLease.leaseKey), 0)
+        XCTAssertEqual(stopCount, 1)
+    }
 }

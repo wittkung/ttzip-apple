@@ -48,10 +48,17 @@ if [ ! -d "${MEDIA_PACKAGE}/Frameworks/TTMediaVendor.xcframework" ]; then
 fi
 
 echo "--> Building the ${BUNDLE_NAME} XPC service [${CONFIGURATION}]..." >&2
-swift build \
+if ! swift build \
     --package-path "${MEDIA_PACKAGE}" \
     --configuration "${CONFIGURATION}" \
-    --product "${SERVICE_PRODUCT}" >&2
+    --product "${SERVICE_PRODUCT}" >&2; then
+    echo "swift build failed for ${SERVICE_PRODUCT} in ${CONFIGURATION}." >&2
+    echo "The vendored media package must compile under this Swift toolchain." >&2
+    echo "If the failure is a Swift 6 concurrency diagnostic, build a different" >&2
+    echo "configuration, e.g. TTMEDIA_XPC_BUILD_CONFIG=debug, or supply a" >&2
+    echo "prebuilt service with TTMEDIA_XPC_SERVICE_BUNDLE." >&2
+    exit 1
+fi
 
 SERVICE_BIN="${MEDIA_PACKAGE}/.build/${CONFIGURATION}/${SERVICE_PRODUCT}"
 if [ ! -f "${SERVICE_BIN}" ]; then

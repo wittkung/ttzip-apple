@@ -34,21 +34,50 @@ public final class AppMemoryPressureCoordinator {
             queue: DispatchQueue.global(qos: .userInitiated)
         )
         self.memorySource = source
-
-        source.setEventHandler { [weak self] in
-            let event = source.data
-            Task { @MainActor [weak self] in
-                guard let self else { return }
-                if event.contains(.critical) {
-                    self.handleCriticalPressure()
-                } else if event.contains(.warning) {
-                    self.handleWarningPressure()
-                } else if event.contains(.normal) {
-                    self.handleNormalPressure()
-                }
+        AppMemoryPressureCoordinator.installMemoryPressureHandler(
+            on: source,
+            readEvent: { source.data },
+            deliver: { [weak self] event in
+                self?.handle(event)
             }
-        }
+        )
         source.resume()
+    }
+
+    /// Installs the memory pressure handler on `source`.
+    ///
+    /// The handler runs on the source's queue, so it must not be main-actor isolated.
+    /// `setEventHandler` takes a C block, and Swift 6 emits a runtime executor check for
+    /// an isolated closure handed to a C callback. GCD fires that callback on the
+    /// source's background queue, the check fails, and the process traps before the body
+    /// can hop to the main actor. This function is `nonisolated` so the handler closure is
+    /// formed without main-actor isolation, and the `Task { @MainActor }` hop below
+    /// carries the isolated work.
+    ///
+    /// `source` is generic over `DispatchSourceProtocol` and the event flags come from
+    /// `readEvent` so a test can drive the handler from a timer source. Real kernel
+    /// memory pressure events cannot be triggered on demand.
+    nonisolated static func installMemoryPressureHandler<S: DispatchSourceProtocol>(
+        on source: S,
+        readEvent: @escaping @Sendable () -> DispatchSource.MemoryPressureEvent,
+        deliver: @escaping @MainActor @Sendable (DispatchSource.MemoryPressureEvent) -> Void
+    ) {
+        source.setEventHandler(handler: {
+            let event = readEvent()
+            Task { @MainActor in
+                deliver(event)
+            }
+        })
+    }
+
+    private func handle(_ event: DispatchSource.MemoryPressureEvent) {
+        if event.contains(.critical) {
+            handleCriticalPressure()
+        } else if event.contains(.warning) {
+            handleWarningPressure()
+        } else if event.contains(.normal) {
+            handleNormalPressure()
+        }
     }
 
     private func handleCriticalPressure() {
