@@ -73,6 +73,25 @@ swift test
 open dist/TTZip.app
 ```
 
+### 3. Sandbox Media Service (XPC)
+
+The installed application embeds a sandboxed `TTMediaWorker.xpc` service. Its source ships with the vendored media package, so the service is built with the native Swift toolchain — no Bazel and no prebuilt artifact are required:
+
+```bash
+# Build the XPC service bundle on its own
+./scripts/build_xpc_service.sh
+
+# Output bundle: dist/TTMediaWorker.xpc
+```
+
+`scripts/bundle_app.sh` runs the same script, so packaging the application builds the service automatically. Three environment variables override the defaults:
+
+| Variable | Purpose |
+| --- | --- |
+| `TTMEDIA_XPC_SERVICE_BUNDLE` | Directory that contains a prebuilt `TTMediaWorker.xpc` bundle. |
+| `TTMEDIA_XPC_SERVICE_ARCHIVE` | Zip archive that contains `TTMediaWorker.xpc`. |
+| `TTMEDIA_XPC_ENTITLEMENTS` | Sandbox entitlements that are applied to the service. |
+
 ---
 
 ## 🔄 Dual-Mode Microkernel Dependency Resolution

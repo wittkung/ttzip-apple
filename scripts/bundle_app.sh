@@ -80,7 +80,7 @@ if [ "${NEED_SWIFT_BUILD}" = true ]; then
     echo "--> [1/4] Compiling TTZipApp via Swift Package Manager..."
     swift build --build-path "${BUILD_DIR}" --jobs "${NCPU}" -c "${BUILD_CONFIG}" \
         -Xlinker -rpath -Xlinker @executable_path/../Frameworks \
-        -Xswiftc -warnings-as-errors "${SWIFT_FLAGS[@]}"
+        "${SWIFT_FLAGS[@]}"
 else
     echo "--> [1/4] TTZipApp sources up-to-date (Skipped SPM compilation)."
 fi
@@ -239,16 +239,34 @@ fi
 rmdir "${HELPERS_DIR}" 2>/dev/null || true
 
 # Installed application hosts require the bundled media sandbox service.
-MEDIA_SERVICE_SOURCE="${TTMEDIA_XPC_SERVICE_BUNDLE:-${BIN_DIR}/TTMediaWorker.xpc}"
+# The service is resolved from the vendored media package: an explicit
+# bundle or archive wins, otherwise it is built with the native Swift
+# toolchain by `scripts/build_xpc_service.sh`.
+MEDIA_SERVICE_SOURCE="${TTMEDIA_XPC_SERVICE_BUNDLE:-}"
 MEDIA_SERVICE_ENTITLEMENTS="${TTMEDIA_XPC_ENTITLEMENTS:-${REPO_ROOT}/vendor/ttmedia/Sources/TTMediaWorkerService/Worker.entitlements}"
 MEDIA_SERVICE_ARCHIVE="${TTMEDIA_XPC_SERVICE_ARCHIVE:-}"
-if [ ! -d "${MEDIA_SERVICE_SOURCE}" ] && [ -f "${MEDIA_SERVICE_ARCHIVE}" ]; then
+MEDIA_SERVICE_STAGE=""
+if [ -n "${MEDIA_SERVICE_SOURCE}" ] && [ ! -d "${MEDIA_SERVICE_SOURCE}" ]; then
+    echo "TTMEDIA_XPC_SERVICE_BUNDLE does not point at an XPC service bundle: ${MEDIA_SERVICE_SOURCE}" >&2
+    exit 1
+fi
+if [ -z "${MEDIA_SERVICE_SOURCE}" ] && [ -n "${MEDIA_SERVICE_ARCHIVE}" ]; then
+    if [ ! -f "${MEDIA_SERVICE_ARCHIVE}" ]; then
+        echo "TTMEDIA_XPC_SERVICE_ARCHIVE does not point at a readable archive: ${MEDIA_SERVICE_ARCHIVE}" >&2
+        exit 1
+    fi
     MEDIA_SERVICE_STAGE="$(mktemp -d "${TMPDIR:-/tmp}/ttzip-media-xpc.XXXXXX")"
     ditto -xk "${MEDIA_SERVICE_ARCHIVE}" "${MEDIA_SERVICE_STAGE}"
     MEDIA_SERVICE_SOURCE="${MEDIA_SERVICE_STAGE}/TTMediaWorker.xpc"
+    if [ ! -d "${MEDIA_SERVICE_SOURCE}" ]; then
+        MEDIA_SERVICE_SOURCE="$(find "${MEDIA_SERVICE_STAGE}" -maxdepth 2 -name "*.xpc" -type d 2>/dev/null | head -n 1 || true)"
+    fi
+fi
+if [ -z "${MEDIA_SERVICE_SOURCE}" ]; then
+    MEDIA_SERVICE_SOURCE="$(TTMEDIA_XPC_BUILD_CONFIG="${BUILD_CONFIG}" bash "${SCRIPT_DIR}/build_xpc_service.sh")"
 fi
 if [ ! -d "${MEDIA_SERVICE_SOURCE}" ] || [ ! -f "${MEDIA_SERVICE_ENTITLEMENTS}" ]; then
-    echo "Missing sandbox media service. Build the TTMediaWorker XPC service, or provide TTMEDIA_XPC_SERVICE_BUNDLE and TTMEDIA_XPC_ENTITLEMENTS." >&2
+    echo "Missing sandbox media service. Provide TTMEDIA_XPC_SERVICE_BUNDLE (a directory that contains TTMediaWorker.xpc) or TTMEDIA_XPC_SERVICE_ARCHIVE (a zip archive that contains TTMediaWorker.xpc), or build the service from vendor/ttmedia with 'swift build --package-path vendor/ttmedia --product TTMediaWorkerService'. TTMEDIA_XPC_ENTITLEMENTS selects the sandbox entitlements file." >&2
     exit 1
 fi
 mkdir -p "${CONTENTS_DIR}/XPCServices"

@@ -51,6 +51,13 @@ let package = Package(
             ],
             swiftSettings: swiftSettings
         ),
+        .executableTarget(
+            name: "TTMediaWorkerService",
+            dependencies: ["TTMediaKit"],
+            path: "Sources/TTMediaWorkerService",
+            exclude: ["Info.plist", "Worker.entitlements", "PrivacyInfo.xcprivacy"],
+            swiftSettings: swiftSettings
+        ),
         .testTarget(
             name: "TTMediaKitTests",
             dependencies: [
