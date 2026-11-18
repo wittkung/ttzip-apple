@@ -63,9 +63,10 @@ public final class AVSampleBufferPlayerNSView: NSView {
     public var onCanvasDoubleClick: (() -> Void)?
     public var bottomControlBarExclusionHeight: CGFloat = 76.0
     public weak var controlsVisibility: MediaControlsVisibility?
+    var hasControlBar = true
     private var explicitControlBarVisible: Bool = true
     public var isControlBarVisible: Bool {
-        get { controlsVisibility?.isVisible ?? explicitControlBarVisible }
+        get { hasControlBar && (controlsVisibility?.isVisible ?? explicitControlBarVisible) }
         set { explicitControlBarVisible = newValue }
     }
 
@@ -93,6 +94,7 @@ public final class AVSampleBufferPlayerNSView: NSView {
     public var onRotate180: (() -> Void)?
     public var onResetRotation: (() -> Void)?
     public var formatDetailsSummary: String?
+    var makeCanvasMenu: (@MainActor (VideoPlaybackMenus.Playback) -> NSMenu)?
     public var onHostScreenObservationChanged: ((VideoHostScreenObservation, UUID?) -> Void)?
 
     // MARK: - DisplayLink & Occlusion State
@@ -280,7 +282,7 @@ public final class AVSampleBufferPlayerNSView: NSView {
         super.viewDidMoveToWindow()
         if observedHostWindow !== self.window {
             if let oldWindow = observedHostWindow {
-                CodeReadingToolsInteractionCoordinator.invalidateOwnedMenus(for: oldWindow)
+                TTMediaOwnedMenuRegistry.invalidateOwnedMenus(for: oldWindow)
             }
             observedHostWindow = self.window
         }
@@ -371,12 +373,12 @@ public final class AVSampleBufferPlayerNSView: NSView {
 
     @objc private func handleMenuDidBeginTracking(_ notification: Notification) {
         let menuID = (notification.object as? NSMenu).map { ObjectIdentifier($0) }
-        _ = CodeReadingToolsInteractionCoordinator.beginTrackedMenu(menuID: menuID, for: self.window)
+        _ = TTMediaOwnedMenuRegistry.beginTrackedMenu(menuID: menuID, for: self.window)
     }
 
     @objc private func handleMenuDidEndTracking(_ notification: Notification) {
         let menuID = (notification.object as? NSMenu).map { ObjectIdentifier($0) }
-        _ = CodeReadingToolsInteractionCoordinator.endTrackedMenu(menuID: menuID, for: self.window)
+        _ = TTMediaOwnedMenuRegistry.endTrackedMenu(menuID: menuID, for: self.window)
     }
 
     @objc private func handleWindowScreenOrParametersChange(_ notification: Notification) {
@@ -666,126 +668,19 @@ public final class AVSampleBufferPlayerNSView: NSView {
         return true
     }
 
-    // MARK: - Video Context Menu (Rotation, Fullscreen & Format)
-
     public override func menu(for event: NSEvent) -> NSMenu? {
-        let menu = NSMenu(title: "VideoContextMenu")
-
-        // 1. Play / Pause
-        let playPauseItem = NSMenuItem(
-            title: isPlaying ? MediaLocalization.text(.pause) : MediaLocalization.text(.play),
-            action: #selector(handleMenuTogglePlayPause(_:)),
-            keyEquivalent: " "
-        )
-        playPauseItem.target = self
-        menu.addItem(playPauseItem)
-        menu.addItem(NSMenuItem.separator())
-
-        // 2. Rotation Submenu
-        let rotationParentItem = NSMenuItem(
-            title: VideoInteractionLocalization.text(.rotationMenu),
-            action: nil,
-            keyEquivalent: ""
-        )
-        menu.setSubmenu(makeRotationSubmenu(), for: rotationParentItem)
-        menu.addItem(rotationParentItem)
-
-        // 3. Fullscreen
-        menu.addItem(NSMenuItem.separator())
-        let fullScreenItem = NSMenuItem(
-            title: MediaLocalization.text(.fullscreen),
-            action: #selector(handleMenuToggleFullScreen(_:)),
-            keyEquivalent: "f"
-        )
-        fullScreenItem.target = self
-        menu.addItem(fullScreenItem)
-
-        // 4. Format Details Summary
-        if let summary = formatDetailsSummary, !summary.isEmpty {
-            menu.addItem(NSMenuItem.separator())
-            let formatItem = NSMenuItem(title: summary, action: nil, keyEquivalent: "")
-            formatItem.isEnabled = false
-            menu.addItem(formatItem)
-        }
-        CodeReadingToolsInteractionCoordinator.registerOwnedMenu(
+        guard let makeCanvasMenu else { return super.menu(for: event) }
+        let menu = makeCanvasMenu(VideoPlaybackMenus.Playback(
+            isPlaying: isPlaying,
+            canResetRotation: userRotationDegrees != 0,
+            formatSummary: formatDetailsSummary ?? "",
+            dispatch: { [weak self] action in self?.performCanvasMenuAction(action) }
+        ))
+        TTMediaOwnedMenuRegistry.registerOwnedMenu(
             menu,
-            for: self.window,
-            controlsVisibility: self.controlsVisibility
+            for: window,
+            controlsVisibility: controlsVisibility
         )
         return menu
     }
-
-    private func makeRotationSubmenu() -> NSMenu {
-        let rotSubmenu = NSMenu(title: "Rotation")
-
-        let rotCW = NSMenuItem(
-            title: VideoInteractionLocalization.text(.rotateClockwise),
-            action: #selector(handleMenuRotateCW(_:)),
-            keyEquivalent: ""
-        )
-        rotCW.target = self
-        rotSubmenu.addItem(rotCW)
-
-        let rotCCW = NSMenuItem(
-            title: VideoInteractionLocalization.text(.rotateCounterClockwise),
-            action: #selector(handleMenuRotateCCW(_:)),
-            keyEquivalent: ""
-        )
-        rotCCW.target = self
-        rotSubmenu.addItem(rotCCW)
-
-        let rot180 = NSMenuItem(
-            title: VideoInteractionLocalization.text(.rotate180),
-            action: #selector(handleMenuRotate180(_:)),
-            keyEquivalent: ""
-        )
-        rot180.target = self
-        rotSubmenu.addItem(rot180)
-
-        rotSubmenu.addItem(NSMenuItem.separator())
-        let resetRot = NSMenuItem(
-            title: VideoInteractionLocalization.text(.resetOrientation),
-            action: #selector(handleMenuResetRotation(_:)),
-            keyEquivalent: ""
-        )
-        resetRot.target = self
-        resetRot.isEnabled = (userRotationDegrees != 0)
-        rotSubmenu.addItem(resetRot)
-
-        return rotSubmenu
-    }
-
-    @objc private func handleMenuTogglePlayPause(_ sender: Any?) {
-        if let onCanvasSingleClick {
-            onCanvasSingleClick()
-        } else {
-            togglePlayPause()
-        }
-    }
-
-    @objc private func handleMenuRotateCW(_ sender: Any?) {
-        onRotateClockwise?()
-    }
-
-    @objc private func handleMenuRotateCCW(_ sender: Any?) {
-        onRotateCounterClockwise?()
-    }
-
-    @objc private func handleMenuRotate180(_ sender: Any?) {
-        onRotate180?()
-    }
-
-    @objc private func handleMenuResetRotation(_ sender: Any?) {
-        onResetRotation?()
-    }
-
-    @objc private func handleMenuToggleFullScreen(_ sender: Any?) {
-        if let onCanvasDoubleClick {
-            onCanvasDoubleClick()
-        } else {
-            onToggleFullScreen?()
-        }
-    }
 }
-
-

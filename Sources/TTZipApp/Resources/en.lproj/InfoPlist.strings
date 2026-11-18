@@ -1,7 +1,7 @@
 /* Bundle & Process Names */
 CFBundleDisplayName = "TTZip";
 CFBundleName = "TTZip";
-NSHumanReadableCopyright = "Copyright © 2026 Witt Kung. All rights reserved.";
+NSHumanReadableCopyright = "© 2026 Yuanxuexian (Shanghai) Education Technology Co., Ltd. All rights reserved.";
 
 /* Document Types */
 "CFBundleTypeName" = "All Supported Compressed Archives";

@@ -5,24 +5,23 @@ import SwiftUI
 import AppKit
 
 /// High-performance NSViewRepresentable wrapper around NSTextView with TextKit non-contiguous layout,
-/// 3-state reading background synchronization, plain-text vs. code syntax policy, and generation-guarded progressive highlighting.
+/// resolved reading palette synchronization, plain-text vs. code syntax policy, and generation-guarded progressive highlighting.
 public struct CodeHighlightingEditorNSView: NSViewRepresentable {
     /// Maximum UTF-8 byte budget for interactive text preview and in-place editing (2 MB).
-    nonisolated public static let maxInteractiveTextUTF8Bytes: Int = CodeTextEditorContainerView.maxInteractiveTextUTF8Bytes
+    nonisolated public static let maxInteractiveTextUTF8Bytes: Int = TTTextPreviewBytePolicy.maxInteractiveTextUTF8Bytes
 
     /// Initial UTF-8 byte budget mounted synchronously for first-screen rendering (64 KB).
-    nonisolated public static let initialMountUTF8Bytes: Int = CodeTextEditorContainerView.initialMountUTF8Bytes
+    nonisolated public static let initialMountUTF8Bytes: Int = TTTextPreviewBytePolicy.initialMountUTF8Bytes
 
     /// Incremental UTF-8 byte budget appended per scroll/search chunk step (128 KB).
-    nonisolated public static let chunkStepUTF8Bytes: Int = CodeTextEditorContainerView.chunkStepUTF8Bytes
+    nonisolated public static let chunkStepUTF8Bytes: Int = TTTextPreviewBytePolicy.chunkStepUTF8Bytes
 
     @Binding public var text: String
     public var fileName: String
     public let showLineNumbers: Bool
     public let isEditable: Bool
     public var isSoftWrapEnabled: Bool
-    public var readingBackgroundMode: TTTextReadingBackgroundMode
-    public var isDarkAppearance: Bool
+    public var readingPalette: TTTextReadingPalette
     public var fontSize: CGFloat
     public var textContainerInset: NSSize
     public var syntaxModeOverride: TTTextSyntaxRenderMode?
@@ -40,10 +39,6 @@ public struct CodeHighlightingEditorNSView: NSViewRepresentable {
         isEditable && !isTruncatedForPreview
     }
 
-    public var resolvedReadingPalette: TTTextReadingPalette {
-        TTTextReadingPalette.resolve(mode: readingBackgroundMode, isDarkAppearance: isDarkAppearance)
-    }
-
     public var resolvedSyntaxMode: TTTextSyntaxRenderMode {
         TTTextSyntaxRenderMode.resolve(fileName: fileName, overrideMode: syntaxModeOverride)
     }
@@ -57,7 +52,7 @@ public struct CodeHighlightingEditorNSView: NSViewRepresentable {
 
     public static func createAttributedString(
         from text: String,
-        foregroundColor: NSColor = NSColor(srgbRed: 0.925, green: 0.929, blue: 0.941, alpha: 1.0),
+        foregroundColor: NSColor = .textColor,
         fontSize: CGFloat = 12.5
     ) -> NSAttributedString {
         NSAttributedString(
@@ -75,9 +70,8 @@ public struct CodeHighlightingEditorNSView: NSViewRepresentable {
         fileName: String,
         showLineNumbers: Bool = true,
         isEditable: Bool = false,
-        isSoftWrapEnabled: Bool = TTTextReadingPreferenceStore.defaultSoftWrapEnabled,
-        readingBackgroundMode: TTTextReadingBackgroundMode = .fluidTransparent,
-        isDarkAppearance: Bool = true,
+        isSoftWrapEnabled: Bool = true,
+        readingPalette: TTTextReadingPalette = .system,
         fontSize: CGFloat = 12.5,
         textContainerInset: NSSize = NSSize(width: 8.0, height: 8.0),
         syntaxModeOverride: TTTextSyntaxRenderMode? = nil,
@@ -92,8 +86,7 @@ public struct CodeHighlightingEditorNSView: NSViewRepresentable {
         self.showLineNumbers = showLineNumbers
         self.isEditable = isEditable
         self.isSoftWrapEnabled = isSoftWrapEnabled
-        self.readingBackgroundMode = readingBackgroundMode
-        self.isDarkAppearance = isDarkAppearance
+        self.readingPalette = readingPalette
         self.fontSize = fontSize
         self.textContainerInset = textContainerInset
         self.syntaxModeOverride = syntaxModeOverride
@@ -113,13 +106,13 @@ public struct CodeHighlightingEditorNSView: NSViewRepresentable {
     }
 
     internal func makeEditorScrollView(coordinator: Coordinator) -> NSScrollView {
-        let palette = resolvedReadingPalette
+        let palette = readingPalette
         let scrollView = configureScrollView(palette: palette)
         let contentSize = scrollView.contentSize
         let (textStorage, textContainer) = makeNonContiguousTextSystem(contentSize: contentSize)
         coordinator.textStorageRef = textStorage
 
-        let (displayString, truncated) = CodeTextEditorContainerView.truncateForPreview(text)
+        let (displayString, truncated) = TTTextPreviewBytePolicy.truncateForPreview(text)
         let allowEditing = isEditable && !truncated
 
         let textView = configureTextView(
@@ -180,9 +173,9 @@ public struct CodeHighlightingEditorNSView: NSViewRepresentable {
         coordinator.parent = self
         guard let textView = nsView.documentView as? LargeTextEditorTextView else { return }
 
-        let (displayString, truncated) = CodeTextEditorContainerView.truncateForPreview(text)
+        let (displayString, truncated) = TTTextPreviewBytePolicy.truncateForPreview(text)
         let allowEditing = isEditable && !truncated
-        let currentPalette = resolvedReadingPalette
+        let currentPalette = readingPalette
 
         textView.onSaveShortcut = allowEditing ? { [weak coordinator] in
             guard let coordinator, coordinator.parent.effectiveIsEditable else { return }
@@ -380,7 +373,7 @@ extension CodeHighlightingEditorNSView {
 
         init(_ parent: CodeHighlightingEditorNSView) {
             self.parent = parent
-            self.activeReadingPalette = parent.resolvedReadingPalette
+            self.activeReadingPalette = parent.readingPalette
             self.activeSyntaxMode = parent.resolvedSyntaxMode
             self.activeFontSize = parent.fontSize
             self.activeSoftWrapEnabled = parent.isSoftWrapEnabled
@@ -438,7 +431,7 @@ extension CodeHighlightingEditorNSView {
                 fileName: fileName,
                 overrideMode: parent.syntaxModeOverride
             )
-            activeReadingPalette = parent.resolvedReadingPalette
+            activeReadingPalette = parent.readingPalette
             cachedTokenSpans = []
             searchMatchRanges = []
             activeSearchQuery = ""
@@ -448,9 +441,9 @@ extension CodeHighlightingEditorNSView {
             fullPreviewUTF8Count = displayString.utf8.count
             fullPreviewPrefixSignature = String(displayString.prefix(128))
 
-            let (initialSlice, _) = TTSpreadsheetParser.truncateUTF8Prefix(
+            let (initialSlice, _) = TTTextPreviewBytePolicy.truncateForPreview(
                 displayString,
-                maxBytes: CodeHighlightingEditorNSView.initialMountUTF8Bytes
+                maxUTF8Bytes: CodeHighlightingEditorNSView.initialMountUTF8Bytes
             )
             let mountedBytes = initialSlice.utf8.count
             mountedUTF8ByteCount = mountedBytes
@@ -470,7 +463,12 @@ extension CodeHighlightingEditorNSView {
                 )
             )
             activeStorage.endEditing()
+            tv.setSelectedRange(NSRange(location: 0, length: 0))
             isProgrammaticUpdate = false
+            if let scrollView = tv.enclosingScrollView {
+                scrollView.contentView.scroll(to: .zero)
+                scrollView.reflectScrolledClipView(scrollView.contentView)
+            }
             (tv.enclosingScrollView as? CodePreviewScrollView)?.synchronizeDocumentViewport(force: true)
 
             latestInitialMountDurationMs = (CFAbsoluteTimeGetCurrent() - mountStart) * 1000.0

@@ -73,57 +73,30 @@ final class TTMediaKitTests: XCTestCase {
         XCTAssertTrue(funcErr.errorDescription!.contains("customKernel"))
     }
 
-    @MainActor
-    func testWaveformViewInitialization() {
-        var seekResult: Double?
-        let waveform = TTWaveformView(
-            waveformPeaks: [0.1, 0.4, 0.8, 0.3, 0.9, 0.2],
-            progress: 0.45,
-            onSeek: { ratio in
-                seekResult = ratio
-            }
+    func testSpreadsheetHeaderPagingAndFilteringRetainOriginalCoordinates() throws {
+        let rows = [["id", "label", "score"]] + (1...65).map { ["\($0)", "item_\($0)", "\($0 * 10)"] }
+        let table = SpreadsheetTableState(parsedRows: rows, useFirstRowAsHeader: true, searchQuery: "")
+        XCTAssertEqual(table.headerNames, ["id", "label", "score"])
+        let secondPage = table.makePaginatedRowItems(
+            parsedRows: rows, currentPageIndex: 1, pageSizeOption: .fifty, useFirstRowAsHeader: true
         )
+        XCTAssertEqual(secondPage.map(\.originalIndex), Array(52...66))
+        let secondItem = try XCTUnwrap(secondPage.dropFirst().first)
+        XCTAssertEqual(secondItem.cells[2], "520")
+        XCTAssertEqual(SpreadsheetCellCoordinate(row: secondItem.originalIndex - 1, column: 2).excelReference, "C53")
 
-        XCTAssertEqual(waveform.waveformPeaks.count, 6)
-        XCTAssertEqual(waveform.progress, 0.45)
-        XCTAssertTrue(waveform.isInteractive)
-
-        waveform.onSeek?(0.75)
-        XCTAssertEqual(seekResult, 0.75)
+        let filtered = SpreadsheetTableState(parsedRows: rows, useFirstRowAsHeader: true, searchQuery: "item_60")
+        let matches = filtered.makePaginatedRowItems(
+            parsedRows: rows, currentPageIndex: 0, pageSizeOption: .fifty, useFirstRowAsHeader: true
+        )
+        XCTAssertEqual(matches.map(\.originalIndex), [61])
+        let match = try XCTUnwrap(matches.first)
+        XCTAssertEqual(match.cells[1], "item_60")
+        XCTAssertEqual(SpreadsheetCellCoordinate(row: match.originalIndex - 1, column: 1).excelReference, "B61")
     }
 
     @MainActor
-    func testSpreadsheetViewInitialization() {
-        let headers = ["ID", "Name", "Score", "Active"]
-        let rows = [
-            ["1", "Alice", "98.5", "true"],
-            ["2", "Bob", "87.0", "false"],
-            ["3", "Charlie", "92.3", "true"]
-        ]
-
-        var selectedIndex: Int?
-        let sheet = TTSpreadsheetView(
-            headers: headers,
-            rows: rows,
-            onRowSelect: { idx in
-                selectedIndex = idx
-            }
-        )
-
-        XCTAssertEqual(sheet.headers.count, 4)
-        XCTAssertEqual(sheet.rows.count, 3)
-
-        sheet.onRowSelect?(1)
-        XCTAssertEqual(selectedIndex, 1)
-
-        // Empty spreadsheet initialization
-        let emptySheet = TTSpreadsheetView(headers: [], rows: [])
-        XCTAssertTrue(emptySheet.headers.isEmpty)
-        XCTAssertTrue(emptySheet.rows.isEmpty)
-    }
-
-    @MainActor
-    func testRichDocumentViewAndMarkdownParser() {
+    func testMarkdownParserPreservesTypedBlocksIdentityAndInlineStyles() {
         let sampleMarkdown = """
         # Document Title
         ## Subtitle Section
@@ -142,19 +115,8 @@ final class TTMediaKitTests: XCTestCase {
         Final notes paragraph.
         """
 
-        let meta = DocumentMetadata(
-            title: "Architecture Spec",
-            author: "MetastudyLine CTO",
-            date: "2026-09-26",
-            wordCount: 42,
-            tags: ["Swift", "Metal", "UI"]
-        )
-
-        let docView = TTRichDocumentView(markdown: sampleMarkdown, metadata: meta)
-
-        XCTAssertEqual(docView.metadata?.title, "Architecture Spec")
-        XCTAssertEqual(docView.metadata?.tags.count, 3)
-        XCTAssertFalse(docView.blocks.isEmpty)
+        let blocks = TTMarkdownParser.parseDocumentBlocks(sampleMarkdown)
+        XCTAssertFalse(blocks.isEmpty)
 
         // Verify parsed blocks count and types
         var hasHeading1 = false
@@ -165,7 +127,7 @@ final class TTMediaKitTests: XCTestCase {
         var hasBullet = false
         var hasDivider = false
 
-        for block in docView.blocks {
+        for block in blocks {
             switch block {
             case .heading(let level, _, _):
                 if level == 1 { hasHeading1 = true }
@@ -193,11 +155,12 @@ final class TTMediaKitTests: XCTestCase {
         XCTAssertTrue(hasBullet)
         XCTAssertTrue(hasDivider)
 
-        // Verify GFM table, H1-H6, inline styles, and deterministic collision-free block IDs
+        // Verify GFM table, H1-H6, callouts, inline styles, and deterministic collision-free block IDs
         let gfmSample = """
         #### Level 4 Heading
         ###### Level 6 Heading
         Repeated paragraph with **bold**, *italic*, `code`, and [link](https://example.com).
+        > [!WARNING] Keep parser semantics neutral
         ---
         | Col A | Col B |
         | :--- | ---: |
@@ -205,39 +168,29 @@ final class TTMediaKitTests: XCTestCase {
         ---
         Repeated paragraph with **bold**, *italic*, `code`, and [link](https://example.com).
         """
-        let gfmDocA = TTRichDocumentView(markdown: gfmSample, metadata: nil)
-        let gfmDocB = TTRichDocumentView(markdown: gfmSample, metadata: nil)
-        XCTAssertEqual(gfmDocA.blocks.map(\.id), gfmDocB.blocks.map(\.id))
-        XCTAssertEqual(Set(gfmDocA.blocks.map(\.id)).count, gfmDocA.blocks.count)
-        XCTAssertTrue(gfmDocA.blocks.contains {
+        let gfmBlocksA = TTMarkdownParser.parseDocumentBlocks(gfmSample)
+        let gfmBlocksB = TTMarkdownParser.parseDocumentBlocks(gfmSample)
+        XCTAssertEqual(gfmBlocksA.map(\.id), gfmBlocksB.map(\.id))
+        XCTAssertEqual(Set(gfmBlocksA.map(\.id)).count, gfmBlocksA.count)
+        XCTAssertTrue(gfmBlocksA.contains(.heading(level: 4, text: "Level 4 Heading")))
+        XCTAssertTrue(gfmBlocksA.contains(.heading(level: 6, text: "Level 6 Heading")))
+        XCTAssertTrue(gfmBlocksA.contains {
+            if case .callout(let type, let text, _) = $0 {
+                return type == .warning && text == "Keep parser semantics neutral"
+            }
+            return false
+        })
+        XCTAssertTrue(gfmBlocksA.contains {
             if case .table(let headers, let rows, _) = $0 {
                 return headers == ["Col A", "Col B"] && rows == [["Val 1", "Escaped | Pipe"]]
             }
             return false
         })
-        let renderedInline = String(TTRichDocumentView.renderInlineAttributedString("**bold** and `code`").characters)
-        XCTAssertEqual(renderedInline, "bold and code")
+        let inline = TTMarkdownParser.parseInlineAttributedString("**bold** and `code`")
+        XCTAssertEqual(String(inline.characters), "bold and code")
+        XCTAssertTrue(inline.runs.contains { $0.inlinePresentationIntent?.contains(.stronglyEmphasized) == true })
+        XCTAssertTrue(inline.runs.contains { $0.inlinePresentationIntent?.contains(.code) == true })
     }
-
-    @MainActor
-    func testMediaPreviewInstantiation() {
-        let audioUrl = URL(fileURLWithPath: "/tmp/sample_audio.wav")
-        let previewAudio = TTMediaPreview(url: audioUrl, title: "Test Audio")
-        XCTAssertEqual(previewAudio.customTitle, "Test Audio")
-
-        let docUrl = URL(fileURLWithPath: "/tmp/readme.md")
-        let previewDoc = TTMediaPreview(url: docUrl)
-        XCTAssertNil(previewDoc.customTitle)
-
-        let csvUrl = URL(fileURLWithPath: "/tmp/data.csv")
-        let previewCsv = TTMediaPreview(url: csvUrl)
-        XCTAssertEqual(previewCsv.url.pathExtension, "csv")
-
-        let videoUrl = URL(fileURLWithPath: "/tmp/sample_video.mp4")
-        let previewVideo = TTMediaPreview(url: videoUrl, title: "4K Keynote")
-        XCTAssertEqual(previewVideo.customTitle, "4K Keynote")
-    }
-
 
     // MARK: - Core & Detector Tests
 
@@ -400,8 +353,7 @@ final class TTMediaKitTests: XCTestCase {
         XCTAssertFalse(TTMediaContentReader.isBinaryPayload(cleanText))
     }
 
-    @MainActor
-    func testP3BTextAndMarkdownEncodingAndArchiveSaveContracts() throws {
+    func testUTF8TextSaveWithUnicodePathAndArchiveReadOnlyPolicy() throws {
         let fm = FileManager.default
         let tempRoot = fm.temporaryDirectory.appendingPathComponent("TTMediaP3B_\(UUID().uuidString)", isDirectory: true)
         let diskDir = tempRoot.appendingPathComponent("disk", isDirectory: true)
@@ -412,20 +364,23 @@ final class TTMediaKitTests: XCTestCase {
 
         let cnName = "超长中文文件名_测试编码与只读权限保护_2026年度归档预览报告样本_v1.2.3.txt"
         let utf8URL = diskDir.appendingPathComponent(cnName)
-        let utf8Initial = Data("第一行：UTF-8 原始文本\nSecond line\n".utf8)
+        let initialText = "第一行：UTF-8 原始文本\nSecond line\n"
+        let utf8Initial = Data(initialText.utf8)
         try utf8Initial.write(to: utf8URL)
 
-        let diskEditor = CodeTextEditorContainerView(
-            initialText: "第一行：UTF-8 原始文本\nSecond line\n",
-            fileURL: utf8URL,
-            fileName: cnName,
-            resourceContext: .diskFile(url: utf8URL, fileName: cnName)
+        let diskSource = TTTextSourceInspection.inspect(url: utf8URL, fallbackText: initialText)
+        XCTAssertEqual(diskSource.encoding, .utf8)
+        XCTAssertEqual(diskSource.byteCount, Int64(utf8Initial.count))
+        XCTAssertTrue(diskSource.encoding.allowsUTF8InPlaceSave)
+        let diskContext = TTPreviewResourceContext.diskFile(url: utf8URL, fileName: cnName)
+        let targetURL = try XCTUnwrap(diskContext.validateInPlaceSaveTarget(expectedFileURL: utf8URL))
+        XCTAssertEqual(targetURL, utf8URL.standardizedFileURL)
+        let editedText = "修改后 UTF-8\n"
+        _ = try TTControlledTextSaveTransaction.commit(
+            payload: editedText, expectedBaseline: initialText, encoding: diskSource.encoding,
+            targetURL: targetURL, isCSV: false
         )
-        XCTAssertEqual(diskEditor.sourceEncoding, .utf8)
-        XCTAssertEqual(diskEditor.initialByteCount, Int64(utf8Initial.count))
-        XCTAssertTrue(diskEditor.canSaveInPlace)
-        XCTAssertTrue(diskEditor.saveFile(contentOverride: "修改后 UTF-8\n"))
-        XCTAssertEqual(try Data(contentsOf: utf8URL), Data("修改后 UTF-8\n".utf8))
+        XCTAssertEqual(try Data(contentsOf: utf8URL), Data(editedText.utf8))
 
         let stagedURL = stagingDir.appendingPathComponent(cnName)
         try utf8Initial.write(to: stagedURL)
@@ -435,42 +390,25 @@ final class TTMediaKitTests: XCTestCase {
             stagedReadURL: stagedURL,
             fileName: cnName
         )
-        let archiveEditor = CodeTextEditorContainerView(
-            initialText: "第一行：UTF-8 原始文本\nSecond line\n",
-            fileURL: nil,
-            fileName: cnName,
-            resourceContext: archiveCtx
-        )
-        XCTAssertFalse(archiveEditor.canSaveInPlace)
-        XCTAssertFalse(archiveEditor.isEditorEditable)
-        XCTAssertEqual(archiveEditor.initialByteCount, Int64(utf8Initial.count))
-        XCTAssertFalse(archiveEditor.saveFile(contentOverride: "Tampered"))
-        XCTAssertEqual(try Data(contentsOf: stagedURL), utf8Initial)
+        let archiveSource = TTTextSourceInspection.inspect(url: archiveCtx.readableURL, fallbackText: "")
+        XCTAssertEqual(archiveSource.byteCount, Int64(utf8Initial.count))
+        XCTAssertEqual(archiveCtx.editCapability, .readOnly(reason: .archiveEntry))
+        XCTAssertNil(archiveCtx.validateInPlaceSaveTarget(expectedFileURL: stagedURL))
+    }
 
-        // UTF-16LE & GB18030: authentic raw byte count + read-only non-UTF-8 overwrite protection
-        let utf16URL = diskDir.appendingPathComponent("utf16le_中文.txt")
+    func testUTF16SourceInspectionUsesRawByteCountAndDisallowsUTF8Save() throws {
+        let utf16URL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("\(UUID().uuidString)_utf16le_中文.txt")
         let utf16Text = "UTF-16LE 编码保护测试\nLine 2\n"
         var utf16Bytes = Data([0xFF, 0xFE])
         utf16Bytes.append(try XCTUnwrap(utf16Text.data(using: .utf16LittleEndian)))
         try utf16Bytes.write(to: utf16URL)
-        let utf16Editor = CodeTextEditorContainerView(initialText: utf16Text, fileURL: utf16URL, fileName: "utf16le_中文.txt")
-        XCTAssertEqual(utf16Editor.sourceEncoding, .utf16LE)
-        XCTAssertEqual(utf16Editor.initialByteCount, Int64(utf16Bytes.count))
-        XCTAssertFalse(utf16Editor.canSaveInPlace)
-        XCTAssertFalse(utf16Editor.saveFile(contentOverride: "Overwrite UTF-8"))
-        XCTAssertEqual(try Data(contentsOf: utf16URL), utf16Bytes)
+        defer { try? FileManager.default.removeItem(at: utf16URL) }
 
-        let gbEnc = String.Encoding(rawValue: CFStringConvertEncodingToNSStringEncoding(CFStringEncoding(CFStringEncodings.GB_18030_2000.rawValue)))
-        let gbURL = diskDir.appendingPathComponent("gb18030_中文.md")
-        let gbText = "# GB18030 标题\n正文内容测试\n"
-        let gbBytes = try XCTUnwrap(gbText.data(using: gbEnc))
-        try gbBytes.write(to: gbURL)
-        let gbMdView = MarkdownRichPreviewView(initialMarkdown: gbText, fileURL: gbURL, fileName: "gb18030_中文.md")
-        XCTAssertEqual(gbMdView.sourceEncoding, .gb18030)
-        XCTAssertEqual(gbMdView.displayedByteCount, Int64(gbBytes.count))
-        XCTAssertFalse(gbMdView.canSaveInPlace)
-        XCTAssertFalse(gbMdView.saveFile(contentOverride: "# Overwrite"))
-        XCTAssertEqual(try Data(contentsOf: gbURL), gbBytes)
+        let source = TTTextSourceInspection.inspect(url: utf16URL, fallbackText: utf16Text)
+        XCTAssertEqual(source.encoding, .utf16LE)
+        XCTAssertEqual(source.byteCount, Int64(utf16Bytes.count))
+        XCTAssertFalse(source.encoding.allowsUTF8InPlaceSave)
     }
 
     func testP3BHexOffsetRangeAndCopyFormattingContracts() {

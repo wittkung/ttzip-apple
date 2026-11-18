@@ -29,6 +29,11 @@ final class VideoTimelineThumbnailSource {
 
     isolated deinit { task?.cancel() }
 
+    nonisolated static func matchesSourceURL(_ sourceURL: URL?, videoURL: URL?) -> Bool {
+        guard let sourceURL, let videoURL else { return false }
+        return sourceURL.standardizedFileURL.resolvingSymlinksInPath() == videoURL.standardizedFileURL.resolvingSymlinksInPath()
+    }
+
     static func sampleTimes(duration: Double) -> [Double] {
         guard duration.isFinite, duration > 0 else { return [] }
         let count = min(100, max(1, Int(min(100, ceil(duration * 2)))))

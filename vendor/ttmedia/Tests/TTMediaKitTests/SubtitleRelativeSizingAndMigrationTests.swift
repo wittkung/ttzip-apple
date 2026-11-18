@@ -3,8 +3,6 @@
 
 import CoreGraphics
 import Foundation
-import TTI18nCore
-import TTI18nUI
 import XCTest
 @testable import TTMediaKit
 
@@ -63,80 +61,21 @@ final class SubtitleRelativeSizingAndMigrationTests: XCTestCase {
     // MARK: - 2. Continuous Scale Slider Binding Path & Smooth Viewport Resize Without Step Discontinuities
 
     @MainActor
-    func testContinuousScaleSliderMonotonicityWithoutStepJumps() {
-        let geometry = SubtitleVideoContentGeometry(
-            viewportSize: CGSize(width: 1280, height: 720),
-            videoNaturalSize: CGSize(width: 1920, height: 1080)
-        )
-
-        var currentStyle = SubtitleStyleConfiguration(fontSize: 24.0, scale: 0.50)
-        var interactionCount = 0
-
-        let makeControl: () -> SubtitleRelativeScaleSettingsView = {
-            SubtitleRelativeScaleSettingsView(
-                style: currentStyle,
-                geometry: geometry,
-                activeSubtitleCodec: "S_TEXT/UTF8",
-                onUpdateStyle: { updated in currentStyle = updated },
-                onUserInteraction: { interactionCount += 1 }
-            )
-        }
-
-        // Exercise the real slider binding path with fine, non-0.05-quantized values.
-        let fineSliderScales: [Double] = [
-            0.50, 0.563, 0.618, 0.712, 0.837, 0.964, 1.013, 1.087, 1.142, 1.279, 1.389, 1.531, 1.672, 1.843, 2.00
-        ]
-        var previousPrimary: CGFloat = 0
-        var previousSecondary: CGFloat = 0
-
-        for (index, targetScale) in fineSliderScales.enumerated() {
-            makeControl().continuousScaleBinding.wrappedValue = targetScale
-
-            XCTAssertEqual(interactionCount, index + 1)
-            XCTAssertEqual(
-                currentStyle.scale,
-                targetScale,
-                accuracy: 0.000001,
-                "Slider binding must preserve continuous scale \(targetScale) without 0.05 rounding"
-            )
-            XCTAssertEqual(makeControl().continuousScaleBinding.wrappedValue, targetScale, accuracy: 0.000001)
-
-            let metrics = SubtitleRelativeSizingResolver.resolveMetrics(style: currentStyle, geometry: geometry)
-            XCTAssertGreaterThan(metrics.primaryFontSize, previousPrimary)
-            XCTAssertGreaterThan(metrics.secondaryFontSize, previousSecondary)
-            previousPrimary = metrics.primaryFontSize
-            previousSecondary = metrics.secondaryFontSize
-        }
-
-        // Verify non-grid value 1.013 does not falsely highlight the 1.0x preset button, while preset buttons snap accurately.
-        makeControl().continuousScaleBinding.wrappedValue = 1.013
-        XCTAssertFalse(makeControl().isPresetSelected(1.0))
-        for preset in SubtitleRelativeScaleSettingsView.scalePresets {
-            makeControl().applyScalePreset(preset)
-            XCTAssertEqual(currentStyle.scale, preset, accuracy: 0.000001)
-            XCTAssertTrue(makeControl().isPresetSelected(preset))
-        }
-
-        // Verify smooth continuity across the former 380pt compact threshold (360 -> 370 -> 378 -> 380 -> 382 -> 390 -> 400).
+    func testResolvedMetricsStayContinuousAtCompactWidth() {
         let baseStyle = SubtitleStyleConfiguration(fontSize: 24.0, scale: 1.0)
         let widths: [CGFloat] = [360, 370, 378, 380, 382, 390, 400]
         var prevWidthSize: CGFloat = 0
         for width in widths {
             let height = width * 9.0 / 16.0
-            let overlay = SubtitleOverlayView(
-                primaryText: "连续缩放测试",
-                secondaryText: "Continuous Resize",
-                style: baseStyle,
-                controlsVisible: true,
-                viewportWidth: width,
-                viewportHeight: height,
+            let metrics = baseStyle.resolvedMetrics(for: SubtitleVideoContentGeometry(
+                viewportSize: CGSize(width: width, height: height),
                 videoNaturalSize: CGSize(width: 1920, height: 1080)
-            )
+            ))
             if prevWidthSize > 0 {
-                XCTAssertGreaterThanOrEqual(overlay.primaryRenderedFontSize, prevWidthSize)
-                XCTAssertLessThan(overlay.primaryRenderedFontSize - prevWidthSize, 1.0, "No step jump at 380pt")
+                XCTAssertGreaterThanOrEqual(metrics.primaryFontSize, prevWidthSize)
+                XCTAssertLessThan(metrics.primaryFontSize - prevWidthSize, 1.0, "No step jump at 380pt")
             }
-            prevWidthSize = overlay.primaryRenderedFontSize
+            prevWidthSize = metrics.primaryFontSize
         }
     }
 
@@ -294,10 +233,10 @@ final class SubtitleRelativeSizingAndMigrationTests: XCTestCase {
         XCTAssertEqual(secondReport.configuration, firstReport.configuration)
     }
 
-    // MARK: - 6. Dual-Track Non-Overlap, Long Mixed Text Wrapping & Control Bar Visibility Invariance
+    // MARK: - 6. Dual-Track Layout Metrics & Mixed Text Glyph Coverage
 
     @MainActor
-    func testDualTrackNonOverlapControlsVisibilityInvarianceAndLongMixedLineWrapping() {
+    func testDualTrackLayoutMetricsAndMixedTextGlyphCoverage() {
         let style = SubtitleStyleConfiguration(
             fontFamilyName: "Menlo",
             fontSize: 26.0,
@@ -306,7 +245,6 @@ final class SubtitleRelativeSizingAndMigrationTests: XCTestCase {
             verticalPosition: 88.0
         )
         let longPrimary = "这是一段用于验证在侧栏小窗、独立窗口、竖屏及宽银幕黑边场景下自动换行与主副字幕不重叠的超长中英混排字幕 · The quick brown fox jumps over the lazy dog 0123456789"
-        let longSecondary = "Secondary bilingual track verifying 0.82x proportional scaling and non-overlapping vertical stack layout across multi-line wraps"
 
         let scenarios: [(CGSize, CGSize?)] = [
             (CGSize(width: 340, height: 210), CGSize(width: 1920, height: 1080)), // Sidebar compact
@@ -316,48 +254,27 @@ final class SubtitleRelativeSizingAndMigrationTests: XCTestCase {
         ]
 
         for (viewport, naturalSize) in scenarios {
-            let visible = SubtitleOverlayView(
-                primaryText: longPrimary,
-                secondaryText: longSecondary,
-                style: style,
-                controlsVisible: true,
-                viewportWidth: viewport.width,
-                viewportHeight: viewport.height,
+            let metrics = style.resolvedMetrics(for: SubtitleVideoContentGeometry(
+                viewportSize: viewport,
                 videoNaturalSize: naturalSize
-            )
-            let hidden = SubtitleOverlayView(
-                primaryText: longPrimary,
-                secondaryText: longSecondary,
-                style: style,
-                controlsVisible: false,
-                viewportWidth: viewport.width,
-                viewportHeight: viewport.height,
-                videoNaturalSize: naturalSize
-            )
-
-            // Controls visibility invariance: showing/hiding controls never moves subtitle position or changes font size.
-            XCTAssertEqual(visible.bottomPadding, hidden.bottomPadding, accuracy: 0.0001)
-            XCTAssertEqual(visible.primaryRenderedFontSize, hidden.primaryRenderedFontSize, accuracy: 0.0001)
-            XCTAssertEqual(visible.secondaryRenderedFontSize, hidden.secondaryRenderedFontSize, accuracy: 0.0001)
-
-            // Non-overlapping stack spacing and bounded horizontal wrapping width inside videoContentRect.
-            let metrics = visible.layoutMetrics
+            ))
+            XCTAssertLessThan(metrics.secondaryFontSize, metrics.primaryFontSize)
             XCTAssertGreaterThanOrEqual(metrics.interTrackSpacing, 3.0)
             XCTAssertGreaterThanOrEqual(metrics.intraTrackLineSpacing, 1.5)
             XCTAssertLessThanOrEqual(metrics.maxTextWidth, metrics.videoContentRect.width - 20.0 + 0.01)
 
             // Verify zero missing glyphs on long mixed CJK + English line.
-            let primaryFont = visible.resolvedPrimaryFont()
+            let primaryFont = SubtitleFontResolver.resolve(style: style, size: metrics.primaryFontSize)
             XCTAssertTrue(
                 SubtitleFontResolver.rendersWithoutMissingGlyphs(text: longPrimary, font: primaryFont.nsFont)
             )
         }
     }
 
-    // MARK: - 7. Capability Boundary Classification & Independent TTI18n Vocabulary
+    // MARK: - 7. Capability Boundary Classification
 
     @MainActor
-    func testCapabilityBoundaryClassificationAndLocalization() {
+    func testCapabilityBoundaryClassification() {
         XCTAssertEqual(SubtitleRelativeSizingResolver.capability(forCodecOrFormat: nil), .textOverlay)
         XCTAssertEqual(SubtitleRelativeSizingResolver.capability(forCodecOrFormat: "S_TEXT/UTF8"), .textOverlay)
         XCTAssertEqual(SubtitleRelativeSizingResolver.capability(forCodecOrFormat: "movie.zh.srt"), .textOverlay)
@@ -371,51 +288,11 @@ final class SubtitleRelativeSizingAndMigrationTests: XCTestCase {
         XCTAssertEqual(SubtitleRelativeSizingResolver.capability(forCodecOrFormat: "S_VOBSUB"), .bitmapUntouched)
         XCTAssertEqual(SubtitleRelativeSizingResolver.capability(forCodecOrFormat: "S_DVBSUB"), .bitmapUntouched)
         XCTAssertEqual(SubtitleRelativeSizingResolver.capability(forCodecOrFormat: "bluray.sup"), .bitmapUntouched)
-
-        let originalLanguage = LocalizationState.shared.currentLanguage
-        defer { LocalizationState.shared.setLanguage(originalLanguage) }
-
-        for language in [AppLanguage.en, .zhHans, .zhHant, .ja] {
-            LocalizationState.shared.setLanguage(language)
-            for key in SubtitleRelativeSizingLocaleKey.allCases {
-                let text = MediaLocalization.text(key)
-                XCTAssertFalse(text.isEmpty, "Empty translation for \(key) in \(language)")
-                XCTAssertNotEqual(text, key.rawValue, "Unresolved raw key \(key.rawValue) in \(language)")
-            }
-            let badge = MediaLocalization.formattedRelativeHeightBadge(scaleText: "1.25x", percentText: "5.6%")
-            XCTAssertTrue(badge.contains("1.25x"))
-            XCTAssertTrue(badge.contains("5.6%"))
-        }
     }
 
-    // MARK: - 8. Isolated Defaults Persistence of Continuous Slider Binding & [11pt, 96pt] Clamp Exceptions
+    // MARK: - 8. Readability Clamp Bounds
 
-    @MainActor
-    func testScaleSettingsBindingIsolatedPersistenceAndReadabilityClampBounds() throws {
-        let suiteName = "com.metastudyline.ttmedia.tests.s1.continuous.\(UUID().uuidString)"
-        let isolatedDefaults = try XCTUnwrap(UserDefaults(suiteName: suiteName))
-        defer { isolatedDefaults.removePersistentDomain(forName: suiteName) }
-
-        var persistedStyle = SubtitleStyleConfiguration.loadFromDefaults(isolatedDefaults)
-        let settingsControl = SubtitleRelativeScaleSettingsView(
-            style: persistedStyle,
-            onUpdateStyle: { updated in
-                persistedStyle = updated
-                updated.saveToDefaults(isolatedDefaults)
-            }
-        )
-
-        // Write a non-0.05-multiple value through the actual slider binding and verify isolated persistence round-trip.
-        settingsControl.continuousScaleBinding.wrappedValue = 1.137
-        let reloadedReport = SubtitleStyleConfiguration.loadAndMigrateIfNeeded(from: isolatedDefaults)
-        XCTAssertFalse(reloadedReport.didMigrateFromLegacy)
-        XCTAssertEqual(reloadedReport.configuration.scale, 1.137, accuracy: 0.000001)
-        XCTAssertEqual(
-            reloadedReport.configuration.effectiveRelativeFontRatio,
-            SubtitleStyleConfiguration.defaultRelativeFontRatio * 1.137,
-            accuracy: 0.000001
-        )
-
+    func testRelativeSizingReadabilityClampBounds() {
         // Verify lower clamp exception: tiny sidebar (240x135) with minimum base (14pt) and 0.5x scale clamps at 11.0pt / 9.5pt.
         let tinyStyle = SubtitleStyleConfiguration(fontSize: 14.0, scale: 0.5)
         let tinyGeo = SubtitleVideoContentGeometry(

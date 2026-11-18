@@ -5,10 +5,10 @@
 import PackageDescription
 import Foundation
 
-let coreDependency: Package.Dependency = .package(url: "https://github.com/wittkung/ttzip-core.git", exact: "0.1.4")
+let coreDependency: Package.Dependency = .package(url: "https://github.com/wittkung/ttzip-core.git", exact: "0.1.10")
 let corePackageName = "ttzip-core"
 
-let appCoreDependency: Package.Dependency = .package(url: "https://github.com/wittkung/ttzip-app-core.git", exact: "0.1.4")
+let appCoreDependency: Package.Dependency = .package(url: "https://github.com/wittkung/ttzip-app-core.git", exact: "0.1.7")
 let appCorePackageName = "ttzip-app-core"
 
 let ttmediaDependency: Package.Dependency = .package(path: "vendor/ttmedia")
@@ -47,6 +47,10 @@ if !isMASBuild {
 }
 
 var appDependencies: [Target.Dependency] = [
+    .product(name: "TTI18nCore", package: "tti18n"),
+    .product(name: "TTI18nUI", package: "tti18n"),
+    .product(name: "TTZipArchiveContract", package: corePackageName),
+    .product(name: "TTZipOperationContract", package: corePackageName),
     .product(name: "TTZipCore", package: corePackageName),
     .product(name: "TTZipAppCore", package: appCorePackageName),
     .product(name: "CTTZipAppCoreBridge", package: appCorePackageName),
@@ -58,13 +62,19 @@ var appDependencies: [Target.Dependency] = [
     .product(name: "TTKitUI", package: ttkitPackageName),
 ]
 
-if !isMASBuild {
-    appDependencies.append(.product(name: "Sparkle", package: "Sparkle"))
-}
+let channelAdapterDependencies: [Target.Dependency] = isMASBuild
+    ? []
+    : [.product(name: "Sparkle", package: "Sparkle")]
 
 appDependencies.append(contentsOf: [
+    "TTZipAppComposition",
     "TTZipUI",
+    "TTZipTaskKit",
+    "TTZipNativeSources",
     "TTZipPreviewKit",
+    "TTZipSearchKit",
+    "TTZipSourceContract",
+    "TTZipWorkspace",
     "TTZipBenchmarkKit"
 ])
 
@@ -78,6 +88,8 @@ let package = Package(
     products: [
         .executable(name: "TTZipApp", targets: ["TTZipApp"]),
         .library(name: "TTZipUI", targets: ["TTZipUI"]),
+        .library(name: "TTZipTaskKit", targets: ["TTZipTaskKit"]),
+        .library(name: "TTZipNativeSources", targets: ["TTZipNativeSources"]),
         .library(name: "TTZipPreviewKit", targets: ["TTZipPreviewKit"]),
         .library(name: "TTZipBenchmarkKit", targets: ["TTZipBenchmarkKit"]),
         .library(name: "TTZipQuickLook", type: .dynamic, targets: ["TTZipQuickLook"]),
@@ -90,7 +102,6 @@ let package = Package(
             dependencies: [
                 .product(name: "TTI18nUI", package: "tti18n"),
                 .product(name: "TTI18nCore", package: "tti18n"),
-                .product(name: "TTZipCore", package: corePackageName),
                 .product(name: "TTKitDesign", package: ttkitPackageName),
                 .product(name: "TTKitFluid", package: ttkitPackageName),
                 .product(name: "TTKitUI", package: ttkitPackageName)
@@ -101,8 +112,14 @@ let package = Package(
         .target(
             name: "TTZipPreviewKit",
             dependencies: [
-                .product(name: "TTZipAppCore", package: appCorePackageName),
-                .product(name: "TTZipCore", package: corePackageName),
+                .product(name: "TTI18nUI", package: "tti18n"),
+                .product(name: "TTI18nCore", package: "tti18n"),
+                .product(name: "TTKitDesign", package: ttkitPackageName),
+                .product(name: "TTZipReader", package: appCorePackageName),
+                .product(name: "TTZipArchiveContract", package: corePackageName),
+                .product(name: "TTZipArchiveRuntime", package: corePackageName),
+                .product(name: "TTZipEpub", package: corePackageName),
+                .product(name: "TTZipArchiveWebKit", package: corePackageName),
                 .product(name: "TTMediaKit", package: ttmediaPackageName),
                 "TTZipUI"
             ],
@@ -112,6 +129,8 @@ let package = Package(
         .target(
             name: "TTZipBenchmarkKit",
             dependencies: [
+                .product(name: "TTI18nUI", package: "tti18n"),
+                .product(name: "TTI18nCore", package: "tti18n"),
                 .product(name: "TTZipCore", package: corePackageName),
                 "TTZipUI"
             ],
@@ -151,6 +170,74 @@ let package = Package(
                 "Info.plist",
                 "TTZipFinderSync.entitlements"
             ],
+            swiftSettings: swiftSettings
+        ),
+        .target(
+            name: "TTZipTaskKit",
+            dependencies: [
+                .product(name: "TTZipCore", package: corePackageName),
+                .product(name: "TTZipOperationContract", package: corePackageName)
+            ],
+            path: "Sources/TTZipTaskKit",
+            swiftSettings: swiftSettings
+        ),
+        .target(
+            name: "TTZipChannelAdapters",
+            dependencies: channelAdapterDependencies,
+            path: "Sources/TTZipChannelAdapters",
+            swiftSettings: swiftSettings
+        ),
+        .target(
+            name: "TTZipAppComposition",
+            dependencies: [
+                "TTZipChannelAdapters",
+                "TTZipPreviewKit",
+                "TTZipSearchKit",
+                .product(name: "TTLogKit", package: ttlogPackageName),
+                .product(name: "TTZipAppCore", package: appCorePackageName),
+                .product(name: "TTZipCore", package: corePackageName)
+            ],
+            path: "Sources/TTZipAppComposition",
+            swiftSettings: swiftSettings
+        ),
+        .target(
+            name: "TTZipWorkspace",
+            dependencies: ["TTZipUI"],
+            path: "Sources/TTZipWorkspace",
+            swiftSettings: swiftSettings
+        ),
+        .target(
+            name: "TTZipSearchKit",
+            dependencies: ["TTZipSourceContract"],
+            path: "Sources/TTZipSearchKit",
+            swiftSettings: swiftSettings
+        ),
+        .target(
+            name: "TTZipSourceContract",
+            dependencies: [],
+            path: "Sources/TTZipSourceContract",
+            swiftSettings: swiftSettings
+        ),
+        .target(
+            name: "TTZipNativeSources",
+            dependencies: ["TTZipSourceContract"],
+            path: "Sources/TTZipNativeSources",
+            swiftSettings: swiftSettings
+        ),
+        .testTarget(
+            name: "TTZipTaskKitTests",
+            dependencies: [
+                "TTZipTaskKit",
+                .product(name: "TTZipCore", package: corePackageName),
+                .product(name: "TTZipOperationContract", package: corePackageName)
+            ],
+            path: "Tests/TTZipTaskKitTests",
+            swiftSettings: swiftSettings
+        ),
+        .testTarget(
+            name: "TTZipNativeSourcesTests",
+            dependencies: ["TTZipNativeSources"],
+            path: "Tests/TTZipNativeSourcesTests",
             swiftSettings: swiftSettings
         ),
         .testTarget(

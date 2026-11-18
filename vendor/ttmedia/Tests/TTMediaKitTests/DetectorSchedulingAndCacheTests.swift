@@ -399,7 +399,6 @@ final class DetectorSchedulingAndCacheTests: XCTestCase {
         let gifResource = TTMediaDetector.imagePreviewResource(for: gifImage, fallbackURL: nil)
         XCTAssertTrue(gifResource.isAnimated)
         XCTAssertEqual(gifResource.frameCount, 2)
-        _ = TTMediaPreviewFactory.makePreviewView(type: gifPreview, fileName: "anim.gif", fileURL: nil)
 
         let hiResData = makeProgrammaticImageData(utType: UTType.png.identifier, width: 3072, height: 2048, frames: 1)
         let hiResPreview = TTMediaDetector.detectTypeFromMemory(data: hiResData, suggestedName: "archive/photo.png")
@@ -420,7 +419,7 @@ final class DetectorSchedulingAndCacheTests: XCTestCase {
     }
 
     @MainActor
-    func testProductionConsumerCallChainSequentialOpenCloseExceedsEightMediaFiles() throws {
+    func testLeaseHostSequentialOpenCloseExceedsEightMediaFiles() throws {
         TTMediaDetector.purgeAllEphemeralMediaFiles()
         defer { TTMediaDetector.purgeAllEphemeralMediaFiles() }
 
@@ -440,11 +439,7 @@ final class DetectorSchedulingAndCacheTests: XCTestCase {
                 XCTAssertEqual(TTMediaDetector.activeEphemeralLeaseCount(for: url), 1)
                 XCTAssertTrue(FileManager.default.fileExists(atPath: url.path))
 
-                let view = TTMediaPreviewFactory.makePreviewView(
-                    type: previewType,
-                    fileName: "production_seq_\(index).wav",
-                    fileURL: nil
-                )
+                let view = makeLeaseHost(url: url)
                 let hostingView = NSHostingView(rootView: view)
                 hostingView.frame = NSRect(x: 0, y: 0, width: 320, height: 240)
                 hostingView.layoutSubtreeIfNeeded()
@@ -454,7 +449,7 @@ final class DetectorSchedulingAndCacheTests: XCTestCase {
                 XCTAssertEqual(
                     TTMediaDetector.activeEphemeralLeaseCount(for: stagedURL),
                     0,
-                    "Production consumer must release ephemeral lease upon teardown at iteration \(index)"
+                    "The lease host must release the ephemeral file upon teardown at iteration \(index)"
                 )
                 XCTAssertFalse(FileManager.default.fileExists(atPath: stagedURL.path))
             }
@@ -466,7 +461,7 @@ final class DetectorSchedulingAndCacheTests: XCTestCase {
         TTMediaDetector.purgeAllEphemeralMediaFiles()
         defer { TTMediaDetector.purgeAllEphemeralMediaFiles() }
 
-        // 1. Never-displayed view path: view created via makePreviewView but never mounted
+        // 1. Never-displayed lease host
         let unmountedData = makeMinimalWAVData(tagByte: 0x41)
         var unmountedURL: URL?
         do {
@@ -476,7 +471,7 @@ final class DetectorSchedulingAndCacheTests: XCTestCase {
             }
             unmountedURL = url
             XCTAssertEqual(TTMediaDetector.activeEphemeralLeaseCount(for: url), 1)
-            _ = TTMediaPreviewFactory.makePreviewView(type: preview, fileName: "never_shown.wav", fileURL: nil)
+            _ = makeLeaseHost(url: url)
         }
         let verifiedUnmountedURL = try XCTUnwrap(unmountedURL)
         XCTAssertEqual(TTMediaDetector.activeEphemeralLeaseCount(for: verifiedUnmountedURL), 0)
@@ -521,6 +516,13 @@ final class DetectorSchedulingAndCacheTests: XCTestCase {
         let cancelledResult = await cancelledTask.value
         if let leakedURL = cancelledResult.ephemeralMediaURL {
             XCTAssertEqual(TTMediaDetector.activeEphemeralLeaseCount(for: leakedURL), 0)
+        }
+    }
+
+    @MainActor
+    private func makeLeaseHost(url: URL) -> some View {
+        TTMediaEphemeralLeaseHostView(url: url) {
+            Color.clear
         }
     }
 

@@ -325,9 +325,9 @@ final class PreviewResourceLifecycleAuditTests: XCTestCase {
         let sharedEngine = MPVAudioEngine()
         sharedEngine.load(url: validWAV)
         sharedEngine.load(url: secondWAV)
-        UnifiedAudioPlayerView.stopAudioEngineIfOwned(engine: sharedEngine, ownerURL: validWAV)
+        sharedEngine.stopIfCurrent(url: validWAV)
         XCTAssertEqual(sharedEngine.currentURL?.standardizedFileURL, secondWAV.standardizedFileURL)
-        UnifiedAudioPlayerView.stopAudioEngineIfOwned(engine: sharedEngine, ownerURL: secondWAV)
+        sharedEngine.stopIfCurrent(url: secondWAV)
         XCTAssertNil(sharedEngine.currentURL)
 
         // 2. Audio waveform extraction: stale waveform task from A never overwrites B.
@@ -352,9 +352,9 @@ final class PreviewResourceLifecycleAuditTests: XCTestCase {
         try await Task.sleep(for: .milliseconds(100))
         XCTAssertEqual(hexCoordinator.currentPageData, Data([0xBB, 0xBB, 0xBB]))
 
-        // 4. Static SHA-256 helper check (full SwiftUI EBookReaderPreviewView switch remains pending C/G owner check).
-        let hashA = await EBookReaderPreviewView.computeSHA256Hex(for: validWAV)
-        let hashB = await EBookReaderPreviewView.computeSHA256Hex(for: secondWAV)
+        // 4. SHA-256 checksums distinguish the original and replacement files.
+        let hashA = await TTMediaResourceDigest.sha256Hex(for: validWAV)
+        let hashB = await TTMediaResourceDigest.sha256Hex(for: secondWAV)
         XCTAssertNotNil(hashA)
         XCTAssertNotNil(hashB)
         XCTAssertNotEqual(hashA, hashB)

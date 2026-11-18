@@ -58,6 +58,7 @@ private final class ControlledServiceTransport: MediaWorkerServiceTransport, @un
     private var activeSessionId: String?
     private var closedSessionIds: [String] = []
     private var replacedSessionIds: [String] = []
+    private var lastRequestedTracks: [Int]?
     private var openCount = 0
     private var shouldHoldClose = false
     private var shouldFailClose = false
@@ -72,6 +73,7 @@ private final class ControlledServiceTransport: MediaWorkerServiceTransport, @un
     var currentSessionId: String? { lock.withLock { activeSessionId } }
     var closedSessions: [String] { lock.withLock { closedSessionIds } }
     var replacedSessions: [String] { lock.withLock { replacedSessionIds } }
+    var requestedTracks: [Int]? { lock.withLock { lastRequestedTracks } }
 
     // MARK: Synchronous helpers
     //
@@ -195,10 +197,11 @@ private final class ControlledServiceTransport: MediaWorkerServiceTransport, @un
 
     /// Opens a session; the real transport releases the previous demuxer handle
     /// on replace.
-    private func openSession() -> String {
+    private func openSession(targetTracks: [Int]?) -> String {
         lock.lock()
         defer { lock.unlock() }
         openCount += 1
+        lastRequestedTracks = targetTracks
         let sessionId = "controlled-session-\(openCount)"
         if let previous = activeSessionId {
             replacedSessionIds.append(previous)
@@ -212,7 +215,7 @@ private final class ControlledServiceTransport: MediaWorkerServiceTransport, @un
     func openMedia(
         path: String, targetTracks: [Int]?
     ) async throws -> (sessionId: String, metadata: [String: Any]) {
-        (openSession(), ["format": "mkv"])
+        (openSession(targetTracks: targetTracks), ["format": "mkv"])
     }
 
     func closeMedia(sessionId: String) async throws {
@@ -307,6 +310,7 @@ final class MediaWorkerServiceLeaseIdentityTests: XCTestCase {
     private func open(
         _ service: MediaWorkerService,
         _ handle: FileHandle,
+        targetTracks: [NSNumber]? = nil,
         budget: TimeInterval = 2.0
     ) async throws -> String {
         let waiter = BoundedWait<String>()
@@ -315,7 +319,7 @@ final class MediaWorkerServiceLeaseIdentityTests: XCTestCase {
                 continuation.resume(with: ready)
                 return
             }
-            service.openFileMedia(handle, targetTracks: nil) { success, sessionId, _ in
+            service.openFileMedia(handle, targetTracks: targetTracks) { success, sessionId, _ in
                 if success, let sessionId {
                     waiter.resolve(.success(sessionId))
                 } else {
@@ -722,5 +726,26 @@ final class MediaWorkerServiceLeaseIdentityTests: XCTestCase {
         )
         XCTAssertEqual(service.currentLeaseIdentity?.sessionId, idB, "B must remain the published lease")
         XCTAssertEqual(transport.currentSessionId, idB, "the transport must still own B")
+    }
+
+    func testOpenFileMediaForwardsTargetTracksAndPublishesCapability() async throws {
+        let transport = ControlledServiceTransport()
+        let service = MediaWorkerService(transport: transport)
+
+        let handle = try makeHandle()
+        let fd = handle.fileDescriptor
+        let sessionId = try await open(
+            service,
+            handle,
+            targetTracks: [NSNumber(value: 1), NSNumber(value: 3)]
+        )
+
+        XCTAssertEqual(transport.requestedTracks, [1, 3], "target tracks must cross the async boundary intact")
+        XCTAssertEqual(service.currentLeaseIdentity?.sessionId, sessionId, "the opened lease must be published")
+        XCTAssertNotEqual(fcntl(fd, F_GETFD), -1, "the transferred file capability must stay open while leased")
+
+        let closed = await close(service, sessionId: sessionId)
+        XCTAssertTrue(closed.success, "closing the lease must release the capability")
+        XCTAssertEqual(fcntl(fd, F_GETFD), -1, "closing the lease must close the transferred descriptor")
     }
 }

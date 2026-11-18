@@ -269,13 +269,34 @@ if [ ! -d "${MEDIA_SERVICE_SOURCE}" ] || [ ! -f "${MEDIA_SERVICE_ENTITLEMENTS}" 
     echo "Missing sandbox media service. Provide TTMEDIA_XPC_SERVICE_BUNDLE (a directory that contains TTMediaWorker.xpc) or TTMEDIA_XPC_SERVICE_ARCHIVE (a zip archive that contains TTMediaWorker.xpc), or build the service from vendor/ttmedia with 'swift build --package-path vendor/ttmedia --product TTMediaWorkerService'. TTMEDIA_XPC_ENTITLEMENTS selects the sandbox entitlements file." >&2
     exit 1
 fi
+MEDIA_SERVICE_DESTINATION="${CONTENTS_DIR}/XPCServices/TTMediaWorker.xpc"
+if [ -L "${CONTENTS_DIR}/XPCServices" ]; then
+    echo "Invalid XPC service directory: ${CONTENTS_DIR}/XPCServices" >&2
+    exit 1
+fi
 mkdir -p "${CONTENTS_DIR}/XPCServices"
-rm -rf "${CONTENTS_DIR}/XPCServices/TTMediaWorker.xpc"
-cp -R "${MEDIA_SERVICE_SOURCE}" "${CONTENTS_DIR}/XPCServices/TTMediaWorker.xpc"
+rm -rf "${MEDIA_SERVICE_DESTINATION}"
+cp -R "${MEDIA_SERVICE_SOURCE}" "${MEDIA_SERVICE_DESTINATION}"
 if [ -n "${MEDIA_SERVICE_STAGE:-}" ]; then
     rm -rf "${MEDIA_SERVICE_STAGE}"
 fi
-codesign --force --sign "${SIGN_IDENTITY}" --entitlements "${MEDIA_SERVICE_ENTITLEMENTS}" "${CONTENTS_DIR}/XPCServices/TTMediaWorker.xpc"
+MEDIA_SERVICE_CONTENTS="${MEDIA_SERVICE_DESTINATION}/Contents"
+if [ -L "${MEDIA_SERVICE_DESTINATION}" ] || [ -L "${MEDIA_SERVICE_CONTENTS}" ] || [ ! -d "${MEDIA_SERVICE_CONTENTS}" ]; then
+    echo "Invalid XPC service directory: ${MEDIA_SERVICE_CONTENTS}" >&2
+    exit 1
+fi
+for metadata in Info.plist PkgInfo; do
+    metadata_path="${MEDIA_SERVICE_CONTENTS}/${metadata}"
+    if [ "${metadata}" = PkgInfo ] && [ ! -e "${metadata_path}" ] && [ ! -L "${metadata_path}" ]; then
+        continue
+    fi
+    if [ -L "${metadata_path}" ] || [ ! -f "${metadata_path}" ]; then
+        echo "Invalid XPC metadata: ${metadata_path}" >&2
+        exit 1
+    fi
+    chmod 0644 "${metadata_path}"
+done
+codesign --force --sign "${SIGN_IDENTITY}" --entitlements "${MEDIA_SERVICE_ENTITLEMENTS}" "${MEDIA_SERVICE_DESTINATION}"
 
 echo "--> [3/4] Signing application bundle..."
 if [ -d "${FRAMEWORKS_DIR}" ]; then
@@ -334,21 +355,78 @@ echo "======================================================================"
 echo "✅ Successfully bundled [${CHANNEL} - ${BUILD_CONFIG}]: ${APP_DIR}"
 echo "======================================================================"
 
-if [ "${DO_INSTALL}" = true ]; then
-    INSTALL_TARGET_DIR="${TTZIP_INSTALL_DIR:-/Applications}"
-    DEST_APP="${INSTALL_TARGET_DIR}/TTZip.app"
-    pkill -x TTZip 2>/dev/null || true
-    rm -rf "${DEST_APP}"
-    cp -Rf "${APP_DIR}" "${DEST_APP}"
-    LSREGISTER="$(find /System/Library/Frameworks/CoreServices.framework -name lsregister 2>/dev/null | head -n 1 || true)"
-    if [ -n "${LSREGISTER}" ] && [ -x "${LSREGISTER}" ]; then
-        "${LSREGISTER}" -f "${DEST_APP}" 2>/dev/null || true
-    fi
-    echo "🎉 Installed to ${DEST_APP}"
+DEFAULT_ISOLATION_TOOL="${SCRIPT_DIR}/dev_install_isolation.py"
+if [ ! -f "${DEFAULT_ISOLATION_TOOL}" ]; then
+    DEFAULT_ISOLATION_TOOL="${REPO_ROOT}/../scripts/dev_install_isolation.py"
 fi
+ISOLATION_TOOL="${TTZIP_INSTALL_ISOLATION_TOOL:-${DEFAULT_ISOLATION_TOOL}}"
+INSTALL_TARGET_DIR="${TTZIP_INSTALL_DIR:-/Applications}"
+DEST_APP="${TTZIP_INSTALL_PATH:-${INSTALL_TARGET_DIR}/TTZip.app}"
+SESSION_TARGET="${APP_DIR}"
+[ "${DO_INSTALL}" = true ] && SESSION_TARGET="${DEST_APP}"
+BUNDLE_LOCK_HELD=false
+BUNDLE_STAGE=""
 
-if [ "${OPEN_APP}" = true ]; then
-    pkill -x TTZip 2>/dev/null || true
-    /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/LaunchServices.framework/Versions/A/Support/lsregister -f "${APP_DIR}" 2>/dev/null || true
-    open "${APP_DIR}"
+cleanup_bundle_session() {
+    if [ -n "${BUNDLE_STAGE}" ] && [ -e "${BUNDLE_STAGE}" ]; then
+        rm -rf "${BUNDLE_STAGE}"
+    fi
+    if [ "${BUNDLE_LOCK_HELD}" = true ] && [ -f "${ISOLATION_TOOL}" ]; then
+        python3 "${ISOLATION_TOOL}" release-lock --destination "${SESSION_TARGET}" >/dev/null 2>&1 || true
+        BUNDLE_LOCK_HELD=false
+    fi
+}
+trap cleanup_bundle_session EXIT
+
+if [ "${DO_INSTALL}" = true ] || [ "${OPEN_APP}" = true ]; then
+    if [ ! -f "${ISOLATION_TOOL}" ]; then
+        echo "Missing developer install isolation helper: ${ISOLATION_TOOL}" >&2
+        exit 1
+    fi
+    mkdir -p "$(dirname "${SESSION_TARGET}")"
+    python3 "${ISOLATION_TOOL}" acquire-lock \
+        --destination "${SESSION_TARGET}" \
+        --pid $$ \
+        --candidate "${APP_DIR}" \
+        --max-attempts "${TTZIP_INSTALL_LOCK_MAX_ATTEMPTS:-60}" \
+        --retry-seconds "${TTZIP_INSTALL_LOCK_RETRY_SECONDS:-0.5}" >/dev/null
+    BUNDLE_LOCK_HELD=true
+
+    python3 "${ISOLATION_TOOL}" terminate \
+        --destination "${SESSION_TARGET}" \
+        --grace-seconds "${TTZIP_TERMINATE_GRACE_SECONDS:-5.0}" >/dev/null
+
+    if [ "${DO_INSTALL}" = true ]; then
+        BUNDLE_STAGE="${DEST_APP}.ttzip-staging.$$"
+        rm -rf "${BUNDLE_STAGE}"
+        cp -Rf "${APP_DIR}" "${BUNDLE_STAGE}"
+        rm -rf "${DEST_APP}"
+        mv "${BUNDLE_STAGE}" "${DEST_APP}"
+        BUNDLE_STAGE=""
+        case "${DEST_APP}" in
+            /Applications/*|/System/Applications/*)
+                LSREGISTER="$(find /System/Library/Frameworks/CoreServices.framework -name lsregister 2>/dev/null | head -n 1 || true)"
+                if [ -n "${LSREGISTER}" ] && [ -x "${LSREGISTER}" ]; then
+                    "${LSREGISTER}" -f "${DEST_APP}" 2>/dev/null || true
+                fi
+                ;;
+        esac
+        echo "🎉 Installed to ${DEST_APP}"
+    fi
+
+    LAUNCHED_PATH=""
+    if [ "${OPEN_APP}" = true ]; then
+        open "${SESSION_TARGET}"
+        LAUNCHED_PATH="${SESSION_TARGET}"
+    fi
+
+    python3 "${ISOLATION_TOOL}" write-receipt \
+        --receipt-path "${DIST_DIR}/dev-session-receipt.json" \
+        --destination "${SESSION_TARGET}" \
+        --launch-target "${LAUNCHED_PATH}" \
+        --candidate "${APP_DIR}" \
+        --installed "${DO_INSTALL}" >/dev/null
+
+    python3 "${ISOLATION_TOOL}" release-lock --destination "${SESSION_TARGET}" >/dev/null
+    BUNDLE_LOCK_HELD=false
 fi

@@ -342,41 +342,6 @@ final class SVGZAndMHTMLBoundaryTests: XCTestCase {
         } else {
             XCTFail("Non-SVG gzip with .svgz extension must route to .hexViewer fallback")
         }
-
-        // 7c. SVGZ-1: Source Code pane in HTMLWebRichPreviewView must represent the decompressed UTF-8 XML
-        // (read-only, exact decompressed UTF-8 byte count, UTF-8 encoding, no re-read of Gzip container via fileURL or resourceContext),
-        // while preserving archive origin identity when previewed from an archive container.
-        let diskContext = TTPreviewResourceContext.diskFile(url: validURL, fileName: "badge.svgz", allowsEditing: true)
-        let previewViewDisk = HTMLWebRichPreviewView(
-            content: decompressedDisk, fileURL: validURL, fileName: "badge.svgz"
-        )
-        let diskEditor = previewViewDisk.makeSourceCodeEditorView(ambientContext: diskContext)
-        XCTAssertEqual(diskEditor.effectiveSourceEncoding, .utf8, "Decompressed .svgz source must report UTF-8, not Gzip binary heuristic")
-        XCTAssertFalse(diskEditor.isNonUTF8ReadOnly, "Decompressed .svgz source must not be flagged as non-UTF-8")
-        XCTAssertEqual(diskEditor.initialByteCount, Int64(originalSVG.utf8.count), "Source byte count must match decompressed SVG UTF-8 bytes")
-        XCTAssertTrue(diskEditor.isReadOnly, "Decompressed .svgz source pane must be read-only")
-        XCTAssertFalse(diskEditor.canSaveInPlace, "Decompressed .svgz source must never allow in-place writeback to Gzip file")
-        XCTAssertNil(diskEditor.validatedSaveURL)
-        XCTAssertNil(diskEditor.resolvedResourceContext.readableURL, "resolvedResourceContext.readableURL must be nil so .task never re-reads Gzip bytes")
-
-        let archiveContainerURL = tempDir.appendingPathComponent("bundle.zip")
-        let archiveContext = TTPreviewResourceContext.archiveEntry(
-            archiveURL: archiveContainerURL,
-            entryPath: "assets/badge.svgz",
-            stagedReadURL: validURL,
-            fileName: "badge.svgz"
-        )
-        let archiveEditor = previewViewDisk.makeSourceCodeEditorView(ambientContext: archiveContext)
-        XCTAssertEqual(archiveEditor.effectiveSourceEncoding, .utf8)
-        XCTAssertEqual(archiveEditor.initialByteCount, Int64(originalSVG.utf8.count))
-        XCTAssertTrue(archiveEditor.isReadOnly)
-        XCTAssertFalse(archiveEditor.canSaveInPlace)
-        XCTAssertNil(archiveEditor.resolvedResourceContext.readableURL, "Archive-staged .svgz must not expose staged Gzip URL to text encoding inspector")
-        XCTAssertEqual(
-            archiveEditor.resolvedResourceContext.archiveEntryIdentity,
-            TTPreviewArchiveEntryIdentity(archiveURL: archiveContainerURL, entryPath: "assets/badge.svgz"),
-            "Archive authorization identity must be preserved on the derived context"
-        )
     }
 
     // MARK: - Test 8: Shared Root-Element Identity Corpus Across SVGZ, Detector & Standalone Canvas

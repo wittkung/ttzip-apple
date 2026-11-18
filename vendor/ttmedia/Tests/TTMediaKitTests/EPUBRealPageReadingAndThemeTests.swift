@@ -222,12 +222,21 @@ final class EPUBRealPageReadingAndThemeTests: XCTestCase {
         try Self.makeStylingVerificationXHTML().write(to: chapterURL, atomically: true, encoding: .utf8)
 
         let controller = EPUBPaginationController(initialChapterIndex: 0, totalChapters: 1)
+        let light = EPUBReaderAppearance.Colors(background: "Canvas", text: "CanvasText")
+        let appearance = EPUBReaderAppearance(
+            light: light,
+            sepia: light,
+            dark: .init(background: "#222224", text: "#dedee0"),
+            transparent: .init(background: "transparent", text: light.text),
+            themeRulesCSS: "body.theme-dark a { color: #789abc !important; }"
+        )
         let harness = try makeTestHarness(
             chapterURL: chapterURL,
             baseDirectory: tempDir,
             chapterIndex: 0,
             paginationController: controller,
-            viewportSize: NSSize(width: 440, height: 320)
+            viewportSize: NSSize(width: 440, height: 320),
+            appearance: appearance
         )
         defer { harness.cleanup() }
 
@@ -248,11 +257,11 @@ final class EPUBRealPageReadingAndThemeTests: XCTestCase {
 
         // 1. Verify body background color is dark
         let bodyBg = await Self.evalString("getComputedStyle(document.body).backgroundColor", in: harness.webView) ?? ""
-        XCTAssertTrue(bodyBg.contains("28, 28, 30") || bodyBg.contains("rgb(28") || bodyBg.contains("#1c1c1e"), "Night theme body background must be dark, got: \(bodyBg)")
+        XCTAssertEqual(bodyBg, "rgb(34, 34, 36)")
 
-        // 2. Verify link color is readable (blue accent #6cb6ff / rgb(108, 182, 255))
+        // 2. Verify the injected dark-theme link color
         let linkColor = await Self.evalString("getComputedStyle(document.getElementById('test-link')).color", in: harness.webView) ?? ""
-        XCTAssertTrue(linkColor.contains("108, 182, 255"), "Link color must be readable accent in dark theme, got: \(linkColor)")
+        XCTAssertEqual(linkColor, "rgb(120, 154, 188)")
 
         // 3. Verify author custom class attributes are NOT wiped
         let authorBoxClass = await Self.evalString("document.getElementById('author-box').className", in: harness.webView) ?? ""
@@ -263,11 +272,11 @@ final class EPUBRealPageReadingAndThemeTests: XCTestCase {
         // 6. Author CSS class with near-black text must be lifted to a readable colour
         let lifted = await waitUntil(timeout: 3.0) {
             let color = await Self.evalString("getComputedStyle(document.getElementById('author-dark')).color", in: harness.webView) ?? ""
-            return color.contains("229, 229, 231")
+            return color.contains("222, 222, 224")
         }
         XCTAssertTrue(lifted, "Author CSS near-black text must be lifted for night readability")
         let inlineLifted = await Self.evalString("getComputedStyle(document.getElementById('inline-dark')).color", in: harness.webView) ?? ""
-        XCTAssertTrue(inlineLifted.contains("229, 229, 231"), "Author inline black text must be lifted too, got: \(inlineLifted)")
+        XCTAssertTrue(inlineLifted.contains("222, 222, 224"), "Author inline black text must be lifted too, got: \(inlineLifted)")
 
         // 7. Chromatic author emphasis must NOT be flattened by the contrast pass
         let accentColor = await Self.evalString("getComputedStyle(document.getElementById('accent-span')).color", in: harness.webView) ?? ""
@@ -292,7 +301,7 @@ final class EPUBRealPageReadingAndThemeTests: XCTestCase {
 
     // MARK: - 5. Reading Position & Progress Persistence Across Reopen
 
-    func testProgressLabelAndUserDefaultsRoundTrip() {
+    func testSavedProgressRoundTripsThroughUserDefaults() {
         let storageKey = "TTMedia_EPUB_Progress_TestBook"
         let savedDict: [String: Any] = [
             "chapterIndex": 3,
@@ -313,17 +322,6 @@ final class EPUBRealPageReadingAndThemeTests: XCTestCase {
         XCTAssertEqual(chapter, 3)
         XCTAssertEqual(page, 4)
         XCTAssertEqual(progress, 0.68, accuracy: 0.001)
-
-        let label = EPUBPaginationLocalization.chapterPageAndProgressIndicator(
-            chapterIndex: chapter,
-            totalChapters: 6,
-            pageIndex: page,
-            totalPages: 8,
-            progressRatio: progress
-        )
-        XCTAssertTrue(label.contains("4/6"))
-        XCTAssertTrue(label.contains("5/8"))
-        XCTAssertTrue(label.contains("68%"))
     }
 
     // MARK: - 6. Backward Page Stepping, Vertical Scrolling Boundaries & Progress Indicator
@@ -441,7 +439,7 @@ final class EPUBRealPageReadingAndThemeTests: XCTestCase {
         XCTAssertEqual(controller.currentChapterIndex, 0, "Top boundary must not auto-advance the chapter")
     }
 
-    func testPageIndicatorAndEstimatedOverallProgressAdvanceWithPageTurns() async throws {
+    func testEstimatedOverallProgressAdvancesWithWebKitPageTurns() async throws {
         let tempDir = FileManager.default.temporaryDirectory
             .appendingPathComponent("epub-progress-\(UUID().uuidString)", isDirectory: true)
         try FileManager.default.createDirectory(at: tempDir, withIntermediateDirectories: true)
@@ -466,35 +464,16 @@ final class EPUBRealPageReadingAndThemeTests: XCTestCase {
         XCTAssertTrue(ready)
         let totalPages = controller.totalPagesInChapter
 
-        func label() -> String {
-            EPUBPaginationLocalization.chapterPageAndProgressIndicator(
-                chapterIndex: controller.currentChapterIndex,
-                totalChapters: controller.totalChapters,
-                pageIndex: controller.currentPageIndex,
-                totalPages: controller.totalPagesInChapter,
-                progressRatio: controller.estimatedOverallBookProgress
-            )
-        }
-
-        let labelAtFirstPage = label()
-        XCTAssertTrue(labelAtFirstPage.contains("1/7"), "Chapter position must be shown, got: \(labelAtFirstPage)")
-        XCTAssertTrue(labelAtFirstPage.contains("1/\(totalPages)"), "Chapter page must be shown, got: \(labelAtFirstPage)")
-        XCTAssertTrue(
-            labelAtFirstPage.contains("Est.") || labelAtFirstPage.contains("全书估算"),
-            "Overall progress must be explicitly labelled as an estimate, got: \(labelAtFirstPage)"
-        )
-        let progressAtFirstPage = controller.estimatedOverallBookProgress
+        XCTAssertEqual(controller.currentChapterIndex, 0)
+        XCTAssertEqual(controller.totalChapters, 7)
+        XCTAssertEqual(controller.currentPageIndex, 0)
+        XCTAssertEqual(controller.estimatedOverallBookProgress, 0, accuracy: 0.0001)
 
         _ = controller.handleHorizontalArrow(isRightArrow: true)
         let advanced = await waitUntil(timeout: 2.0) { controller.currentPageIndex == 1 }
         XCTAssertTrue(advanced)
-        let labelAtSecondPage = label()
-        XCTAssertTrue(labelAtSecondPage.contains("2/\(totalPages)"), "Page indicator must follow the turn, got: \(labelAtSecondPage)")
-        XCTAssertGreaterThan(
-            controller.estimatedOverallBookProgress,
-            progressAtFirstPage,
-            "Estimated overall progress must grow as pages advance"
-        )
+        XCTAssertEqual(controller.totalPagesInChapter, totalPages)
+        XCTAssertEqual(controller.estimatedOverallBookProgress, 1 / Double(totalPages - 1) / 7, accuracy: 0.0001)
     }
 
     func testLayoutModeRoundTripRestoresPaginationAndScrollOverflow() async throws {
@@ -654,17 +633,17 @@ final class EPUBRealPageReadingAndThemeTests: XCTestCase {
         let archiveIdentityB = "ttzip-vfs://archive-bbb/OEBPS/novel.epub"
         let ephemeralIdentity = "/tmp/TTZipEphemeralEPUB/9f2c1a.epub"
 
-        let disk = InteractiveEPUBReaderView.stableBookDigest(for: diskIdentity)
-        XCTAssertEqual(disk, InteractiveEPUBReaderView.stableBookDigest(for: diskIdentity), "Same book must map to the same key")
-        XCTAssertNotEqual(disk, InteractiveEPUBReaderView.stableBookDigest(for: archiveIdentityA))
+        let disk = EPUBReaderSession.stableBookDigest(for: diskIdentity)
+        XCTAssertEqual(disk, EPUBReaderSession.stableBookDigest(for: diskIdentity), "Same book must map to the same key")
+        XCTAssertNotEqual(disk, EPUBReaderSession.stableBookDigest(for: archiveIdentityA))
         XCTAssertNotEqual(
-            InteractiveEPUBReaderView.stableBookDigest(for: archiveIdentityA),
-            InteractiveEPUBReaderView.stableBookDigest(for: archiveIdentityB),
+            EPUBReaderSession.stableBookDigest(for: archiveIdentityA),
+            EPUBReaderSession.stableBookDigest(for: archiveIdentityB),
             "Different archives must not collide even with identical entry names"
         )
         XCTAssertNotEqual(
-            InteractiveEPUBReaderView.stableBookDigest(for: ephemeralIdentity),
-            InteractiveEPUBReaderView.stableBookDigest(for: archiveIdentityA),
+            EPUBReaderSession.stableBookDigest(for: ephemeralIdentity),
+            EPUBReaderSession.stableBookDigest(for: archiveIdentityA),
             "Progress keys must never be derived from the transient spool path"
         )
         XCTAssertFalse(disk.contains("/"), "Digest must be usable inside a UserDefaults key")

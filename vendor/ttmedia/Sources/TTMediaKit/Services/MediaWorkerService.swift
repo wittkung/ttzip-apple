@@ -48,8 +48,13 @@ private struct ManagedLease: Equatable {
     let generation: UInt64
 }
 
+/// XPC transfers exclusive descriptor ownership to this worker call before the task starts.
+private struct TransferredFileCapability: @unchecked Sendable {
+    let handle: FileHandle
+}
+
 /// A lease together with the capability it owns.
-private struct HeldLease {
+private struct HeldLease: @unchecked Sendable {
     let lease: ManagedLease
     let handle: FileHandle
 }
@@ -155,21 +160,23 @@ public final class MediaWorkerService: NSObject, TTMediaWorkerProtocol, @uncheck
         _ file: FileHandle, targetTracks: [NSNumber]?,
         reply: @escaping @Sendable (Bool, String?, [String: Any]?) -> Void
     ) {
-        Task {
+        let capability = TransferredFileCapability(handle: file)
+        let requestedTracks = targetTracks?.map(\.intValue)
+        Task { [self] in
             do {
-                let flags = fcntl(file.fileDescriptor, F_GETFL)
+                let flags = fcntl(capability.handle.fileDescriptor, F_GETFL)
                 guard flags >= 0, flags & O_ACCMODE == O_RDONLY else {
                     throw MediaWorkerError.openFailed("Only read-only file handles are accepted")
                 }
                 // fdescfs duplicates only the supplied descriptor; no user path is resolved.
                 let result = try await transport.openMedia(
-                    path: "/dev/fd/\(file.fileDescriptor)", targetTracks: targetTracks?.map(\.intValue)
+                    path: "/dev/fd/\(capability.handle.fileDescriptor)", targetTracks: requestedTracks
                 )
                 // PUBLISH: install the new lease. The lease it supersedes is
                 // detached by the commit, so exactly one owner disposes of that
                 // capability — and a close that is already in flight for the
                 // superseded lease keeps owning it.
-                switch commit(.publish(sessionId: result.sessionId, handle: file)) {
+                switch commit(.publish(sessionId: result.sessionId, handle: capability.handle)) {
                 case .callerOwns(let superseded):
                     if !dispose(capability: superseded.handle) {
                         // The superseded lease's capability could not be closed.
@@ -183,7 +190,7 @@ public final class MediaWorkerService: NSObject, TTMediaWorkerProtocol, @uncheck
                 }
                 reply(true, result.sessionId, result.metadata)
             } catch {
-                try? file.close()
+                try? capability.handle.close()
                 reply(false, error.localizedDescription, nil)
             }
         }

@@ -380,6 +380,235 @@ char * _Nullable ttmedia_mhtml_extract_summary(
     size_t max_preview_bytes
 );
 
+/**
+ * Compact UTF-16 syntax highlight token span returned by the Rust Tree-sitter SyntaxEngine bridge.
+ * category values: 0 = comment, 1 = string, 2 = keyword, 3 = number, 4 = type.
+ */
+typedef struct TTMediaSyntaxTokenSpan {
+    uint32_t utf16_location;
+    uint32_t utf16_length;
+    uint8_t category;
+} TTMediaSyntaxTokenSpan;
+
+/**
+ * Tokenizes a bounded UTF-8 source buffer (<= 4 MiB) using the Rust Tree-sitter SyntaxEngine.
+ * Returns TT_MEDIA_DEMUX_OK (0) on success, TT_MEDIA_DEMUX_ERR_UNSUPPORTED_FORMAT (-4) when
+ * the file extension is not supported by Tree-sitter, or a negative status code on error.
+ * Release *out_spans with ttmedia_syntax_tokens_free(*out_spans, *out_count).
+ */
+int32_t ttmedia_syntax_tokenize(
+    const uint8_t * _Nullable source_utf8,
+    size_t source_len,
+    const char * _Nonnull ext,
+    TTMediaSyntaxTokenSpan * _Nullable * _Nonnull out_spans,
+    size_t * _Nonnull out_count
+);
+
+/**
+ * Releases a contiguous token span buffer allocated by ttmedia_syntax_tokenize().
+ */
+void ttmedia_syntax_tokens_free(
+    TTMediaSyntaxTokenSpan * _Nullable spans,
+    size_t count
+);
+
+/**
+ * Executes a controlled text or CSV delta save transaction with external-modification conflict
+ * protection, delta vs whole-file evaluation, WAL mutation verification, and atomic staged commit.
+ *
+ * Returns:
+ *   0: success
+ *  -1: invalid pointer, invalid UTF-8, or size exceeds 4 MiB
+ *  -2: target file does not exist or cannot be opened/read
+ * -409: external modification conflict against expected_baseline_utf8
+ *  -5: staging or atomic commit I/O failure
+ */
+int32_t ttmedia_delta_commit_file_transaction(
+    const char * _Nullable target_path,
+    const uint8_t * _Nullable expected_baseline_utf8,
+    size_t expected_baseline_len,
+    bool has_expected_baseline,
+    const uint8_t * _Nullable modified_utf8,
+    size_t modified_len,
+    bool include_utf8_bom,
+    bool is_csv_mode,
+    size_t * _Nullable out_ops_count,
+    bool * _Nullable out_used_delta_path
+);
+
+/**
+ * Tile coordinate descriptor returned by ttmedia_tile_pyramid_plan_viewport().
+ */
+typedef struct TTMediaTileCoord {
+    uint32_t level;
+    uint32_t x;
+    uint32_t y;
+} TTMediaTileCoord;
+
+/**
+ * Plans the pyramid level and visible tile coordinates intersecting a zoomed/panned viewport.
+ */
+int32_t ttmedia_tile_pyramid_plan_viewport(
+    uint32_t source_width,
+    uint32_t source_height,
+    uint32_t tile_size,
+    float viewport_width,
+    float viewport_height,
+    float scale,
+    float offset_x,
+    float offset_y,
+    float backing_scale,
+    uint32_t * _Nullable out_selected_level,
+    TTMediaTileCoord * _Nullable out_coords,
+    size_t coords_capacity,
+    size_t * _Nonnull out_coord_count
+);
+
+/**
+ * Extracts a single RGBA8 tile from an in-memory source RGBA8 buffer for the requested pyramid coordinate
+ * using region-only box-filter downsampling without whole-image copies or whole-level allocations.
+ */
+int32_t ttmedia_tile_pyramid_extract_tile(
+    const uint8_t * _Nullable source_rgba,
+    size_t source_rgba_len,
+    uint32_t source_width,
+    uint32_t source_height,
+    uint32_t tile_size,
+    uint32_t level,
+    uint32_t tile_x,
+    uint32_t tile_y,
+    uint8_t * _Nullable out_rgba,
+    size_t out_rgba_capacity,
+    uint32_t * _Nonnull out_tile_width,
+    uint32_t * _Nonnull out_tile_height
+);
+
+/**
+ * Derives the default non-destructive output path (`<parent>/<stem>_trimmed.<ext>`) for a source path
+ * into a caller-allocated UTF-8 buffer.
+ *
+ * 1. Size-query mode: Pass `out_buf == NULL` and `buf_capacity == 0` to write required UTF-8 length
+ *    (excluding trailing NUL) into `*out_required_len` and return `TT_MEDIA_DEMUX_OK (0)`.
+ * 2. Copy mode: Pass non-null `out_buf` with `buf_capacity >= (*out_required_len + 1)` to write the
+ *    NUL-terminated UTF-8 path and return `TT_MEDIA_DEMUX_OK (0)`.
+ * 3. Insufficient capacity: Returns `TT_MEDIA_DEMUX_ERR_OUT_OF_MEMORY (-5)`.
+ */
+int32_t ttmedia_trim_default_output_path(
+    const char * _Nullable source_path,
+    char * _Nullable out_buf,
+    size_t buf_capacity,
+    size_t * _Nonnull out_required_len
+);
+
+/**
+ * Validates trim bounds and distinct source/destination paths, scans top-level ISO BMFF boxes on
+ * `source_path` (`ftyp`, `moov`, `mdat`), computes the trim branch (`0 = TailOnlyZeroCopy`,
+ * `1 = HeadOrMidEditList`, `2 = StreamingRemux`) and `Mp4EditListSync` parameters, and when
+ * `dest_path` is non-null and exists on disk, preserves source permissions and modification time.
+ */
+int32_t ttmedia_trim_plan_and_preserve_metadata(
+    const char * _Nullable source_path,
+    const char * _Nullable dest_path,
+    double start_pts_secs,
+    double end_pts_secs,
+    uint32_t * _Nonnull out_branch,
+    uint32_t * _Nonnull out_movie_timescale,
+    uint32_t * _Nonnull out_segment_duration,
+    int32_t * _Nonnull out_media_time
+);
+
+/**
+ * Executes two-branch lossless container trimming from `source_path` to `output_path` via atomic staging.
+ * Returns `0` on success, `-1` on invalid bounds/arguments, `-2` on I/O error, `-3` on invalid container,
+ * or `-4` when streaming remux is required.
+ */
+int32_t ttmedia_trim_lossless_file(
+    const char * _Nullable source_path,
+    const char * _Nullable output_path,
+    double start_pts_secs,
+    double end_pts_secs,
+    bool force_streaming_remux,
+    uint32_t * _Nonnull out_branch,
+    uint64_t * _Nonnull out_output_bytes,
+    double * _Nonnull out_trimmed_duration_secs
+);
+
+/**
+ * Derives the default non-destructive output path (`<parent>/<stem>_remuxed.mp4` or `.mov`)
+ * for a source path and target container (`0 = MP4`, `1 = MOV`) into a caller-allocated UTF-8 buffer.
+ *
+ * 1. Size-query mode: Pass `out_buf == NULL` and `buf_capacity == 0` to write required UTF-8 length
+ *    (excluding trailing NUL) into `*out_required_len` and return `TT_MEDIA_DEMUX_OK (0)`.
+ * 2. Copy mode: Pass non-null `out_buf` with `buf_capacity >= (*out_required_len + 1)` to write the
+ *    NUL-terminated UTF-8 path and return `TT_MEDIA_DEMUX_OK (0)`.
+ * 3. Insufficient capacity: Returns `TT_MEDIA_DEMUX_ERR_OUT_OF_MEMORY (-5)`.
+ */
+int32_t ttmedia_remux_default_output_path(
+    const char * _Nullable source_path,
+    uint32_t target_container_code,
+    char * _Nullable out_buf,
+    size_t buf_capacity,
+    size_t * _Nonnull out_required_len
+);
+
+/**
+ * Remuxes a media file (`MKV`, `WebM`, `MPEG-TS`, or `Annex-B`) into an `MP4` (`0`) or `MOV` (`1`)
+ * container via atomic staging, preserving source file permissions and modification timestamp.
+ *
+ * Enforces `file_len <= (max_input_bytes > 0 ? max_input_bytes : 256 MiB)` before reading into memory,
+ * returning `TT_MEDIA_DEMUX_ERR_OUT_OF_MEMORY (-5)` when the file exceeds the in-memory budget.
+ */
+int32_t ttmedia_remux_container_file(
+    const char * _Nullable source_path,
+    const char * _Nullable output_path,
+    uint32_t target_container_code,
+    bool fast_start,
+    bool strip_audio,
+    uint64_t max_input_bytes,
+    uint32_t * _Nonnull out_video_codec,
+    uint64_t * _Nonnull out_sample_count,
+    uint64_t * _Nonnull out_sync_sample_count,
+    uint64_t * _Nonnull out_duration_ms,
+    uint64_t * _Nonnull out_bytes_written
+);
+
+/**
+ * Derives the default non-destructive output path (`<parent>/<stem>_audio.m4a`, `<parent>/<stem>_audio.<ext>`,
+ * or `<parent>/<stem>_audio_track<N>.<ext>`) for a source path, extraction mode (`0 = ElementaryStream`,
+ * `1 = EncapsulatedM4a`), codec (`0 = Aac`, `1 = Flac`, `2 = Opus`, `3 = Mp3`), and 0-based `track_index`
+ * into a caller-allocated UTF-8 buffer.
+ */
+int32_t ttmedia_audio_extract_default_output_path(
+    const char * _Nullable source_path,
+    uint32_t mode_code,
+    uint32_t codec_code,
+    uint32_t track_index,
+    char * _Nullable out_buf,
+    size_t buf_capacity,
+    size_t * _Nonnull out_required_len
+);
+
+/**
+ * Extracts an audio track from `source_path` to `output_path` via atomic staging, preserving source file
+ * permissions and modification timestamp.
+ *
+ * Enforces `file_len <= (max_input_bytes > 0 ? max_input_bytes : 256 MiB)` before reading into memory,
+ * returning `TT_MEDIA_DEMUX_ERR_OUT_OF_MEMORY (-5)` when the file exceeds the in-memory budget.
+ */
+int32_t ttmedia_extract_audio_track_file(
+    const char * _Nullable source_path,
+    const char * _Nullable output_path,
+    uint32_t mode_code,
+    uint32_t track_index,
+    uint64_t max_input_bytes,
+    uint32_t * _Nonnull out_audio_codec,
+    uint32_t * _Nonnull out_channels,
+    uint32_t * _Nonnull out_sample_rate,
+    uint64_t * _Nonnull out_packet_count,
+    uint64_t * _Nonnull out_duration_ms,
+    uint64_t * _Nonnull out_bytes_written
+);
+
 #ifdef __cplusplus
 }
 #endif

@@ -2,36 +2,16 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
 import Foundation
-import SwiftUI
 import AppKit
 import CryptoKit
 @preconcurrency import PDFKit
 import TTI18nCore
 import TTI18nUI
 
-/// Localized vocabulary for PDF document preview states, password prompts, and layout controls.
+/// Localized diagnostics reported by the PDF loader.
 public enum PDFPreviewLocaleKey: String, FallbackLocaleKeyProtocol, CaseIterable, Sendable {
-    case layoutSinglePage = "media.pdf.layoutSinglePage"
-    case layoutTwoPages = "media.pdf.layoutTwoPages"
-    case layoutThreePages = "media.pdf.layoutThreePages"
-    case loadingStream = "media.pdf.loadingStream"
-    case loadingPDF = "media.pdf.loadingPDF"
-    case loadFailedTitle = "media.pdf.loadFailedTitle"
     case loadFailedCorruptOrEmpty = "media.pdf.loadFailedCorruptOrEmpty"
-    case retry = "media.pdf.retry"
-    case encryptedTitle = "media.pdf.encryptedTitle"
-    case encryptedPrompt = "media.pdf.encryptedPrompt"
-    case enterPassword = "media.pdf.enterPassword"
-    case unlock = "media.pdf.unlock"
     case incorrectPassword = "media.pdf.incorrectPassword"
-    case emptyPages = "media.pdf.emptyPages"
-    case pageNumberFormat = "media.pdf.pageNumberFormat"
-    case pageIndicatorFormat = "media.pdf.pageIndicatorFormat"
-    case zoomIn = "media.pdf.zoomIn"
-    case zoomOut = "media.pdf.zoomOut"
-    case zoomFit = "media.pdf.zoomFit"
-    case previousPage = "media.pdf.previousPage"
-    case nextPage = "media.pdf.nextPage"
 
     public func fallbackTranslation(for language: AppLanguage) -> String {
         guard let values = Self.translations[self] else { return rawKey }
@@ -43,55 +23,20 @@ public enum PDFPreviewLocaleKey: String, FallbackLocaleKeyProtocol, CaseIterable
     }
 
     private static let translations: [Self: (en: String, zh: String, hant: String)] = [
-        .layoutSinglePage: ("Single Page", "单页", "單頁"),
-        .layoutTwoPages: ("Two Pages", "双页", "雙頁"),
-        .layoutThreePages: ("Three Pages", "三页", "三頁"),
-        .loadingStream: ("Loading PDF Stream…", "正在加载 PDF 文档…", "正在載入 PDF 文件…"),
-        .loadingPDF: ("Loading PDF…", "正在加载 PDF…", "正在載入 PDF…"),
-        .loadFailedTitle: ("Unable to load PDF document", "无法加载 PDF 文档", "無法載入 PDF 文件"),
         .loadFailedCorruptOrEmpty: (
             "The PDF file is damaged, empty, or cannot be opened.",
             "PDF 文件已损坏、为空或无法打开。",
             "PDF 檔案已損毀、為空或無法打開。"
         ),
-        .retry: ("Retry", "重试", "重試"),
-        .encryptedTitle: ("Encrypted PDF Document", "加密的 PDF 文档", "加密的 PDF 文件"),
-        .encryptedPrompt: (
-            "This document is password protected. Enter password to view contents.",
-            "此文档受密码保护，请输入密码以查看内容。",
-            "此文件受密碼保護，請輸入密碼以檢視內容。"
-        ),
-        .enterPassword: ("Enter Password", "输入密码", "輸入密碼"),
-        .unlock: ("Unlock", "解锁", "解鎖"),
         .incorrectPassword: ("Incorrect password. Please try again.", "密码错误，请重试。", "密碼錯誤，請重試。"),
-        .emptyPages: ("PDF Document has no pages or is empty.", "PDF 文档没有页面或内容为空。", "PDF 文件沒有頁面或內容為空。"),
-        .pageNumberFormat: ("Page %d", "第 %d 页", "第 %d 頁"),
-        .pageIndicatorFormat: ("%d / %d", "%d / %d", "%d / %d"),
-        .zoomIn: ("Zoom In", "放大", "放大"),
-        .zoomOut: ("Zoom Out", "縮小", "縮小"),
-        .zoomFit: ("Fit", "适应", "適應"),
-        .previousPage: ("Previous Page", "上一页", "上一頁"),
-        .nextPage: ("Next Page", "下一页", "下一頁"),
     ]
 }
 
-/// Resolves PDF preview vocabulary through the shared observable `TTI18n` localization state.
+/// Resolves loader diagnostics through the shared `TTI18n` localization state.
 @MainActor
 public enum PDFPreviewLocalization {
     public static func text(_ key: PDFPreviewLocaleKey) -> String {
         LocalizationState.shared.t(key)
-    }
-
-    public static func pageTitle(_ pageNumber: Int) -> String {
-        LocalizationState.shared.format(PDFPreviewLocaleKey.pageNumberFormat, pageNumber)
-    }
-
-    public static func pageIndicator(currentOneBased: Int, total: Int) -> String {
-        LocalizationState.shared.format(
-            PDFPreviewLocaleKey.pageIndicatorFormat,
-            max(1, currentOneBased),
-            max(1, total)
-        )
     }
 }
 
@@ -193,112 +138,6 @@ public enum PDFLayoutMode: String, CaseIterable, Identifiable, Sendable {
     case threePages = "Three Pages"
     
     public var id: String { rawValue }
-    
-    public var icon: String {
-        switch self {
-        case .singleFullWidth: return "doc.text.fill"
-        case .twoPages: return "book.fill"
-        case .threePages: return "square.grid.3x1.fill"
-        }
-    }
-
-    @MainActor
-    public var localizedTitle: String {
-        switch self {
-        case .singleFullWidth: return PDFPreviewLocalization.text(.layoutSinglePage)
-        case .twoPages: return PDFPreviewLocalization.text(.layoutTwoPages)
-        case .threePages: return PDFPreviewLocalization.text(.layoutThreePages)
-        }
-    }
-}
-
-// MARK: - Unified Encrypted PDF Password Unlock Overlay
-
-public struct PDFPasswordUnlockOverlayView: View {
-    @Binding public var passwordInput: String
-    public let errorMessage: String?
-    public let onSubmit: () -> Void
-
-    public init(
-        passwordInput: Binding<String>,
-        errorMessage: String?,
-        onSubmit: @escaping () -> Void
-    ) {
-        self._passwordInput = passwordInput
-        self.errorMessage = errorMessage
-        self.onSubmit = onSubmit
-    }
-
-    public var body: some View {
-        VStack(spacing: 16) {
-            Image(systemName: "lock.shield.fill")
-                .font(.system(size: 40))
-                .foregroundStyle(Color.orange)
-
-            Text(PDFPreviewLocalization.text(.encryptedTitle))
-                .font(.system(size: 14, weight: .bold))
-
-            Text(PDFPreviewLocalization.text(.encryptedPrompt))
-                .font(.system(size: 11))
-                .foregroundStyle(.secondary)
-                .multilineTextAlignment(.center)
-                .padding(.horizontal, 20)
-
-            HStack(spacing: 8) {
-                SecureField(PDFPreviewLocalization.text(.enterPassword), text: $passwordInput)
-                    .textFieldStyle(.roundedBorder)
-                    .frame(width: 180)
-                    .onSubmit { onSubmit() }
-
-                Button(action: { onSubmit() }) {
-                    Text(PDFPreviewLocalization.text(.unlock))
-                        .font(.system(size: 12, weight: .bold))
-                        .foregroundStyle(.white)
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 5)
-                        .background(Color.accentColor)
-                        .clipShape(RoundedRectangle(cornerRadius: 6))
-                }
-                .buttonStyle(.plain)
-            }
-
-            if let err = errorMessage {
-                Text(err)
-                    .font(.system(size: 11, weight: .semibold))
-                    .foregroundStyle(Color.red)
-            }
-        }
-        .padding(32)
-        .frame(maxWidth: .infinity, minHeight: 280, maxHeight: .infinity)
-    }
-}
-
-// MARK: - Rendered Thumbnail Probe & Interactive PDFView
-
-public final class PDFThumbnailRenderedProbeNSView: NSView {
-    public var identityKey: String = ""
-    public var pageIndex: Int = 0
-    public var renderedImage: NSImage?
-}
-
-struct PDFThumbnailRenderedProbeRepresentable: NSViewRepresentable {
-    let identityKey: String
-    let pageIndex: Int
-    let renderedImage: NSImage?
-
-    func makeNSView(context: Context) -> PDFThumbnailRenderedProbeNSView {
-        let probe = PDFThumbnailRenderedProbeNSView(frame: .zero)
-        probe.identityKey = identityKey
-        probe.pageIndex = pageIndex
-        probe.renderedImage = renderedImage
-        return probe
-    }
-
-    func updateNSView(_ nsView: PDFThumbnailRenderedProbeNSView, context: Context) {
-        nsView.identityKey = identityKey
-        nsView.pageIndex = pageIndex
-        nsView.renderedImage = renderedImage
-    }
 }
 
 public final class InteractivePDFView: PDFView {

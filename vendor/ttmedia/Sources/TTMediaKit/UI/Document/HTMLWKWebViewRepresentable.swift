@@ -12,12 +12,38 @@ public struct HTMLWKWebViewRepresentable: NSViewRepresentable {
     public let fileURL: URL?
     public let reloadToken: Int
     public let pageZoom: Double
+    public let appearance: Appearance
+
+    public struct Appearance: Equatable, Sendable {
+        let unstyledHTMLCSS: String
+        let authorStyledHTMLCSS: String
+        let standaloneSVGExtensionCSS: String
+
+        /// Supply application-owned CSS literals, never document or filename values.
+        /// The empty appearance uses WebKit defaults and the adapter's SVG geometry.
+        public init(
+            unstyledHTMLCSS: String = "",
+            authorStyledHTMLCSS: String = "",
+            standaloneSVGExtensionCSS: String = ""
+        ) {
+            self.unstyledHTMLCSS = unstyledHTMLCSS
+            self.authorStyledHTMLCSS = authorStyledHTMLCSS
+            self.standaloneSVGExtensionCSS = standaloneSVGExtensionCSS
+        }
+    }
     
-    public init(content: String, fileURL: URL?, reloadToken: Int = 0, pageZoom: Double = 1.0) {
+    public init(
+        content: String,
+        fileURL: URL?,
+        reloadToken: Int = 0,
+        pageZoom: Double = 1.0,
+        appearance: Appearance = .init()
+    ) {
         self.content = content
         self.fileURL = fileURL
         self.reloadToken = reloadToken
         self.pageZoom = pageZoom
+        self.appearance = appearance
     }
     
     public func makeCoordinator() -> Coordinator {
@@ -38,6 +64,7 @@ public struct HTMLWKWebViewRepresentable: NSViewRepresentable {
         context.coordinator.lastLoadedURL = fileURL
         context.coordinator.lastLoadedContent = content
         context.coordinator.lastPageZoom = pageZoom
+        context.coordinator.lastAppearance = appearance
         loadHTML(in: webView, coordinator: context.coordinator)
         return webView
     }
@@ -48,16 +75,13 @@ public struct HTMLWKWebViewRepresentable: NSViewRepresentable {
             context.coordinator.lastPageZoom = pageZoom
             webView.pageZoom = CGFloat(pageZoom)
         }
-        if context.coordinator.lastReloadToken != reloadToken {
+        if context.coordinator.lastReloadToken != reloadToken
+            || context.coordinator.lastLoadedURL != fileURL
+            || context.coordinator.lastLoadedContent != content
+            || context.coordinator.lastAppearance != appearance {
+            context.coordinator.lastAppearance = appearance
             context.coordinator.lastReloadToken = reloadToken
             context.coordinator.lastLoadedURL = fileURL
-            context.coordinator.lastLoadedContent = content
-            loadHTML(in: webView, coordinator: context.coordinator)
-        } else if context.coordinator.lastLoadedURL != fileURL {
-            context.coordinator.lastLoadedURL = fileURL
-            context.coordinator.lastLoadedContent = content
-            loadHTML(in: webView, coordinator: context.coordinator)
-        } else if context.coordinator.lastLoadedContent != content {
             context.coordinator.lastLoadedContent = content
             loadHTML(in: webView, coordinator: context.coordinator)
         }
@@ -308,52 +332,18 @@ public struct HTMLWKWebViewRepresentable: NSViewRepresentable {
         return regex.firstMatch(in: html, options: [], range: nsRange) != nil
     }
 
-    private static func defaultThemeStyleBlock(adaptsToDarkTheme: Bool) -> String {
-        let darkMediaRule: String
-        if adaptsToDarkTheme {
-            darkMediaRule = """
-              @media (prefers-color-scheme: dark) {
-                :where(html, body) {
-                  background-color: #1e1e1e;
-                  color: #e5e5e7;
-                }
-                :where(a) { color: #58a6ff; }
-              }
-            """
-        } else {
-            darkMediaRule = ""
-        }
-        return """
-        <style data-ttmedia-default-theme>
-          :root { color-scheme: \(adaptsToDarkTheme ? "light dark" : "light"); }
-          :where(html, body) {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-            line-height: 1.6;
-            background-color: #ffffff;
-            color: #1c1c1e;
-          }
-          :where(body) {
-            margin: 0;
-            padding: 16px;
-            word-wrap: break-word;
-          }
-          :where(a) { color: #0969da; }
-          :where(pre, code) {
-            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-          }
-          :where(img, svg, video, canvas) {
-            max-width: 100%;
-            height: auto;
-          }
-        \(darkMediaRule)
-        </style>
-        """
+    private static func styleBlock(_ css: String) -> String {
+        guard !css.isEmpty else { return "" }
+        // CSS escapes prevent an HTML raw-text terminator from escaping the style element.
+        let escaped = css.replacingOccurrences(of: "<", with: "\\3c ")
+        return "<style data-host-preview-appearance>\(escaped)</style>"
     }
-    
+
     public func preparedHTMLContent(_ html: String) -> String {
         let lower = html.lowercased()
         let hasAuthorPalette = Self.hasExplicitAuthorColorPalette(in: html)
-        let styleBlock = Self.defaultThemeStyleBlock(adaptsToDarkTheme: !hasAuthorPalette)
+        let css = hasAuthorPalette ? appearance.authorStyledHTMLCSS : appearance.unstyledHTMLCSS
+        let styleBlock = Self.styleBlock(css)
         let wrapped: String
         if lower.contains("<html") || lower.contains("<body") {
             wrapped = html
@@ -486,20 +476,15 @@ public struct HTMLWKWebViewRepresentable: NSViewRepresentable {
         \(TTWebPreviewContentPolicy.offlineCSPMetaTag)
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <style>
-          :root { color-scheme: light dark; }
           html, body {
             margin: 0;
-            padding: 16px;
+            padding: 0;
             width: 100%;
             height: 100%;
             box-sizing: border-box;
             display: flex;
             background: transparent;
-            color: #1c1c1e;
             overflow: auto;
-          }
-          @media (prefers-color-scheme: dark) {
-            html, body { color: #e5e5e7; }
           }
           body > svg[viewBox] {
             margin: auto;
@@ -514,6 +499,7 @@ public struct HTMLWKWebViewRepresentable: NSViewRepresentable {
             flex-shrink: 0;
           }
         </style>
+        \(Self.styleBlock(appearance.standaloneSVGExtensionCSS))
         </head>
         <body>
         \(processedSVG)
@@ -528,6 +514,7 @@ public struct HTMLWKWebViewRepresentable: NSViewRepresentable {
     public final class Coordinator: NSObject, WKNavigationDelegate, WKUIDelegate {
         var parent: HTMLWKWebViewRepresentable
         var lastReloadToken: Int = 0
+        var lastAppearance: Appearance
         var lastPageZoom: Double = 1.0
         var lastLoadedURL: URL? = nil
         var lastLoadedContent: String? = nil
@@ -536,6 +523,7 @@ public struct HTMLWKWebViewRepresentable: NSViewRepresentable {
         
         public init(_ parent: HTMLWKWebViewRepresentable) {
             self.parent = parent
+            self.lastAppearance = parent.appearance
             self.allowedDocumentURL = parent.fileURL
             self.lastPageZoom = parent.pageZoom
             super.init()

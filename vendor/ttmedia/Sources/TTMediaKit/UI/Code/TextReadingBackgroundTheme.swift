@@ -3,82 +3,9 @@
 
 import SwiftUI
 import AppKit
-import Observation
-
-/// Three-state reading background preference for text and code previews.
-/// Operates independently of W2's global application appearance while adapting foreground contrast when in `.fluidTransparent` mode.
-public enum TTTextReadingBackgroundMode: String, CaseIterable, Sendable, Equatable, Identifiable {
-    case black = "black"
-    case white = "white"
-    case fluidTransparent = "fluidTransparent"
-
-    public var id: String { rawValue }
-
-    /// Canonical default reading background mode across all text/code preview entry points.
-    public static let defaultMode: TTTextReadingBackgroundMode = .fluidTransparent
-
-    /// Persistent `UserDefaults` key shared across all text preview components.
-    public static let userDefaultsKey: String = "ttmedia.preview.text.readingBackgroundMode"
-
-    /// SF Symbol icon representing each background state.
-    public var iconName: String {
-        switch self {
-        case .black: return "moon.fill"
-        case .white: return "sun.max.fill"
-        case .fluidTransparent: return "drop.halffill"
-        }
-    }
-
-    /// True when the canvas lets the underlying fluid glass material shine through.
-    public var isFluidTransparent: Bool {
-        self == .fluidTransparent
-    }
-
-    /// True when the scroll view and text view draw an opaque solid canvas background.
-    public var drawsOpaqueBackground: Bool {
-        self != .fluidTransparent
-    }
-
-    /// Resolves whether the foreground and syntax tokens should use dark-canvas (light ink) or light-canvas (dark ink) styling.
-    public func effectiveIsDark(isAppDarkAppearance: Bool) -> Bool {
-        switch self {
-        case .black: return true
-        case .white: return false
-        case .fluidTransparent: return isAppDarkAppearance
-        }
-    }
-
-    /// Dynamic localized label resolved from `LocalizationState.shared`.
-    @MainActor
-    public var localizedTitle: String {
-        switch self {
-        case .black:
-            return TextAndDocumentPreviewLocalization.text(.readingBackgroundBlack)
-        case .white:
-            return TextAndDocumentPreviewLocalization.text(.readingBackgroundWhite)
-        case .fluidTransparent:
-            return TextAndDocumentPreviewLocalization.text(.readingBackgroundFluidTransparent)
-        }
-    }
-
-    /// Dynamic localized tooltip / accessibility help resolved from `LocalizationState.shared`.
-    @MainActor
-    public var localizedHelpText: String {
-        switch self {
-        case .black:
-            return TextAndDocumentPreviewLocalization.text(.readingBackgroundBlackHelp)
-        case .white:
-            return TextAndDocumentPreviewLocalization.text(.readingBackgroundWhiteHelp)
-        case .fluidTransparent:
-            return TextAndDocumentPreviewLocalization.text(.readingBackgroundFluidTransparentHelp)
-        }
-    }
-}
 
 /// Complete resolved visual palette for text body, gutter, selection, insertion point, search highlights, and syntax tokens.
 public struct TTTextReadingPalette: @unchecked Sendable, Equatable {
-    public let mode: TTTextReadingBackgroundMode
-    public let effectiveIsDark: Bool
     public let drawsOpaqueBackground: Bool
 
     public let containerBackgroundColor: Color
@@ -100,102 +27,63 @@ public struct TTTextReadingPalette: @unchecked Sendable, Equatable {
     public let syntaxNumberColor: NSColor
     public let syntaxTypeColor: NSColor
 
-    public static func resolve(
-        mode: TTTextReadingBackgroundMode,
-        isDarkAppearance: Bool
-    ) -> TTTextReadingPalette {
-        let isDark = mode.effectiveIsDark(isAppDarkAppearance: isDarkAppearance)
-        switch mode {
-        case .black:
-            return makeDarkPalette(mode: .black, isOpaque: true)
-        case .white:
-            return makeLightPalette(mode: .white, isOpaque: true)
-        case .fluidTransparent:
-            return isDark
-                ? makeDarkPalette(mode: .fluidTransparent, isOpaque: false)
-                : makeLightPalette(mode: .fluidTransparent, isOpaque: false)
-        }
+    public init(
+        drawsOpaqueBackground: Bool,
+        containerBackgroundColor: Color,
+        nsCanvasBackgroundColor: NSColor,
+        nsGutterBackgroundColor: NSColor,
+        nsGutterBorderColor: NSColor,
+        nsGutterLabelColor: NSColor,
+        nsForegroundColor: NSColor,
+        nsInsertionPointColor: NSColor,
+        nsSelectionBackgroundColor: NSColor,
+        nsSelectionTextColor: NSColor,
+        nsSearchMatchBackgroundColor: NSColor,
+        nsSearchMatchTextColor: NSColor,
+        syntaxKeywordColor: NSColor,
+        syntaxStringColor: NSColor,
+        syntaxCommentColor: NSColor,
+        syntaxNumberColor: NSColor,
+        syntaxTypeColor: NSColor
+    ) {
+        self.drawsOpaqueBackground = drawsOpaqueBackground
+        self.containerBackgroundColor = containerBackgroundColor
+        self.nsCanvasBackgroundColor = nsCanvasBackgroundColor
+        self.nsGutterBackgroundColor = nsGutterBackgroundColor
+        self.nsGutterBorderColor = nsGutterBorderColor
+        self.nsGutterLabelColor = nsGutterLabelColor
+        self.nsForegroundColor = nsForegroundColor
+        self.nsInsertionPointColor = nsInsertionPointColor
+        self.nsSelectionBackgroundColor = nsSelectionBackgroundColor
+        self.nsSelectionTextColor = nsSelectionTextColor
+        self.nsSearchMatchBackgroundColor = nsSearchMatchBackgroundColor
+        self.nsSearchMatchTextColor = nsSearchMatchTextColor
+        self.syntaxKeywordColor = syntaxKeywordColor
+        self.syntaxStringColor = syntaxStringColor
+        self.syntaxCommentColor = syntaxCommentColor
+        self.syntaxNumberColor = syntaxNumberColor
+        self.syntaxTypeColor = syntaxTypeColor
     }
 
-    private static func makeDarkPalette(
-        mode: TTTextReadingBackgroundMode,
-        isOpaque: Bool
-    ) -> TTTextReadingPalette {
-        let canvasNS = isOpaque
-            ? NSColor(srgbRed: 0.067, green: 0.075, blue: 0.094, alpha: 1.0)
-            : NSColor.clear
-        let containerSwiftUI = isOpaque
-            ? Color(nsColor: canvasNS)
-            : Color.clear
-        let gutterBG = isOpaque
-            ? NSColor(srgbRed: 0.086, green: 0.098, blue: 0.125, alpha: 1.0)
-            : NSColor.clear
-        let gutterBorder = isOpaque
-            ? NSColor(srgbRed: 0.165, green: 0.180, blue: 0.224, alpha: 1.0)
-            : NSColor(srgbRed: 1.0, green: 1.0, blue: 1.0, alpha: 0.12)
-
-        return TTTextReadingPalette(
-            mode: mode,
-            effectiveIsDark: true,
-            drawsOpaqueBackground: isOpaque,
-            containerBackgroundColor: containerSwiftUI,
-            nsCanvasBackgroundColor: canvasNS,
-            nsGutterBackgroundColor: gutterBG,
-            nsGutterBorderColor: gutterBorder,
-            nsGutterLabelColor: NSColor(srgbRed: 0.545, green: 0.580, blue: 0.620, alpha: 1.0),
-            nsForegroundColor: NSColor(srgbRed: 0.925, green: 0.929, blue: 0.941, alpha: 1.0),
-            nsInsertionPointColor: NSColor(srgbRed: 1.0, green: 1.0, blue: 1.0, alpha: 1.0),
-            nsSelectionBackgroundColor: NSColor(srgbRed: 0.149, green: 0.310, blue: 0.471, alpha: 0.88),
-            nsSelectionTextColor: NSColor(srgbRed: 0.960, green: 0.969, blue: 0.980, alpha: 1.0),
-            nsSearchMatchBackgroundColor: NSColor(srgbRed: 0.420, green: 0.325, blue: 0.078, alpha: 0.92),
-            nsSearchMatchTextColor: NSColor(srgbRed: 1.0, green: 0.898, blue: 0.561, alpha: 1.0),
-            syntaxKeywordColor: NSColor(srgbRed: 1.0, green: 0.482, blue: 0.447, alpha: 1.0),
-            syntaxStringColor: NSColor(srgbRed: 0.647, green: 0.839, blue: 1.0, alpha: 1.0),
-            syntaxCommentColor: NSColor(srgbRed: 0.545, green: 0.580, blue: 0.620, alpha: 1.0),
-            syntaxNumberColor: NSColor(srgbRed: 0.475, green: 0.753, blue: 1.0, alpha: 1.0),
-            syntaxTypeColor: NSColor(srgbRed: 1.0, green: 0.651, blue: 0.341, alpha: 1.0)
-        )
-    }
-
-    private static func makeLightPalette(
-        mode: TTTextReadingBackgroundMode,
-        isOpaque: Bool
-    ) -> TTTextReadingPalette {
-        let canvasNS = isOpaque
-            ? NSColor(srgbRed: 1.0, green: 1.0, blue: 1.0, alpha: 1.0)
-            : NSColor.clear
-        let containerSwiftUI = isOpaque
-            ? Color(nsColor: canvasNS)
-            : Color.clear
-        let gutterBG = isOpaque
-            ? NSColor(srgbRed: 0.965, green: 0.969, blue: 0.976, alpha: 1.0)
-            : NSColor.clear
-        let gutterBorder = isOpaque
-            ? NSColor(srgbRed: 0.847, green: 0.871, blue: 0.894, alpha: 1.0)
-            : NSColor(srgbRed: 0.0, green: 0.0, blue: 0.0, alpha: 0.12)
-
-        return TTTextReadingPalette(
-            mode: mode,
-            effectiveIsDark: false,
-            drawsOpaqueBackground: isOpaque,
-            containerBackgroundColor: containerSwiftUI,
-            nsCanvasBackgroundColor: canvasNS,
-            nsGutterBackgroundColor: gutterBG,
-            nsGutterBorderColor: gutterBorder,
-            nsGutterLabelColor: NSColor(srgbRed: 0.341, green: 0.376, blue: 0.416, alpha: 1.0),
-            nsForegroundColor: NSColor(srgbRed: 0.094, green: 0.098, blue: 0.110, alpha: 1.0),
-            nsInsertionPointColor: NSColor(srgbRed: 0.094, green: 0.098, blue: 0.110, alpha: 1.0),
-            nsSelectionBackgroundColor: NSColor(srgbRed: 0.706, green: 0.847, blue: 0.992, alpha: 0.90),
-            nsSelectionTextColor: NSColor(srgbRed: 0.059, green: 0.067, blue: 0.078, alpha: 1.0),
-            nsSearchMatchBackgroundColor: NSColor(srgbRed: 1.0, green: 0.949, blue: 0.659, alpha: 0.95),
-            nsSearchMatchTextColor: NSColor(srgbRed: 0.094, green: 0.098, blue: 0.110, alpha: 1.0),
-            syntaxKeywordColor: NSColor(srgbRed: 0.812, green: 0.133, blue: 0.180, alpha: 1.0),
-            syntaxStringColor: NSColor(srgbRed: 0.039, green: 0.188, blue: 0.412, alpha: 1.0),
-            syntaxCommentColor: NSColor(srgbRed: 0.067, green: 0.388, blue: 0.161, alpha: 1.0),
-            syntaxNumberColor: NSColor(srgbRed: 0.020, green: 0.314, blue: 0.682, alpha: 1.0),
-            syntaxTypeColor: NSColor(srgbRed: 0.584, green: 0.220, blue: 0.0, alpha: 1.0)
-        )
-    }
+    public static let system = TTTextReadingPalette(
+        drawsOpaqueBackground: true,
+        containerBackgroundColor: Color(nsColor: .textBackgroundColor),
+        nsCanvasBackgroundColor: .textBackgroundColor,
+        nsGutterBackgroundColor: .textBackgroundColor,
+        nsGutterBorderColor: .separatorColor,
+        nsGutterLabelColor: .secondaryLabelColor,
+        nsForegroundColor: .textColor,
+        nsInsertionPointColor: .textColor,
+        nsSelectionBackgroundColor: .selectedTextBackgroundColor,
+        nsSelectionTextColor: .selectedTextColor,
+        nsSearchMatchBackgroundColor: .findHighlightColor,
+        nsSearchMatchTextColor: .textColor,
+        syntaxKeywordColor: .textColor,
+        syntaxStringColor: .textColor,
+        syntaxCommentColor: .secondaryLabelColor,
+        syntaxNumberColor: .textColor,
+        syntaxTypeColor: .textColor
+    )
 
     /// Computes WCAG 2.1 relative luminance in sRGB space (`0.0 ... 1.0`).
     public static func relativeLuminance(of color: NSColor) -> Double {
@@ -217,67 +105,6 @@ public struct TTTextReadingPalette: @unchecked Sendable, Equatable {
         let lighter = max(l1, l2)
         let darker = min(l1, l2)
         return (lighter + 0.05) / (darker + 0.05)
-    }
-}
-
-/// Shared observable preference store for the 3-state text reading background and soft wrap toggle.
-/// Persists across file switches and app launches without mutating W2's global application appearance.
-@MainActor
-@Observable
-public final class TTTextReadingPreferenceStore {
-    public static let shared = TTTextReadingPreferenceStore()
-
-    /// Canonical default soft wrap state across all plain text and code previews (`true`).
-    nonisolated public static let defaultSoftWrapEnabled: Bool = true
-
-    /// Persistent `UserDefaults` key shared across all plain text and code preview components.
-    nonisolated public static let softWrapUserDefaultsKey: String = "ttmedia.preview.text.softWrapEnabled"
-
-    private let defaults: UserDefaults
-    public let storageKey: String
-    public let softWrapStorageKey: String
-
-    public var mode: TTTextReadingBackgroundMode {
-        didSet {
-            guard mode != oldValue else { return }
-            defaults.set(mode.rawValue, forKey: storageKey)
-        }
-    }
-
-    public var isSoftWrapEnabled: Bool {
-        didSet {
-            guard isSoftWrapEnabled != oldValue else { return }
-            defaults.set(isSoftWrapEnabled, forKey: softWrapStorageKey)
-        }
-    }
-
-    public init(
-        defaults: UserDefaults = .standard,
-        storageKey: String = TTTextReadingBackgroundMode.userDefaultsKey,
-        softWrapStorageKey: String = TTTextReadingPreferenceStore.softWrapUserDefaultsKey
-    ) {
-        self.defaults = defaults
-        self.storageKey = storageKey
-        self.softWrapStorageKey = softWrapStorageKey
-        if let raw = defaults.string(forKey: storageKey),
-           let stored = TTTextReadingBackgroundMode(rawValue: raw) {
-            self.mode = stored
-        } else {
-            self.mode = TTTextReadingBackgroundMode.defaultMode
-        }
-        if let storedWrap = defaults.object(forKey: softWrapStorageKey) as? Bool {
-            self.isSoftWrapEnabled = storedWrap
-        } else {
-            self.isSoftWrapEnabled = Self.defaultSoftWrapEnabled
-        }
-    }
-
-    /// Resets the reading background preference to `.fluidTransparent`, soft wrap to `true`, and clears custom overrides.
-    public func resetToDefault() {
-        mode = TTTextReadingBackgroundMode.defaultMode
-        defaults.set(mode.rawValue, forKey: storageKey)
-        isSoftWrapEnabled = Self.defaultSoftWrapEnabled
-        defaults.set(isSoftWrapEnabled, forKey: softWrapStorageKey)
     }
 }
 

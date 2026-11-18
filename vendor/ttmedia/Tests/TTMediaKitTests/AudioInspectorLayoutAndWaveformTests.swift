@@ -1,11 +1,8 @@
 // Copyright 2026 MetastudyLine. All rights reserved.
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
-import AppKit
 import AVFoundation
 import Foundation
-import SwiftUI
-import TTI18nCore
 import XCTest
 @testable import TTMediaKit
 
@@ -76,21 +73,7 @@ final class AudioInspectorLayoutAndWaveformTests: XCTestCase {
 
     // MARK: - 2. Five Sample Categories & Unified 0.0001 Silence / Low-Amplitude Threshold
 
-    func testVoiceMemosTicksAcrossFiveSampleCategoriesAndUnifiedSilencePolicy() async throws {
-        let defaultShared = TTWaveformView(waveformPeaks: [0.2, 0.5, 0.9], progress: 0.5)
-        XCTAssertEqual(defaultShared.renderStyle, .discreteBars)
-
-        // Verify unified 0.0001 threshold in TTWaveformView.resolveVoiceMemosTickHeight
-        let silentTickHeight = TTWaveformView.resolveVoiceMemosTickHeight(amplitude: 0.0, canvasHeight: 48.0)
-        let subThresholdHeight = TTWaveformView.resolveVoiceMemosTickHeight(amplitude: 0.00008, canvasHeight: 48.0)
-        let lowAudibleHeight = TTWaveformView.resolveVoiceMemosTickHeight(amplitude: 0.0004, canvasHeight: 48.0)
-        let fullPeakHeight = TTWaveformView.resolveVoiceMemosTickHeight(amplitude: 1.0, canvasHeight: 48.0)
-
-        XCTAssertEqual(silentTickHeight, 1.5, accuracy: 0.01)
-        XCTAssertEqual(subThresholdHeight, 1.5, accuracy: 0.01)
-        XCTAssertGreaterThanOrEqual(lowAudibleHeight, 3.2)
-        XCTAssertEqual(fullPeakHeight, 48.0 * 0.90, accuracy: 0.05)
-
+    func testWaveformExtractionAcrossFiveSampleCategoriesAndSilencePolicy() async throws {
         // Category 1: Reproducible real speech fixture (committed in repo, zero .gemini dependency)
         let speechDesc = try AudioSpeechTestSampleFixtures.writeReproducibleRealSpeechWAV(
             to: isolatedSampleDir.appendingPathComponent("01_Real_Speech_Voiceover.wav")
@@ -303,43 +286,6 @@ final class AudioInspectorLayoutAndWaveformTests: XCTestCase {
         XCTAssertTrue(ticks.contains { $0.amplitude == 0.0 })
     }
 
-    // MARK: - 5. Waveform-Only Preview State (.ogg / .oga / .opus) & Lifecycle Isolation
-
-    func testOggWaveformOnlyPreviewKeepsWaveformAndDisablesNativePlay() async throws {
-        let oggURL = isolatedSampleDir.appendingPathComponent("Archive_Voice_Note.ogg")
-        _ = try AudioSpeechTestSampleFixtures.writeReproducibleRealSpeechWAV(to: oggURL)
-
-        let engine = MPVAudioEngine()
-        defer { engine.stop() }
-        _ = engine.load(url: oggURL, ownerSessionID: "ogg-waveform-only-session")
-        await waitUntilWaveformSettled(on: engine)
-
-        let playerView = UnifiedAudioPlayerView(
-            url: oggURL,
-            fileName: oggURL.lastPathComponent,
-            audioEngine: engine,
-            hostDisplaysFileName: true
-        )
-        XCTAssertTrue(playerView.isWaveformOnlyPreview)
-        XCTAssertFalse(playerView.isPlaybackAvailable)
-        XCTAssertFalse(playerView.shouldShowFatalDiagnosticCard)
-
-        let visualizer = AudioWaveformVisualizerView(
-            url: oggURL,
-            audioEngine: engine,
-            isPlaying: false,
-            currentTime: 1.2,
-            duration: max(1.0, engine.duration),
-            isCompact: true,
-            waveformHeight: 48,
-            availableWidth: 360,
-            isWaveformOnlyPreview: true
-        )
-        XCTAssertFalse(visualizer.effectivePeaks.isEmpty)
-        XCTAssertEqual(visualizer.resolvedDisplayState, .waveformOnlyPreview(peaks: visualizer.effectivePeaks))
-        XCTAssertEqual(visualizer.statusBadgeText, AudioPreviewLocalization.text(.waveformOnlyPreviewBadge))
-    }
-
     func testRapidSwitchingAndSidebarResizingPreservesLifecycleIsolation() async throws {
         let speechA = try AudioSpeechTestSampleFixtures.writeReproducibleRealSpeechWAV(
             to: isolatedSampleDir.appendingPathComponent("Switch_A_Speech.wav")
@@ -367,98 +313,6 @@ final class AudioInspectorLayoutAndWaveformTests: XCTestCase {
         XCTAssertEqual(engine.currentURL, speechC)
         XCTAssertFalse(engine.isVerifiedDigitalSilence)
         XCTAssertGreaterThan(engine.waveformSamples.max() ?? 0, 0.2)
-    }
-
-    // MARK: - 6. Multi-Width Dark/Light Snapshot Export for Voice Memos Ticks
-
-    func testExportVoiceMemosTicksSnapshotsAcrossWidthsAndAppearances() async throws {
-        let originalBCP47 = AudioPreviewLocalization.currentLanguageBCP47
-        defer { AudioPreviewLocalization.setLanguage(bcp47: originalBCP47) }
-        AudioPreviewLocalization.setLanguage(bcp47: "zh-Hans")
-
-        let speechDesc = try AudioSpeechTestSampleFixtures.writeRealSpeechWithExplicitPausesWAV(
-            to: isolatedSampleDir.appendingPathComponent("语音备忘录参考样本_VoiceMemos_Speech_With_Pauses.wav")
-        )
-        let engine = MPVAudioEngine()
-        defer { engine.stop() }
-
-        _ = engine.load(url: speechDesc.url, ownerSessionID: "snapshot-session")
-        await waitUntilWaveformSettled(on: engine)
-        let seekTime = min(max(0.8, engine.duration * 0.42), max(0.1, engine.duration - 0.2))
-        engine.seek(to: seekTime)
-
-        let view = UnifiedAudioPlayerView(
-            url: speechDesc.url,
-            fileName: speechDesc.url.lastPathComponent,
-            audioEngine: engine,
-            hostDisplaysFileName: true
-        )
-        let hosting = NSHostingView(rootView: view)
-
-        for width in [CGFloat(280), CGFloat(360), CGFloat(480)] {
-            for appearanceName in [NSAppearance.Name.darkAqua, NSAppearance.Name.aqua] {
-                hosting.appearance = NSAppearance(named: appearanceName)
-                hosting.frame = NSRect(x: 0, y: 0, width: width, height: 248)
-                hosting.layoutSubtreeIfNeeded()
-                try? await Task.sleep(nanoseconds: 35_000_000)
-                hosting.layoutSubtreeIfNeeded()
-
-                guard let rep = hosting.bitmapImageRepForCachingDisplay(in: hosting.bounds) else {
-                    XCTFail("Failed to allocate bitmapImageRep for width \(Int(width))")
-                    continue
-                }
-                hosting.cacheDisplay(in: hosting.bounds, to: rep)
-                if let outDir = ProcessInfo.processInfo.environment["TEST_UNDECLARED_OUTPUTS_DIR"],
-                   let pngData = rep.representation(using: .png, properties: [:]) {
-                    let themeTag = (appearanceName == .darkAqua) ? "dark" : "light"
-                    let outURL = URL(fileURLWithPath: outDir)
-                        .appendingPathComponent("a2_voicememos_\(Int(width))pt_\(themeTag).png")
-                    try? pngData.write(to: outURL)
-                }
-            }
-        }
-    }
-
-    func testExportScrollingPlaybackAndScrubbingFrameSequence() async throws {
-        guard let outDir = ProcessInfo.processInfo.environment["TEST_UNDECLARED_OUTPUTS_DIR"] else { return }
-        let speechDesc = try AudioSpeechTestSampleFixtures.writeRealSpeechWithExplicitPausesWAV(
-            to: isolatedSampleDir.appendingPathComponent("Scrolling_Demo_VoiceMemos.wav")
-        )
-        let engine = MPVAudioEngine()
-        defer { engine.stop() }
-
-        _ = engine.load(url: speechDesc.url, ownerSessionID: "scrolling-video-session")
-        await waitUntilWaveformSettled(on: engine)
-
-        let view = UnifiedAudioPlayerView(
-            url: speechDesc.url,
-            fileName: speechDesc.url.lastPathComponent,
-            audioEngine: engine,
-            hostDisplaysFileName: true
-        )
-        let hosting = NSHostingView(rootView: view)
-        hosting.appearance = NSAppearance(named: .darkAqua)
-        hosting.frame = NSRect(x: 0, y: 0, width: 360, height: 248)
-
-        let totalDur = max(2.0, engine.duration)
-        // Simulate playback progression (0.0 -> 0.85 * duration) then scrub back to 0.30 * duration
-        let timeSteps: [Double] = (0..<18).map { Double($0) / 17.0 * (totalDur * 0.85) }
-            + [totalDur * 0.70, totalDur * 0.52, totalDur * 0.36, totalDur * 0.25, totalDur * 0.25, totalDur * 0.25]
-
-        for (index, t) in timeSteps.enumerated() {
-            engine.seek(to: t)
-            hosting.layoutSubtreeIfNeeded()
-            try? await Task.sleep(nanoseconds: 20_000_000)
-            hosting.layoutSubtreeIfNeeded()
-            if let rep = hosting.bitmapImageRepForCachingDisplay(in: hosting.bounds) {
-                hosting.cacheDisplay(in: hosting.bounds, to: rep)
-                if let png = rep.representation(using: .png, properties: [:]) {
-                    let frameURL = URL(fileURLWithPath: outDir)
-                        .appendingPathComponent(String(format: "scroll_frame_%02d.png", index))
-                    try? png.write(to: frameURL)
-                }
-            }
-        }
     }
 
     private func waitUntilWaveformSettled(on engine: MPVAudioEngine, timeoutSeconds: TimeInterval = 5.0) async {

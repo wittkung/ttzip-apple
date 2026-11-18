@@ -9,7 +9,7 @@
 - **年龄分级 (Age Rating)**: 4+ (适合所有年龄段，无任何敏感内容)
 - **定价策略 (Pricing)**: 
   - Tier 4: ¥29.00 (人民币) / $4.99 (美元) 一次性买断，终身免费更新，零内购，零广告订阅
-- **版权声明 (Copyright)**: © 2026 TTZip Technologies. All rights reserved.
+- **版权声明 (Copyright)**: © 2026 Yuanxuexian (Shanghai) Education Technology Co., Ltd. All rights reserved.
 
 ---
 
@@ -22,7 +22,7 @@
 TTZip 是一款为 macOS 深度定制的高性能归档与压缩工具。全代码基于 Swift 6 严格并发模型与 Rust 零成本抽象重构，深度挖掘 Apple Silicon（M1/M2/M3/M4/M5 系列芯片）的 NEON 硬件矢量加速与 APFS 现代文件系统潜能。
 
 【核心性能与硬件优势】
-• Apple Silicon 原生优化：利用 NEON SIMD 指令集进行并行 CRC32 校验与数据流编解码，性能超越传统解压工具 3~5 倍。
+• Apple Silicon 原生优化：利用 NEON SIMD 指令集进行并行 CRC32 校验与数据流编解码，提供高吞吐低延迟的原生流式压缩与解压体验。
 • APFS 写时复制（Clonefile）：在同一磁盘内提取或复制归档，实现接近 0 秒的微秒级极速克隆，零额外磁盘损耗。
 • 16KB 物理页内存对齐：彻底杜绝跨页内存搬运，降低多核解压时的 CPU 温度与能耗。
 
@@ -51,7 +51,7 @@ TTZip 是一款为 macOS 深度定制的高性能归档与压缩工具。全代�
 TTZip is a state-of-the-art native macOS archiver built from the ground up with Swift 6 and Rust. Designed exclusively for Apple Silicon (M1/M2/M3/M4/M5), TTZip unlocks the full hardware potential of your Mac with SIMD NEON acceleration and APFS copy-on-write capabilities.
 
 KEY HIGHLIGHTS:
-• Apple Silicon Hardware Acceleration: Hardware-vectorized CRC32 computation and parallel codec pipelines deliver up to 5x faster processing throughput.
+• Apple Silicon Hardware Acceleration: Hardware-vectorized CRC32 computation and parallel codec pipelines deliver high-throughput native streaming performance.
 • APFS Instant Clonefile: Near-instantaneous zero-copy extraction across the same volume without doubling disk wear.
 • Broad Format Compatibility: Comprehensive support for 16 major archive standards including ZIP, 7Z, TAR, GZ, BZ2, XZ, ZSTD, LZ4, LZFSE, RAR, ISO, and more.
 • Intelligent Encoding Engine: Automatic CJK charset detection eliminates corrupted or garbled filenames generated from legacy Windows systems.

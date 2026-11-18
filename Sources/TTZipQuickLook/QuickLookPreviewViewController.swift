@@ -53,146 +53,91 @@ public final class QuickLookPreviewViewController: NSViewController, @preconcurr
     
     // MARK: - QLPreviewingController
     
+    private func abortForCancelledGeneration(_ generation: UInt64, handler: (Error?) -> Void) -> Bool {
+        guard currentGeneration != generation || Task.isCancelled else {
+            return false
+        }
+        if currentGeneration == generation {
+            activityIndicator?.stopAnimation(nil)
+            pendingCompletion = nil
+            handler(CocoaError(.userCancelled))
+        }
+        return true
+    }
+
+    private func handlePreviewFailure(
+        error: Error,
+        generation: UInt64,
+        url: URL,
+        language: AppLanguage,
+        handler: (Error?) -> Void
+    ) {
+        guard currentGeneration == generation else { return }
+        activityIndicator?.stopAnimation(nil)
+
+        if Task.isCancelled {
+            if pendingCompletion != nil {
+                pendingCompletion = nil
+                handler(CocoaError(.userCancelled))
+            }
+            return
+        }
+
+        renderErrorFallback(error: error, fileURL: url, language: language)
+        if let completion = pendingCompletion {
+            pendingCompletion = nil
+            completion(nil)
+        }
+    }
+
     public func preparePreviewOfFile(at url: URL, completionHandler handler: @escaping (Error?) -> Void) {
-        // Increment generation counter to invalidate previous in-flight tasks and navigations
         currentGeneration &+= 1
         let generation = currentGeneration
-        
-        // Cancel existing background extraction task if still running
         currentExtractionTaskCleanup()
-        
-        // Stop any active WebKit page loading
         webView?.stopLoading()
         currentNavigation = nil
-        
-        // Settle previous pending completion cleanly before assigning the new one
+
         if let previousCompletion = self.pendingCompletion {
             self.pendingCompletion = nil
             previousCompletion(CocoaError(.userCancelled))
         }
-        
+
         self.pendingCompletion = handler
         activityIndicator?.startAnimation(nil)
-        
         let targetLanguage = TTZipPreferencesStore.getSavedLanguage() ?? TTZipLocalizationManager.shared.currentLanguage
-        
+
         currentTask = Task { @MainActor [weak self] in
             guard let self else {
                 handler(CocoaError(.userCancelled))
                 return
             }
-            
-            // Fast exit if another request preempted this task before starting
-            guard self.currentGeneration == generation, !Task.isCancelled else {
-                if self.currentGeneration == generation {
-                    self.activityIndicator?.stopAnimation(nil)
-                    self.pendingCompletion = nil
-                    handler(CocoaError(.userCancelled))
-                }
-                return
-            }
-            
+            if self.abortForCancelledGeneration(generation, handler: handler) { return }
+
             do {
-                let html = try await self.generateWindowedHTMLPreview(for: url.path, language: targetLanguage)
-                
-                // Confirm generation validity after async extraction completed
-                guard self.currentGeneration == generation, !Task.isCancelled else {
-                    if self.currentGeneration == generation {
-                        self.activityIndicator?.stopAnimation(nil)
-                        self.pendingCompletion = nil
-                        handler(CocoaError(.userCancelled))
-                    }
-                    return
+                let archivePath = url.path
+                let detachedTask = Task.detached(priority: .userInitiated) {
+                    try await Self.generateWindowedHTMLPreview(for: archivePath, language: targetLanguage)
                 }
-                
-                // Set baseURL to nil to prevent sandbox traversal / cross-origin resource leakage
+                let html = try await withTaskCancellationHandler {
+                    try await detachedTask.value
+                } onCancel: {
+                    detachedTask.cancel()
+                }
+                if self.abortForCancelledGeneration(generation, handler: handler) { return }
                 self.currentNavigation = self.webView?.loadHTMLString(html, baseURL: nil)
             } catch {
-                guard self.currentGeneration == generation else { return }
-                self.activityIndicator?.stopAnimation(nil)
-                
-                if Task.isCancelled {
-                    if self.pendingCompletion != nil {
-                        self.pendingCompletion = nil
-                        handler(CocoaError(.userCancelled))
-                    }
-                    return
-                }
-                
-                self.renderErrorFallback(error: error, fileURL: url, language: targetLanguage)
-                if let completion = self.pendingCompletion {
-                    self.pendingCompletion = nil
-                    completion(nil)
-                }
+                self.handlePreviewFailure(
+                    error: error,
+                    generation: generation,
+                    url: url,
+                    language: targetLanguage,
+                    handler: handler
+                )
             }
         }
     }
-    
-    private func generateWindowedHTMLPreview(for archivePath: String, language: AppLanguage) async throws -> String {
-        guard let session = RustVfsSession(archivePath: archivePath) else {
-            return try await QuickLookPreviewEngine.generateHTMLPreview(for: archivePath, language: language)
-        }
-        
-        let stats = session.getStats()
-        let totalCount = Int(stats.totalFiles + stats.totalDirs)
-        let uncompressedSize = Int64(stats.totalSize)
-        let fileSize = (try? FileManager.default.attributesOfItem(atPath: archivePath)[.size] as? Int64) ?? 0
-        
-        let limit = 500
-        let (nodes, _) = session.getChildrenPaged(subpath: nil, offset: 0, limit: limit)
-        
-        let manager = TTZipLocalizationManager.shared
-        let locale = Locale(identifier: language.bcp47)
-        let archiveName = URL(fileURLWithPath: archivePath).lastPathComponent
-        let ext = (archiveName as NSString).pathExtension.uppercased()
-        let formatLabel = ext.isEmpty ? "ARCHIVE" : ext
-        
-        let formattedUncompressed = ByteSizeFormatter.format(bytes: uncompressedSize, language: language)
-        let formattedCompressed = ByteSizeFormatter.format(bytes: fileSize, language: language)
-        
-        let nameHeader = manager.string(for: L10n.Explorer.nameHeader, language: language)
-        let sizeHeader = manager.string(for: L10n.Explorer.sizeHeader, language: language)
-        let compressedTemplate = manager.string(for: L10n.QuickLook.compressedFormat, language: language)
-        let compressedLabel = String(format: compressedTemplate, locale: locale, formattedCompressed)
-        let itemsCountTemplate = manager.string(for: L10n.Units.itemsCount, language: language)
-        let itemsCountLabel = String(format: itemsCountTemplate, locale: locale, totalCount)
-        let footerText = manager.string(for: L10n.QuickLook.renderedFooter, language: language)
-        
-        var rowsHTML = ""
-        for node in nodes {
-            let icon = node.isDirectory ? "📁" : fileIconEmoji(for: node.name)
-            let sizeStr = node.isDirectory ? "--" : ByteSizeFormatter.format(bytes: Int64(node.uncompressedSize), language: language)
-            let encBadge = node.isEncrypted ? "<span class='badge enc'>🔒</span>" : ""
-            
-            rowsHTML += """
-            <tr>
-                <td class="name-col"><span class="icon">\(icon)</span> \(escapeHTML(node.name)) \(encBadge)</td>
-                <td class="size-col">\(sizeStr)</td>
-            </tr>
-            """
-        }
-        
-        if totalCount > limit {
-            let omittedCount = totalCount - limit
-            let omittedTemplate = manager.string(for: L10n.QuickLook.itemsOmittedFormat, language: language)
-            let omittedText = String(format: omittedTemplate, locale: locale, limit, omittedCount)
-            rowsHTML += """
-            <tr>
-                <td colspan="2" class="name-col" style="text-align: center; color: var(--secondary-text); padding: 12px;">
-                    \(escapeHTML(omittedText))
-                </td>
-            </tr>
-            """
-        }
-        
-        return """
-        <!DOCTYPE html>
-        <html lang="\(language.bcp47)">
-        <head>
-            <meta charset="utf-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1">
-            <title>\(escapeHTML(archiveName)) — TTZip QuickLook</title>
-            <style>
+
+    nonisolated private static let previewPageStylesheet: String = """
                 :root {
                     --bg-color: #FFFFFF;
                     --text-color: #1D1D1F;
@@ -290,6 +235,118 @@ public final class QuickLookPreviewViewController: NSViewController, @preconcurr
                     font-size: 11px;
                     color: var(--secondary-text);
                 }
+    """
+
+    nonisolated private static func renderPreviewTableRows(
+        nodes: [VfsNodeSummary],
+        totalCount: Int,
+        limit: Int,
+        language: AppLanguage,
+        locale: Locale
+    ) -> String {
+        var rowsHTML = ""
+        for node in nodes {
+            let icon = node.isDirectory ? "📁" : fileIconEmoji(for: node.name)
+            let sizeStr = node.isDirectory ? "--" : ByteSizeFormatter.format(bytes: Int64(node.uncompressedSize), language: language)
+            let encBadge = node.isEncrypted ? "<span class='badge enc'>🔒</span>" : ""
+            rowsHTML += """
+            <tr>
+                <td class="name-col"><span class="icon">\(icon)</span> \(escapeHTML(node.name)) \(encBadge)</td>
+                <td class="size-col">\(sizeStr)</td>
+            </tr>
+            """
+        }
+
+        if totalCount > limit {
+            let omittedCount = totalCount - limit
+            let omittedTemplate = TTZipLocalizationManager.shared.string(for: L10n.QuickLook.itemsOmittedFormat, language: language)
+            let omittedText = String(format: omittedTemplate, locale: locale, limit, omittedCount)
+            rowsHTML += """
+            <tr>
+                <td colspan="2" class="name-col" style="text-align: center; color: var(--secondary-text); padding: 12px;">
+                    \(escapeHTML(omittedText))
+                </td>
+            </tr>
+            """
+        }
+        return rowsHTML
+    }
+
+    nonisolated private static func generateWindowedHTMLPreview(for archivePath: String, language: AppLanguage) async throws -> String {
+        try Task.checkCancellation()
+        guard let session = RustVfsSession(archivePath: archivePath) else {
+            return try await QuickLookPreviewEngine.generateHTMLPreview(for: archivePath, language: language)
+        }
+        try Task.checkCancellation()
+
+        let stats = session.getStats()
+        let totalCount = Int(stats.totalFiles + stats.totalDirs)
+        let uncompressedSize = Int64(stats.totalSize)
+        let fileSize = (try? FileManager.default.attributesOfItem(atPath: archivePath)[.size] as? Int64) ?? 0
+
+        let limit = 500
+        let (nodes, _) = session.getChildrenPaged(subpath: nil, offset: 0, limit: limit)
+        try Task.checkCancellation()
+
+        let manager = TTZipLocalizationManager.shared
+        let locale = Locale(identifier: language.bcp47)
+        let archiveName = URL(fileURLWithPath: archivePath).lastPathComponent
+        let ext = (archiveName as NSString).pathExtension.uppercased()
+        let formatLabel = ext.isEmpty ? "ARCHIVE" : ext
+
+        let formattedUncompressed = ByteSizeFormatter.format(bytes: uncompressedSize, language: language)
+        let formattedCompressed = ByteSizeFormatter.format(bytes: fileSize, language: language)
+
+        let nameHeader = manager.string(for: L10n.Explorer.nameHeader, language: language)
+        let sizeHeader = manager.string(for: L10n.Explorer.sizeHeader, language: language)
+        let compressedTemplate = manager.string(for: L10n.QuickLook.compressedFormat, language: language)
+        let compressedLabel = String(format: compressedTemplate, locale: locale, formattedCompressed)
+        let itemsCountTemplate = manager.string(for: L10n.Units.itemsCount, language: language)
+        let itemsCountLabel = String(format: itemsCountTemplate, locale: locale, totalCount)
+        let footerText = manager.string(for: L10n.QuickLook.renderedFooter, language: language)
+        let rowsHTML = renderPreviewTableRows(
+            nodes: nodes,
+            totalCount: totalCount,
+            limit: limit,
+            language: language,
+            locale: locale
+        )
+
+        return renderWindowedPreviewDocument(
+            language: language,
+            archiveName: archiveName,
+            formatLabel: formatLabel,
+            itemsCountLabel: itemsCountLabel,
+            formattedUncompressed: formattedUncompressed,
+            compressedLabel: fileSize > 0 ? compressedLabel : nil,
+            nameHeader: nameHeader,
+            sizeHeader: sizeHeader,
+            rowsHTML: rowsHTML,
+            footerText: footerText
+        )
+    }
+
+    nonisolated private static func renderWindowedPreviewDocument(
+        language: AppLanguage,
+        archiveName: String,
+        formatLabel: String,
+        itemsCountLabel: String,
+        formattedUncompressed: String,
+        compressedLabel: String?,
+        nameHeader: String,
+        sizeHeader: String,
+        rowsHTML: String,
+        footerText: String
+    ) -> String {
+        """
+        <!DOCTYPE html>
+        <html lang="\(language.bcp47)">
+        <head>
+            <meta charset="utf-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1">
+            <title>\(escapeHTML(archiveName)) — TTZip QuickLook</title>
+            <style>
+        \(Self.previewPageStylesheet)
             </style>
         </head>
         <body>
@@ -300,7 +357,7 @@ public final class QuickLookPreviewViewController: NSViewController, @preconcurr
                         <span>\(formatLabel)</span> •
                         <span>\(itemsCountLabel)</span> •
                         <span>\(formattedUncompressed)</span>
-                        \(fileSize > 0 ? "• <span>\(compressedLabel)</span>" : "")
+                        \(compressedLabel.map { "• <span>\($0)</span>" } ?? "")
                     </div>
                 </div>
             </div>
@@ -323,7 +380,7 @@ public final class QuickLookPreviewViewController: NSViewController, @preconcurr
         """
     }
 
-    private func fileIconEmoji(for filename: String) -> String {
+    nonisolated private static func fileIconEmoji(for filename: String) -> String {
         let ext = (filename as NSString).pathExtension.lowercased()
         switch ext {
         case "zip", "7z", "rar", "tar", "gz", "bz2", "xz": return "📦"
@@ -336,7 +393,7 @@ public final class QuickLookPreviewViewController: NSViewController, @preconcurr
         }
     }
 
-    private func escapeHTML(_ text: String) -> String {
+    nonisolated private static func escapeHTML(_ text: String) -> String {
         text.replacingOccurrences(of: "&", with: "&amp;")
             .replacingOccurrences(of: "<", with: "&lt;")
             .replacingOccurrences(of: ">", with: "&gt;")

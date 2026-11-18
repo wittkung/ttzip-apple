@@ -7,6 +7,46 @@ import CryptoKit
 import Observation
 @preconcurrency import PDFKit
 
+/// Structured stage timing metrics for a single PDF preview load generation.
+/// - `loadReadyStageMs` records when background I/O + `PDFDocument` parsing finishes and state is ready to apply.
+/// - `firstFrameStageMs` remains `nil` (unmeasured) until a reliable on-screen display observation explicitly records it.
+public struct PDFPreviewStageMetrics: Equatable, Sendable {
+    public let generation: UInt64
+    public let identityKey: String
+    public let loadStageMs: Double
+    public let parseStageMs: Double
+    public let loadReadyStageMs: Double
+    public var firstFrameStageMs: Double?
+    public var thumbnailStageMs: Double?
+    public let wasCacheHit: Bool
+
+    public init(
+        generation: UInt64,
+        identityKey: String,
+        loadStageMs: Double,
+        parseStageMs: Double,
+        loadReadyStageMs: Double? = nil,
+        firstFrameStageMs: Double? = nil,
+        thumbnailStageMs: Double? = nil,
+        wasCacheHit: Bool = false
+    ) {
+        let clampedLoad = max(0, loadStageMs)
+        let clampedParse = max(0, parseStageMs)
+        self.generation = generation
+        self.identityKey = identityKey
+        self.loadStageMs = clampedLoad
+        self.parseStageMs = clampedParse
+        self.loadReadyStageMs = max(clampedLoad + clampedParse, loadReadyStageMs ?? (clampedLoad + clampedParse))
+        self.firstFrameStageMs = firstFrameStageMs.map { max(0, $0) }
+        self.thumbnailStageMs = thumbnailStageMs.map { max(0, $0) }
+        self.wasCacheHit = wasCacheHit
+    }
+
+    public var totalLoadAndParseMs: Double {
+        loadStageMs + parseStageMs
+    }
+}
+
 /// Explicit terminal and transitional states for PDF preview loading.
 public enum PDFPreviewPhase: Equatable, Sendable {
     case loading

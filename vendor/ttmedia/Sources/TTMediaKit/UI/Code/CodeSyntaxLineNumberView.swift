@@ -151,7 +151,7 @@ public final class LineNumberRulerView: NSRulerView {
     private var lineStartsGeneration: UInt64 = 0
 
     /// Active reading palette synchronized with `CodeHighlightingEditorNSView`.
-    public var readingPalette: TTTextReadingPalette = .resolve(mode: .fluidTransparent, isDarkAppearance: true) {
+    public var readingPalette: TTTextReadingPalette = .system {
         didSet {
             if readingPalette != oldValue {
                 needsDisplay = true
@@ -360,9 +360,17 @@ public final class LineNumberRulerView: NSRulerView {
                 height: max(baseVisible.height, convertedClip.height)
             )
             : baseVisible
-        let visibleInContainer = queryInTextView.offsetBy(
+        let rawVisibleInContainer = queryInTextView.offsetBy(
             dx: -textView.textContainerOrigin.x,
             dy: -textView.textContainerOrigin.y
+        )
+        let clampedMinX = max(0.0, rawVisibleInContainer.minX)
+        let clampedMinY = max(0.0, rawVisibleInContainer.minY)
+        let visibleInContainer = NSRect(
+            x: clampedMinX,
+            y: clampedMinY,
+            width: max(1.0, rawVisibleInContainer.maxX - clampedMinX),
+            height: max(1.0, rawVisibleInContainer.maxY - clampedMinY)
         )
         layoutManager.ensureLayout(forBoundingRect: visibleInContainer, in: textContainer)
         let glyphRange = layoutManager.glyphRange(forBoundingRect: visibleInContainer, in: textContainer)

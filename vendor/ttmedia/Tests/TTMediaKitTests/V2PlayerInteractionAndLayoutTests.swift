@@ -7,7 +7,6 @@ import CoreMedia
 import CoreVideo
 import Foundation
 import os
-import SwiftUI
 import TTI18nCore
 import TTI18nUI
 import XCTest
@@ -298,7 +297,6 @@ final class V2PlayerInteractionAndLayoutTests: XCTestCase {
         let toneMappedExpected = VideoInteractionLocalization.text(.outputConfirmedSDRToneMapped)
         XCTAssertTrue(toneMappedState.outputDynamicRangeDescription.contains("DoVi →"))
         XCTAssertTrue(toneMappedState.outputDynamicRangeDescription.contains(toneMappedExpected))
-        XCTAssertTrue(toneMappedState.comparisonSnapshot.outputSection.colorMappingText.contains("DoVi → SDR"))
 
         let confirmedObservation = VideoDisplayOutputObservation(
             screenSupportsEDR: true, isHDRPresentationConfirmed: true,
@@ -312,7 +310,7 @@ final class V2PlayerInteractionAndLayoutTests: XCTestCase {
         XCTAssertTrue(outputHDRState.outputDynamicRangeDescription.contains(confirmedHDRExpected))
     }
 
-    // MARK: - 5. Controlled SDR / PQ / HLG Samples, Screen Observation, and Interactive Popover Verification
+    // MARK: - 5. Controlled SDR / PQ / HLG Samples and Screen Observation
 
     func testControlledDisplayCapabilitiesWithSDRPQAndHLGSamples() throws {
         let displayLayer = AVSampleBufferDisplayLayer()
@@ -337,14 +335,22 @@ final class V2PlayerInteractionAndLayoutTests: XCTestCase {
         XCTAssertEqual(pqOnSDRState.activeOutputDynamicRange, .unknown)
         XCTAssertFalse(pqOnSDRState.isToneMappedFallbackToSDR)
         XCTAssertEqual(pqOnSDRState.alwaysAvailableBadgeText, VideoPlaybackLocalization.text(.formatBadgeDiagnosticUnconfirmed))
-        let pqSnapshot = pqOnSDRState.comparisonSnapshot
-        XCTAssertTrue(pqSnapshot.sourceSection.codecAndProfileText.contains("HEVC") && pqSnapshot.sourceSection.codecAndProfileText.contains("Main 10"))
-        XCTAssertTrue(pqSnapshot.sourceSection.resolutionAndFrameRateText.contains("3840×2160 (4K)") && pqSnapshot.sourceSection.resolutionAndFrameRateText.contains("59.94 fps"))
-        XCTAssertEqual(pqSnapshot.sourceSection.bitDepthAndChromaText, "10-bit · 4:2:0")
-        XCTAssertEqual(pqSnapshot.sourceSection.colorPrimariesText, "BT.2020")
-        XCTAssertEqual(pqSnapshot.sourceSection.transferFunctionText, "SMPTE ST 2084 (PQ)")
-        XCTAssertTrue(pqSnapshot.sourceSection.hdrMetadataText.contains("Mastering 1000 / 0.0050 nits") && pqSnapshot.sourceSection.hdrMetadataText.contains("MaxCLL 1000 nits"))
-        XCTAssertTrue(pqSnapshot.outputSection.colorMappingText.contains("EDR 未启用 / 输出待确认"))
+        XCTAssertEqual(VideoFormatPresentationState.normalizeCodecDisplayLabel(pqOnSDRState.codecLabel ?? ""), "HEVC")
+        XCTAssertEqual(pqOnSDRState.codecProfile, "Main 10")
+        XCTAssertEqual(pqOnSDRState.width, 3840)
+        XCTAssertEqual(pqOnSDRState.height, 2160)
+        XCTAssertEqual(pqOnSDRState.frameRateFps, 59.94)
+        XCTAssertEqual(pqOnSDRState.bitDepth, 10)
+        XCTAssertEqual(pqOnSDRState.chromaSubsampling, "4:2:0")
+        XCTAssertEqual(pqOnSDRState.colorPrimaries, "BT.2020")
+        XCTAssertEqual(pqOnSDRState.transferFunction, "SMPTE ST 2084 (PQ)")
+        XCTAssertEqual(pqOnSDRState.masteringDisplayMaxLuminance, 1000)
+        XCTAssertEqual(pqOnSDRState.masteringDisplayMinLuminance, 0.005)
+        XCTAssertEqual(pqOnSDRState.maxCLL, 1000)
+        guard case .diagnostic(let reason) = pqOnSDRState.outputObservationStatus else {
+            return XCTFail("Expected unconfirmed PQ output on an SDR screen")
+        }
+        XCTAssertTrue(reason.contains("EDR 未启用 / 输出待确认"))
 
         let pqPotentialOnlyObs = VideoRendererOutputEvaluator.evaluateObservation(displayLayer: displayLayer, sampleBuffer: pqSample, sourceDynamicRange: .hdr10, hasEnqueuedSample: true, isSamplePresented: true, hostScreen: potentialOnlyEDRScreen)
         XCTAssertFalse(pqPotentialOnlyObs.isHDRPresentationConfirmed || pqPotentialOnlyObs.isToneMappedFallbackConfirmed)
@@ -359,13 +365,12 @@ final class V2PlayerInteractionAndLayoutTests: XCTestCase {
         let pqToneMappedState = pqInitialState.applyingDisplayObservation(pqToneMappedObs)
         XCTAssertTrue(pqToneMappedObs.isToneMappedFallbackConfirmed && pqToneMappedState.isToneMappedFallbackToSDR)
         XCTAssertEqual(pqToneMappedState.alwaysAvailableBadgeText, "SDR")
-        XCTAssertTrue(pqToneMappedState.comparisonSnapshot.outputSection.colorMappingText.contains("HDR10 → SDR"))
 
         let pqOnEDRObs = VideoRendererOutputEvaluator.evaluateObservation(displayLayer: displayLayer, sampleBuffer: pqSample, sourceDynamicRange: .hdr10, hasEnqueuedSample: true, isSamplePresented: true, hostScreen: activeEDRScreen)
         let pqOnEDRState = pqInitialState.applyingDisplayObservation(pqOnEDRObs)
         XCTAssertTrue(displayLayer.wantsExtendedDynamicRangeContent)
         XCTAssertEqual(pqOnEDRState.alwaysAvailableBadgeText, "HDR10")
-        XCTAssertTrue(pqOnEDRState.comparisonSnapshot.outputSection.activeOutputText.contains("EDR 渲染管线已配置"))
+        XCTAssertEqual(pqOnEDRState.activeOutputDynamicRange, .hdr10)
 
         let hlgSample = try Self.makeSyntheticColorTaggedSampleBuffer(
             codecType: kCMVideoCodecType_HEVC, width: 3840, height: 2160,
@@ -417,13 +422,10 @@ final class V2PlayerInteractionAndLayoutTests: XCTestCase {
         XCTAssertEqual(observed.sourceDynamicRange, .unknown, "Untagged source must remain .unknown and never be fabricated as .sdr")
         XCTAssertEqual(observed.activeOutputDynamicRange, .sdr, "Explicit SDR sample transfer on healthy renderer confirms .sdr")
         XCTAssertEqual(observed.alwaysAvailableBadgeText, "SDR")
-        let snapshot = observed.comparisonSnapshot
-        let notProvided = VideoInteractionLocalization.text(.notProvided)
-        XCTAssertEqual(snapshot.sourceSection.colorPrimariesText, notProvided)
-        XCTAssertEqual(snapshot.sourceSection.transferFunctionText, notProvided)
-        XCTAssertEqual(snapshot.sourceSection.sourceDynamicRangeText, notProvided)
-        XCTAssertEqual(snapshot.sourceSection.hdrMetadataText, notProvided)
-        XCTAssertTrue(snapshot.outputSection.colorMappingText.contains(notProvided))
+        XCTAssertNil(observed.colorPrimaries)
+        XCTAssertNil(observed.transferFunction)
+        XCTAssertNil(observed.masteringDisplayMaxLuminance)
+        XCTAssertNil(observed.maxCLL)
     }
 
     func testCrossScreenDynamicUpdateAndStaleSessionOrGenerationReceiptRejection() throws {
@@ -469,87 +471,6 @@ final class V2PlayerInteractionAndLayoutTests: XCTestCase {
         session.updateHostScreenObservation(edrScreen, forSessionID: session.sessionID)
         XCTAssertEqual(session.formatPresentationState.activeOutputDynamicRange, .hdr10)
         XCTAssertEqual(session.formatPresentationState.alwaysAvailableBadgeText, "HDR10")
-    }
-
-    func testRealFormatBadgeButtonClickExpandsPopoverSharesControlLockAndPreservesPlayback() throws {
-        let visibility = MediaControlsVisibility()
-        visibility.isPlaying = true
-        let pqSample = try Self.makeSyntheticColorTaggedSampleBuffer(
-            codecType: kCMVideoCodecType_HEVC, width: 3840, height: 2160,
-            primaries: kCMFormatDescriptionColorPrimaries_ITU_R_2020,
-            transfer: kCMFormatDescriptionTransferFunction_SMPTE_ST_2084_PQ,
-            matrix: kCMFormatDescriptionYCbCrMatrix_ITU_R_2020, includeHDR10StaticBoxes: true
-        )
-        let sdrConvertedSample = try Self.makeSyntheticColorTaggedSampleBuffer(
-            codecType: kCMVideoCodecType_H264, width: 3840, height: 2160,
-            primaries: kCMFormatDescriptionColorPrimaries_ITU_R_709_2,
-            transfer: kCMFormatDescriptionTransferFunction_ITU_R_709_2,
-            matrix: kCMFormatDescriptionYCbCrMatrix_ITU_R_709_2, includeHDR10StaticBoxes: false
-        )
-        let pqDesc = try XCTUnwrap(CMSampleBufferGetFormatDescription(pqSample))
-        let baseState = VideoFormatPresentationState.resolve(rawCodecName: "hvc1", width: 3840, height: 2160, formatDescription: pqDesc, frameRateFps: 24.0)
-        let sdrObs = VideoRendererOutputEvaluator.evaluateObservation(
-            displayLayer: AVSampleBufferDisplayLayer(), sampleBuffer: sdrConvertedSample,
-            sourceDynamicRange: .hdr10, hasEnqueuedSample: true, isSamplePresented: true,
-            hostScreen: VideoHostScreenObservation(hasHostWindow: true, screenLocalizedName: "Built-in SDR", currentEDRHeadroom: 1.0, potentialEDRHeadroom: 1.0)
-        )
-        let state = baseState.applyingDisplayObservation(sdrObs)
-
-        var playPauseCount = 0
-        var seekCount = 0
-        var userInteractionCount = 0
-        var popoverVisibleStates: [Bool] = []
-
-        let overlay = AVSampleBufferControlsOverlay(
-            availableWidth: 640, currentTime: CMTime(seconds: 12.0, preferredTimescale: 600),
-            duration: CMTime(seconds: 120.0, preferredTimescale: 600),
-            isPlaying: true, isFullScreen: false, volume: 0.8, isMuted: false, playbackRate: 1.0,
-            pipSupported: false, pipActive: false,
-            onTogglePlayPause: { playPauseCount += 1 }, onSeekBy: { _ in seekCount += 1 }, onSeekTo: { _ in seekCount += 1 },
-            onVolumeChange: { _ in }, onMuteToggle: {}, onRateChange: { _ in }, onPipToggle: {}, onFullScreenToggle: {},
-            onUserInteraction: { userInteractionCount += 1 },
-            formatBadgeText: state.alwaysAvailableBadgeText, formatPresentationState: state,
-            onPopoverVisibilityChange: { visible in
-                popoverVisibleStates.append(visible)
-                if visible { visibility.beginInteraction() } else { visibility.endInteraction() }
-            }
-        ).environment(visibility)
-
-        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 640, height: 120), styleMask: [.borderless], backing: .buffered, defer: false)
-        window.isReleasedWhenClosed = false
-        let hostingView = NSHostingView(rootView: overlay)
-        hostingView.frame = NSRect(x: 0, y: 0, width: 640, height: 120)
-        window.contentView = hostingView
-        hostingView.layoutSubtreeIfNeeded()
-        RunLoop.main.run(until: Date().addingTimeInterval(0.05))
-
-        let badgeButton = try XCTUnwrap(
-            Self.findAccessibilityButton(in: hostingView, identifier: "video_format_badge_button", expectedTitleOrValue: state.alwaysAvailableBadgeText),
-            "Format badge must be rendered as a real interactive accessibility Button"
-        )
-        XCTAssertTrue(badgeButton.accessibilityPerformPress(), "Real button press on format badge must succeed")
-        RunLoop.main.run(until: Date().addingTimeInterval(0.05))
-
-        XCTAssertEqual(popoverVisibleStates.last, true, "Clicking badge button must open the format details popover")
-        XCTAssertTrue(visibility.hasActiveInteractionLock, "Opening format popover must acquire shared MediaControlsVisibility lock")
-        XCTAssertGreaterThanOrEqual(userInteractionCount, 1)
-        XCTAssertEqual(playPauseCount, 0, "Expanding format popover must never pause or toggle playback")
-        XCTAssertEqual(seekCount, 0, "Expanding format popover must never seek")
-
-        let popoverHosting = NSHostingView(rootView: VideoFormatDetailsPopover(state: state))
-        popoverHosting.frame = NSRect(x: 0, y: 0, width: 420, height: 360)
-        popoverHosting.layoutSubtreeIfNeeded()
-        let snapshot = state.comparisonSnapshot
-        XCTAssertEqual(snapshot.badgeText, "SDR")
-        XCTAssertEqual(snapshot.sourceSection.rows.count, 8)
-        XCTAssertEqual(snapshot.outputSection.rows.count, 5)
-
-        XCTAssertTrue(badgeButton.accessibilityPerformPress())
-        RunLoop.main.run(until: Date().addingTimeInterval(0.05))
-        XCTAssertEqual(popoverVisibleStates.last, false)
-        XCTAssertFalse(visibility.hasActiveInteractionLock)
-        XCTAssertEqual(playPauseCount, 0)
-        XCTAssertEqual(seekCount, 0)
     }
 
     func testProductionNativeAndWorkerPipelinesPresentationGatesDoNotDisplaySampleAttachmentsAndGenerations() async throws {
@@ -750,27 +671,5 @@ final class V2PlayerInteractionAndLayoutTests: XCTestCase {
         if let transfer { CMSetAttachment(resolvedSB, key: kCVImageBufferTransferFunctionKey, value: transfer, attachmentMode: kCMAttachmentMode_ShouldPropagate) }
         if let matrix { CMSetAttachment(resolvedSB, key: kCVImageBufferYCbCrMatrixKey, value: matrix, attachmentMode: kCMAttachmentMode_ShouldPropagate) }
         return resolvedSB
-    }
-
-    private static func findAccessibilityButton(in root: Any, identifier: String, expectedTitleOrValue: String) -> NSAccessibilityProtocol? {
-        if let btn = root as? NSButton, btn.accessibilityIdentifier() == identifier { return btn }
-        if let view = root as? NSView {
-            for subview in view.subviews {
-                if let match = findAccessibilityButton(in: subview, identifier: identifier, expectedTitleOrValue: expectedTitleOrValue) { return match }
-            }
-        }
-        if let ax = root as? NSAccessibilityProtocol {
-            let id = ax.accessibilityIdentifier()
-            let label = ax.accessibilityLabel()
-            let title = ax.accessibilityTitle()
-            let valueStr = ax.accessibilityValue() as? String
-            if id == identifier || title == expectedTitleOrValue || valueStr == expectedTitleOrValue || label == VideoInteractionLocalization.text(.formatDetails) {
-                if ax.accessibilityRole() == .button || id == identifier { return ax }
-            }
-            for child in ax.accessibilityChildren() ?? [] {
-                if let match = findAccessibilityButton(in: child, identifier: identifier, expectedTitleOrValue: expectedTitleOrValue) { return match }
-            }
-        }
-        return nil
     }
 }

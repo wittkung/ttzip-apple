@@ -188,6 +188,33 @@ public struct TTPreviewResourceContext: Sendable, Equatable, Hashable, Codable {
         )
     }
 
+    /// Resolves the canonical `TTPreviewResourceContext` for a preview invocation.
+    /// When no explicit context is supplied (`nil`), defaults to `.unknown` (read-only)
+    /// or `.derivedContent` for Office workbooks/presentations.
+    nonisolated public static func resolvingPreview(
+        explicitContext: TTPreviewResourceContext?,
+        type: TTMediaPreviewType,
+        fileName: String,
+        fileURL: URL?
+    ) -> TTPreviewResourceContext {
+        switch type {
+        case .officeSpreadsheet(let workbook):
+            let sourceURL = explicitContext?.originalResourceURL ?? workbook.fileURL ?? fileURL
+            let base = explicitContext?.withDerivedRepresentation(true, description: "OfficeSpreadsheet")
+                ?? .derivedContent(sourceURL: sourceURL, fileName: fileName, description: "OfficeSpreadsheet")
+            return workbook.isTruncated ? base.withTruncatedPreview(true) : base
+        case .officePresentation:
+            let sourceURL = explicitContext?.originalResourceURL ?? fileURL
+            return explicitContext?.withDerivedRepresentation(true, description: "OfficePresentation")
+                ?? .derivedContent(sourceURL: sourceURL, fileName: fileName, description: "OfficePresentation")
+        default:
+            if let explicitContext {
+                return explicitContext
+            }
+            return .unknown(readableURL: fileURL, fileName: fileName)
+        }
+    }
+
     // MARK: - Derived State Modifiers
 
     nonisolated public func withReadableURL(_ newReadableURL: URL?) -> TTPreviewResourceContext {

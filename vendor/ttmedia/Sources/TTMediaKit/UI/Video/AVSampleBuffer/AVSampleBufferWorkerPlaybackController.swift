@@ -691,6 +691,7 @@ public final class AVSampleBufferWorkerPlaybackController: ObservableObject {
         let generation: UInt64
         let seekGen: UInt64
         let oldPump: Task<Void, Never>?
+        let oldSeek: Task<Void, Never>?
     }
 
     private func prepareSeekOperation(to seconds: Double) -> PreparedSeekContext? {
@@ -699,7 +700,8 @@ public final class AVSampleBufferWorkerPlaybackController: ObservableObject {
         let targetTime = CMTime(seconds: clampedSeconds, preferredTimescale: 600)
         let seekGen = coordinator.beginSeekIntent(to: targetTime)
         audioPipeline.flush()
-        activeSeekTask?.cancel()
+        let oldSeek = activeSeekTask
+        oldSeek?.cancel()
         activeSeekTask = nil
         playbackGeneration &+= 1
         let generation = playbackGeneration
@@ -710,12 +712,13 @@ public final class AVSampleBufferWorkerPlaybackController: ObservableObject {
         oldPump?.cancel()
         return PreparedSeekContext(
             sessionId: sessionId, clampedSeconds: clampedSeconds, targetTime: targetTime,
-            generation: generation, seekGen: seekGen, oldPump: oldPump
+            generation: generation, seekGen: seekGen, oldPump: oldPump, oldSeek: oldSeek
         )
     }
 
     private func executePreparedSeek(_ ctx: PreparedSeekContext) async {
         await ctx.oldPump?.value
+        await ctx.oldSeek?.value
         guard ctx.generation == playbackGeneration, ctx.seekGen == coordinator.seekGeneration, !Task.isCancelled else {
             return
         }
@@ -771,13 +774,15 @@ public final class AVSampleBufferWorkerPlaybackController: ObservableObject {
         isTornDown = true
         isLoading = false
         resumeInitialReadinessWaiters()
-        activeSeekTask?.cancel()
+        let oldSeek = activeSeekTask
         activeSeekTask = nil
+        oldSeek?.cancel()
         playbackGeneration &+= 1
         let oldPump = packetPumpTask
         packetPumpTask = nil
         oldPump?.cancel()
         await oldPump?.value
+        await oldSeek?.value
 
         coordinator.displayLayer.flush()
         audioPipeline.flush()

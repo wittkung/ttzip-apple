@@ -22,6 +22,9 @@ final class CodePreviewScrollView: NSScrollView {
     private var lastFontPointSize: CGFloat = -1
     private var lastInset: NSSize = .zero
     private var lastRulerWidth: CGFloat = -1
+    var pendingScrollToTop = true
+    private var pendingSelectionReset = false
+    var lastSyncedDocumentGeneration: UInt64 = 0
     weak var chunkCoordinator: CodeHighlightingEditorNSView.Coordinator?
 
     override func tile() {
@@ -40,6 +43,7 @@ final class CodePreviewScrollView: NSScrollView {
     }
 
     func synchronizeDocumentViewport(force: Bool = false) {
+        syncGenerationState()
         guard !isSynchronizingDocument,
               let textView = documentView as? NSTextView,
               contentSize.width > 0, contentSize.height > 0 else { return }
@@ -49,7 +53,8 @@ final class CodePreviewScrollView: NSScrollView {
         let fontPointSize = textView.font?.pointSize ?? 12.5
         let inset = textView.textContainerInset
         let rulerWidth = CodeRulerGeometry.reservedWidth(in: self)
-        guard force || hasViewportStateChanged(
+        let shouldResetToTop = pendingScrollToTop || lastViewport.isNull
+        guard force || shouldResetToTop || hasViewportStateChanged(
             viewportBounds: viewportBounds,
             documentLength: documentLength,
             isSoftWrap: isSoftWrap,
@@ -58,7 +63,8 @@ final class CodePreviewScrollView: NSScrollView {
             rulerWidth: rulerWidth
         ) else { return }
 
-        let resizeAnchor = captureResizeAnchorIfNeeded(
+        let wasAtTopBeforeLayout = shouldResetToTop || viewportBounds.origin.y <= -contentInsets.top + 1.0
+        let resizeAnchor = shouldResetToTop ? nil : captureResizeAnchorIfNeeded(
             force: force,
             viewportBounds: viewportBounds,
             isSoftWrap: isSoftWrap,
@@ -76,6 +82,43 @@ final class CodePreviewScrollView: NSScrollView {
         defer { isSynchronizingDocument = false }
 
         Self.applyViewportLayout(to: textView, in: self, isSoftWrap: isSoftWrap)
+        reconcilePostLayoutViewport(
+            textView: textView,
+            isSoftWrap: isSoftWrap,
+            shouldResetToTop: shouldResetToTop,
+            wasAtTopBeforeLayout: wasAtTopBeforeLayout,
+            resizeAnchor: resizeAnchor
+        )
+        verticalRulerView?.needsDisplay = true
+        textView.needsDisplay = true
+    }
+
+    private func syncGenerationState() {
+        let currentGeneration = chunkCoordinator?.documentGeneration ?? 0
+        guard currentGeneration > 0, currentGeneration != lastSyncedDocumentGeneration else { return }
+        if lastSyncedDocumentGeneration > 0 {
+            pendingSelectionReset = true
+        }
+        lastSyncedDocumentGeneration = currentGeneration
+        pendingScrollToTop = true
+    }
+
+    private func reconcilePostLayoutViewport(
+        textView: NSTextView,
+        isSoftWrap: Bool,
+        shouldResetToTop: Bool,
+        wasAtTopBeforeLayout: Bool,
+        resizeAnchor: TTTextViewportAnchor?
+    ) {
+        if shouldResetToTop {
+            pendingScrollToTop = false
+            if pendingSelectionReset {
+                pendingSelectionReset = false
+                if !textView.hasMarkedText(), textView.selectedRange() != NSRange(location: 0, length: 0) {
+                    textView.setSelectedRange(NSRange(location: 0, length: 0))
+                }
+            }
+        }
         if let resizeAnchor, let chunkCoordinator {
             chunkCoordinator.restoreViewportAnchor(
                 resizeAnchor,
@@ -84,9 +127,22 @@ final class CodePreviewScrollView: NSScrollView {
                 isSoftWrapEnabled: isSoftWrap
             )
             lastViewport = NSRect(origin: contentView.bounds.origin, size: contentSize)
+        } else if wasAtTopBeforeLayout {
+            scrollClipViewToTop(isSoftWrap: isSoftWrap, resetHorizontal: shouldResetToTop)
+            lastViewport = NSRect(origin: contentView.bounds.origin, size: contentSize)
         }
-        verticalRulerView?.needsDisplay = true
-        textView.needsDisplay = true
+    }
+
+    private func scrollClipViewToTop(isSoftWrap: Bool, resetHorizontal: Bool) {
+        let restingX = CodeRulerGeometry.restingOriginX(in: self)
+        let targetX = (resetHorizontal || isSoftWrap)
+            ? restingX
+            : max(restingX, contentView.bounds.origin.x)
+        let targetOrigin = NSPoint(x: targetX, y: -contentInsets.top)
+        if contentView.bounds.origin != targetOrigin {
+            contentView.scroll(to: targetOrigin)
+            reflectScrolledClipView(contentView)
+        }
     }
 
     private func hasViewportStateChanged(
@@ -115,11 +171,12 @@ final class CodePreviewScrollView: NSScrollView {
         isSoftWrap: Bool,
         textView: NSTextView
     ) -> TTTextViewportAnchor? {
+        let topOriginY = -contentInsets.top
         guard !force,
               !lastViewport.isNull,
               abs(viewportBounds.width - lastViewport.width) > 0.5,
               isSoftWrap,
-              viewportBounds.origin.y > 1.0 else {
+              viewportBounds.origin.y > topOriginY + 1.0 else {
             return nil
         }
         return chunkCoordinator?.captureViewportAnchor(in: textView, scrollView: self)
@@ -297,6 +354,9 @@ extension CodeHighlightingEditorNSView.Coordinator {
         }
 
         if let previewScroll = activeScrollView as? CodePreviewScrollView {
+            if !preserveAnchor {
+                previewScroll.pendingScrollToTop = true
+            }
             previewScroll.synchronizeDocumentViewport(force: true)
         } else {
             CodePreviewScrollView.applyViewportLayout(
@@ -304,6 +364,16 @@ extension CodeHighlightingEditorNSView.Coordinator {
                 in: activeScrollView,
                 isSoftWrap: isSoftWrapEnabled
             )
+            if !preserveAnchor, let activeScrollView {
+                let targetOrigin = NSPoint(
+                    x: CodeRulerGeometry.restingOriginX(in: activeScrollView),
+                    y: -activeScrollView.contentInsets.top
+                )
+                if activeScrollView.contentView.bounds.origin != targetOrigin {
+                    activeScrollView.contentView.scroll(to: targetOrigin)
+                    activeScrollView.reflectScrolledClipView(activeScrollView.contentView)
+                }
+            }
         }
 
         if let anchor {
@@ -326,8 +396,10 @@ extension CodeHighlightingEditorNSView.Coordinator {
         guard let layoutManager = tv.layoutManager,
               let textContainer = tv.textContainer,
               let storage = tv.textStorage else { return nil }
-        let origin = scrollView?.contentView.bounds.origin ?? tv.visibleRect.origin
-        let wasAtTop = origin.y <= 1.0
+        let activeScrollView = scrollView ?? tv.enclosingScrollView
+        let origin = activeScrollView?.contentView.bounds.origin ?? tv.visibleRect.origin
+        let topOriginY = -(activeScrollView?.contentInsets.top ?? 0.0)
+        let wasAtTop = origin.y <= topOriginY + 1.0
         guard storage.length > 0 else {
             return TTTextViewportAnchor(
                 characterIndex: 0,
@@ -345,7 +417,8 @@ extension CodeHighlightingEditorNSView.Coordinator {
                 selectedRanges: tv.selectedRanges
             )
         }
-        let probeY = max(0.0, origin.y - tv.textContainerOrigin.y + 2.0)
+        let containerScrollY = max(0.0, origin.y - tv.textContainerOrigin.y)
+        let probeY = wasAtTop ? 0.0 : containerScrollY + 2.0
         let probePoint = NSPoint(x: 0.0, y: probeY)
         let rawGlyphIdx = layoutManager.glyphIndex(
             for: probePoint,
@@ -355,7 +428,7 @@ extension CodeHighlightingEditorNSView.Coordinator {
         let glyphIdx = max(0, min(glyphCount - 1, rawGlyphIdx))
         let charIdx = max(0, min(storage.length - 1, layoutManager.characterIndexForGlyph(at: glyphIdx)))
         let lineRect = layoutManager.lineFragmentRect(forGlyphAt: glyphIdx, effectiveRange: nil)
-        let intraOffsetY = max(0.0, probeY - lineRect.minY)
+        let intraOffsetY = wasAtTop ? 0.0 : max(0.0, containerScrollY - lineRect.minY)
         return TTTextViewportAnchor(
             characterIndex: charIdx,
             intraLineOffsetY: intraOffsetY,
@@ -414,12 +487,13 @@ extension CodeHighlightingEditorNSView.Coordinator {
         storageLength: Int,
         isSoftWrapEnabled: Bool
     ) -> NSPoint {
-        if anchor.wasAtTop || storageLength == 0 {
+        let topOriginY = -scrollView.contentInsets.top
+        if anchor.wasAtTop || storageLength == 0 || (anchor.characterIndex <= 0 && anchor.intraLineOffsetY <= 0.0) {
             let restingX = CodeRulerGeometry.restingOriginX(in: scrollView)
             let targetX: CGFloat = isSoftWrapEnabled
                 ? restingX
                 : max(restingX, scrollView.contentView.bounds.origin.x)
-            return NSPoint(x: targetX, y: 0.0)
+            return NSPoint(x: targetX, y: topOriginY)
         }
         let clampedChar = max(0, min(storageLength - 1, anchor.characterIndex))
         let glyphIdx = layoutManager.glyphIndexForCharacter(at: clampedChar)
@@ -427,8 +501,8 @@ extension CodeHighlightingEditorNSView.Coordinator {
         let newLineRect = layoutManager.lineFragmentRect(forGlyphAt: glyphIdx, effectiveRange: nil)
         let intraY = min(anchor.intraLineOffsetY, max(0.0, newLineRect.height - 2.0))
         let targetY = newLineRect.minY + tv.textContainerOrigin.y + intraY
-        let maxScrollY = max(0.0, tv.frame.height - scrollView.contentSize.height)
-        let clampedY = max(0.0, min(maxScrollY, targetY))
+        let maxScrollY = max(topOriginY, tv.frame.height - scrollView.contentSize.height)
+        let clampedY = max(topOriginY, min(maxScrollY, targetY))
         let maxScrollX = max(0.0, tv.frame.width - scrollView.contentSize.width)
         // The ruler overlays the clip view, so the document's left edge rests at a negative origin.
         // Clamping to 0 would push the leading characters of every line under the painted gutter.

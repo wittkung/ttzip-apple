@@ -289,8 +289,7 @@ final class ImageAnimationAndZoomResolutionTests: XCTestCase {
         XCTAssertEqual(resource.frameDurations[0], 0.04, accuracy: 0.015)
         XCTAssertEqual(resource.frameDurations[1], 0.06, accuracy: 0.015)
 
-        let view = InteractiveZoomImageView(resource: resource)
-        let controller = view.controller
+        let controller = TTImagePreviewController(resource: resource)
         guard let anim = controller.animationController else {
             XCTFail("Expected non-nil TTAnimatedImageController for 2-frame GIF")
             return
@@ -313,15 +312,15 @@ final class ImageAnimationAndZoomResolutionTests: XCTestCase {
         XCTAssertEqual(f1RightTransparent?.a, 0, "Frame 1 right pixel should be transparent")
 
         // Verify playback advances currentFrameIndex from 0 to 1 and stopPlayback stops timer
-        XCTAssertEqual(view.currentFrameIndex, 0)
+        XCTAssertEqual(controller.currentFrameIndex, 0)
         controller.startPlaybackIfNeeded()
-        XCTAssertTrue(view.isPlayingAnimation)
+        XCTAssertTrue(controller.isPlayingAnimation)
 
         try await Task.sleep(nanoseconds: 55_000_000)
-        XCTAssertEqual(view.currentFrameIndex, 1)
+        XCTAssertEqual(controller.currentFrameIndex, 1)
 
         controller.stopPlayback()
-        XCTAssertFalse(view.isPlayingAnimation)
+        XCTAssertFalse(controller.isPlayingAnimation)
     }
 
     func testAnimatedAPNGDistinctFramesFiniteLoopAndPlaybackLifecycle() async throws {
@@ -338,8 +337,7 @@ final class ImageAnimationAndZoomResolutionTests: XCTestCase {
         XCTAssertEqual(resource.frameDurations[0], 0.05, accuracy: 0.015)
         XCTAssertEqual(resource.frameDurations[1], 0.08, accuracy: 0.015)
 
-        let view = InteractiveZoomImageView(resource: resource)
-        let controller = view.controller
+        let controller = TTImagePreviewController(resource: resource)
         guard let anim = controller.animationController else {
             XCTFail("Expected non-nil TTAnimatedImageController for 2-frame APNG")
             return
@@ -385,8 +383,7 @@ final class ImageAnimationAndZoomResolutionTests: XCTestCase {
         XCTAssertEqual(resource.frameDurations[0], 0.05, accuracy: 0.015)
         XCTAssertEqual(resource.frameDurations[1], 0.07, accuracy: 0.015)
 
-        let view = InteractiveZoomImageView(resource: resource)
-        let controller = view.controller
+        let controller = TTImagePreviewController(resource: resource)
         guard let anim = controller.animationController else {
             XCTFail("Expected non-nil TTAnimatedImageController for 2-frame Animated WebP")
             return
@@ -404,11 +401,11 @@ final class ImageAnimationAndZoomResolutionTests: XCTestCase {
         XCTAssertEqual(f1RightTransparent?.a, 0, "WebP Frame 1 right pixel should be transparent after disposal")
 
         controller.startPlaybackIfNeeded()
-        XCTAssertTrue(view.isPlayingAnimation)
+        XCTAssertTrue(controller.isPlayingAnimation)
         await anim.advanceFrameAsync()
-        XCTAssertEqual(view.currentFrameIndex, 1)
+        XCTAssertEqual(controller.currentFrameIndex, 1)
         controller.stopPlayback()
-        XCTAssertFalse(view.isPlayingAnimation)
+        XCTAssertFalse(controller.isPlayingAnimation)
     }
 
     func testMinimumFrameDelayClampingFollowsBrowserStandard() {
@@ -475,18 +472,17 @@ final class ImageAnimationAndZoomResolutionTests: XCTestCase {
             XCTAssertEqual(resource.pixelHeight, 3072)
             XCTAssertFalse(resource.isAnimated)
 
-            let view = InteractiveZoomImageView(resource: resource)
-            let controller = view.controller
+            let controller = TTImagePreviewController(resource: resource)
 
             // 1. At scale = 1.0, displayed image is bounded to 2048x1536
-            XCTAssertEqual(view.currentDisplayedPixelSize, CGSize(width: 2048, height: 1536))
+            XCTAssertEqual(controller.currentDisplayedPixelSize, CGSize(width: 2048, height: 1536))
             XCTAssertFalse(controller.isHighResLoaded)
 
             // 2. At scale = 3.0 on 800x600 viewport (backingScale 2.0), upgrades to 4096x3072
             let upgradeTask = controller.updateZoom(scale: 3.0, viewportSize: viewport, backingScale: 2.0)
             await upgradeTask?.value
 
-            XCTAssertEqual(view.currentDisplayedPixelSize, CGSize(width: 4096, height: 3072))
+            XCTAssertEqual(controller.currentDisplayedPixelSize, CGSize(width: 4096, height: 3072))
             XCTAssertTrue(controller.isHighResLoaded)
 
             // Verify high-frequency 1px checkerboard contrast is preserved at 4096x3072
@@ -496,7 +492,7 @@ final class ImageAnimationAndZoomResolutionTests: XCTestCase {
 
             // 3. Resetting scale to 1.0 (<= 1.05) releases high-res image and reverts to 2048x1536
             controller.updateZoom(scale: 1.0, viewportSize: viewport, backingScale: 2.0)
-            XCTAssertEqual(view.currentDisplayedPixelSize, CGSize(width: 2048, height: 1536))
+            XCTAssertEqual(controller.currentDisplayedPixelSize, CGSize(width: 2048, height: 1536))
             XCTAssertFalse(controller.isHighResLoaded)
         }
     }
@@ -607,8 +603,7 @@ final class ImageAnimationAndZoomResolutionTests: XCTestCase {
             maxConcurrentDecodes: 2
         )
 
-        let view = InteractiveZoomImageView(resource: resource, budget: tightBudget)
-        let controller = view.controller
+        let controller = TTImagePreviewController(resource: resource, budget: tightBudget)
         let anim = try XCTUnwrap(controller.animationController)
 
         // 1. Initialization on @MainActor must NEVER decode all 8 frames upfront
@@ -725,5 +720,41 @@ final class ImageAnimationAndZoomResolutionTests: XCTestCase {
         XCTAssertEqual(animReject.currentCachedMemoryBytes, 0)
         XCTAssertEqual(animReject.cachedFrameCount, 0)
         XCTAssertEqual(animReject.rejectedOversizedFrameCount, 1)
+    }
+
+    func testImageControllerResetsZoomPanAndStartsPlaybackForAnimatedResource() async throws {
+        let pngData = makeHighFrequencyCheckerboardPNGData(width: 4096, height: 3072)
+        let staticResource = try XCTUnwrap(
+            TTImagePreviewResource.load(from: pngData, suggestedName: "first_static.png", baseMaxPixelSize: 2048)
+        )
+        let gifData = makeAnimatedGIFData(frame0Delay: 0.04, frame1Delay: 0.06, loopCount: 0)
+        let animatedResource = try XCTUnwrap(
+            TTImagePreviewResource.load(from: gifData, suggestedName: "second_anim.gif")
+        )
+        XCTAssertNotEqual(staticResource, animatedResource)
+
+        let staticController = TTImagePreviewController(resource: staticResource)
+        let viewport = CGSize(width: 800, height: 600)
+        let upgradeTask = staticController.updateZoom(
+            scale: 2.5,
+            viewportSize: viewport,
+            backingScale: 2.0,
+            offset: CGSize(width: 48, height: -32)
+        )
+        await upgradeTask?.value
+        XCTAssertEqual(staticController.currentScale, 2.5)
+        XCTAssertEqual(staticController.currentOffset, CGSize(width: 48, height: -32))
+
+        staticController.resetToBaseImage()
+        XCTAssertEqual(staticController.currentScale, 1.0)
+        XCTAssertEqual(staticController.currentOffset, .zero)
+
+        let animatedController = TTImagePreviewController(resource: animatedResource)
+        XCTAssertEqual(animatedController.currentScale, 1.0)
+        XCTAssertEqual(animatedController.currentOffset, .zero)
+        animatedController.startPlaybackIfNeeded()
+        XCTAssertTrue(animatedController.isPlayingAnimation)
+        animatedController.dismantle()
+        XCTAssertFalse(animatedController.isPlayingAnimation)
     }
 }

@@ -42,8 +42,28 @@ fi
 
 mkdir -p "$(dirname "${OUTPUT_DMG}")"
 
-TEMP_DMG="/tmp/${VOL_NAME}_temp.dmg"
-rm -f "${TEMP_DMG}" "${OUTPUT_DMG}"
+STAGING_TMP_DIR="$(mktemp -d "${TMPDIR:-/tmp}/ttzip_dmg_staging.XXXXXX")"
+TEMP_DMG="${STAGING_TMP_DIR}/${VOL_NAME}_temp.dmg"
+DEV_NODE=""
+MOUNT_POINT=""
+
+cleanup() {
+    if [ -n "${DEV_NODE:-}" ] && [ -n "${MOUNT_POINT:-}" ] && [ -d "${MOUNT_POINT}" ]; then
+        hdiutil detach "${DEV_NODE}" -force >/dev/null 2>&1 || hdiutil detach "${MOUNT_POINT}" -force >/dev/null 2>&1 || true
+    elif [ -n "${DEV_NODE:-}" ]; then
+        hdiutil detach "${DEV_NODE}" -force >/dev/null 2>&1 || true
+    elif [ -n "${MOUNT_POINT:-}" ] && [ -d "${MOUNT_POINT}" ]; then
+        hdiutil detach "${MOUNT_POINT}" -force >/dev/null 2>&1 || true
+    fi
+    if [ -n "${STAGING_TMP_DIR:-}" ] && [ -d "${STAGING_TMP_DIR}" ]; then
+        rm -rf "${STAGING_TMP_DIR}"
+    fi
+}
+trap cleanup EXIT
+trap 'cleanup; exit 130' INT
+trap 'cleanup; exit 143' TERM
+
+rm -f "${OUTPUT_DMG}"
 
 APP_SIZE_MB=$(du -sm "${APP_PATH}" | awk '{print $1}')
 STAGING_SIZE_MB=$((APP_SIZE_MB + 60))
@@ -53,22 +73,17 @@ hdiutil create -size "${STAGING_SIZE_MB}m" -fs HFS+ -volname "${VOL_NAME}" -ov "
 
 echo "==> [DMG] Attaching staging disk image..."
 MOUNT_INFO="$(hdiutil attach -nobrowse -noverify -noautoopen "${TEMP_DMG}")"
-DEV_NODE="$(echo "${MOUNT_INFO}" | grep -E '^/dev/' | head -n 1 | awk '{print $1}')"
-MOUNT_POINT="$(echo "${MOUNT_INFO}" | grep "/Volumes/" | awk -F'\t' '{print $NF}' | tr -d '\n')"
+DEV_NODE="$(echo "${MOUNT_INFO}" | awk '/\/Volumes\// {print $1; exit}')"
+if [ -z "${DEV_NODE}" ]; then
+    DEV_NODE="$(echo "${MOUNT_INFO}" | grep -E '^/dev/' | head -n 1 | awk '{print $1}')"
+fi
+MOUNT_POINT="$(echo "${MOUNT_INFO}" | grep "/Volumes/" | awk -F'\t' '{print $NF}' | sed -E 's|^/dev/[^[:space:]]+[[:space:]]+([^/]+[[:space:]]+)?||;s/^[[:space:]]*//;s/[[:space:]]*$//' | tail -n 1)"
 
-if [ -z "${MOUNT_POINT}" ] || [ ! -d "${MOUNT_POINT}" ]; then
+if [[ ! "${DEV_NODE}" =~ ^/dev/ ]] || [ -z "${MOUNT_POINT}" ] || [ ! -d "${MOUNT_POINT}" ]; then
     echo "❌ Error: Failed to mount staging DMG"; exit 1
 fi
 
 echo "  ✓ Mounted at ${MOUNT_POINT} (${DEV_NODE})"
-
-cleanup() {
-    if [ -n "${MOUNT_POINT:-}" ] && [ -d "${MOUNT_POINT}" ]; then
-        hdiutil detach "${DEV_NODE}" -force >/dev/null 2>&1 || true
-    fi
-    rm -f "${TEMP_DMG}"
-}
-trap cleanup EXIT
 
 # 2. Copy contents & symlinks
 echo "==> [DMG] Staging application and filesystem assets..."
@@ -94,7 +109,8 @@ fi
 echo "==> [DMG] Styling Finder window layout and icon spatial alignment..."
 osascript <<EOF 2>/dev/null || true
 tell application "Finder"
-    tell disk "${VOL_NAME}"
+    set mountAlias to (POSIX file "${MOUNT_POINT}") as alias
+    tell folder mountAlias
         open
         set current view of container window to icon view
         set toolbar visible of container window to false
@@ -105,8 +121,8 @@ tell application "Finder"
         set arrangement of opts to not arranged
         set icon size of opts to 120
         set text size of opts to 12
-        if exists file ".background:dmg_background.png" then
-            set background picture of opts to file ".background:dmg_background.png"
+        if exists file ".background:dmg_background.png" of folder mountAlias then
+            set background picture of opts to file ".background:dmg_background.png" of folder mountAlias
         end if
         
         set position of item "TTZip.app" of container window to {140, 205}
@@ -124,6 +140,7 @@ echo "==> [DMG] Finalizing and unmounting staging disk image..."
 sync
 sleep 1
 hdiutil detach "${DEV_NODE}" >/dev/null 2>&1 || hdiutil detach "${MOUNT_POINT}" -force >/dev/null 2>&1 || true
+DEV_NODE=""
 MOUNT_POINT=""
 
 # 5. Convert to high-compression read-only final DMG

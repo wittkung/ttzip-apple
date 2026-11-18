@@ -28,8 +28,7 @@ private struct TTDelayedButtonHelpModifier: ViewModifier {
     @State private var isHovered = false
 
     func body(content: Content) -> some View {
-        content.accessibilityLabel(text)
-            .accessibilityHint(text)
+        content.accessibilityHint(text)
             .onHover { isHovered = $0 }
             .background {
                 if isHovered && isEnabled && !text.isEmpty {

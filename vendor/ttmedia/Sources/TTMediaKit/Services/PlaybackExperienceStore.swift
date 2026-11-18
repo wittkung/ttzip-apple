@@ -9,11 +9,13 @@ import os
 /// Platform adapter for the cross-platform resume policy supplied by the host core.
 @MainActor
 public enum PlaybackExperiencePolicy {
-    public static var resumePosition: @Sendable (Double, Double) -> Double = { position, duration in
+    public static let defaultResumePosition: @Sendable (Double, Double) -> Double = { position, duration in
         guard position.isFinite, duration.isFinite, duration > 0, position >= 0 else { return 0 }
         let endMargin = min(10, duration * 0.05)
         return position >= duration - endMargin ? 0 : min(position, duration)
     }
+    public static var resumePosition: @Sendable (Double, Double) -> Double = defaultResumePosition
+
     /// The host may resolve archive-entry identity from its original archive resource context.
     public static var resourceIdentity: (@MainActor (URL) -> String?)?
 }

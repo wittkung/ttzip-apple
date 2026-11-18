@@ -157,10 +157,10 @@ final class SubtitleFontConfigurationTests: XCTestCase {
         }
     }
 
-    // MARK: - 3. Primary/Secondary Ratio, Compact Viewport Scaling & Invariant Positioning
+    // MARK: - 3. Primary/Secondary Ratio & Compact Viewport Scaling
 
     @MainActor
-    func testOverlayPreservesSecondaryFontSizeRatioCompactScalingAndControlVisibilityInvariance() {
+    func testSubtitleMetricsPreserveSecondaryFontSizeRatioAndCompactScaling() {
         let style = SubtitleStyleConfiguration(
             fontFamilyName: "Menlo",
             fontSize: 24.0,
@@ -173,29 +173,14 @@ final class SubtitleFontConfigurationTests: XCTestCase {
             verticalPosition: 82.0
         )
 
-        let wideVisible = SubtitleOverlayView(
-            primaryText: "主字幕：你好世界",
-            secondaryText: "Secondary: Hello World",
-            style: style,
-            controlsVisible: true,
-            viewportWidth: 960,
-            viewportHeight: 540
-        )
-        let wideHidden = SubtitleOverlayView(
-            primaryText: "主字幕：你好世界",
-            secondaryText: "Secondary: Hello World",
-            style: style,
-            controlsVisible: false,
-            viewportWidth: 960,
-            viewportHeight: 540
-        )
+        let wide = style.resolvedMetrics(for: SubtitleVideoContentGeometry(
+            viewportSize: CGSize(width: 960, height: 540)
+        ))
+        XCTAssertEqual(wide.primaryFontSize, 30.0, accuracy: 0.01)
+        XCTAssertEqual(wide.secondaryFontSize, 30.0 * 0.82, accuracy: 0.01)
 
-        XCTAssertEqual(wideVisible.primaryRenderedFontSize, 30.0, accuracy: 0.01)
-        XCTAssertEqual(wideVisible.secondaryRenderedFontSize, 30.0 * 0.82, accuracy: 0.01)
-        XCTAssertEqual(wideVisible.bottomPadding, wideHidden.bottomPadding, accuracy: 0.001)
-
-        let primaryFont = wideVisible.resolvedPrimaryFont()
-        let secondaryFont = wideVisible.resolvedSecondaryFont()
+        let primaryFont = SubtitleFontResolver.resolve(style: style, size: wide.primaryFontSize)
+        let secondaryFont = SubtitleFontResolver.resolve(style: style, size: wide.secondaryFontSize)
         XCTAssertEqual(primaryFont.resolvedPostScriptName, secondaryFont.resolvedPostScriptName)
         XCTAssertTrue(primaryFont.resolvedPostScriptName.localizedCaseInsensitiveContains("Menlo"))
         XCTAssertTrue(primaryFont.nsFont.fontDescriptor.symbolicTraits.contains(.bold))
@@ -203,25 +188,10 @@ final class SubtitleFontConfigurationTests: XCTestCase {
         XCTAssertEqual(primaryFont.nsFont.pointSize, 30.0, accuracy: 0.01)
         XCTAssertEqual(secondaryFont.nsFont.pointSize, 24.6, accuracy: 0.01)
 
-        // Compact viewport (< 380pt) scales down while keeping controlsVisible invariance.
-        let compactVisible = SubtitleOverlayView(
-            primaryText: "主字幕",
-            secondaryText: "Secondary",
-            style: style,
-            controlsVisible: true,
-            viewportWidth: 300,
-            viewportHeight: 220
-        )
-        let compactHidden = SubtitleOverlayView(
-            primaryText: "主字幕",
-            secondaryText: "Secondary",
-            style: style,
-            controlsVisible: false,
-            viewportWidth: 300,
-            viewportHeight: 220
-        )
-        XCTAssertLessThan(compactVisible.primaryRenderedFontSize, wideVisible.primaryRenderedFontSize)
-        XCTAssertEqual(compactVisible.bottomPadding, compactHidden.bottomPadding, accuracy: 0.001)
+        let compact = style.resolvedMetrics(for: SubtitleVideoContentGeometry(
+            viewportSize: CGSize(width: 300, height: 220)
+        ))
+        XCTAssertLessThan(compact.primaryFontSize, wide.primaryFontSize)
     }
 
     // MARK: - 4. Production Session Integration Tests (Requires Full TTMediaKit Target)
@@ -373,6 +343,7 @@ final class SubtitleFontConfigurationTests: XCTestCase {
         let originalLanguage = LocalizationState.shared.currentLanguage
         defer { LocalizationState.shared.setLanguage(originalLanguage) }
 
+        XCTAssertEqual(SubtitleFontLocaleKey.allCases.count, 2)
         for language in [AppLanguage.en, .zhHans, .zhHant, .ja] {
             LocalizationState.shared.setLanguage(language)
             for key in SubtitleFontLocaleKey.allCases {
@@ -383,73 +354,28 @@ final class SubtitleFontConfigurationTests: XCTestCase {
         }
 
         LocalizationState.shared.setLanguage(.zhHans)
-        XCTAssertEqual(MediaLocalization.text(.subtitleFont), "字体")
+        XCTAssertEqual(MediaLocalization.text(.subtitleFontSystemDefault), "系统默认（圆体）")
         XCTAssertEqual(MediaLocalization.text(.subtitleFontSize), "字号")
         XCTAssertEqual(MediaLocalization.text(.subtitleFontSystemDefaultFace), "常规／圆体")
-        XCTAssertNotEqual(MediaLocalization.text(.subtitleFont), MediaLocalization.text(.subtitleFontSize))
         let zhHansSystemFamily = SubtitleFontResolver.availableFamilies(includeSystemDefault: true).first(where: \.isSystemDefault)
+        XCTAssertEqual(zhHansSystemFamily?.localizedName, "系统默认（圆体）")
         XCTAssertEqual(zhHansSystemFamily?.faces.first?.displayName, "常规／圆体")
 
         LocalizationState.shared.setLanguage(.zhHant)
-        XCTAssertEqual(MediaLocalization.text(.subtitleFont), "字體")
+        XCTAssertEqual(MediaLocalization.text(.subtitleFontSystemDefault), "系統預設（圓體）")
         XCTAssertEqual(MediaLocalization.text(.subtitleFontSize), "字級")
         XCTAssertEqual(MediaLocalization.text(.subtitleFontSystemDefaultFace), "常規／圓體")
         let zhHantSystemFamily = SubtitleFontResolver.availableFamilies(includeSystemDefault: true).first(where: \.isSystemDefault)
+        XCTAssertEqual(zhHantSystemFamily?.localizedName, "系統預設（圓體）")
         XCTAssertEqual(zhHantSystemFamily?.faces.first?.displayName, "常規／圓體")
 
         LocalizationState.shared.setLanguage(.en)
-        XCTAssertEqual(MediaLocalization.text(.subtitleFont), "Font")
+        XCTAssertEqual(MediaLocalization.text(.subtitleFontSystemDefault), "System Default (Rounded)")
         XCTAssertEqual(MediaLocalization.text(.subtitleFontSize), "Font Size")
         XCTAssertEqual(MediaLocalization.text(.subtitleFontSystemDefaultFace), "Regular / Rounded")
         let enSystemFamily = SubtitleFontResolver.availableFamilies(includeSystemDefault: true).first(where: \.isSystemDefault)
+        XCTAssertEqual(enSystemFamily?.localizedName, "System Default (Rounded)")
         XCTAssertEqual(enSystemFamily?.faces.first?.displayName, "Regular / Rounded")
-    }
-
-    @MainActor
-    func testFontPickerInteractionDepthKeepsControlsVisibleWhileOpen() {
-        let controls = MediaControlsVisibility()
-        controls.isPlaying = true
-        controls.setHovered(true)
-        XCTAssertTrue(controls.isVisible)
-
-        var quickSettingsHeld = false
-        var fontPickerHeld = false
-
-        // 1. Quick settings popover opens -> holds interaction lock even if pointer leaves player canvas.
-        SubtitleQuickSettingsPopover.syncInteractionDepth(
-            isHeld: &quickSettingsHeld,
-            shouldHold: true,
-            controls: controls
-        )
-        controls.setHovered(false)
-        controls.hideForInactivity()
-        XCTAssertTrue(controls.isVisible, "Quick settings popover must keep controls visible while open")
-
-        // 2. Font picker opens from quick settings -> increments interaction depth.
-        SubtitleQuickSettingsPopover.syncInteractionDepth(
-            isHeld: &fontPickerHeld,
-            shouldHold: true,
-            controls: controls
-        )
-        controls.hideForInactivity()
-        XCTAssertTrue(controls.isVisible, "Font picker popover must keep controls visible while open")
-
-        // 3. Font picker closes while quick settings remains open -> controls stay visible.
-        SubtitleQuickSettingsPopover.syncInteractionDepth(
-            isHeld: &fontPickerHeld,
-            shouldHold: false,
-            controls: controls
-        )
-        controls.hideForInactivity()
-        XCTAssertTrue(controls.isVisible, "Closing font picker while quick settings is open must retain visibility")
-
-        // 4. Quick settings closes with pointer outside -> interaction depth returns to 0 and controls hide cleanly.
-        SubtitleQuickSettingsPopover.syncInteractionDepth(
-            isHeld: &quickSettingsHeld,
-            shouldHold: false,
-            controls: controls
-        )
-        XCTAssertFalse(controls.isVisible)
     }
 }
 

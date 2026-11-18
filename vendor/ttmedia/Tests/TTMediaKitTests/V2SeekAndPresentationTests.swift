@@ -745,7 +745,6 @@ final class V2SeekAndPresentationTests: XCTestCase {
         XCTAssertTrue(confirmedFallback.isToneMappedFallbackToSDR)
         XCTAssertEqual(confirmedFallback.badgeText, "SDR")
         XCTAssertEqual(confirmedFallback.namedSourceAndOutputBadgeText, "源 4K · AV1 | 输出 SDR")
-        XCTAssertTrue(confirmedFallback.comparisonSnapshot.outputSection.colorMappingText.contains("DoVi → SDR"))
     }
 
     // MARK: - Priority 3 (③): W1 Exact SessionID Handoff & Enqueue vs Visual Telemetry

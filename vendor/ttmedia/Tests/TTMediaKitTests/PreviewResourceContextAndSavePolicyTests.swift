@@ -37,13 +37,39 @@ final class PreviewResourceContextAndSavePolicyTests: XCTestCase {
         )
     }
 
+    func testSpreadsheetSaveRejectsExplicitReadOnlyContextAndReadOnlyDiskFile() throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent("SpreadsheetPermissions-\(UUID())")
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let url = directory.appendingPathComponent("locked.csv")
+        let original = "name,value\nbook,20\n"
+        try Data(original.utf8).write(to: url)
+        let context = TTPreviewResourceContext.diskFile(url: url)
+        XCTAssertTrue(SpreadsheetSavePolicy.canSaveInPlace(fileURL: url, resourceContext: context))
+
+        let locked = context.forcingReadOnly()
+        XCTAssertFalse(SpreadsheetSavePolicy.canSaveInPlace(fileURL: url, resourceContext: locked))
+        XCTAssertFalse(try SpreadsheetSavePolicy.saveInPlace(
+            content: "name,value\nbook,50\n", expectedBaseline: original, fileURL: url, resourceContext: locked
+        ))
+        try FileManager.default.setAttributes([.posixPermissions: 0o444], ofItemAtPath: url.path)
+        XCTAssertFalse(SpreadsheetSavePolicy.canSaveInPlace(fileURL: url))
+        XCTAssertFalse(try SpreadsheetSavePolicy.saveInPlace(
+            content: "name,value\nbook,50\n", expectedBaseline: original, fileURL: url
+        ))
+        XCTAssertEqual(try Data(contentsOf: url), Data(original.utf8))
+    }
+
     func testArchiveEntryContextRemainsStrictlyReadOnlyEvenWhenStagedFileIsWritableOnDisk() throws {
-        let stagingDir = FileManager.default.temporaryDirectory
+        let tempRoot = FileManager.default.temporaryDirectory
+            .appendingPathComponent("TTArchiveReadOnlyTest_\(UUID().uuidString)", isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: tempRoot) }
+
+        let stagingDir = tempRoot
             .appendingPathComponent("TTZipLRUPreviewCache/session_\(UUID().uuidString)", isDirectory: true)
         try FileManager.default.createDirectory(at: stagingDir, withIntermediateDirectories: true)
-        defer { try? FileManager.default.removeItem(at: stagingDir) }
 
-        let archiveURL = stagingDir.deletingLastPathComponent().appendingPathComponent("bundle.zip")
+        let archiveURL = tempRoot.appendingPathComponent("bundle.zip")
         try Data([0x50, 0x4B, 0x05, 0x06] + Array(repeating: UInt8(0), count: 18)).write(to: archiveURL)
 
         let stagedCSV = stagingDir.appendingPathComponent("report.csv")
@@ -129,6 +155,11 @@ final class PreviewResourceContextAndSavePolicyTests: XCTestCase {
     }
 
     func testManagedPreviewStagingMarkersAreBlockedEvenIfPassedAsDiskFile() throws {
+        let tempRoot = FileManager.default.temporaryDirectory
+            .appendingPathComponent("TTManagedMarkerTest_\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: tempRoot, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: tempRoot) }
+
         let managedMarkers = [
             "TTZipLRUPreviewCache",
             "TTMediaEphemeralStorage",
@@ -139,14 +170,8 @@ final class PreviewResourceContextAndSavePolicyTests: XCTestCase {
             "TTZip_Extract_xyz"
         ]
         for marker in managedMarkers {
-            let dir = FileManager.default.temporaryDirectory
-                .appendingPathComponent("\(marker)/slot", isDirectory: true)
+            let dir = tempRoot.appendingPathComponent("\(marker)/slot", isDirectory: true)
             try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
-            defer {
-                try? FileManager.default.removeItem(
-                    at: FileManager.default.temporaryDirectory.appendingPathComponent(marker)
-                )
-            }
             let fileURL = dir.appendingPathComponent("data.csv")
             try "h1,h2\n1,2\n".write(to: fileURL, atomically: true, encoding: .utf8)
 
@@ -170,7 +195,7 @@ final class PreviewResourceContextAndSavePolicyTests: XCTestCase {
 
     // MARK: - 3. Unknown Origin Fail-Closed & Truncated / Derived Read-Only Enforcement
 
-    func testUnknownOriginAndFactoryDefaultNeverGrantOverwritePermission() throws {
+    func testUnknownOriginAndDefaultPreviewContextNeverGrantOverwritePermission() throws {
         let tempDir = FileManager.default.temporaryDirectory
             .appendingPathComponent("TTUnknownOrigin_\(UUID().uuidString)", isDirectory: true)
         try FileManager.default.createDirectory(at: tempDir, withIntermediateDirectories: true)
@@ -180,8 +205,7 @@ final class PreviewResourceContextAndSavePolicyTests: XCTestCase {
         let initial = "col1,col2\n10,20\n"
         try initial.write(to: fileURL, atomically: true, encoding: .utf8)
 
-        // When explicitContext is nil, Factory resolves to .unknown (fail-closed read-only).
-        let resolved = TTMediaPreviewFactory.resolveResourceContext(
+        let resolved = TTPreviewResourceContext.resolvingPreview(
             explicitContext: nil,
             type: .spreadsheetTable(initial, fileURL),
             fileName: "editable_on_disk.csv",
@@ -272,15 +296,11 @@ final class PreviewResourceContextAndSavePolicyTests: XCTestCase {
             fileName: "data.csv"
         )
 
-        let view = SpreadsheetTablePreviewView(
-            initialContent: "staged,2\n",
-            fileURL: stagedCSV,
-            fileName: "data.csv",
-            isReadOnly: !archiveContext.isEditableInPlace,
-            resourceContext: archiveContext
-        )
-        XCTAssertFalse(view.canSaveInPlace)
-        XCTAssertFalse(view.saveFile(contentOverride: "overwritten,999\n"))
+        XCTAssertFalse(SpreadsheetSavePolicy.canSaveInPlace(fileURL: stagedCSV, resourceContext: archiveContext))
+        XCTAssertFalse(try SpreadsheetSavePolicy.saveInPlace(
+            content: "overwritten,999\n", expectedBaseline: "staged,2\n",
+            fileURL: stagedCSV, resourceContext: archiveContext
+        ))
 
         // Also verify target mismatch protection if someone passes neighborCSV to validateInPlaceSaveTarget
         XCTAssertNil(archiveContext.validateInPlaceSaveTarget(expectedFileURL: neighborCSV))
@@ -336,463 +356,367 @@ final class PreviewResourceContextAndSavePolicyTests: XCTestCase {
         XCTAssertNil(reopenedArchiveCtx.writableSaveTargetURL)
     }
 
-    // MARK: - 6. Office Spreadsheet Sample Validity, Routing & Read-Only Workbook Rendering
+    // MARK: - 6. Controlled Text & CSV Delta Save Transaction (#185)
 
-    func testSampleXLSXAndSampleODSFixturesRouteToReadOnlyOfficeSpreadsheetWithParsedCells() throws {
-        let fixturesDir = try locateDocumentsFixturesDirectory()
-        let xlsxURL = fixturesDir.appendingPathComponent("sample.xlsx")
-        let odsURL = fixturesDir.appendingPathComponent("sample.ods")
-
-        XCTAssertTrue(FileManager.default.fileExists(atPath: xlsxURL.path))
-        XCTAssertTrue(FileManager.default.fileExists(atPath: odsURL.path))
-
-        // Capability Matrix declaration check
-        XCTAssertEqual(TTMediaCapabilityMatrix.descriptor(for: "xlsx")?.isEditableSource, false)
-        XCTAssertEqual(TTMediaCapabilityMatrix.descriptor(for: "ods")?.isEditableSource, false)
-        XCTAssertEqual(TTMediaCapabilityMatrix.descriptor(for: "xls")?.isEditableSource, false)
-
-        // 1. XLSX fixture: a Chinese-named sheet with two rows and two columns.
-        let xlsxType = TTMediaDetector.detectType(url: xlsxURL)
-        guard case .officeSpreadsheet(let xlsxWorkbook) = xlsxType else {
-            return XCTFail("Expected .officeSpreadsheet for sample.xlsx, got \(xlsxType)")
-        }
-        XCTAssertEqual(xlsxWorkbook.sheetNames, ["中文"])
-        XCTAssertEqual(xlsxWorkbook.activeSheet?.name, "中文")
-        XCTAssertEqual(xlsxWorkbook.activeSheet?.rows, [["中文", "42"], ["1", "43"]])
-
-        let xlsxContext = TTMediaPreviewFactory.resolveResourceContext(
-            explicitContext: .diskFile(url: xlsxURL),
-            type: xlsxType,
-            fileName: "sample.xlsx",
-            fileURL: xlsxURL
-        )
-        XCTAssertFalse(xlsxContext.isEditableInPlace)
-        XCTAssertEqual(xlsxContext.readOnlyReason, .derivedContent)
-        XCTAssertFalse(
-            SpreadsheetSavePolicy.canSaveInPlace(
-                fileURL: xlsxURL,
-                fileName: "sample.xlsx",
-                workbook: xlsxWorkbook,
-                resourceContext: xlsxContext
-            )
-        )
-
-        // 2. ODS fixture: a Chinese-named sheet with one Chinese cell.
-        let odsType = TTMediaDetector.detectType(url: odsURL)
-        guard case .officeSpreadsheet(let odsWorkbook) = odsType else {
-            return XCTFail("Expected .officeSpreadsheet for sample.ods, got \(odsType)")
-        }
-        XCTAssertEqual(odsWorkbook.sheetNames, ["中文"])
-        XCTAssertEqual(odsWorkbook.activeSheet?.name, "中文")
-        XCTAssertEqual(odsWorkbook.activeSheet?.rows, [["中文"]])
-
-        let odsView = SpreadsheetTablePreviewView(
-            workbook: odsWorkbook,
-            sheetLoader: { sheet in
-                TTMediaOfficeSpreadsheetReader.loadSheetRows(workbook: odsWorkbook, sheetName: sheet)
-            },
-            resourceContext: .diskFile(url: odsURL).withDerivedRepresentation(true, description: "OfficeSpreadsheet")
-        )
-        XCTAssertTrue(odsView.isReadOnly)
-        XCTAssertFalse(odsView.canSaveInPlace)
-        XCTAssertEqual(odsView.initialWorkbook?.activeSheet?.rows, [["中文"]])
-    }
-
-    func testUnsupportedBinarySpreadsheetsReturnExplicitLimitationInsteadOfQuickLookIcon() throws {
-        // OLE2 Compound Document header (D0 CF 11 E0 A1 B1 1A E1) for legacy .xls
-        let ole2Bytes = Data([0xD0, 0xCF, 0x11, 0xE0, 0xA1, 0xB1, 0x1A, 0xE1] + Array(repeating: UInt8(0), count: 64))
-        let xlsType = TTMediaDetector.detectTypeFromMemory(
-            data: ole2Bytes,
-            suggestedName: "legacy.xls"
-        )
-        guard case .unsupported(let xlsMessage) = xlsType else {
-            return XCTFail("Expected .unsupported limitation message for .xls, got \(xlsType)")
-        }
-        XCTAssertTrue(xlsMessage.contains("XLS"))
-
-        // Apple Numbers ZIP package without xl/workbook.xml or content.xml
-        let fixturesDir = try locateDocumentsFixturesDirectory()
-        let docxZipData = try Data(contentsOf: fixturesDir.appendingPathComponent("sample.docx"))
-        let numbersType = TTMediaDetector.detectTypeFromMemory(
-            data: docxZipData,
-            suggestedName: "budget.numbers"
-        )
-        guard case .unsupported(let numbersMessage) = numbersType else {
-            return XCTFail("Expected .unsupported limitation message for .numbers, got \(numbersType)")
-        }
-        XCTAssertTrue(numbersMessage.contains("NUMBERS"))
-    }
-
-    // MARK: - 7. ODS & XLSX Coordinate Faithfulness, Repeat Cursors, Budget Truncation & Malformed XML
-
-    func testODSAndXLSXPreserveExactCoordinatesAfter100RepeatedRowsAndColumns() throws {
-        let odsXML = """
-        <?xml version="1.0" encoding="UTF-8"?>
-        <office:document-content xmlns:office="urn:oasis:names:tc:opendocument:xmlns:office:1.0"
-          xmlns:table="urn:oasis:names:tc:opendocument:xmlns:table:1.0" xmlns:text="urn:oasis:names:tc:opendocument:xmlns:text:1.0">
-          <office:body><office:spreadsheet>
-            <table:table table:name="RepeatedEmpty">
-              <table:table-row table:number-rows-repeated="100"><table:table-cell/></table:table-row>
-              <table:table-row>
-                <table:table-cell table:number-columns-repeated="100"/>
-                <table:table-cell office:value-type="string"><text:p>MARKER_100_100</text:p></table:table-cell>
-                <table:table-cell table:number-columns-repeated="1024"/>
-              </table:table-row>
-              <table:table-row table:number-rows-repeated="1048475"><table:table-cell table:number-columns-repeated="1024"/></table:table-row>
-            </table:table>
-            <table:table table:name="RepeatedNonEmpty">
-              <table:table-row table:number-rows-repeated="100">
-                <table:table-cell office:value-type="string"><text:p>RFILL</text:p></table:table-cell>
-              </table:table-row>
-              <table:table-row>
-                <table:table-cell table:number-columns-repeated="100" office:value-type="string"><text:p>CFILL</text:p></table:table-cell>
-                <table:table-cell office:value-type="string"><text:p>AFTER_100_NON_EMPTY</text:p></table:table-cell>
-              </table:table-row>
-            </table:table>
-          </office:spreadsheet></office:body>
-        </office:document-content>
-        """
-        let odsArchive = makeStoredZipArchive(entries: [("content.xml", Data(odsXML.utf8))])
-        guard let odsWorkbook = TTMediaOfficeSpreadsheetReader.loadWorkbook(data: odsArchive, fileName: "repeat100.ods"),
-              let emptyRepeatSheet = odsWorkbook.activeSheet else {
-            return XCTFail("Expected valid ODS workbook and active sheet")
-        }
-        XCTAssertEqual(odsWorkbook.sheetNames, ["RepeatedEmpty", "RepeatedNonEmpty"])
-        XCTAssertFalse(emptyRepeatSheet.isTruncated)
-        XCTAssertEqual(emptyRepeatSheet.rows.count, 101)
-        XCTAssertEqual(emptyRepeatSheet.totalRows, 101)
-        XCTAssertEqual(emptyRepeatSheet.totalColumns, 101)
-        for r in 0..<100 { XCTAssertTrue(emptyRepeatSheet.rows[r].isEmpty) }
-        XCTAssertEqual(emptyRepeatSheet.rows[100].count, 101)
-        for c in 0..<100 { XCTAssertEqual(emptyRepeatSheet.rows[100][c], "") }
-        XCTAssertEqual(emptyRepeatSheet.rows[100][100], "MARKER_100_100")
-
-        guard let nonEmptyRepeatRows = TTMediaOfficeSpreadsheetReader.loadSheetRows(workbook: odsWorkbook, sheetName: "RepeatedNonEmpty") else {
-            return XCTFail("Expected RepeatedNonEmpty sheet rows")
-        }
-        XCTAssertEqual(nonEmptyRepeatRows.count, 101)
-        XCTAssertEqual(nonEmptyRepeatRows[0], ["RFILL"])
-        XCTAssertEqual(nonEmptyRepeatRows[99], ["RFILL"])
-        XCTAssertEqual(nonEmptyRepeatRows[100].count, 101)
-        XCTAssertEqual(nonEmptyRepeatRows[100][0], "CFILL")
-        XCTAssertEqual(nonEmptyRepeatRows[100][99], "CFILL")
-        XCTAssertEqual(nonEmptyRepeatRows[100][100], "AFTER_100_NON_EMPTY")
-
-        let xlsxArchive = makeMinimalXLSXArchive(
-            sheetXML: """
-            <?xml version="1.0" encoding="UTF-8"?>
-            <worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
-              <sheetData><row r="101"><c r="CW101" t="inlineStr"><is><t>XLSX_100_100</t></is></c></row></sheetData>
-            </worksheet>
-            """
-        )
-        guard let xlsxWorkbook = TTMediaOfficeSpreadsheetReader.loadWorkbook(data: xlsxArchive, fileName: "repeat100.xlsx"),
-              let xlsxSheet = xlsxWorkbook.activeSheet else {
-            return XCTFail("Expected valid XLSX workbook")
-        }
-        XCTAssertEqual(xlsxSheet.rows.count, 101)
-        XCTAssertTrue(xlsxSheet.rows[0].isEmpty)
-        XCTAssertTrue(xlsxSheet.rows[99].isEmpty)
-        XCTAssertEqual(xlsxSheet.rows[100].count, 101)
-        XCTAssertEqual(xlsxSheet.rows[100][100], "XLSX_100_100")
-    }
-
-    func testLeadingAndInteriorEmptyRowsPreserveOriginalRowCoordinates() throws {
-        let odsXML = """
-        <?xml version="1.0" encoding="UTF-8"?>
-        <office:document-content xmlns:office="urn:oasis:names:tc:opendocument:xmlns:office:1.0"
-          xmlns:table="urn:oasis:names:tc:opendocument:xmlns:table:1.0" xmlns:text="urn:oasis:names:tc:opendocument:xmlns:text:1.0">
-          <office:body><office:spreadsheet><table:table table:name="EmptyRowsSheet">
-            <table:table-row/>
-            <table:table-row><table:table-cell/></table:table-row>
-            <table:table-row><table:table-cell office:value-type="string"><text:p>ROW_2_COL_0</text:p></table:table-cell></table:table-row>
-            <table:table-row table:number-rows-repeated="3"><table:table-cell/></table:table-row>
-            <table:table-row>
-              <table:table-cell/><table:table-cell office:value-type="string"><text:p>ROW_6_COL_1</text:p></table:table-cell>
-            </table:table-row>
-            <table:table-row table:number-rows-repeated="500"/>
-          </table:table></office:spreadsheet></office:body>
-        </office:document-content>
-        """
-        let odsData = makeStoredZipArchive(entries: [("content.xml", Data(odsXML.utf8))])
-        guard let odsWB = TTMediaOfficeSpreadsheetReader.loadWorkbook(data: odsData, fileName: "empty_rows.ods"),
-              let odsSheet = odsWB.activeSheet else {
-            return XCTFail("Expected valid ODS workbook")
-        }
-        let expectedRows: [[String]] = [[], [], ["ROW_2_COL_0"], [], [], [], ["", "ROW_6_COL_1"]]
-        XCTAssertEqual(odsSheet.rows, expectedRows)
-
-        let xlsxData = makeMinimalXLSXArchive(
-            sheetXML: """
-            <?xml version="1.0" encoding="UTF-8"?>
-            <worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
-              <sheetData>
-                <row r="1"/><row r="2"><c r="A2"/></row>
-                <row r="3"><c r="A3" t="inlineStr"><is><t>ROW_2_COL_0</t></is></c></row>
-                <row r="4"/><row r="7"><c r="B7" t="inlineStr"><is><t>ROW_6_COL_1</t></is></c></row><row r="8"/>
-              </sheetData>
-            </worksheet>
-            """
-        )
-        guard let xlsxWB = TTMediaOfficeSpreadsheetReader.loadWorkbook(data: xlsxData, fileName: "empty_rows.xlsx"),
-              let xlsxSheet = xlsxWB.activeSheet else {
-            return XCTFail("Expected valid XLSX workbook")
-        }
-        XCTAssertEqual(xlsxSheet.rows, expectedRows)
-    }
-
-    func testBudgetTruncationDoesNotShiftCoordinatesAndMarksTruncation() throws {
-        let colBudget = TTMediaOfficeSpreadsheetReader.maxSheetColumns // 512
-        let rowBudget = TTMediaOfficeSpreadsheetReader.maxSheetRows    // 50,001
-        let odsXML = """
-        <?xml version="1.0" encoding="UTF-8"?>
-        <office:document-content xmlns:office="urn:oasis:names:tc:opendocument:xmlns:office:1.0"
-          xmlns:table="urn:oasis:names:tc:opendocument:xmlns:table:1.0" xmlns:text="urn:oasis:names:tc:opendocument:xmlns:text:1.0">
-          <office:body><office:spreadsheet>
-            <table:table table:name="ColBudgetSheet">
-              <table:table-row>
-                <table:table-cell table:number-columns-repeated="511"/>
-                <table:table-cell office:value-type="string"><text:p>LAST_IN_BUDGET_511</text:p></table:table-cell>
-                <table:table-cell office:value-type="string"><text:p>TRUNCATED_512</text:p></table:table-cell>
-                <table:table-cell table:number-columns-repeated="88"/>
-                <table:table-cell office:value-type="string"><text:p>TRUNCATED_601</text:p></table:table-cell>
-              </table:table-row>
-              <table:table-row>
-                <table:table-cell table:number-columns-repeated="600"/>
-                <table:table-cell office:value-type="string"><text:p>ONLY_OUT_OF_COL_BUDGET</text:p></table:table-cell>
-              </table:table-row>
-              <table:table-row>
-                <table:table-cell office:value-type="string"><text:p>ROW_2_STAYS_AT_ROW_2</text:p></table:table-cell>
-              </table:table-row>
-            </table:table>
-            <table:table table:name="RowBudgetSheet">
-              <table:table-row><table:table-cell office:value-type="string"><text:p>FIRST_ROW_0</text:p></table:table-cell></table:table-row>
-              <table:table-row table:number-rows-repeated="\(rowBudget + 10)"><table:table-cell/></table:table-row>
-              <table:table-row><table:table-cell office:value-type="string"><text:p>BEYOND_ROW_BUDGET</text:p></table:table-cell></table:table-row>
-            </table:table>
-          </office:spreadsheet></office:body>
-        </office:document-content>
-        """
-        let odsData = makeStoredZipArchive(entries: [("content.xml", Data(odsXML.utf8))])
-        guard let odsWB = TTMediaOfficeSpreadsheetReader.loadWorkbook(data: odsData, fileName: "budget.ods"),
-              let colSheet = odsWB.activeSheet else {
-            return XCTFail("Expected valid ODS workbook")
-        }
-        XCTAssertTrue(colSheet.isTruncated)
-        XCTAssertTrue(odsWB.isTruncated)
-        XCTAssertEqual(colSheet.totalColumns, 602)
-        XCTAssertEqual(colSheet.rows.count, 3)
-        XCTAssertEqual(colSheet.rows[0].count, colBudget)
-        XCTAssertEqual(colSheet.rows[0][colBudget - 1], "LAST_IN_BUDGET_511")
-        XCTAssertFalse(colSheet.rows[0].contains("TRUNCATED_512"))
-        XCTAssertFalse(colSheet.rows[0].contains("TRUNCATED_601"))
-        XCTAssertEqual(colSheet.rows[1], [])
-        XCTAssertEqual(colSheet.rows[2], ["ROW_2_STAYS_AT_ROW_2"])
-
-        guard let rowBudgetRows = TTMediaOfficeSpreadsheetReader.loadSheetRows(workbook: odsWB, sheetName: "RowBudgetSheet") else {
-            return XCTFail("Expected RowBudgetSheet")
-        }
-        XCTAssertEqual(rowBudgetRows.count, rowBudget)
-        XCTAssertEqual(rowBudgetRows[0], ["FIRST_ROW_0"])
-        XCTAssertFalse(rowBudgetRows.contains(["BEYOND_ROW_BUDGET"]))
-    }
-
-    func testMalformedXMLInODSAndXLSXFailsClosedInsteadOfReturningPartialWorkbook() throws {
-        let truncatedODS = """
-        <?xml version="1.0" encoding="UTF-8"?>
-        <office:document-content xmlns:office="urn:oasis:names:tc:opendocument:xmlns:office:1.0"
-          xmlns:table="urn:oasis:names:tc:opendocument:xmlns:table:1.0" xmlns:text="urn:oasis:names:tc:opendocument:xmlns:text:1.0">
-          <office:body><office:spreadsheet><table:table table:name="Sheet1">
-            <table:table-row><table:table-cell><text:p>Partial</text:p></table:table-cell></table:table-row>
-          </table:table>
-        """
-        let badODSZip = makeStoredZipArchive(entries: [("content.xml", Data(truncatedODS.utf8))])
-        XCTAssertNil(TTMediaOfficeSpreadsheetReader.loadWorkbook(data: badODSZip, fileName: "broken.ods"))
-        if case .officeSpreadsheet = TTMediaDetector.detectTypeFromMemory(data: badODSZip, suggestedName: "broken.ods") {
-            XCTFail("Malformed ODS XML must not be routed as valid .officeSpreadsheet")
-        }
-
-        let badWorksheetXLSX = makeMinimalXLSXArchive(
-            sheetXML: "<worksheet><sheetData><row r=\"1\"><c r=\"A1\" t=\"inlineStr\"><is><t>Partial</t></is></c></row>"
-        )
-        XCTAssertNil(TTMediaOfficeSpreadsheetReader.loadWorkbook(data: badWorksheetXLSX, fileName: "broken_sheet.xlsx"))
-        if case .officeSpreadsheet = TTMediaDetector.detectTypeFromMemory(data: badWorksheetXLSX, suggestedName: "broken_sheet.xlsx") {
-            XCTFail("Malformed XLSX worksheet XML must not be routed as valid .officeSpreadsheet")
-        }
-
-        let badSharedStringsXLSX = makeMinimalXLSXArchive(
-            sheetXML: "<worksheet><sheetData><row r=\"1\"><c r=\"A1\" t=\"s\"><v>0</v></c></row></sheetData></worksheet>",
-            sharedStringsXML: "<?xml version=\"1.0\"?><sst><si><t>Unclosed"
-        )
-        XCTAssertNil(TTMediaOfficeSpreadsheetReader.loadWorkbook(data: badSharedStringsXLSX, fileName: "broken_sst.xlsx"))
-
-        let badWorkbookXMLZip = makeStoredZipArchive(entries: [
-            ("xl/workbook.xml", Data("<workbook><sheets><sheet name=\"S1\"".utf8)),
-            ("xl/worksheets/sheet1.xml", Data("<worksheet><sheetData><row r=\"1\"><c r=\"A1\" t=\"inlineStr\"><is><t>OK</t></is></c></row></sheetData></worksheet>".utf8))
-        ])
-        XCTAssertNil(TTMediaOfficeSpreadsheetReader.loadWorkbook(data: badWorkbookXMLZip, fileName: "broken_wb.xlsx"))
-    }
-
-    func testXLSMCapabilitySetConsumersDiskMemoryDetectorAndReadOnlySaveContract() throws {
-        XCTAssertTrue(TTMediaCapabilityMatrix.binarySpreadsheetExtensions.contains("xlsm"))
-        XCTAssertTrue(TTMediaCapabilityMatrix.spreadsheetExtensions.contains("xlsm"))
-        XCTAssertEqual(TTMediaCapabilityMatrix.descriptor(for: "xlsm")?.capabilities, [.structuredData])
-        XCTAssertEqual(TTMediaCapabilityMatrix.descriptor(for: "xlsm")?.capabilities, TTMediaCapabilityMatrix.descriptor(for: "xlsx")?.capabilities)
-        XCTAssertTrue(TTPreviewHorizontalKeyPolicy.ownsHorizontalArrowKeys(fileName: "macro_book.xlsm"))
-        let tempDir = FileManager.default.temporaryDirectory.appendingPathComponent("xlsm_r5_\(UUID().uuidString)", isDirectory: true)
+    func testCSVControlledDeltaSaveTransactionAndRoundTripReopen() throws {
+        let tempDir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("TTDeltaSaveCSV_\(UUID().uuidString)", isDirectory: true)
         try FileManager.default.createDirectory(at: tempDir, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: tempDir) }
-        // Genuine macroEnabled.main+xml XLSM fixture (explicitly no xl/vbaProject.bin, no macro execution)
-        let macroEnabledNoVBAData = makeStoredZipArchive(entries: [
-            ("[Content_Types].xml", Data("""
-            <?xml version="1.0" encoding="UTF-8"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Override PartName="/xl/workbook.xml" ContentType="application/vnd.ms-excel.sheet.macroEnabled.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/></Types>
-            """.utf8)),
-            ("xl/workbook.xml", Data("<workbook><sheets><sheet name=\"MacroSheet\" sheetId=\"1\" r:id=\"rId1\"/></sheets></workbook>".utf8)),
-            ("xl/_rels/workbook.xml.rels", Data("<Relationships><Relationship Id=\"rId1\" Target=\"worksheets/sheet1.xml\"/></Relationships>".utf8)),
-            ("xl/worksheets/sheet1.xml", Data("<worksheet><sheetData><row r=\"1\"><c r=\"A1\" t=\"inlineStr\"><is><t>MacroEnabledNoVBA</t></is></c><c r=\"C1\"><f>1+2</f><v>3</v></c></row></sheetData></worksheet>".utf8))
-        ])
-        let xlsmURL = tempDir.appendingPathComponent("genuine_macro_enabled_no_vba.xlsm")
-        try macroEnabledNoVBAData.write(to: xlsmURL)
-        let renamedXLSXData = makeMinimalXLSXArchive(
-            sheetXML: "<worksheet><sheetData><row r=\"1\"><c r=\"A1\" t=\"inlineStr\"><is><t>RenamedXLSX</t></is></c></row></sheetData></worksheet>"
+
+        let csvURL = tempDir.appendingPathComponent("metrics.csv")
+        let initialCSV = [
+            "id,service,latency_ms,status",
+            "1,demux,4,healthy",
+            "2,syntax,7,healthy",
+            "3,delta,12,degraded",
+            "4,inspector,3,healthy",
+            "5,waveform,9,healthy",
+            ""
+        ].joined(separator: "\n")
+        try initialCSV.write(to: csvURL, atomically: true, encoding: .utf8)
+
+        let surgicalEdit1 = initialCSV.replacingOccurrences(of: "3,delta,12,degraded", with: "3,delta,2,healthy")
+        let diskContext = TTPreviewResourceContext.diskFile(url: csvURL)
+        let receipt = try XCTUnwrap(
+            SpreadsheetSavePolicy.saveInPlaceWithDeltaReceipt(
+                content: surgicalEdit1,
+                expectedBaseline: initialCSV,
+                fileURL: csvURL,
+                fileName: "metrics.csv",
+                resourceContext: diskContext
+            )
         )
-        let renamedURL = tempDir.appendingPathComponent("renamed_control.xlsm")
-        try renamedXLSXData.write(to: renamedURL)
-        for (url, data, expectedRow) in [
-            (xlsmURL, macroEnabledNoVBAData, ["MacroEnabledNoVBA", "", "3"]),
-            (renamedURL, renamedXLSXData, ["RenamedXLSX"])
-        ] {
-            guard case .officeSpreadsheet(let diskWB) = TTMediaDetector.detectType(url: url) else {
-                return XCTFail("Expected disk detector to route \(url.lastPathComponent) to .officeSpreadsheet")
-            }
-            guard case .officeSpreadsheet(let memWB) = TTMediaDetector.detectTypeFromMemory(
-                data: data, suggestedName: url.lastPathComponent
-            ) else {
-                return XCTFail("Expected memory detector to route \(url.lastPathComponent) to .officeSpreadsheet")
-            }
-            XCTAssertEqual(diskWB.activeSheet?.rows, [expectedRow])
-            XCTAssertEqual(memWB.activeSheet?.rows, [expectedRow])
-            let preview = SpreadsheetTablePreviewView(workbook: diskWB)
-            XCTAssertTrue(preview.isReadOnly)
-            XCTAssertFalse(preview.canSaveInPlace)
-            XCTAssertFalse(preview.saveFile(contentOverride: "mutated,1\n"))
-            XCTAssertEqual(try Data(contentsOf: url), data)
+        XCTAssertGreaterThan(receipt.opsCount, 0)
+        XCTAssertTrue(receipt.usedDeltaPath, "Surgical single-row CSV update must take the delta + WAL path")
+        XCTAssertEqual(try String(contentsOf: csvURL, encoding: .utf8), surgicalEdit1)
+
+        let surgicalEdit2 = surgicalEdit1.replacingOccurrences(of: "5,waveform,9,healthy", with: "5,waveform,5,healthy")
+        XCTAssertTrue(try SpreadsheetSavePolicy.saveInPlace(
+            content: surgicalEdit2, expectedBaseline: surgicalEdit1, fileURL: csvURL, resourceContext: diskContext
+        ))
+        let reloaded = try String(contentsOf: csvURL, encoding: .utf8)
+        XCTAssertEqual(reloaded, surgicalEdit2)
+
+        let parsedReopen = TTSpreadsheetParser.parsePrefix(text: reloaded, delimiter: ",", maxRows: 20)
+        XCTAssertEqual(parsedReopen.rows.count, 6)
+        XCTAssertEqual(parsedReopen.rows[3], ["3", "delta", "2", "healthy"])
+        XCTAssertEqual(parsedReopen.rows[5], ["5", "waveform", "5", "healthy"])
+
+        let directoryEntries = try FileManager.default.contentsOfDirectory(atPath: tempDir.path)
+        XCTAssertFalse(directoryEntries.contains { $0.hasPrefix(".ttmedia_save_txn_") })
+    }
+
+    func testTextControlledDeltaSavePreservesUTF8BOMAndSequentialMultiSave() throws {
+        let tempDir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("TTDeltaSaveText_\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: tempDir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: tempDir) }
+
+        let codeURL = tempDir.appendingPathComponent("pipeline.swift")
+        let initialCode = (1...8).map { "let stage\($0) = \($0 * 10)" }.joined(separator: "\n") + "\n"
+        let bom = Data([0xEF, 0xBB, 0xBF])
+        try (bom + Data(initialCode.utf8)).write(to: codeURL)
+
+        let source = TTTextSourceInspection.inspect(url: codeURL, fallbackText: initialCode)
+        XCTAssertEqual(source.encoding, .utf8BOM)
+        let tracker = TTSavedBaselineTracker(initialContent: initialCode, fileURL: codeURL)
+        let codeEdit1 = initialCode.replacingOccurrences(of: "let stage3 = 30", with: "let stage3 = 300")
+        let codeEdit2 = codeEdit1.replacingOccurrences(of: "let stage7 = 70", with: "let stage7 = 700")
+        for edit in [codeEdit1, codeEdit2] {
+            _ = try TTControlledTextSaveTransaction.commit(
+                payload: edit,
+                expectedBaseline: tracker.activeBaseline(hasContentOverride: false, stateBaseline: nil),
+                encoding: source.encoding,
+                targetURL: codeURL,
+                isCSV: false
+            )
+            tracker.recordSave(edit)
+            XCTAssertEqual(try Data(contentsOf: codeURL), bom + Data(edit.utf8))
         }
     }
 
-    func testODSDateAndTimeValueFallbackPreservesDisplayTextPriorityAndPositiveControls() {
-        let odsContent = """
-        <office:document-content xmlns:office="urn:oasis:names:tc:opendocument:xmlns:office:1.0"
-                                 xmlns:table="urn:oasis:names:tc:opendocument:xmlns:table:1.0"
-                                 xmlns:text="urn:oasis:names:tc:opendocument:xmlns:text:1.0">
-          <office:body><office:spreadsheet>
-            <table:table table:name="TemporalAndRepeats">
-              <table:table-row>
-                <table:table-cell office:value-type="date" office:date-value="2026-10-25"/>
-                <table:table-cell office:value-type="date" office:date-value="2026-10-25"><text:p>2026/10/25 (Display)</text:p></table:table-cell>
-                <table:table-cell office:value-type="time" office:time-value="PT13H45M00S"/>
-                <table:table-cell office:value-type="time" office:time-value="PT13H45M00S"><text:p>13:45</text:p></table:table-cell>
-              </table:table-row>
-              <table:table-row>
-                <table:table-cell/>
-                <table:table-cell table:number-columns-repeated="2" office:value-type="float" office:value="42.5"/>
-                <table:table-cell office:value-type="float" office:value="99"><text:p>99.00 USD</text:p></table:table-cell>
-              </table:table-row>
-            </table:table>
-          </office:spreadsheet></office:body>
-        </office:document-content>
-        """
-        let archive = makeStoredZipArchive(entries: [
-            ("mimetype", Data("application/vnd.oasis.opendocument.spreadsheet".utf8)),
-            ("content.xml", Data(odsContent.utf8))
-        ])
-        guard let wb = TTMediaOfficeSpreadsheetReader.loadWorkbook(data: archive, fileName: "dates_controls.ods"),
-              let sheet = wb.activeSheet else {
-            return XCTFail("Expected ODS workbook with date-value/time-value cells to parse")
+    func testWholeFileFallbackWhenFullRewriteIsSmallerThanDeltaPayload() throws {
+        let tempDir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("TTDeltaWholeFallback_\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: tempDir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: tempDir) }
+
+        let csvURL = tempDir.appendingPathComponent("compact.csv")
+        let initialCSV = "a,b\n1,2\n3,4\n"
+        let tinyReplacement = "x,y\n"
+        try initialCSV.write(to: csvURL, atomically: true, encoding: .utf8)
+
+        let receipt = try XCTUnwrap(
+            SpreadsheetSavePolicy.saveInPlaceWithDeltaReceipt(
+                content: tinyReplacement,
+                expectedBaseline: initialCSV,
+                fileURL: csvURL,
+                fileName: "compact.csv",
+                resourceContext: .diskFile(url: csvURL)
+            )
+        )
+        XCTAssertGreaterThan(receipt.opsCount, 0)
+        XCTAssertFalse(receipt.usedDeltaPath, "Full rewrite smaller than 24-byte op header must take whole-file path")
+        XCTAssertEqual(try String(contentsOf: csvURL, encoding: .utf8), tinyReplacement)
+    }
+
+    func testExternalFileModificationConflictRejectsSaveAndPreservesOnDiskFile() throws {
+        let tempDir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("TTDeltaConflict_\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: tempDir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: tempDir) }
+
+        let csvURL = tempDir.appendingPathComponent("shared.csv")
+        let codeURL = tempDir.appendingPathComponent("shared.swift")
+
+        let baseCSV = "k,v\n1,10\n2,20\n"
+        let baseCode = "let v = 1\n"
+        try baseCSV.write(to: csvURL, atomically: true, encoding: .utf8)
+        try baseCode.write(to: codeURL, atomically: true, encoding: .utf8)
+
+        let tracker = TTSavedBaselineTracker(initialContent: baseCode, fileURL: codeURL)
+
+        // Simulate external concurrent modification on disk after views loaded their baselines
+        let extCSV = "k,v\n1,999\n2,888\n"
+        let extCode = "let v = 999\n"
+        try extCSV.write(to: csvURL, atomically: true, encoding: .utf8)
+        try extCode.write(to: codeURL, atomically: true, encoding: .utf8)
+
+        XCTAssertThrowsError(
+            try SpreadsheetSavePolicy.saveInPlaceWithDeltaReceipt(
+                content: "k,v\n1,11\n2,20\n",
+                expectedBaseline: baseCSV,
+                fileURL: csvURL,
+                fileName: "shared.csv",
+                resourceContext: .diskFile(url: csvURL)
+            )
+        ) { error in
+            XCTAssertEqual(error as? TTDeltaSaveConflictError, .externalFileModified(csvURL.standardizedFileURL))
         }
-        XCTAssertEqual(sheet.rows, [
-            ["2026-10-25", "2026/10/25 (Display)", "PT13H45M00S", "13:45"],
-            ["", "42.5", "42.5", "99.00 USD"]
-        ])
-    }
 
-    // MARK: - Helpers
-
-    private func sha256Hex(of url: URL) throws -> String {
-        let data = try Data(contentsOf: url)
-        return SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
-    }
-
-    private func makeMinimalXLSXArchive(sheetXML: String, sharedStringsXML: String? = nil) -> Data {
-        let workbookXML = "<workbook><sheets><sheet name=\"Sheet1\" sheetId=\"1\" r:id=\"rId1\"/></sheets></workbook>"
-        let relsXML = "<Relationships><Relationship Id=\"rId1\" Target=\"worksheets/sheet1.xml\"/></Relationships>"
-        var entries: [(String, Data)] = [
-            ("xl/workbook.xml", Data(workbookXML.utf8)),
-            ("xl/_rels/workbook.xml.rels", Data(relsXML.utf8)),
-            ("xl/worksheets/sheet1.xml", Data(sheetXML.utf8))
-        ]
-        if let sst = sharedStringsXML { entries.append(("xl/sharedStrings.xml", Data(sst.utf8))) }
-        return makeStoredZipArchive(entries: entries)
-    }
-
-    private func makeStoredZipArchive(entries: [(String, Data)]) -> Data {
-        var archive = Data()
-        var centralDirectory = Data()
-        for (name, payload) in entries {
-            let nameData = Data(name.utf8)
-            let localOffset = UInt32(archive.count)
-            let size = UInt32(payload.count)
-            for v: UInt32 in [0x0403_4B50] { appendUInt32LE(v, to: &archive) }
-            for v: UInt16 in [20, 0, 0, 0, 0] { appendUInt16LE(v, to: &archive) }
-            for v: UInt32 in [0, size, size] { appendUInt32LE(v, to: &archive) }
-            for v: UInt16 in [UInt16(nameData.count), 0] { appendUInt16LE(v, to: &archive) }
-            archive.append(nameData)
-            archive.append(payload)
-
-            appendUInt32LE(0x0201_4B50, to: &centralDirectory)
-            for v: UInt16 in [20, 20, 0, 0, 0, 0] { appendUInt16LE(v, to: &centralDirectory) }
-            for v: UInt32 in [0, size, size] { appendUInt32LE(v, to: &centralDirectory) }
-            for v: UInt16 in [UInt16(nameData.count), 0, 0, 0, 0] { appendUInt16LE(v, to: &centralDirectory) }
-            for v: UInt32 in [0, localOffset] { appendUInt32LE(v, to: &centralDirectory) }
-            centralDirectory.append(nameData)
+        XCTAssertThrowsError(try TTControlledTextSaveTransaction.commit(
+            payload: "let v = 2\n",
+            expectedBaseline: tracker.activeBaseline(hasContentOverride: false, stateBaseline: nil),
+            encoding: .utf8,
+            targetURL: codeURL,
+            isCSV: false
+        )) { error in
+            XCTAssertEqual(error as? TTDeltaSaveConflictError, .externalFileModified(codeURL.standardizedFileURL))
         }
-        let cdOffset = UInt32(archive.count)
-        let cdSize = UInt32(centralDirectory.count)
-        archive.append(centralDirectory)
-        appendUInt32LE(0x0605_4B50, to: &archive)
-        for v: UInt16 in [0, 0, UInt16(entries.count), UInt16(entries.count)] { appendUInt16LE(v, to: &archive) }
-        for v: UInt32 in [cdSize, cdOffset] { appendUInt32LE(v, to: &archive) }
-        appendUInt16LE(0, to: &archive)
-        return archive
+
+        XCTAssertEqual(try String(contentsOf: csvURL, encoding: .utf8), extCSV)
+        XCTAssertEqual(try String(contentsOf: codeURL, encoding: .utf8), extCode)
     }
 
-    private func appendUInt16LE(_ value: UInt16, to data: inout Data) {
-        data.append(contentsOf: [UInt8(truncatingIfNeeded: value), UInt8(truncatingIfNeeded: value >> 8)])
-    }
+    func testReadOnlyArchiveDerivedAndTruncatedSourcesRemainBlockedUnderDeltaSave() throws {
+        let tempDir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("TTDeltaGuards_\(UUID().uuidString)", isDirectory: true)
+        let stagingDir = tempDir.appendingPathComponent("TTZipLRUPreviewCache/slot", isDirectory: true)
+        try FileManager.default.createDirectory(at: stagingDir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: tempDir) }
 
-    private func appendUInt32LE(_ value: UInt32, to data: inout Data) {
-        data.append(contentsOf: [
-            UInt8(truncatingIfNeeded: value), UInt8(truncatingIfNeeded: value >> 8),
-            UInt8(truncatingIfNeeded: value >> 16), UInt8(truncatingIfNeeded: value >> 24)
-        ])
-    }
+        let diskCSV = tempDir.appendingPathComponent("guarded.csv")
+        let stagedCSV = stagingDir.appendingPathComponent("staged.csv")
+        let original = "col1,col2\n1,2\n"
+        try original.write(to: diskCSV, atomically: true, encoding: .utf8)
+        try original.write(to: stagedCSV, atomically: true, encoding: .utf8)
 
-    private func locateDocumentsFixturesDirectory() throws -> URL {
-        let sourceDir = URL(fileURLWithPath: #filePath)
-            .deletingLastPathComponent()
-            .deletingLastPathComponent()
-            .appendingPathComponent("Fixtures/preview/documents", isDirectory: true)
-        if FileManager.default.fileExists(atPath: sourceDir.path) {
-            return sourceDir
+        let readOnlyCtx = TTPreviewResourceContext.diskFile(url: diskCSV, allowsEditing: false)
+        let truncatedCtx = TTPreviewResourceContext.diskFile(url: diskCSV).withTruncatedPreview(true)
+        let derivedCtx = TTPreviewResourceContext.diskFile(url: diskCSV).withDerivedRepresentation(true, description: "Workbook")
+        let archiveCtx = TTPreviewResourceContext.archiveEntry(
+            archiveURL: tempDir.appendingPathComponent("archive.zip"),
+            entryPath: "staged.csv",
+            stagedReadURL: stagedCSV
+        )
+
+        for ctx in [readOnlyCtx, truncatedCtx, derivedCtx] {
+            let receipt = try SpreadsheetSavePolicy.saveInPlaceWithDeltaReceipt(
+                content: "col1,col2\n9,9\n",
+                expectedBaseline: original,
+                fileURL: diskCSV,
+                fileName: "guarded.csv",
+                resourceContext: ctx
+            )
+            XCTAssertNil(receipt)
         }
-        if let testSrcDir = ProcessInfo.processInfo.environment["TEST_SRCDIR"] {
-            let runfilesPath = URL(fileURLWithPath: testSrcDir)
-                .appendingPathComponent("_main/infra/ttmedia/Tests/Fixtures/preview/documents", isDirectory: true)
-            if FileManager.default.fileExists(atPath: runfilesPath.path) {
-                return runfilesPath
-            }
-        }
-        throw CocoaError(.fileNoSuchFile, userInfo: [NSLocalizedDescriptionKey: "Required preview documents fixture directory is missing"])
+        let archiveReceipt = try SpreadsheetSavePolicy.saveInPlaceWithDeltaReceipt(
+            content: "col1,col2\n9,9\n",
+            expectedBaseline: original,
+            fileURL: stagedCSV,
+            fileName: "staged.csv",
+            resourceContext: archiveCtx
+        )
+        XCTAssertNil(archiveReceipt)
+        XCTAssertEqual(try String(contentsOf: diskCSV, encoding: .utf8), original)
+        XCTAssertEqual(try String(contentsOf: stagedCSV, encoding: .utf8), original)
+    }
+
+    // MARK: - 7. Issue #314 Document Preview Switch & Baseline Regression Tests
+
+    func testMarkdownSourceSwitchResetsScrollAndSelection() throws {
+        let tempDir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("TTMarkdownSwitch314_\(UUID().uuidString)", isDirectory: true)
+        let stagingDir = tempDir.appendingPathComponent("TTZipLRUPreviewCache/md", isDirectory: true)
+        try FileManager.default.createDirectory(at: stagingDir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: tempDir) }
+
+        let diskURL = tempDir.appendingPathComponent("a.md")
+        let stagedURL = stagingDir.appendingPathComponent("b.md")
+        let archiveURL = tempDir.appendingPathComponent("docs.zip")
+        let markdownA = "# Doc A\n" + String(repeating: "Paragraph A\n", count: 80)
+        let markdownB = "# Doc B\nParagraph B\n"
+        try markdownA.write(to: diskURL, atomically: true, encoding: .utf8)
+        try markdownB.write(to: stagedURL, atomically: true, encoding: .utf8)
+
+        let blocksA = TTMarkdownParser.parseDocumentBlocks(markdownA)
+        let blocksB = TTMarkdownParser.parseDocumentBlocks(markdownB)
+        XCTAssertNotEqual(blocksA.map(\.id), blocksB.map(\.id))
+
+        let diskContext = TTPreviewResourceContext.diskFile(url: diskURL)
+        let archiveContext = TTPreviewResourceContext.archiveEntry(
+            archiveURL: archiveURL, entryPath: "docs/b.md", stagedReadURL: stagedURL
+        )
+
+        let editorRep = CodeHighlightingEditorNSView(
+            text: .constant(markdownA),
+            fileName: "a.md",
+            showLineNumbers: true,
+            isEditable: diskContext.isEditableInPlace
+        )
+        let coordinator = editorRep.makeCoordinator()
+        let scrollView = editorRep.makeEditorScrollView(coordinator: coordinator)
+        scrollView.frame = NSRect(x: 0, y: 0, width: 480, height: 200)
+        let textView = try XCTUnwrap(scrollView.documentView as? LargeTextEditorTextView)
+        textView.frame = NSRect(x: 0, y: 0, width: 480, height: 1200)
+        XCTAssertEqual(textView.string, markdownA)
+        XCTAssertTrue(textView.isEditable)
+        textView.setSelectedRange(NSRange(location: 5, length: 6))
+        scrollView.contentView.scroll(to: NSPoint(x: 0, y: 180))
+        XCTAssertEqual(scrollView.contentView.bounds.origin.y, 180, accuracy: 0.5)
+
+        let archiveEditor = CodeHighlightingEditorNSView(
+            text: .constant(markdownB), fileName: "b.md", showLineNumbers: true,
+            isEditable: archiveContext.isEditableInPlace
+        )
+        archiveEditor.applyUpdate(to: scrollView, coordinator: coordinator)
+        XCTAssertEqual(textView.string, markdownB)
+        XCTAssertFalse(textView.isEditable)
+        XCTAssertEqual(textView.selectedRange(), NSRange(location: 0, length: 0))
+        XCTAssertEqual(scrollView.contentView.bounds.origin.y, 0.0, accuracy: 0.5)
+    }
+
+    func testDocxAndEPUBDocumentSwitchStateReset() throws {
+        let urlA = URL(fileURLWithPath: "/tmp/docA.docx")
+        let urlB = URL(fileURLWithPath: "/tmp/docB.docx")
+        let attrA = NSAttributedString(string: String(repeating: "Paragraph in Doc A.\n", count: 60))
+        let attrB = NSAttributedString(string: "Short Doc B")
+
+        let docxViewA = DocxTextEditorNSView(attributedString: attrA, fileURL: urlA)
+        let docxCoordinator = docxViewA.makeCoordinator()
+        let scrollView = NSScrollView(frame: NSRect(x: 0, y: 0, width: 420, height: 180))
+        let textView = NSTextView(frame: NSRect(x: 0, y: 0, width: 420, height: 900))
+        textView.textStorage?.setAttributedString(attrA)
+        scrollView.documentView = textView
+        textView.setSelectedRange(NSRange(location: 4, length: 5))
+        scrollView.contentView.scroll(to: NSPoint(x: 0, y: 150))
+        XCTAssertEqual(scrollView.contentView.bounds.origin.y, 150, accuracy: 0.5)
+
+        let docxViewB = DocxTextEditorNSView(attributedString: attrB, fileURL: urlB)
+        docxViewB.applyUpdate(to: scrollView, coordinator: docxCoordinator)
+        XCTAssertEqual(textView.autoresizingMask, [.width])
+        XCTAssertEqual(textView.selectedRange(), NSRange(location: 0, length: 0))
+        XCTAssertEqual(scrollView.contentView.bounds.origin, .zero)
+        XCTAssertEqual(textView.string, "Short Doc B")
+
+        let epubDataA = Data("EPUB_BUFFER_ALPHA_0123456789".utf8)
+        let epubDataB = Data("EPUB_BUFFER_BETA_9876543210_EXTRA".utf8)
+        let epubIdA = EPUBReaderSession.makeTaskIdentity(fileURL: nil, epubData: epubDataA)
+        let epubIdB = EPUBReaderSession.makeTaskIdentity(fileURL: nil, epubData: epubDataB)
+        XCTAssertNotEqual(epubIdA, epubIdB)
+
+        let epubDir = FileManager.default.temporaryDirectory.appendingPathComponent("TTEPUB314_\(UUID().uuidString)", isDirectory: true)
+        let epubBook = EPUBBookModel(
+            url: epubDir.appendingPathComponent("book.epub"),
+            title: "Book",
+            chapters: [EPUBChapterItem(id: "c1", title: "Ch 1", fileURL: epubDir.appendingPathComponent("ch1.xhtml"))],
+            extractDir: epubDir
+        )
+        let epubReader = EPUBReaderSession(bookModel: epubBook, fileURL: nil, epubData: epubDataA)
+        let dummySearchTask = Task<Void, Never> { _ = try? await Task.sleep(for: .seconds(5)) }
+        epubReader.stageSearchAndPopoverStateForTesting(
+            isSearchPresented: true,
+            isTOCPresented: true,
+            query: "stale query",
+            matches: ["Chapter 1"],
+            task: dummySearchTask
+        )
+        XCTAssertTrue(epubReader.effectiveIsSearchPopoverPresented)
+        XCTAssertTrue(epubReader.effectiveIsTOCPopoverPresented)
+        XCTAssertEqual(epubReader.effectiveSearchQuery, "stale query")
+
+        epubReader.loadEPUBPackage()
+        XCTAssertTrue(dummySearchTask.isCancelled)
+        XCTAssertFalse(epubReader.effectiveIsSearchPopoverPresented)
+        XCTAssertFalse(epubReader.effectiveIsTOCPopoverPresented)
+        XCTAssertEqual(epubReader.effectiveSearchQuery, "")
+        XCTAssertTrue(epubReader.effectiveSearchMatches.isEmpty)
+    }
+
+    func testSavedBaselineTrackerBoundsDiskLoads() throws {
+        let tempDir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("TTBaselineBounded-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: tempDir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: tempDir) }
+
+        let diskURL = tempDir.appendingPathComponent("sample.txt")
+        let diskText = "0123456789ABCDEF0123456789ABCDEF" // 32 bytes
+        try diskText.write(to: diskURL, atomically: true, encoding: .utf8)
+
+        let disabledTracker = TTSavedBaselineTracker(
+            initialContent: "fallback",
+            fileURL: diskURL,
+            allowsDiskBaselineLoad: false
+        )
+        XCTAssertEqual(disabledTracker.activeBaseline(hasContentOverride: false, stateBaseline: nil), "fallback")
+
+        let oversizedTracker = TTSavedBaselineTracker(
+            initialContent: "fallback",
+            fileURL: diskURL,
+            allowsDiskBaselineLoad: true,
+            maxBaselineBytes: 8
+        )
+        XCTAssertEqual(oversizedTracker.activeBaseline(hasContentOverride: false, stateBaseline: nil), "fallback")
+
+        let allowedTracker = TTSavedBaselineTracker(
+            initialContent: "fallback",
+            fileURL: diskURL,
+            allowsDiskBaselineLoad: true,
+            maxBaselineBytes: 64
+        )
+        XCTAssertEqual(allowedTracker.activeBaseline(hasContentOverride: false, stateBaseline: nil), diskText)
+    }
+
+    func testSavedBaselineTrackerResetAllowsSaveAfterReload() throws {
+        let codeURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("TTBaselineReload-\(UUID().uuidString).swift")
+        let lastSaved = "let v = 1\n"
+        try Data(lastSaved.utf8).write(to: codeURL)
+        defer { try? FileManager.default.removeItem(at: codeURL) }
+        let tracker = TTSavedBaselineTracker(initialContent: lastSaved, fileURL: codeURL)
+        tracker.recordSave(lastSaved)
+
+        let reloaded = "let v = 2\n"
+        try Data(reloaded.utf8).write(to: codeURL, options: .atomic)
+        tracker.reset(initialContent: reloaded, fileURL: codeURL)
+        let baseline = tracker.activeBaseline(hasContentOverride: false, stateBaseline: nil)
+        XCTAssertEqual(baseline, reloaded)
+
+        let edited = "let v = 3\n"
+        _ = try TTControlledTextSaveTransaction.commit(
+            payload: edited, expectedBaseline: baseline, encoding: .utf8, targetURL: codeURL, isCSV: false
+        )
+        XCTAssertEqual(try Data(contentsOf: codeURL), Data(edited.utf8))
     }
 }
-

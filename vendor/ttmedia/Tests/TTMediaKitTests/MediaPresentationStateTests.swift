@@ -181,30 +181,6 @@ final class MediaPresentationStateTests: XCTestCase {
         XCTAssertEqual(gbTrack.text(at: 2.0), "简体中文字幕")
     }
 
-    @MainActor
-    func testSubtitleOverlayBottomPaddingIsInvariantWhenControlsVisibilityChanges() {
-        let style = SubtitleStyleConfiguration(verticalPosition: 85.0)
-        for width in [CGFloat(320), CGFloat(960)] {
-            let visibleOverlay = SubtitleOverlayView(
-                primaryText: "测试字幕",
-                secondaryText: "",
-                style: style,
-                controlsVisible: true,
-                viewportWidth: width,
-                viewportHeight: 540
-            )
-            let hiddenOverlay = SubtitleOverlayView(
-                primaryText: "测试字幕",
-                secondaryText: "",
-                style: style,
-                controlsVisible: false,
-                viewportWidth: width,
-                viewportHeight: 540
-            )
-            XCTAssertEqual(visibleOverlay.bottomPadding, hiddenOverlay.bottomPadding, accuracy: 0.001)
-        }
-    }
-
     func testLongSpanningEarlyCueJumpIndexSkipsEndedIntermediateCues() {
         var cues: [ExternalSubtitleTrack.Cue] = [
             .init(start: 0.0, end: 7200.0, text: "Watermark")

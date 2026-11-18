@@ -1,7 +1,6 @@
 // Copyright 2026 MetastudyLine. All rights reserved.
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
-import SwiftUI
 import Foundation
 #if os(macOS)
 import AppKit
@@ -52,16 +51,57 @@ public struct EPUBChapterItem: Identifiable, Hashable, Sendable {
 
 /// In-memory representation of an unpacked EPUB publication.
 public struct EPUBBookModel: Sendable {
+    private final class ResourceLease: Sendable {
+        let release: @Sendable () -> Void
+
+        init(release: @escaping @Sendable () -> Void) {
+            self.release = release
+        }
+
+        deinit {
+            release()
+        }
+    }
+
     public let url: URL
     public let title: String
     public let chapters: [EPUBChapterItem]
     public let extractDir: URL
+    private let resourceLease: ResourceLease?
 
     public init(url: URL, title: String, chapters: [EPUBChapterItem], extractDir: URL) {
+        self.init(url: url, title: title, chapters: chapters, extractDir: extractDir, resourceLease: nil)
+    }
+
+    /// Keeps the host's publication resources alive until the last copy is released.
+    public init(
+        url: URL,
+        title: String,
+        chapters: [EPUBChapterItem],
+        extractDir: URL,
+        onRelease: @escaping @Sendable () -> Void
+    ) {
+        self.init(
+            url: url,
+            title: title,
+            chapters: chapters,
+            extractDir: extractDir,
+            resourceLease: ResourceLease(release: onRelease)
+        )
+    }
+
+    private init(
+        url: URL,
+        title: String,
+        chapters: [EPUBChapterItem],
+        extractDir: URL,
+        resourceLease: ResourceLease?
+    ) {
         self.url = url
         self.title = title
         self.chapters = chapters
         self.extractDir = extractDir
+        self.resourceLease = resourceLease
     }
 }
 
@@ -178,7 +218,6 @@ public struct OfficePresentationModel: @unchecked Sendable {
 
 /// Universal discrete preview presentation mode resolved for arbitrary media and document assets.
 public enum TTMediaPreviewType: @unchecked Sendable {
-    case pluginView(AnyView)
     case image(PlatformImage)
     case video(URL)
     case audio(URL)
@@ -196,6 +235,12 @@ public enum TTMediaPreviewType: @unchecked Sendable {
     case officePresentation(OfficePresentationModel)
     case quickLook(URL)
     case unsupported(String)
+
+    /// Returns `true` strictly when the resolved preview type is a video stream.
+    public var isVideoPreview: Bool {
+        if case .video = self { return true }
+        return false
+    }
 
     /// Convenience helper for binary inspection.
     public static func hexData(_ data: Data, _ url: URL? = nil) -> TTMediaPreviewType {

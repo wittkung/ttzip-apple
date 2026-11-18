@@ -3,28 +3,11 @@
 
 import AppKit
 import SwiftUI
-import TTI18nCore
 @testable import TTMediaKit
 import XCTest
 
 @MainActor
 final class TextSoftWrapAndLineNumberLayoutTests: XCTestCase {
-    private var savedSharedMode: TTTextReadingBackgroundMode = .fluidTransparent
-    private var savedSharedSoftWrap: Bool = true
-
-    override func setUp() async throws {
-        try await super.setUp()
-        savedSharedMode = TTTextReadingPreferenceStore.shared.mode
-        savedSharedSoftWrap = TTTextReadingPreferenceStore.shared.isSoftWrapEnabled
-        TTTextReadingPreferenceStore.shared.resetToDefault()
-    }
-
-    override func tearDown() async throws {
-        TTTextReadingPreferenceStore.shared.mode = savedSharedMode
-        TTTextReadingPreferenceStore.shared.isSoftWrapEnabled = savedSharedSoftWrap
-        try await super.tearDown()
-    }
-
     private static let mixedLongLineCorpus: String = [
         "第一行超长中文段落：在窄窗口与宽窗口下验证自动换行开启时按可用宽度折行展示，关闭时保持单行并提供横向滚动且绝不截断行尾字符【行尾锚点-CJK-END】",
         "let secondLineSuperLongSwiftDeclaration = \"English & code super-long logical line verifying widthTracksTextView, horizontal scrolling reachability, and zero buffer newline insertion [ASCII-TAIL-END]\"",
@@ -33,67 +16,22 @@ final class TextSoftWrapAndLineNumberLayoutTests: XCTestCase {
         "第五行结尾短行 End of line 5"
     ].joined(separator: "\n")
 
-    // MARK: - 1. Default Enabled, Shared Preference Store & Localization
-
-    func testDefaultSoftWrapPreferenceAndSharedPersistenceAcrossTxtAndCode() {
-        let suiteName = "ttmedia.test.softwrap.\(UUID().uuidString)"
-        let defaults = UserDefaults(suiteName: suiteName)!
-        defer { defaults.removePersistentDomain(forName: suiteName) }
-
-        let store = TTTextReadingPreferenceStore(defaults: defaults)
-        XCTAssertTrue(
-            store.isSoftWrapEnabled,
-            "Soft wrap must default to true when no prior user selection exists"
-        )
-        XCTAssertEqual(
-            TTTextReadingPreferenceStore.defaultSoftWrapEnabled,
-            true
-        )
-
-        store.isSoftWrapEnabled = false
-        XCTAssertEqual(
-            defaults.object(forKey: TTTextReadingPreferenceStore.softWrapUserDefaultsKey) as? Bool,
-            false
-        )
-
-        let reloadedStore = TTTextReadingPreferenceStore(defaults: defaults)
-        XCTAssertFalse(
-            reloadedStore.isSoftWrapEnabled,
-            "Persisted soft wrap selection must survive store re-initialization"
-        )
-
-        reloadedStore.resetToDefault()
-        XCTAssertTrue(reloadedStore.isSoftWrapEnabled)
-        XCTAssertEqual(
-            defaults.object(forKey: TTTextReadingPreferenceStore.softWrapUserDefaultsKey) as? Bool,
-            true
-        )
-
-        // Verify TXT and code containers share the same single preference owner.
-        TTTextReadingPreferenceStore.shared.isSoftWrapEnabled = true
-        let txtContainer = CodeTextEditorContainerView(
-            initialText: "plain text",
-            fileURL: nil,
-            fileName: "notes.txt"
-        )
-        let swiftContainer = CodeTextEditorContainerView(
-            initialText: "let x = 1",
-            fileURL: nil,
-            fileName: "main.swift"
-        )
-        XCTAssertTrue(txtContainer.activeSoftWrapEnabled)
-        XCTAssertTrue(swiftContainer.activeSoftWrapEnabled)
-
-        txtContainer.activeSoftWrapBinding.wrappedValue = false
-        XCTAssertFalse(TTTextReadingPreferenceStore.shared.isSoftWrapEnabled)
-        XCTAssertFalse(swiftContainer.activeSoftWrapEnabled)
-
-        // Verify localized labels and tooltips across English, Simplified Chinese, and Traditional Chinese.
-        XCTAssertEqual(TextAndDocumentPreviewLocaleKey.softWrapLabel.fallbackTranslation(for: .en), "Soft Wrap")
-        XCTAssertEqual(TextAndDocumentPreviewLocaleKey.softWrapLabel.fallbackTranslation(for: .zhHans), "自动换行")
-        XCTAssertEqual(TextAndDocumentPreviewLocaleKey.softWrapLabel.fallbackTranslation(for: .zhHant), "自動換行")
-        XCTAssertTrue(TextAndDocumentPreviewLocaleKey.disableSoftWrapHelp.fallbackTranslation(for: .zhHans).contains("关闭自动换行"))
-        XCTAssertTrue(TextAndDocumentPreviewLocaleKey.enableSoftWrapHelp.fallbackTranslation(for: .zhHans).contains("开启自动换行"))
+    func testDefaultNativeEditorUsesSystemPaletteAndSoftWrap() throws {
+        let editor = CodeHighlightingEditorNSView(text: .constant("Plain text"), fileName: "note.txt")
+        XCTAssertEqual(editor.readingPalette, .system)
+        XCTAssertTrue(editor.isSoftWrapEnabled)
+        let coordinator = editor.makeCoordinator()
+        let scroll = editor.makeEditorScrollView(coordinator: coordinator)
+        defer { coordinator.cancelPendingTasks() }
+        let text = try XCTUnwrap(scroll.documentView as? NSTextView)
+        XCTAssertTrue(scroll.drawsBackground)
+        XCTAssertTrue(text.drawsBackground)
+        XCTAssertEqual(text.backgroundColor, .textBackgroundColor)
+        XCTAssertEqual(text.textColor, .textColor)
+        XCTAssertEqual(text.insertionPointColor, .textColor)
+        XCTAssertEqual(coordinator.activeReadingPalette, .system)
+        XCTAssertEqual(coordinator.rulerView?.readingPalette, .system)
+        XCTAssertEqual(text.selectedTextAttributes[.backgroundColor] as? NSColor, .selectedTextBackgroundColor)
     }
 
     // MARK: - 2. Real NSTextView Layout Reflow & Horizontal Scroll Reachability
@@ -143,17 +81,13 @@ final class TextSoftWrapAndLineNumberLayoutTests: XCTestCase {
         XCTAssertGreaterThanOrEqual(wrappedPlacements[0].visualFragmentCount, 3, "Long CJK line must wrap into >= 3 visual lines at 280pt")
         XCTAssertGreaterThanOrEqual(wrappedPlacements[1].visualFragmentCount, 3, "Long English/code line must wrap into >= 3 visual lines at 280pt")
 
-        // 2. Toggle soft wrap OFF via the live floating popover button (`CodeFloatingSoftWrapToggle`).
-        let softWrapButton = try XCTUnwrap(findButton(id: "CodeFloatingSoftWrapToggle", in: host))
-        XCTAssertEqual(softWrapButton.accessibilityValue() as? String, TextAndDocumentPreviewLocalization.text(.softWrapStateOn))
-        XCTAssertTrue(softWrapButton.accessibilityPerformPress())
+        driver.isSoftWrapEnabled = false
         flushLayoutCycles(host, count: 6)
 
         XCTAssertFalse(driver.isSoftWrapEnabled)
         XCTAssertFalse(container.widthTracksTextView)
         XCTAssertTrue(editor.isHorizontallyResizable)
         XCTAssertTrue(scrollView.hasHorizontalScroller)
-        XCTAssertEqual(softWrapButton.accessibilityValue() as? String, TextAndDocumentPreviewLocalization.text(.softWrapStateOff))
 
         let unwrappedUsedRect = layoutManager.usedRect(for: container)
         XCTAssertGreaterThan(
@@ -183,7 +117,7 @@ final class TextSoftWrapAndLineNumberLayoutTests: XCTestCase {
 
         // 3. Toggle soft wrap back ON and verify the horizontal origin rests against the ruler
         //    and the width tracks the ruler-aware viewport again.
-        XCTAssertTrue(softWrapButton.accessibilityPerformPress())
+        driver.isSoftWrapEnabled = true
         flushLayoutCycles(host, count: 6)
         XCTAssertTrue(driver.isSoftWrapEnabled)
         XCTAssertTrue(container.widthTracksTextView)
@@ -352,7 +286,6 @@ final class TextSoftWrapAndLineNumberLayoutTests: XCTestCase {
         let driver = SoftWrapTestDriver(
             text: Self.mixedLongLineCorpus,
             fileName: fileURL.lastPathComponent,
-            fileURL: fileURL,
             isEditable: true
         )
         let (window, host) = makeOffscreenHost(
@@ -390,28 +323,22 @@ final class TextSoftWrapAndLineNumberLayoutTests: XCTestCase {
         XCTAssertEqual(Data(editor.string.utf8), originalBytes)
         XCTAssertEqual(editor.selectedRange(), targetSelection)
 
-        // Verify copyPreviewToPasteboard and saveFile write exact UTF-8 bytes without fabricating '\n'.
-        let container = CodeTextEditorContainerView(
-            initialText: Self.mixedLongLineCorpus,
-            fileURL: fileURL,
-            fileName: fileURL.lastPathComponent,
-            isReadOnly: false,
-            resourceContext: .diskFile(url: fileURL, fileName: fileURL.lastPathComponent, allowsEditing: true),
-            softWrapEnabled: .constant(true)
+        _ = try TTControlledTextSaveTransaction.commit(
+            payload: editor.string,
+            expectedBaseline: Self.mixedLongLineCorpus,
+            encoding: .utf8,
+            targetURL: fileURL,
+            isCSV: false
         )
-        let pb = NSPasteboard.withUniqueName()
-        XCTAssertEqual(container.copyPreviewToPasteboard(pb), Self.mixedLongLineCorpus)
-        XCTAssertTrue(container.saveFile(contentOverride: editor.string))
-        let savedDiskBytes = try Data(contentsOf: fileURL)
-        XCTAssertEqual(savedDiskBytes, originalBytes, "Saving after soft wrap toggles must not insert any newline bytes")
+        XCTAssertEqual(try Data(contentsOf: fileURL), originalBytes)
 
         // Verify active IME marked text composition is preserved across soft-wrap toggle.
         try verifyIMEMarkedTextSurvivesSoftWrapToggle(editor: editor, driver: driver, host: host)
     }
 
-    // MARK: - 5. Viewport Anchor Preservation, Zero Remount & Markdown Source Passthrough
+    // MARK: - 5. Viewport Anchor Preservation Without Remount
 
-    func testViewportAnchorPreservationNoRemountAndMarkdownSourcePassthrough() async throws {
+    func testViewportAnchorPreservationWithoutRemount() async throws {
         let multiLineCode = (1...90).map { idx in
             "func logicalFunctionLine_\(idx)() -> String { return \"Line \(idx) long body content for soft wrap anchor verification in viewport\" }"
         }.joined(separator: "\n")
@@ -467,12 +394,48 @@ final class TextSoftWrapAndLineNumberLayoutTests: XCTestCase {
         resizeOffscreenHost(host, window: window, width: 680, height: 240)
         flushLayoutCycles(host, count: 5)
         XCTAssertEqual(coordinator.documentGeneration, initialGeneration, "Window resize must never remount document")
-
-        // Verify MarkdownRichPreviewView source mode inherits soft wrap preference from TTTextReadingPreferenceStore.
-        try await assertMarkdownSourceModePassthrough(in: window)
     }
 
-    // MARK: - Helpers
+    func testInitialLoadResizeAtTopAndDocumentSwitchPreserveTopInsetScrollOrigin() async throws {
+        let firstDoc = (1...80).map { "let firstDocLine_\($0) = \"long code content for top scroll verification \($0)\"" }.joined(separator: "\n")
+        let secondDoc = (1...80).map { "struct SecondDocType_\($0) { let value = \($0) }" }.joined(separator: "\n")
+        let driver = SoftWrapTestDriver(text: firstDoc, fileName: "FirstFile.swift", isEditable: false)
+        let (window, host) = makeOffscreenHost(width: 300, height: 240, rootView: SoftWrapHarnessView(driver: driver))
+        defer { window.contentView = nil; window.close() }
+
+        let editor = try await waitForMountedEditor(in: host, expectedText: firstDoc)
+        let scrollView = try XCTUnwrap(editor.enclosingScrollView)
+        let layoutManager = try XCTUnwrap(editor.layoutManager)
+        let ruler = try XCTUnwrap(scrollView.verticalRulerView as? LineNumberRulerView)
+        let coordinator = try XCTUnwrap(editor.chunkCoordinator)
+        let topInset = editor.textContainerInset.height
+        XCTAssertGreaterThan(topInset, 0)
+        XCTAssertEqual(scrollView.contentView.bounds.origin.y, -scrollView.contentInsets.top, accuracy: 0.5)
+        let line1GlyphY = layoutManager.lineFragmentRect(forGlyphAt: 0, effectiveRange: nil).minY + editor.textContainerOrigin.y
+        XCTAssertEqual(line1GlyphY - scrollView.contentView.bounds.origin.y, topInset, accuracy: 0.5)
+        let initialPlacements = ruler.visibleLogicalLineNumberPlacements()
+        XCTAssertEqual(initialPlacements.first?.lineNumber, 1)
+        XCTAssertEqual(initialPlacements.first?.rectInRuler.minY ?? 0, topInset + 1.0, accuracy: 1.0)
+
+        resizeOffscreenHost(host, window: window, width: 520, height: 240)
+        flushLayoutCycles(host, count: 4)
+        XCTAssertEqual(scrollView.contentView.bounds.origin.y, 0.0, accuracy: 0.5)
+        let topAnchor = TTTextViewportAnchor(characterIndex: 0, intraLineOffsetY: 0, wasAtTop: false, selectedRanges: [])
+        coordinator.restoreViewportAnchor(topAnchor, in: editor, scrollView: scrollView, isSoftWrapEnabled: true)
+        XCTAssertEqual(scrollView.contentView.bounds.origin.y, 0.0, accuracy: 0.5)
+
+        scrollView.contentView.scroll(to: NSPoint(x: scrollView.contentView.bounds.origin.x, y: 540))
+        scrollView.reflectScrolledClipView(scrollView.contentView)
+        editor.setSelectedRange(NSRange(location: 120, length: 8))
+        XCTAssertGreaterThan(scrollView.contentView.bounds.origin.y, 400)
+
+        driver.fileName = "SecondFile.swift"
+        driver.text = secondDoc
+        _ = try await waitForMountedEditor(in: host, expectedText: secondDoc)
+        XCTAssertEqual(scrollView.contentView.bounds.origin.y, -scrollView.contentInsets.top, accuracy: 0.5)
+        XCTAssertEqual(editor.selectedRange(), NSRange(location: 0, length: 0))
+        XCTAssertEqual(ruler.visibleLogicalLineNumberPlacements().first?.rectInRuler.minY ?? 0, topInset + 1.0, accuracy: 1.0)
+    }
 
     // MARK: - Helpers
 
@@ -594,39 +557,6 @@ final class TextSoftWrapAndLineNumberLayoutTests: XCTestCase {
         XCTAssertTrue(editor.string.hasSuffix(markedString))
     }
 
-    private func assertMarkdownSourceModePassthrough(in window: NSWindow) async throws {
-        let suiteName = "ttmedia.test.md.softwrap.\(UUID().uuidString)"
-        let defaults = UserDefaults(suiteName: suiteName)!
-        defer { defaults.removePersistentDomain(forName: suiteName) }
-        let store = TTTextReadingPreferenceStore(defaults: defaults)
-        store.isSoftWrapEnabled = false
-
-        let mdHost = NSHostingView(
-            rootView: MarkdownRichPreviewView(
-                initialMarkdown: "# Heading\n\n" + Self.mixedLongLineCorpus,
-                fileURL: nil,
-                fileName: "readme.md",
-                initialMode: .source,
-                readingPreferenceStore: store
-            )
-            .frame(width: 300, height: 240)
-        )
-        mdHost.sizingOptions = []
-        window.contentView = mdHost
-        window.setContentSize(NSSize(width: 300, height: 240))
-        mdHost.frame = NSRect(x: 0, y: 0, width: 300, height: 240)
-        flushLayoutCycles(mdHost, count: 8)
-
-        let mdEditor = try XCTUnwrap(findEditor(in: mdHost))
-        XCTAssertEqual(mdEditor.textContainer?.widthTracksTextView, false)
-        XCTAssertTrue(mdEditor.isHorizontallyResizable)
-
-        store.isSoftWrapEnabled = true
-        flushLayoutCycles(mdHost, count: 6)
-        XCTAssertEqual(mdEditor.textContainer?.widthTracksTextView, true)
-        XCTAssertFalse(mdEditor.isHorizontallyResizable)
-    }
-
     private func makeOffscreenHost<Content: View>(
         width: CGFloat,
         height: CGFloat,
@@ -705,18 +635,6 @@ final class TextSoftWrapAndLineNumberLayoutTests: XCTestCase {
         }
         return nil
     }
-
-    private func findButton(id: String, in root: NSView) -> NSButton? {
-        if let button = root as? NSButton, button.accessibilityIdentifier() == id {
-            return button
-        }
-        for child in root.subviews {
-            if let found = findButton(id: id, in: child) {
-                return found
-            }
-        }
-        return nil
-    }
 }
 
 @MainActor
@@ -724,16 +642,12 @@ final class TextSoftWrapAndLineNumberLayoutTests: XCTestCase {
 private final class SoftWrapTestDriver {
     var text: String
     var fileName: String
-    var fileURL: URL?
     var isEditable: Bool
-    var isSoftWrapEnabled: Bool = TTTextReadingPreferenceStore.defaultSoftWrapEnabled
-    var mode: TTTextReadingBackgroundMode = .black
-    var state: TTTextFloatingToolsPresentationState? = .popoverExpanded
+    var isSoftWrapEnabled = true
 
-    init(text: String, fileName: String, fileURL: URL? = nil, isEditable: Bool) {
+    init(text: String, fileName: String, isEditable: Bool) {
         self.text = text
         self.fileName = fileName
-        self.fileURL = fileURL
         self.isEditable = isEditable
     }
 }
@@ -742,17 +656,13 @@ private struct SoftWrapHarnessView: View {
     @Bindable var driver: SoftWrapTestDriver
 
     var body: some View {
-        CodeTextEditorContainerView(
-            initialText: driver.text,
-            fileURL: driver.fileURL,
+        CodeHighlightingEditorNSView(
+            text: $driver.text,
             fileName: driver.fileName,
-            isReadOnly: !driver.isEditable,
-            resourceContext: driver.fileURL.map {
-                .diskFile(url: $0, fileName: driver.fileName, allowsEditing: driver.isEditable)
-            },
-            readingBackgroundMode: $driver.mode,
-            softWrapEnabled: $driver.isSoftWrapEnabled,
-            floatingToolsState: $driver.state
+            isEditable: driver.isEditable,
+            isSoftWrapEnabled: driver.isSoftWrapEnabled,
+            readingPalette: TextReadingPaletteFixtures.resolve(mode: .black, isDarkAppearance: true),
+            textContainerInset: NSSize(width: 8, height: 10)
         )
         .environment(\.colorScheme, .dark)
     }

@@ -344,6 +344,19 @@ public enum UniversalTokens: Sendable {
             #endif
         }
 
+        /// Jade Cyan: Slide-Forge & Synthesis Media.
+        /// Dark: sRGB (94, 234, 212); Light: sRGB (13, 148, 136).
+        public static var jadeCyan: Color {
+            #if canImport(AppKit) && !targetEnvironment(macCatalyst)
+            return Color(nsColor: jadeCyanNSColor)
+            #else
+            return UniversalTokens.dynamicColor(
+                lightRed: 13.0 / 255.0, lightGreen: 148.0 / 255.0, lightBlue: 136.0 / 255.0, lightAlpha: 1.0,
+                darkRed: 94.0 / 255.0, darkGreen: 234.0 / 255.0, darkBlue: 212.0 / 255.0, darkAlpha: 1.0
+            )
+            #endif
+        }
+
         /// Paper White (和纸白): Pristine Zen paper substrate (#FBFBF9).
         public static let paperWhite = Color(red: 251.0 / 255.0, green: 251.0 / 255.0, blue: 249.0 / 255.0)
 
@@ -383,6 +396,84 @@ public enum UniversalTokens: Sendable {
         public static let sidebarWidth: CGFloat = 200.0
         public static let minContentWidth: CGFloat = 450.0
         public static let inspectorWidth: CGFloat = 280.0
+    }
+
+    // MARK: - Segmented Switch Semantic Tokens
+
+    /// Semantic surface, contrast, and hit-target tokens for `TTSegmentedSwitch`.
+    public enum SegmentedSwitch: Sendable {
+        public static let trackSurfaceOpacity: Double = 0.55
+        public static let hoverSurfaceOpacity: Double = 0.55
+        public static let activeTintFillOpacityDark: Double = 0.22
+        public static let activeTintFillOpacityLight: Double = 0.16
+        public static let activeTintBorderOpacityDark: Double = 0.55
+        public static let activeTintBorderOpacityLight: Double = 0.42
+        public static let hairlineWidth: CGFloat = UniversalTokens.Dimensions.hairlineWidth
+        public static let minHitTargetMacOS: CGFloat = 28.0
+        public static let minHitTargetCompactMacOS: CGFloat = 24.0
+        public static let minHitTargetIOS: CGFloat = 44.0
+        public static let minActiveContrastRatio: Double = 3.0
+
+        public static var trackSurface: Color {
+            Plate.surfaceL1.opacity(trackSurfaceOpacity)
+        }
+
+        public static var activeIndicatorSurface: Color {
+            Plate.surfaceL3
+        }
+
+        public static var hoverSurface: Color {
+            Plate.surfaceL2.opacity(hoverSurfaceOpacity)
+        }
+
+        public static var activeText: Color {
+            Text.primary
+        }
+
+        public static var inactiveText: Color {
+            UniversalTokens.dynamicColor(
+                lightRed: 68.0 / 255.0, lightGreen: 68.0 / 255.0, lightBlue: 72.0 / 255.0, lightAlpha: 1.0,
+                darkRed: 194.0 / 255.0, darkGreen: 194.0 / 255.0, darkBlue: 200.0 / 255.0, darkAlpha: 1.0
+            )
+        }
+
+        public static var hairlineBorder: Color {
+            Border.specularHairline
+        }
+
+        public static func activeIndicatorTintFill(for tint: Color, colorScheme: ColorScheme) -> Color {
+            let opacity = colorScheme == .dark ? activeTintFillOpacityDark : activeTintFillOpacityLight
+            return tint.opacity(opacity)
+        }
+
+        public static func activeIndicatorTintBorder(for tint: Color, colorScheme: ColorScheme) -> Color {
+            let opacity = colorScheme == .dark ? activeTintBorderOpacityDark : activeTintBorderOpacityLight
+            return tint.opacity(opacity)
+        }
+
+        public static func activeTextContrastRatio(for colorScheme: ColorScheme) -> Double {
+            if colorScheme == .dark {
+                let textLum = CIELAB.relativeLuminance(red: 1.0, green: 1.0, blue: 1.0)
+                let surfaceLum = CIELAB.relativeLuminance(red: 50.0 / 255.0, green: 50.0 / 255.0, blue: 54.0 / 255.0)
+                return CIELAB.contrastRatio(lum1: textLum, lum2: surfaceLum)
+            } else {
+                let textLum = CIELAB.relativeLuminance(red: 0.0, green: 0.0, blue: 0.0)
+                let surfaceLum = CIELAB.relativeLuminance(red: 235.0 / 255.0, green: 235.0 / 255.0, blue: 240.0 / 255.0)
+                return CIELAB.contrastRatio(lum1: textLum, lum2: surfaceLum)
+            }
+        }
+
+        public static func inactiveTextContrastRatio(for colorScheme: ColorScheme) -> Double {
+            if colorScheme == .dark {
+                let textLum = CIELAB.relativeLuminance(red: 194.0 / 255.0, green: 194.0 / 255.0, blue: 200.0 / 255.0)
+                let trackLum = CIELAB.relativeLuminance(red: 28.0 / 255.0, green: 28.0 / 255.0, blue: 30.0 / 255.0)
+                return CIELAB.contrastRatio(lum1: textLum, lum2: trackLum)
+            } else {
+                let textLum = CIELAB.relativeLuminance(red: 68.0 / 255.0, green: 68.0 / 255.0, blue: 72.0 / 255.0)
+                let trackLum = CIELAB.relativeLuminance(red: 1.0, green: 1.0, blue: 1.0)
+                return CIELAB.contrastRatio(lum1: textLum, lum2: trackLum)
+            }
+        }
     }
 
     // MARK: - Motion & Fluid Spring Dynamics

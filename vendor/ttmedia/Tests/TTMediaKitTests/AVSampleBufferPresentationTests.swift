@@ -143,21 +143,6 @@ final class AVSampleBufferPresentationTests: XCTestCase {
         controller.stop()
     }
 
-    // MARK: - Test 3: Container Routing Engine Resolution
-
-    @MainActor
-    func testContainerRoutingEngineResolution() {
-        let supportedExts = ["mp4", "mov", "m4v", "mkv", "webm", "avi", "ts", "mts", "m2ts", "flv"]
-        for ext in supportedExts {
-            let url = URL(fileURLWithPath: "/tmp/sample.\(ext)")
-            XCTAssertEqual(
-                UnifiedVideoPlayerView.resolveEngine(for: url),
-                .avSampleBuffer,
-                "\(ext) must route to AVSampleBuffer engine"
-            )
-        }
-    }
-
     @MainActor
     func testAudioVideoSyncDriftBound() async throws {
         let synchronizer = AVSampleBufferRenderSynchronizer()
@@ -208,21 +193,6 @@ final class AVSampleBufferPresentationTests: XCTestCase {
         let dict = unsafeBitCast(CFArrayGetValueAtIndex(attachments, 0), to: CFDictionary.self)
         let doNotDisplay = CFDictionaryGetValue(dict, Unmanaged.passUnretained(kCMSampleAttachmentKey_DoNotDisplay).toOpaque())
         XCTAssertNotNil(doNotDisplay)
-    }
-
-    // MARK: - Test 4: Assert Zero MPV Instantiation When Loading MP4
-
-    @MainActor
-    func testZeroMPVInstantiationWhenLoadingMP4() async throws {
-        let tempDir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
-        try FileManager.default.createDirectory(at: tempDir, withIntermediateDirectories: true)
-        defer { try? FileManager.default.removeItem(at: tempDir) }
-
-        let videoURL = tempDir.appendingPathComponent("zero_mpv.mp4")
-        try await Self.createSyntheticH264MP4(at: videoURL, frameCount: 15, fps: 30)
-
-        let playerView = UnifiedVideoPlayerView(url: videoURL)
-        XCTAssertNotNil(playerView)
     }
 
     // MARK: - Test 5: AVSampleBufferRenderer Packet Ingestion
@@ -425,10 +395,6 @@ final class MockExtradataTransport: MediaWorkerTransport, @unchecked Sendable {
         try handle.close()
         let moovMagic = Data([0x6D, 0x6F, 0x6F, 0x76]) // 'moov'
         XCTAssertFalse(first64KB.contains(moovMagic), "In non-fast-start MP4, 'moov' atom must NOT be in the first 64KB")
-
-        // Verify routing: pure container extension routes to .avSampleBuffer (zero synchronous I/O)
-        let engine = UnifiedVideoPlayerView.resolveEngine(for: videoURL)
-        XCTAssertEqual(engine, .avSampleBuffer, "Pure container routing must resolve non-fast-start MP4 to .avSampleBuffer")
 
         // Verify playback: AVAssetReader loads container, initializes display layer, and plays first frame
         let controller = AVAssetReaderPlaybackController(url: videoURL)
@@ -640,9 +606,8 @@ final class MockExtradataTransport: MediaWorkerTransport, @unchecked Sendable {
         let testMKV = URL(fileURLWithPath: "/tmp/fake_init_test.mkv")
 
         for _ in 0..<20 {
-            _ = UnifiedVideoPlayerView(url: testMP4)
-            _ = UnifiedVideoPlayerView(url: testMKV)
             _ = AVSampleBufferVideoPlayerView(url: testMP4)
+            _ = AVSampleBufferVideoPlayerView(url: testMKV)
         }
 
         XCTAssertFalse(MediaPlaybackCoordinator.shared.isMediaActive, "Constructing views without rendering must register zero coordinator sessions")

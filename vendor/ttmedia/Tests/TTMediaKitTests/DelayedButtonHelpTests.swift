@@ -136,6 +136,38 @@ final class DelayedButtonHelpTests: XCTestCase {
         await task.value
         XCTAssertEqual(presentations, 0)
     }
+
+    func testButtonHelpPreservesChildAccessibilityLabelsInContainerStacks() {
+        let host = NSHostingView(rootView: HStack(spacing: 8) {
+            Menu("Root") { Button("Open") {} }
+                .menuStyle(.borderlessButton)
+                .accessibilityLabel("Root Segment")
+                .accessibilityIdentifier("BreadcrumbRootSegment")
+            Menu("Refresh") { Button("Reload") {} }
+                .menuStyle(.borderlessButton)
+                .accessibilityLabel("Refresh")
+                .accessibilityIdentifier("AddressBarRefreshButton")
+        }.ttButtonHelp("/Users/test/Downloads"))
+        let window = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 320, height: 80),
+            styleMask: [.borderless], backing: .buffered, defer: false
+        )
+        window.isReleasedWhenClosed = false
+        window.contentView = host
+        defer { window.contentView = nil; window.close() }
+        host.frame = NSRect(x: 0, y: 0, width: 320, height: 80)
+        host.layoutSubtreeIfNeeded()
+
+        let buttons = findButtons(in: host)
+        XCTAssertEqual(buttons.count, 2)
+        let labels = Set(buttons.compactMap { $0.accessibilityLabel() })
+        XCTAssertEqual(labels, ["Root", "Refresh"], "Container .ttButtonHelp must not overwrite child accessibilityLabel")
+        XCTAssertFalse(labels.contains("/Users/test/Downloads"))
+    }
+
+    private func findButtons(in view: NSView) -> [NSButton] {
+        ((view as? NSButton).map { [$0] } ?? []) + view.subviews.flatMap { findButtons(in: $0) }
+    }
 }
 
 private actor ButtonHelpTestClock {

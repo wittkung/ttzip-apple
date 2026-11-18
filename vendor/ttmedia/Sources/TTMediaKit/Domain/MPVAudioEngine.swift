@@ -133,17 +133,6 @@ public final class MPVAudioEngine: NSObject, AVAudioPlayerDelegate, @unchecked S
     /// Last local time-window extraction error, if any (independent from whole-track playback failure).
     public internal(set) var lastWaveformWindowError: AudioWaveformWindowError? = nil
 
-    /// Localized status text when the waveform is a sampled result or its completeness is unverified.
-    public var waveformPrecisionStatusText: String? {
-        guard let status = waveformPrecisionStatus else { return nil }
-        switch status {
-        case .exhaustiveVerified:
-            return nil
-        case .sampledOrCompletenessUnverified:
-            return AudioPreviewLocalization.text(.completenessUnverifiedBadge)
-        }
-    }
-
     public var errorMessage: String? {
         failureReason?.localizedMessage
     }

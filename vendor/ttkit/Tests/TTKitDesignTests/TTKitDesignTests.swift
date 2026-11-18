@@ -157,11 +157,74 @@ final class TTKitDesignTests: XCTestCase {
         _ = TTKitTheme.archivalAmber
         _ = TTKitTheme.cinnabarRed
         _ = TTKitTheme.acousticIndigo
+        _ = TTKitTheme.celestialPurple
+        _ = TTKitTheme.jadeCyan
+        _ = UniversalTokens.Mineral.jadeCyan
         _ = TTKitTheme.paperWhite
         _ = TTKitTheme.porcelainGray
         _ = TTKitTheme.obsidianBlack
         _ = TTKitTheme.inkCharcoal
         _ = TTKitTheme.hairlineBorder
+    }
+
+    // MARK: - Segmented Switch Semantic Tokens & Contrast Gates
+
+    func testSegmentedSwitchSemanticTokens() {
+        XCTAssertEqual(UniversalTokens.SegmentedSwitch.hairlineWidth, 0.5)
+        XCTAssertEqual(UniversalTokens.SegmentedSwitch.hairlineWidth, UniversalTokens.Border.width)
+        XCTAssertEqual(UniversalTokens.SegmentedSwitch.trackSurfaceOpacity, 0.55, accuracy: 1e-6)
+        XCTAssertEqual(UniversalTokens.SegmentedSwitch.hoverSurfaceOpacity, 0.55, accuracy: 1e-6)
+        XCTAssertEqual(UniversalTokens.SegmentedSwitch.activeTintFillOpacityDark, 0.22, accuracy: 1e-6)
+        XCTAssertEqual(UniversalTokens.SegmentedSwitch.activeTintFillOpacityLight, 0.16, accuracy: 1e-6)
+        XCTAssertEqual(UniversalTokens.SegmentedSwitch.activeTintBorderOpacityDark, 0.55, accuracy: 1e-6)
+        XCTAssertEqual(UniversalTokens.SegmentedSwitch.activeTintBorderOpacityLight, 0.42, accuracy: 1e-6)
+        XCTAssertGreaterThanOrEqual(UniversalTokens.SegmentedSwitch.minHitTargetMacOS, 28.0)
+        XCTAssertGreaterThanOrEqual(UniversalTokens.SegmentedSwitch.minHitTargetCompactMacOS, 24.0)
+        XCTAssertGreaterThanOrEqual(UniversalTokens.SegmentedSwitch.minHitTargetIOS, 44.0)
+        XCTAssertGreaterThanOrEqual(UniversalTokens.SegmentedSwitch.minActiveContrastRatio, 3.0)
+
+        _ = UniversalTokens.SegmentedSwitch.trackSurface
+        _ = UniversalTokens.SegmentedSwitch.activeIndicatorSurface
+        _ = UniversalTokens.SegmentedSwitch.hoverSurface
+        _ = UniversalTokens.SegmentedSwitch.activeText
+        _ = UniversalTokens.SegmentedSwitch.inactiveText
+        _ = UniversalTokens.SegmentedSwitch.hairlineBorder
+        _ = UniversalTokens.SegmentedSwitch.activeIndicatorTintFill(for: TTKitTheme.kintsugiGold, colorScheme: .dark)
+        _ = UniversalTokens.SegmentedSwitch.activeIndicatorTintFill(for: TTKitTheme.kintsugiGold, colorScheme: .light)
+        _ = UniversalTokens.SegmentedSwitch.activeIndicatorTintBorder(for: TTKitTheme.jadeCyan, colorScheme: .dark)
+        _ = UniversalTokens.SegmentedSwitch.activeIndicatorTintBorder(for: TTKitTheme.jadeCyan, colorScheme: .light)
+    }
+
+    func testSegmentedSwitchWCAGContrastInvariants() {
+        let darkActiveContrast = UniversalTokens.SegmentedSwitch.activeTextContrastRatio(for: .dark)
+        let lightActiveContrast = UniversalTokens.SegmentedSwitch.activeTextContrastRatio(for: .light)
+        XCTAssertGreaterThanOrEqual(
+            darkActiveContrast,
+            UniversalTokens.SegmentedSwitch.minActiveContrastRatio,
+            "Dark mode active segmented switch text contrast must be >= 3.0:1"
+        )
+        XCTAssertGreaterThanOrEqual(
+            lightActiveContrast,
+            UniversalTokens.SegmentedSwitch.minActiveContrastRatio,
+            "Light mode active segmented switch text contrast must be >= 3.0:1"
+        )
+
+        let darkInactiveContrast = UniversalTokens.SegmentedSwitch.inactiveTextContrastRatio(for: .dark)
+        let lightInactiveContrast = UniversalTokens.SegmentedSwitch.inactiveTextContrastRatio(for: .light)
+        XCTAssertGreaterThanOrEqual(
+            darkInactiveContrast,
+            UniversalTokens.SegmentedSwitch.minActiveContrastRatio,
+            "Dark mode inactive segmented switch text contrast must be >= 3.0:1"
+        )
+        XCTAssertGreaterThanOrEqual(
+            lightInactiveContrast,
+            UniversalTokens.SegmentedSwitch.minActiveContrastRatio,
+            "Light mode inactive segmented switch text contrast must be >= 3.0:1"
+        )
+
+        let jadeDarkL = CIELAB.cielabLStar(red: 94.0 / 255.0, green: 234.0 / 255.0, blue: 212.0 / 255.0)
+        let jadeLightL = CIELAB.cielabLStar(red: 13.0 / 255.0, green: 148.0 / 255.0, blue: 136.0 / 255.0)
+        XCTAssertGreaterThan(jadeDarkL, jadeLightL)
     }
 
     // MARK: - Dynamic Color Providers
@@ -201,6 +264,62 @@ final class TTKitDesignTests: XCTestCase {
             .ttPrimaryGlassPlate()
             .ttOverlayGlassPlate()
         _ = sampleView
+    }
+
+    func testFloatingGlassPlateExplicitOverlayAndOverLimitDepthResolution() {
+        let env = EnvironmentValues()
+        XCTAssertEqual(env.ttGlassPlateDepth, 0)
+
+        let explicitBase = TTFloatingGlassPlateModifier(tier: .base)
+        let explicitPrimary = TTFloatingGlassPlateModifier(tier: .primary)
+        let explicitOverlay = TTFloatingGlassPlateModifier(tier: .overlay)
+        let autoPlate = TTFloatingGlassPlateModifier()
+
+        let standaloneOverlay = explicitOverlay.resolvedDepth(forParentDepth: 0)
+        XCTAssertEqual(explicitOverlay.resolvedTier(forParentDepth: 0), .overlay)
+        XCTAssertEqual(standaloneOverlay.rawDepth, 3)
+        XCTAssertEqual(standaloneOverlay.clampedDepth, 3)
+        XCTAssertFalse(standaloneOverlay.isViolation)
+
+        let baseAtRoot = explicitBase.resolvedDepth(forParentDepth: 0)
+        XCTAssertEqual(explicitBase.resolvedTier(forParentDepth: 0), .base)
+        XCTAssertEqual(baseAtRoot.rawDepth, 1)
+        XCTAssertEqual(baseAtRoot.clampedDepth, 1)
+        XCTAssertFalse(baseAtRoot.isViolation)
+
+        let primaryInsideBase = explicitPrimary.resolvedDepth(forParentDepth: baseAtRoot.clampedDepth)
+        XCTAssertEqual(explicitPrimary.resolvedTier(forParentDepth: baseAtRoot.clampedDepth), .primary)
+        XCTAssertEqual(primaryInsideBase.rawDepth, 2)
+        XCTAssertEqual(primaryInsideBase.clampedDepth, 2)
+        XCTAssertFalse(primaryInsideBase.isViolation)
+
+        let overlayInsidePrimary = explicitOverlay.resolvedDepth(forParentDepth: primaryInsideBase.clampedDepth)
+        XCTAssertEqual(explicitOverlay.resolvedTier(forParentDepth: primaryInsideBase.clampedDepth), .overlay)
+        XCTAssertEqual(overlayInsidePrimary.rawDepth, 3)
+        XCTAssertEqual(overlayInsidePrimary.clampedDepth, 3)
+        XCTAssertFalse(overlayInsidePrimary.isViolation)
+
+        let autoL1 = autoPlate.resolvedDepth(forParentDepth: 0)
+        XCTAssertEqual(autoPlate.resolvedTier(forParentDepth: 0), .base)
+        XCTAssertEqual(autoL1.clampedDepth, 1)
+        XCTAssertFalse(autoL1.isViolation)
+
+        let autoL2 = autoPlate.resolvedDepth(forParentDepth: autoL1.clampedDepth)
+        XCTAssertEqual(autoPlate.resolvedTier(forParentDepth: autoL1.clampedDepth), .primary)
+        XCTAssertEqual(autoL2.clampedDepth, 2)
+        XCTAssertFalse(autoL2.isViolation)
+
+        let autoL3 = autoPlate.resolvedDepth(forParentDepth: autoL2.clampedDepth)
+        XCTAssertEqual(autoPlate.resolvedTier(forParentDepth: autoL2.clampedDepth), .overlay)
+        XCTAssertEqual(autoL3.clampedDepth, 3)
+        XCTAssertFalse(autoL3.isViolation)
+
+        for fourthLayer in [autoPlate, explicitBase, explicitPrimary, explicitOverlay] {
+            let overLimit = fourthLayer.resolvedDepth(forParentDepth: standaloneOverlay.clampedDepth)
+            XCTAssertEqual(overLimit.rawDepth, 4)
+            XCTAssertEqual(overLimit.clampedDepth, 3)
+            XCTAssertTrue(overLimit.isViolation)
+        }
     }
 
     // MARK: - Kintsugi Gold Divider & Seam Tests

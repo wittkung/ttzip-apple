@@ -13,14 +13,14 @@
 
 ## ⚡️ Architecture & SDK Ecosystem
 
-`ttzip-apple` is the native macOS desktop client, Finder sync extension, QuickLook previewer, and plugin host. It consumes the precompiled **`TTZipCore` SDK** and embeds the native **`TTZipPluginKit`** runtime.
+`ttzip-apple` is the native macOS desktop client, Finder sync extension, and QuickLook previewer. It links the **`TTZipCore` SDK** with modular Swift 6 targets for workspace state, media and document preview, search, and task orchestration.
 
 ```
 ┌──────────────────────────────────────────────────────────────────────────┐
 │                        ttzip-apple Architecture                          │
 ├──────────────────────────────────────────────────────────────────────────┤
-│ • Native macOS App (Sources/TTZipApp)                                    │
-│ • Embedded Plugin SDK (Sources/TTZipPluginKit)                           │
+│ • Native macOS App (Sources/TTZipApp, Sources/TTZipAppComposition)       │
+│ • Modular Swift 6 Targets (TTZipUI, TTZipWorkspace, TTZipPreviewKit)     │
 │ • System Extensions: Finder Sync & QuickLook Preview                     │
 │ • Microkernel Dependency: TTZipCore (SPM Package / Universal XCFramework)│
 └──────────────────────────────────────────────────────────────────────────┘
@@ -34,7 +34,6 @@
 - **Finder Sync Extension**: Seamless right-click context menu integration for instant packing, unpacking, hash checking, and container inspection.
 - **QuickLook Preview Extension**: Spacebar instant archive preview in Finder powered by in-memory HTML rendering.
 - **Dock Progress & Drag-and-Drop Queue**: 30Hz throttled macOS Dock Tile progress ring and concurrent operations queue manager.
-- **Embedded Plugin Architecture**: Built-in `TTZipPluginKit` runtime supporting dynamic tool and cloud sync plugins (e.g. LarkSync).
 - **Security & Integrity**: Integrated Anti-ZipSlip defense, Security-Scoped Bookmarks, and hardware CRC integrity checks.
 
 ---

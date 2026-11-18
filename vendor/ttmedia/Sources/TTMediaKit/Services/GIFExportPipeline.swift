@@ -3,7 +3,9 @@
 
 import Foundation
 import AppKit
+@preconcurrency import AVFoundation
 import CoreGraphics
+import CoreMedia
 import ImageIO
 import UniformTypeIdentifiers
 import os.log
@@ -16,16 +18,20 @@ public struct GIFExportOptions: Sendable, Equatable {
     public let width: Int
     /// Whether to enable ordered Bayer pattern dithering for optimal color gradation.
     public let dither: Bool
-    
+    /// Forces native AVAssetImageGenerator + ImageIO extraction instead of external FFmpeg.
+    public var preferNativeImageIO: Bool
+
     /// Initializes GIF export options with hardware-friendly bounds.
     /// - Parameters:
     ///   - fps: Target frame rate in fps (10...30, default: 15).
     ///   - width: Maximum horizontal dimension in pixels (320...720, default: 480).
     ///   - dither: Enable Bayer spatial dithering (default: true).
-    public init(fps: Int = 15, width: Int = 480, dither: Bool = true) {
+    ///   - preferNativeImageIO: Force native AVFoundation + ImageIO pipeline (default: false).
+    public init(fps: Int = 15, width: Int = 480, dither: Bool = true, preferNativeImageIO: Bool = false) {
         self.fps = min(max(fps, 10), 30)
         self.width = min(max(width, 320), 720)
         self.dither = dither
+        self.preferNativeImageIO = preferNativeImageIO
     }
 }
 
@@ -33,18 +39,22 @@ public struct GIFExportOptions: Sendable, Equatable {
 public enum GIFExportError: LocalizedError, Sendable {
     case invalidTimeRange(lower: Double, upper: Double)
     case sourceFileNotFound(URL)
+    case unsupportedSource(URL, reason: String)
     case ffmpegNotFound
     case processExecutionFailed(exitCode: Int32, standardError: String)
     case cancelled
     case fallbackExtractionFailed(String)
     case encodingFailed(String)
-    
+
     public var errorDescription: String? {
         switch self {
         case .invalidTimeRange(let lower, let upper):
             return "Invalid time range for GIF export: [\(lower), \(upper)]. Upper bound must exceed lower bound."
         case .sourceFileNotFound(let url):
             return "Source media file does not exist at path: \(url.path)"
+        case .unsupportedSource(let url, let reason):
+            let name = url.lastPathComponent.isEmpty ? url.absoluteString : url.lastPathComponent
+            return "Unsupported source for GIF export (\(name)): \(reason)"
         case .ffmpegNotFound:
             return "FFmpeg binary could not be located in application bundle or system PATH."
         case .processExecutionFailed(let code, let err):
@@ -60,18 +70,39 @@ public enum GIFExportError: LocalizedError, Sendable {
 }
 
 /// High-quality animated GIF export engine with dual-pass PaletteGen optimization
-/// and pure in-memory MPVThumbnailWorker + ImageIO fallback rendering.
+/// and native AVAssetImageGenerator + ImageIO fallback rendering.
 public final class GIFExportPipeline: Sendable {
     public static let shared = GIFExportPipeline()
     private let logger = Logger(subsystem: "dev.metastudyline.ttmedia", category: "GIFExportPipeline")
-    
+
     public init() {}
-    
+
+    // MARK: - Source Compatibility Validation
+
+    /// Validates whether a candidate source URL can be exported as an animated GIF.
+    public func validateSourceCompatibility(_ sourceURL: URL) -> Result<Void, GIFExportError> {
+        guard sourceURL.isFileURL else {
+            return .failure(.unsupportedSource(sourceURL, reason: "Only local video file URLs can be exported as GIF."))
+        }
+        var isDirectory: ObjCBool = false
+        guard FileManager.default.fileExists(atPath: sourceURL.path, isDirectory: &isDirectory) else {
+            return .failure(.sourceFileNotFound(sourceURL))
+        }
+        guard !isDirectory.boolValue else {
+            return .failure(.unsupportedSource(sourceURL, reason: "Source path points to a directory rather than a video file."))
+        }
+        let attrs = try? FileManager.default.attributesOfItem(atPath: sourceURL.path)
+        let fileSize = (attrs?[.size] as? NSNumber)?.int64Value ?? 0
+        guard fileSize > 0 else {
+            return .failure(.unsupportedSource(sourceURL, reason: "Source video file is empty (0 bytes)."))
+        }
+        return .success(())
+    }
+
     // MARK: - Binary Resolution
-    
+
     /// Discovers system, embedded or Homebrew FFmpeg binary location.
     public func resolveFFmpegBinaryPath() -> String? {
-        // 1. Embedded inside App Bundle or Frameworks
         if let bundlePath = Bundle.main.path(forResource: "ffmpeg", ofType: nil),
            FileManager.default.isExecutableFile(atPath: bundlePath) {
             return bundlePath
@@ -80,21 +111,17 @@ public final class GIFExportPipeline: Sendable {
         if FileManager.default.isExecutableFile(atPath: macOsBin) {
             return macOsBin
         }
-        
-        // 2. Canonical macOS Homebrew and standard POSIX paths
+
         let standardCandidates = [
             "/opt/homebrew/bin/ffmpeg",
             "/usr/local/bin/ffmpeg",
             "/usr/bin/ffmpeg",
             "/bin/ffmpeg"
         ]
-        for candidate in standardCandidates {
-            if FileManager.default.isExecutableFile(atPath: candidate) {
-                return candidate
-            }
+        for candidate in standardCandidates where FileManager.default.isExecutableFile(atPath: candidate) {
+            return candidate
         }
-        
-        // 3. Search PATH environment variable
+
         if let pathEnv = ProcessInfo.processInfo.environment["PATH"] {
             for dir in pathEnv.components(separatedBy: ":") {
                 let candidate = (dir as NSString).appendingPathComponent("ffmpeg")
@@ -105,57 +132,95 @@ public final class GIFExportPipeline: Sendable {
         }
         return nil
     }
-    
+
     // MARK: - Public Export API
-    
+
+    /// Constructs a temporary staging file URL in the same directory as `destinationURL`
+    /// so existing destination files are never removed before a replacement GIF finishes encoding.
+    public func makeStagingURL(for destinationURL: URL, token: String = UUID().uuidString) -> URL {
+        let baseName = destinationURL.lastPathComponent.isEmpty ? "export" : destinationURL.lastPathComponent
+        return destinationURL.deletingLastPathComponent()
+            .appendingPathComponent(".\(baseName).ttmedia-gif-staging-\(token).gif")
+    }
+
     /// Exports the specified time range from a media source to an animated GIF file.
-    ///
-    /// - Parameters:
-    ///   - sourceURL: URL of the source media file.
-    ///   - timeRange: Playback range in seconds to export.
-    ///   - destinationURL: Destination file URL for the rendered GIF.
-    ///   - options: Target encoding parameters (fps, width, dithering).
-    ///   - progressHandler: Optional progress callback reporting normalized values (0.0...1.0).
     public func exportGIF(
         sourceURL: URL,
         timeRange: ClosedRange<Double>,
         destinationURL: URL,
         options: GIFExportOptions = GIFExportOptions(),
+        stagingURL: URL? = nil,
         progressHandler: (@Sendable (Double) -> Void)? = nil
     ) async throws {
-        guard FileManager.default.fileExists(atPath: sourceURL.path) else {
-            throw GIFExportError.sourceFileNotFound(sourceURL)
+        try validateExportRequest(sourceURL: sourceURL, timeRange: timeRange, destinationURL: destinationURL)
+        let activeStagingURL = stagingURL ?? makeStagingURL(for: destinationURL)
+        try? FileManager.default.removeItem(at: activeStagingURL)
+        defer {
+            try? FileManager.default.removeItem(at: activeStagingURL)
         }
-        guard timeRange.upperBound > timeRange.lowerBound else {
-            throw GIFExportError.invalidTimeRange(lower: timeRange.lowerBound, upper: timeRange.upperBound)
-        }
-        
+
         try Task.checkCancellation()
-        
-        if let ffmpegPath = resolveFFmpegBinaryPath() {
+        if !options.preferNativeImageIO, let ffmpegPath = resolveFFmpegBinaryPath() {
             logger.info("Executing dual-pass FFmpeg PaletteGen export using \(ffmpegPath)")
             try await exportViaFFmpeg(
                 ffmpegPath: ffmpegPath,
                 sourceURL: sourceURL,
                 timeRange: timeRange,
-                destinationURL: destinationURL,
+                destinationURL: activeStagingURL,
                 options: options,
                 progressHandler: progressHandler
             )
         } else {
-            logger.info("FFmpeg binary not available; executing fallback MPVThumbnailWorker + ImageIO export")
+            logger.info("Executing native AVAssetImageGenerator + ImageIO GIF export")
             try await exportViaFallback(
                 sourceURL: sourceURL,
                 timeRange: timeRange,
-                destinationURL: destinationURL,
+                destinationURL: activeStagingURL,
                 options: options,
                 progressHandler: progressHandler
             )
         }
+        try Task.checkCancellation()
+        try commitStagedOutput(from: activeStagingURL, to: destinationURL)
     }
-    
+
+    private func commitStagedOutput(from stagingURL: URL, to destinationURL: URL) throws {
+        let fm = FileManager.default
+        do {
+            if fm.fileExists(atPath: destinationURL.path) {
+                _ = try fm.replaceItemAt(destinationURL, withItemAt: stagingURL)
+            } else {
+                try fm.moveItem(at: stagingURL, to: destinationURL)
+            }
+        } catch {
+            throw GIFExportError.encodingFailed(
+                "Failed to commit GIF output to \(destinationURL.path): \(error.localizedDescription)"
+            )
+        }
+    }
+
+    private func validateExportRequest(
+        sourceURL: URL,
+        timeRange: ClosedRange<Double>,
+        destinationURL: URL
+    ) throws {
+        if case .failure(let compatibilityError) = validateSourceCompatibility(sourceURL) {
+            throw compatibilityError
+        }
+        guard timeRange.upperBound > timeRange.lowerBound else {
+            throw GIFExportError.invalidTimeRange(lower: timeRange.lowerBound, upper: timeRange.upperBound)
+        }
+        let parentDir = destinationURL.deletingLastPathComponent()
+        var isParentDir: ObjCBool = false
+        guard FileManager.default.fileExists(atPath: parentDir.path, isDirectory: &isParentDir),
+              isParentDir.boolValue,
+              FileManager.default.isWritableFile(atPath: parentDir.path) else {
+            throw GIFExportError.encodingFailed("Destination directory does not exist or is not writable: \(parentDir.path)")
+        }
+    }
+
     // MARK: - FFmpeg Dual-Pass Pipeline
-    
+
     private func exportViaFFmpeg(
         ffmpegPath: String,
         sourceURL: URL,
@@ -168,15 +233,14 @@ public final class GIFExportPipeline: Sendable {
         let duration = max(0.1, timeRange.upperBound - timeRange.lowerBound)
         let startStr = String(format: "%.3f", locale: Locale(identifier: "en_US_POSIX"), start)
         let durationStr = String(format: "%.3f", locale: Locale(identifier: "en_US_POSIX"), duration)
-        
+
         let tempPaletteURL = FileManager.default.temporaryDirectory
             .appendingPathComponent("ttmedia_palette_\(UUID().uuidString).png")
-        
+
         defer {
             try? FileManager.default.removeItem(at: tempPaletteURL)
         }
-        
-        // Phase 1: Generate 256-color global optimal palette
+
         progressHandler?(0.05)
         let paletteFilter = "fps=\(options.fps),scale=\(options.width):-1:flags=lanczos,palettegen=stats_mode=diff"
         let phase1Args = [
@@ -189,18 +253,11 @@ public final class GIFExportPipeline: Sendable {
             "-y",
             tempPaletteURL.path
         ]
-        
-        do {
-            try await runProcess(executablePath: ffmpegPath, arguments: phase1Args)
-        } catch {
-            try? FileManager.default.removeItem(at: destinationURL)
-            throw error
-        }
-        
+
+        try await runProcess(executablePath: ffmpegPath, arguments: phase1Args)
         try Task.checkCancellation()
         progressHandler?(0.45)
-        
-        // Phase 2: Render animated GIF with Bayer pattern spatial dithering
+
         let ditherClause = options.dither ? "bayer:bayer_scale=5" : "none"
         let renderLavfi = "fps=\(options.fps),scale=\(options.width):-1:flags=lanczos [x]; [x][1:v] paletteuse=dither=\(ditherClause):diff_mode=rectangle"
         let phase2Args = [
@@ -213,41 +270,34 @@ public final class GIFExportPipeline: Sendable {
             "-y",
             destinationURL.path
         ]
-        
-        do {
-            try await runProcess(executablePath: ffmpegPath, arguments: phase2Args)
-        } catch {
-            try? FileManager.default.removeItem(at: destinationURL)
-            throw error
-        }
-        
+
+        try await runProcess(executablePath: ffmpegPath, arguments: phase2Args)
         try Task.checkCancellation()
         progressHandler?(1.0)
     }
-    
+
     // MARK: - Process Execution with Cancellation
-    
+
     private func runProcess(executablePath: String, arguments: [String]) async throws {
         let process = Process()
         process.executableURL = URL(fileURLWithPath: executablePath)
         process.arguments = arguments
-        
+
         let errorPipe = Pipe()
         process.standardError = errorPipe
         process.standardOutput = Pipe()
-        
+
         try await withTaskCancellationHandler {
             try process.run()
-            
-            // Asynchronously await process completion while polling cancellation periodically
+
             while process.isRunning {
                 if Task.isCancelled {
                     process.terminate()
                     throw GIFExportError.cancelled
                 }
-                try await Task.sleep(nanoseconds: 30_000_000) // 30ms polling interval
+                try await Task.sleep(nanoseconds: 30_000_000)
             }
-            
+
             let status = process.terminationStatus
             if status != 0 {
                 let errData = errorPipe.fileHandleForReading.readDataToEndOfFile()
@@ -260,9 +310,9 @@ public final class GIFExportPipeline: Sendable {
             }
         }
     }
-    
-    // MARK: - Fallback In-Memory ImageIO Pipeline
-    
+
+    // MARK: - Fallback Native AVAssetImageGenerator + ImageIO Pipeline
+
     private func exportViaFallback(
         sourceURL: URL,
         timeRange: ClosedRange<Double>,
@@ -272,81 +322,79 @@ public final class GIFExportPipeline: Sendable {
     ) async throws {
         let start = max(0.0, timeRange.lowerBound)
         let duration = max(0.1, timeRange.upperBound - timeRange.lowerBound)
-        let frameCount = max(1, Int(duration * Double(options.fps)))
+        let frameCount = max(1, Int((duration * Double(options.fps)).rounded()))
         let frameDelay = duration / Double(frameCount)
-        
-        guard let destination = CGImageDestinationCreateWithURL(
-            destinationURL as CFURL,
+
+        let asset = AVURLAsset(url: sourceURL)
+        let generator = AVAssetImageGenerator(asset: asset)
+        generator.appliesPreferredTrackTransform = true
+        generator.requestedTimeToleranceBefore = .zero
+        generator.requestedTimeToleranceAfter = .zero
+
+        let encodedData = NSMutableData()
+        guard let destination = CGImageDestinationCreateWithData(
+            encodedData as CFMutableData,
             UTType.gif.identifier as CFString,
             frameCount,
             nil
         ) else {
-            throw GIFExportError.encodingFailed("Failed to create CGImageDestination for \(destinationURL.path)")
+            throw GIFExportError.encodingFailed("Failed to create in-memory CGImageDestination")
         }
-        
-        // Loop count 0 specifies infinite GIF loop
+
         let fileProperties: [CFString: Any] = [
-            kCGImagePropertyGIFDictionary: [
-                kCGImagePropertyGIFLoopCount: 0
-            ]
+            kCGImagePropertyGIFDictionary: [kCGImagePropertyGIFLoopCount: 0]
         ]
         CGImageDestinationSetProperties(destination, fileProperties as CFDictionary)
-        
+
         var renderedFrames = 0
-        
+        let frameProperties: [CFString: Any] = [
+            kCGImagePropertyGIFDictionary: [
+                kCGImagePropertyGIFDelayTime: frameDelay,
+                kCGImagePropertyGIFUnclampedDelayTime: frameDelay
+            ]
+        ]
+
         for i in 0..<frameCount {
             try Task.checkCancellation()
-            _ = start + Double(i) * frameDelay
-            
-            let image: NSImage? = nil
-            
+            let sampleSeconds = start + Double(i) * frameDelay
+            let requestedTime = CMTime(seconds: sampleSeconds, preferredTimescale: 600)
+            let extractedCG = try? generator.copyCGImage(at: requestedTime, actualTime: nil)
             try Task.checkCancellation()
-            
-            guard let nsImage = image,
-                  let cgImage = renderResizedCGImage(from: nsImage, targetWidth: options.width) else {
-                continue
+
+            if let rawCG = extractedCG,
+               let resizedCG = renderResizedCGImage(from: rawCG, targetWidth: options.width) {
+                CGImageDestinationAddImage(destination, resizedCG, frameProperties as CFDictionary)
+                renderedFrames += 1
             }
-            
-            let frameProperties: [CFString: Any] = [
-                kCGImagePropertyGIFDictionary: [
-                    kCGImagePropertyGIFDelayTime: frameDelay,
-                    kCGImagePropertyGIFUnclampedDelayTime: frameDelay
-                ]
-            ]
-            CGImageDestinationAddImage(destination, cgImage, frameProperties as CFDictionary)
-            renderedFrames += 1
-            
-            let currentProgress = Double(i + 1) / Double(frameCount)
-            progressHandler?(currentProgress)
+
+            progressHandler?(Double(i + 1) / Double(frameCount))
+            try await Task.sleep(nanoseconds: 2_000_000)
         }
-        
+
         guard renderedFrames > 0 else {
-            try? FileManager.default.removeItem(at: destinationURL)
             throw GIFExportError.fallbackExtractionFailed("No frames could be extracted from \(sourceURL.lastPathComponent)")
         }
-        
         guard CGImageDestinationFinalize(destination) else {
-            try? FileManager.default.removeItem(at: destinationURL)
             throw GIFExportError.encodingFailed("Failed to finalize GIF image destination at \(destinationURL.path)")
         }
-        
+
+        try Task.checkCancellation()
+        do {
+            try (encodedData as Data).write(to: destinationURL, options: .atomic)
+        } catch {
+            throw GIFExportError.encodingFailed("Failed to write GIF data to \(destinationURL.path): \(error.localizedDescription)")
+        }
         progressHandler?(1.0)
     }
-    
-    private func renderResizedCGImage(from image: NSImage, targetWidth: Int) -> CGImage? {
-        guard let tiffData = image.tiffRepresentation,
-              let bitmapRep = NSBitmapImageRep(data: tiffData),
-              let originalCG = bitmapRep.cgImage else {
-            return nil
-        }
-        
+
+    private func renderResizedCGImage(from originalCG: CGImage, targetWidth: Int) -> CGImage? {
         let origWidth = Double(originalCG.width)
         let origHeight = Double(originalCG.height)
         guard origWidth > 0, origHeight > 0 else { return nil }
-        
+
         let scale = Double(targetWidth) / origWidth
         let targetHeight = max(1, Int(round(origHeight * scale)))
-        
+
         guard let colorSpace = CGColorSpace(name: CGColorSpace.sRGB),
               let context = CGContext(
                 data: nil,
@@ -359,7 +407,7 @@ public final class GIFExportPipeline: Sendable {
               ) else {
             return originalCG
         }
-        
+
         context.interpolationQuality = .high
         context.draw(originalCG, in: CGRect(x: 0, y: 0, width: targetWidth, height: targetHeight))
         return context.makeImage()

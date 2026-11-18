@@ -41,6 +41,11 @@ public enum TTKitTheme {
         UniversalTokens.Mineral.celestialPurple
     }
 
+    /// Jade Cyan: slide synthesis and presentation media
+    public static var jadeCyan: Color {
+        UniversalTokens.Mineral.jadeCyan
+    }
+
     /// Paper White (和纸白: #FBFBF9)
     public static var paperWhite: Color {
         UniversalTokens.Mineral.paperWhite

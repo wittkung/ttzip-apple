@@ -752,7 +752,6 @@ final class TTMediaFormatDetectionAndRoutingTests: XCTestCase {
 
     private func normalizedRouteCategory(_ preview: TTMediaPreviewType) -> String {
         switch preview {
-        case .pluginView: return "pluginView"
         case .image: return "image"
         case .video: return "video"
         case .audio: return "audio"

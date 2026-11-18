@@ -17,8 +17,8 @@ final class TextViewportRenderingTests: XCTestCase {
         scroll.frame = NSRect(x: 0, y: 0, width: 420, height: 300)
         scroll.tile()
         scroll.layoutSubtreeIfNeeded()
-        for mode in TTTextReadingBackgroundMode.allCases {
-            let palette = TTTextReadingPalette.resolve(mode: mode, isDarkAppearance: true)
+        for mode in TextReadingPaletteFixtures.Mode.allCases {
+            let palette = TextReadingPaletteFixtures.resolve(mode: mode, isDarkAppearance: true)
             coordinator.applyReadingTheme(palette, to: text, scrollView: scroll, recolorStorage: true)
             scroll.tile()
             try assertVisibleText(text, source: source)
@@ -433,14 +433,13 @@ final class TextViewportRenderingTests: XCTestCase {
     func testSmallDocAsyncHighlightPreservesMarkedTextAndRecolorsOnUnmark() async throws {
         try await withInstalledIMEBackend { backend, observer in
             let markerKey = NSAttributedString.Key("TTIMEProbeMarker")
-            let darkPalette = TTTextReadingPalette.resolve(mode: .black, isDarkAppearance: true)
+            let darkPalette = TextReadingPaletteFixtures.resolve(mode: .black, isDarkAppearance: true)
             var boundText = "let alpha = 1\nlet beta = 42\n"
             let editor = CodeHighlightingEditorNSView(
                 text: Binding(get: { boundText }, set: { boundText = $0 }),
                 fileName: "SmallIME.swift",
                 isEditable: true,
-                readingBackgroundMode: .black,
-                isDarkAppearance: true,
+                readingPalette: TextReadingPaletteFixtures.resolve(mode: .black, isDarkAppearance: true),
                 onTextChange: { boundText = $0 }
             )
             let coord = editor.makeCoordinator()
@@ -494,7 +493,7 @@ final class TextViewportRenderingTests: XCTestCase {
     func testLargeDocAsyncStreamPreservesMarkedTextAndRecolorsLatestTextOnUnmark() async throws {
         try await withInstalledIMEBackend { backend, observer in
             let markerKey = NSAttributedString.Key("TTIMEProbeMarker")
-            let darkPalette = TTTextReadingPalette.resolve(mode: .black, isDarkAppearance: true)
+            let darkPalette = TextReadingPaletteFixtures.resolve(mode: .black, isDarkAppearance: true)
             let largeSource = "let header = 1\nlet nihao = 42\n"
                 + String(repeating: "let item_value_0001 = 12345 // comment line\n", count: 3100)
             var boundText = largeSource
@@ -502,8 +501,7 @@ final class TextViewportRenderingTests: XCTestCase {
                 text: Binding(get: { boundText }, set: { boundText = $0 }),
                 fileName: "LargeIME.swift",
                 isEditable: true,
-                readingBackgroundMode: .black,
-                isDarkAppearance: true,
+                readingPalette: TextReadingPaletteFixtures.resolve(mode: .black, isDarkAppearance: true),
                 onTextChange: { boundText = $0 }
             )
             let coord = editor.makeCoordinator()
@@ -556,14 +554,13 @@ final class TextViewportRenderingTests: XCTestCase {
     func testThemeSwitchAndSearchHighlightDuringIMEPreserveMarkedAttributesAndApplyOnUnmark() async throws {
         try await withInstalledIMEBackend { backend, observer in
             let markerKey = NSAttributedString.Key("TTIMEProbeMarker")
-            let lightPalette = TTTextReadingPalette.resolve(mode: .white, isDarkAppearance: false)
+            let lightPalette = TextReadingPaletteFixtures.resolve(mode: .white, isDarkAppearance: false)
             var boundText = "let first = 1\n"
             let editor = CodeHighlightingEditorNSView(
                 text: Binding(get: { boundText }, set: { boundText = $0 }),
                 fileName: "ThemeSearchIME.swift",
                 isEditable: true,
-                readingBackgroundMode: .black,
-                isDarkAppearance: true,
+                readingPalette: TextReadingPaletteFixtures.resolve(mode: .black, isDarkAppearance: true),
                 onTextChange: { boundText = $0 }
             )
             let coord = editor.makeCoordinator()
@@ -604,15 +601,14 @@ final class TextViewportRenderingTests: XCTestCase {
     func testInsertTextCommitRepeatedUnmarkCancelCompositionAndPlainTextModes() async throws {
         try await withInstalledIMEBackend { backend, observer in
             let markerKey = NSAttributedString.Key("TTIMEProbeMarker")
-            let darkPalette = TTTextReadingPalette.resolve(mode: .black, isDarkAppearance: true)
-            let lightPalette = TTTextReadingPalette.resolve(mode: .white, isDarkAppearance: false)
+            let darkPalette = TextReadingPaletteFixtures.resolve(mode: .black, isDarkAppearance: true)
+            let lightPalette = TextReadingPaletteFixtures.resolve(mode: .white, isDarkAppearance: false)
             var boundText = "let alpha = 1\n"
             let editor = CodeHighlightingEditorNSView(
                 text: Binding(get: { boundText }, set: { boundText = $0 }),
                 fileName: "CommitModes.swift",
                 isEditable: true,
-                readingBackgroundMode: .black,
-                isDarkAppearance: true,
+                readingPalette: TextReadingPaletteFixtures.resolve(mode: .black, isDarkAppearance: true),
                 onTextChange: { boundText = $0 }
             )
             let coord = editor.makeCoordinator()
@@ -667,15 +663,14 @@ final class TextViewportRenderingTests: XCTestCase {
 
     func testInFlightFileSwitchDismantleIsolationAndNonIMEPositiveControl() async throws {
         try await withInstalledIMEBackend { backend, observer in
-            let darkPalette = TTTextReadingPalette.resolve(mode: .black, isDarkAppearance: true)
-            let lightPalette = TTTextReadingPalette.resolve(mode: .white, isDarkAppearance: false)
+            let darkPalette = TextReadingPaletteFixtures.resolve(mode: .black, isDarkAppearance: true)
+            let lightPalette = TextReadingPaletteFixtures.resolve(mode: .white, isDarkAppearance: false)
             var boundText = "let oldSecret = 999\n"
             let editor = CodeHighlightingEditorNSView(
                 text: Binding(get: { boundText }, set: { boundText = $0 }),
                 fileName: "OldFile.swift",
                 isEditable: true,
-                readingBackgroundMode: .black,
-                isDarkAppearance: true,
+                readingPalette: TextReadingPaletteFixtures.resolve(mode: .black, isDarkAppearance: true),
                 onTextChange: { boundText = $0 }
             )
             let coord = editor.makeCoordinator()

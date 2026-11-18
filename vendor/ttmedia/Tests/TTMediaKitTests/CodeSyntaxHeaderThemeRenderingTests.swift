@@ -8,174 +8,159 @@ import XCTest
 
 @MainActor
 final class CodeSyntaxHeaderThemeRenderingTests: XCTestCase {
-    func testActualHeaderInkFollowsReadingCanvasWithoutRecoloringSibling() throws {
-        for appScheme in [ColorScheme.light, .dark] {
-            for mode in TTTextReadingBackgroundMode.allCases {
-                for width in [560.0, 1200.0] {
-                    try assertRenderedHeader(mode: mode, appScheme: appScheme, width: width)
-                }
-            }
-        }
+    func testDefaultSharedTokenizerUsesTreeSitterASTAcrossSupportedLanguages() async {
+        await BackgroundSyntaxTokenizer.shared.setBackend(nil)
+
+        let swiftSource = "struct MyCustomRecord { let item: custom_record }\nlet MAX_ITEMS = 42\n"
+        let swiftSpans = await tokenizeFull(swiftSource, ext: "swift")
+        XCTAssertEqual(category(of: "MyCustomRecord", in: swiftSource, spans: swiftSpans), .type)
+        XCTAssertEqual(category(of: "custom_record", in: swiftSource, spans: swiftSpans), .type)
+        XCTAssertNil(category(of: "MAX_ITEMS", in: swiftSource, spans: swiftSpans))
+
+        let rustSource = "pub struct MyCustomRecord { pub item: custom_record }\nlet MAX_ITEMS = 42;\n"
+        let rustSpans = await tokenizeFull(rustSource, ext: "rs")
+        XCTAssertEqual(category(of: "MyCustomRecord", in: rustSource, spans: rustSpans), .type)
+        XCTAssertEqual(category(of: "custom_record", in: rustSource, spans: rustSpans), .type)
+        XCTAssertNil(category(of: "MAX_ITEMS", in: rustSource, spans: rustSpans))
+
+        let pySource = "def run(item: custom_record) -> int:\n    MAX_ITEMS = 42\n    return \"ok\"\n"
+        let pySpans = await tokenizeFull(pySource, ext: "py")
+        XCTAssertEqual(category(of: "custom_record", in: pySource, spans: pySpans), .type)
+        XCTAssertNil(category(of: "MAX_ITEMS", in: pySource, spans: pySpans))
+
+        let jsSource = "// header\nfunction runTask() { const MAX_ITEMS = 42; return \"ok\"; }\n"
+        let jsSpans = await tokenizeFull(jsSource, ext: "js")
+        XCTAssertEqual(category(of: "runTask", in: jsSource, spans: jsSpans), .keyword)
+        XCTAssertNil(category(of: "MAX_ITEMS", in: jsSource, spans: jsSpans))
+
+        let tsSource = "interface custom_record { id: number; }\nconst MAX_ITEMS = 42;\n"
+        let tsSpans = await tokenizeFull(tsSource, ext: "ts")
+        XCTAssertEqual(category(of: "custom_record", in: tsSource, spans: tsSpans), .type)
+        XCTAssertNil(category(of: "MAX_ITEMS", in: tsSource, spans: tsSpans))
+
+        let cSource = "struct custom_record { int count; };\nint MAX_ITEMS = 42;\n"
+        let cSpans = await tokenizeFull(cSource, ext: "c")
+        XCTAssertEqual(category(of: "custom_record", in: cSource, spans: cSpans), .type)
+        XCTAssertNil(category(of: "MAX_ITEMS", in: cSource, spans: cSpans))
+
+        let jsonSource = "{\"title\": \"Banner\", \"count\": 42, \"active\": true}"
+        let jsonSpans = await tokenizeFull(jsonSource, ext: "json")
+        XCTAssertEqual(category(of: "\"Banner\"", in: jsonSource, spans: jsonSpans), .string)
+        XCTAssertEqual(category(of: "42", in: jsonSource, spans: jsonSpans), .number)
+        XCTAssertEqual(category(of: "true", in: jsonSource, spans: jsonSpans), .keyword)
+
+        let mdSource = "# Banner\n```rust\nlet x = 1;\n```\n"
+        let mdSpans = await tokenizeFull(mdSource, ext: "md")
+        XCTAssertEqual(category(of: "rust", in: mdSource, spans: mdSpans), .string)
+        XCTAssertNil(category(of: "Banner", in: mdSource, spans: mdSpans))
+
+        let htmlSource = "<!-- nav --><section class=\"hero\">Banner</section>"
+        let htmlSpans = await tokenizeFull(htmlSource, ext: "html")
+        XCTAssertEqual(category(of: "section", in: htmlSource, spans: htmlSpans), .keyword)
+        XCTAssertNil(category(of: "Banner", in: htmlSource, spans: htmlSpans))
+
+        let cssSource = "/* theme */ section { width: 100px; content: \"ok\"; }"
+        let cssSpans = await tokenizeFull(cssSource, ext: "css")
+        XCTAssertEqual(category(of: "section", in: cssSource, spans: cssSpans), .keyword)
+        XCTAssertEqual(category(of: "\"ok\"", in: cssSource, spans: cssSpans), .string)
     }
 
-    private func assertRenderedHeader(
-        mode: TTTextReadingBackgroundMode, appScheme: ColorScheme, width: CGFloat
-    ) throws {
-        let darkPaper = mode.effectiveIsDark(isAppDarkAppearance: appScheme == .dark)
-        let header = CodeSyntaxHeaderBar(
-            isCompact: false, fileName: "fixture.swift", lineCount: 12, byteCount: 128,
-            isEdited: false, isWritableFile: false, saveErrorMessage: nil,
-            isSavedToastPresented: false, isCopiedToastPresented: false,
-            showLineNumbers: .constant(true), readingBackgroundMode: .constant(mode),
-            onCopy: {}, onSave: {}
-        )
-        let content = VStack(alignment: .leading, spacing: 0) {
-            header.frame(width: width, height: 40)
-                .background(darkPaper ? Color.black : Color.white)
-            Text("SIBLING")
-                .font(.system(size: 14, weight: .bold, design: .monospaced))
-                .foregroundStyle(.primary)
-                .padding(.leading, 12)
-                .frame(width: width, height: 40, alignment: .leading)
-                .background(appScheme == .dark ? Color.black : Color.white)
-        }
-        .environment(\.colorScheme, appScheme)
-        let renderer = ImageRenderer(content: content)
-        renderer.scale = 1
-        let image = try XCTUnwrap(renderer.cgImage)
-        let bitmap = NSBitmapImageRep(cgImage: image)
-        XCTAssertEqual(bitmap.pixelsHigh, 80)
-        // The wide fixture's first badge is "Swift": crop only its text, excluding
-        // the green symbol, rounded border, picker, metrics, and all action buttons.
-        let headerInk = countInk(bitmap, rect: CGRect(x: 36, y: 11, width: 30, height: 18), light: darkPaper)
-        let siblingInk = countInk(bitmap, rect: CGRect(x: 12, y: 48, width: 62, height: 24), light: appScheme == .dark)
-        let context = "app=\(appScheme), reading=\(mode), width=\(width)"
-        XCTAssertGreaterThan(headerInk, 15, "Real header language glyphs lack canvas contrast: \(context)")
-        XCTAssertGreaterThan(siblingInk, 40, "Header override escaped to app sibling: \(context)")
-    }
+    func testUnsupportedExtensionsAndOversizedInputsFallbackToDefaultLexer() async {
+        await BackgroundSyntaxTokenizer.shared.setBackend(nil)
 
-    private func countInk(_ bitmap: NSBitmapImageRep, rect: CGRect, light: Bool) -> Int {
-        var count = 0
-        for y in Int(rect.minY)..<Int(rect.maxY) {
-            for x in Int(rect.minX)..<Int(rect.maxX) {
-                guard let color = bitmap.colorAt(x: x, y: y)?.usingColorSpace(.sRGB) else { continue }
-                let maximum = max(color.redComponent, max(color.greenComponent, color.blueComponent))
-                let minimum = min(color.redComponent, min(color.greenComponent, color.blueComponent))
-                let neutral = maximum - minimum < 0.08
-                let luminance = 0.2126 * color.redComponent + 0.7152 * color.greenComponent + 0.0722 * color.blueComponent
-                if neutral && (light ? luminance > 0.65 : luminance < 0.4) { count += 1 }
-            }
-        }
-        return count
-    }
+        let fallbackSamples: [(ext: String, source: String, expectedKeyword: String)] = [
+            ("sh", "#!/bin/sh\nif [ -n \"$HOME\" ]; then\n  return 0\nfi\n", "if"),
+            ("yaml", "# config\nenabled: true\nretries: 3\n", "true"),
+            ("toml", "# settings\nenabled = true\nport = 8080\n", "true"),
+            ("sql", "-- query\nSELECT 42;\n", "42"),
+        ]
 
-    func testMarkdownSourceModeFollowsAppColorSchemeAndReadingPreferenceStore() throws {
-        let suiteName = "com.metastudyline.ttmedia.r3.md.source.\(UUID().uuidString)"
-        let isolatedDefaults = try XCTUnwrap(UserDefaults(suiteName: suiteName))
-        isolatedDefaults.removePersistentDomain(forName: suiteName)
-        let isolatedStore = TTTextReadingPreferenceStore(
-            defaults: isolatedDefaults,
-            storageKey: TTTextReadingBackgroundMode.userDefaultsKey
-        )
-        let window = NSWindow(
-            contentRect: NSRect(x: -4000, y: -4000, width: 820, height: 520),
-            styleMask: [.borderless],
-            backing: .buffered,
-            defer: false
-        )
-        window.isReleasedWhenClosed = false
-        defer {
-            window.contentView = nil
-            window.close()
-            isolatedDefaults.removePersistentDomain(forName: suiteName)
-        }
-
-        for appScheme in [ColorScheme.light, .dark] {
-            for mode in TTTextReadingBackgroundMode.allCases {
-                try assertMarkdownSourceHostAppearance(
-                    in: window,
-                    store: isolatedStore,
-                    mode: mode,
-                    appScheme: appScheme
-                )
-            }
-        }
-    }
-
-    private func assertMarkdownSourceHostAppearance(
-        in window: NSWindow,
-        store: TTTextReadingPreferenceStore,
-        mode: TTTextReadingBackgroundMode,
-        appScheme: ColorScheme
-    ) throws {
-        store.mode = mode
-        let sampleMarkdown = "Plain lead paragraph before heading\n# Heading\n- item"
-        let rootView = MarkdownRichPreviewView(
-            initialMarkdown: sampleMarkdown,
-            fileName: "README.md",
-            isReadOnly: true,
-            initialMode: .source,
-            readingPreferenceStore: store
-        )
-        .environment(\.colorScheme, appScheme)
-
-        let hostingView = NSHostingView(rootView: rootView)
-        hostingView.frame = NSRect(x: 0, y: 0, width: 820, height: 520)
-        window.contentView = hostingView
-        hostingView.layoutSubtreeIfNeeded()
-
-        let scrollView = try XCTUnwrap(findFirstSubview(ofType: NSScrollView.self, in: hostingView))
-        let textView = try XCTUnwrap(scrollView.documentView as? LargeTextEditorTextView)
-        let storage = try XCTUnwrap(textView.textStorage)
-        let rulerView = try XCTUnwrap(scrollView.verticalRulerView as? LineNumberRulerView)
-        let expectedPalette = TTTextReadingPalette.resolve(
-            mode: mode,
-            isDarkAppearance: appScheme == .dark
-        )
-
-        let fgColor = try XCTUnwrap(
-            storage.attribute(.foregroundColor, at: 0, effectiveRange: nil) as? NSColor
-        )
-        let fgSRGB = fgColor.usingColorSpace(.sRGB) ?? fgColor
-        let bgSRGB = textView.backgroundColor.usingColorSpace(.sRGB) ?? textView.backgroundColor
-        let fgLuminance = TTTextReadingPalette.relativeLuminance(of: fgSRGB)
-        let context = "scheme=\(appScheme), mode=\(mode.rawValue)"
-        print(
-            "[R3-MD-SOURCE-HOST] \(context) drawsBG=\(textView.drawsBackground) " +
-            "rulerMode=\(rulerView.readingPalette.mode.rawValue) " +
-            "rulerDark=\(rulerView.readingPalette.effectiveIsDark) " +
-            String(
-                format: "fg=(%.3f,%.3f,%.3f,lum=%.3f) bg=(%.3f,%.3f,%.3f,a=%.2f)",
-                fgSRGB.redComponent, fgSRGB.greenComponent, fgSRGB.blueComponent, fgLuminance,
-                bgSRGB.redComponent, bgSRGB.greenComponent, bgSRGB.blueComponent, bgSRGB.alphaComponent
+        for sample in fallbackSamples {
+            let actual = await tokenizeFull(sample.source, ext: sample.ext)
+            let expected = BackgroundSyntaxTokenizer.defaultLexer(
+                text: sample.source,
+                ext: sample.ext,
+                maxLength: sample.source.utf16.count
             )
-        )
-
-        XCTAssertEqual(rulerView.readingPalette, expectedPalette, "Ruler palette mismatch: \(context)")
-        XCTAssertEqual(scrollView.drawsBackground, expectedPalette.drawsOpaqueBackground, "ScrollView drawsBackground mismatch: \(context)")
-        XCTAssertEqual(textView.drawsBackground, expectedPalette.drawsOpaqueBackground, "TextView drawsBackground mismatch: \(context)")
-        XCTAssertEqual(textView.backgroundColor, expectedPalette.nsCanvasBackgroundColor, "TextView backgroundColor mismatch: \(context)")
-        XCTAssertEqual(textView.insertionPointColor, expectedPalette.nsInsertionPointColor, "Caret color mismatch: \(context)")
-
-        if expectedPalette.drawsOpaqueBackground {
-            let contrast = TTTextReadingPalette.contrastRatio(between: fgSRGB, and: bgSRGB)
-            XCTAssertGreaterThanOrEqual(contrast, 4.5, "Opaque canvas contrast < 4.5:1 for \(context)")
-        } else if appScheme == .light {
-            XCTAssertLessThan(fgLuminance, 0.15, "Light fluidTransparent must use dark ink: \(context)")
-        } else {
-            XCTAssertGreaterThan(fgLuminance, 0.75, "Dark fluidTransparent must use light ink: \(context)")
+            XCTAssertFalse(actual.isEmpty, "Fallback tokens must not be empty for .\(sample.ext)")
+            XCTAssertEqual(actual, expected, "Unsupported extension .\(sample.ext) must fall back to defaultLexer")
         }
+
+        let unit = "let MAX_ITEMS = 42\n"
+        let underBoundSpans = await tokenizeFull(unit, ext: "swift")
+        XCTAssertNil(category(of: "MAX_ITEMS", in: unit, spans: underBoundSpans))
+
+        let oversizedSwift = String(repeating: unit, count: 7_500)
+        XCTAssertGreaterThan(oversizedSwift.utf16.count, 131_072)
+        let oversizedSpans = await tokenizeFull(oversizedSwift, ext: "swift")
+        let expectedFallback = BackgroundSyntaxTokenizer.defaultLexer(
+            text: oversizedSwift,
+            ext: "swift",
+            maxLength: oversizedSwift.utf16.count
+        )
+        XCTAssertFalse(oversizedSpans.isEmpty)
+        XCTAssertEqual(oversizedSpans, expectedFallback)
     }
 
-    private func findFirstSubview<T: NSView>(ofType type: T.Type, in root: NSView) -> T? {
-        if let matched = root as? T {
-            return matched
+    func testMultiByteUTF8EmojiAndCJKProduceExactUTF16NSRangeOffsets() async {
+        await BackgroundSyntaxTokenizer.shared.setBackend(nil)
+
+        let source = """
+        // 🚀🎉 中文注释与多字节 Emoji 混合前缀 👨👩👧👦
+        let greeting = "你好，世界 🌍✨"
+        struct MyCustomRecord {
+            let payload: custom_record
+            let count = 2048
         }
-        for child in root.subviews {
-            if let found = findFirstSubview(ofType: type, in: child) {
-                return found
-            }
+        """
+        let nsSource = source as NSString
+        let spans = await tokenizeFull(source, ext: "swift")
+        XCTAssertFalse(spans.isEmpty)
+
+        for span in spans {
+            XCTAssertGreaterThanOrEqual(span.range.location, 0)
+            XCTAssertGreaterThan(span.range.length, 0)
+            XCTAssertLessThanOrEqual(
+                NSMaxRange(span.range),
+                nsSource.length,
+                "Token span \(span.range) exceeds NSString UTF-16 length \(nsSource.length)"
+            )
         }
-        return nil
+
+        XCTAssertEqual(category(of: "\"你好，世界 🌍✨\"", in: source, spans: spans), .string)
+        XCTAssertEqual(category(of: "MyCustomRecord", in: source, spans: spans), .type)
+        XCTAssertEqual(category(of: "custom_record", in: source, spans: spans), .type)
+        XCTAssertEqual(category(of: "2048", in: source, spans: spans), .number)
+    }
+
+    func testPriorityPrefixTokenCrossingBoundaryPreservesFullSpanLength() {
+        let longComment = "// " + String(repeating: "a", count: 20_000)
+        let source = longComment + "\nlet x = 42\n"
+        let spans = TreeSitterSyntaxBackend().tokenize(
+            text: source,
+            fileExtension: "swift",
+            maxLength: 16_384
+        )
+        let commentSpan = spans.first(where: { $0.colorType == .comment })
+        XCTAssertNotNil(commentSpan)
+        XCTAssertEqual(
+            commentSpan?.range,
+            NSRange(location: 0, length: (longComment as NSString).length),
+            "Comment starting before maxLength must not be truncated at the 16,384 UTF-16 boundary"
+        )
+    }
+
+    private func tokenizeFull(_ text: String, ext: String) async -> [TokenSpan] {
+        await BackgroundSyntaxTokenizer.shared.tokenize(
+            text: text,
+            ext: ext,
+            targetRange: NSRange(location: 0, length: (text as NSString).length)
+        )
+    }
+
+    private func category(of token: String, in source: String, spans: [TokenSpan]) -> ColorCategory? {
+        let target = (source as NSString).range(of: token)
+        guard target.location != NSNotFound else { return nil }
+        return spans.first(where: { $0.range == target })?.colorType
     }
 }

@@ -152,21 +152,11 @@ final class VideoTimelineThumbnailTests: XCTestCase {
         XCTAssertNil(corrupt)
     }
 
-    func testSamplingBoundsAndPreviewPlacement() {
+    func testSamplingBounds() {
         XCTAssertTrue(VideoTimelineThumbnailSource.sampleTimes(duration: .infinity).isEmpty)
         XCTAssertTrue(VideoTimelineThumbnailSource.sampleTimes(duration: 0).isEmpty)
         XCTAssertEqual(VideoTimelineThumbnailSource.sampleTimes(duration: 7200).count, 100)
         XCTAssertEqual(VideoTimelineThumbnailSource.sampleTimes(duration: 0.1), [0])
-        let size = CGSize(width: 156, height: 128)
-        let viewport = CGSize(width: 400, height: 300)
-        let top = VideoTimelinePreviewLayout.center(track: CGRect(x: 10, y: 10, width: 380, height: 28),
-                                                  pointerX: 0, preview: size, viewport: viewport)
-        XCTAssertGreaterThan(top.y - 64, 38)
-        XCTAssertGreaterThanOrEqual(top.x - 78, 8)
-        let bottom = VideoTimelinePreviewLayout.center(track: CGRect(x: 10, y: 250, width: 380, height: 28),
-                                                     pointerX: 380, preview: size, viewport: viewport)
-        XCTAssertLessThan(bottom.y + 64, 250)
-        XCTAssertLessThanOrEqual(bottom.x + 78, 392)
     }
 
     private func waitForScan(_ source: VideoTimelineThumbnailSource) async throws {

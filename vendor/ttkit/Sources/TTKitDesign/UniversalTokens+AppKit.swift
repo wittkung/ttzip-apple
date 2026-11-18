@@ -137,5 +137,11 @@ public extension UniversalTokens.Mineral {
             ? NSColor(srgbRed: 167.0 / 255.0, green: 139.0 / 255.0, blue: 250.0 / 255.0, alpha: 1.0)
             : NSColor(srgbRed: 109.0 / 255.0, green: 40.0 / 255.0, blue: 217.0 / 255.0, alpha: 1.0)
     })
+
+    static let jadeCyanNSColor: NSColor = NSColor(name: "mineral.jadeCyan.slides", dynamicProvider: { appearance in
+        appearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua
+            ? NSColor(srgbRed: 94.0 / 255.0, green: 234.0 / 255.0, blue: 212.0 / 255.0, alpha: 1.0)
+            : NSColor(srgbRed: 13.0 / 255.0, green: 148.0 / 255.0, blue: 136.0 / 255.0, alpha: 1.0)
+    })
 }
 #endif

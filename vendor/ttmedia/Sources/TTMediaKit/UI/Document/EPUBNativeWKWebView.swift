@@ -19,6 +19,7 @@ public struct EPUBNativeWKWebView: NSViewRepresentable {
     public var onNavigateToChapterURL: (@MainActor @Sendable (URL) -> Void)?
     public var layoutMode: String = "paginated"
     public var annotationSession: EPUBReaderAnnotationSession?
+    let appearance: EPUBReaderAppearance
 
     public init(
         chapterURL: URL,
@@ -31,7 +32,8 @@ public struct EPUBNativeWKWebView: NSViewRepresentable {
         paginationController: EPUBPaginationController? = nil,
         onNavigateToChapterURL: (@MainActor @Sendable (URL) -> Void)? = nil,
         layoutMode: String = "paginated",
-        annotationSession: EPUBReaderAnnotationSession? = nil
+        annotationSession: EPUBReaderAnnotationSession? = nil,
+        appearance: EPUBReaderAppearance = .neutral
     ) {
         self.chapterURL = chapterURL
         self.baseDirectory = baseDirectory
@@ -44,6 +46,7 @@ public struct EPUBNativeWKWebView: NSViewRepresentable {
         self.onNavigateToChapterURL = onNavigateToChapterURL
         self.layoutMode = layoutMode
         self.annotationSession = annotationSession
+        self.appearance = appearance
     }
 
     public typealias ConfigurationCustomizer = @Sendable @MainActor (WKWebViewConfiguration) -> Void
@@ -189,6 +192,7 @@ public struct EPUBNativeWKWebView: NSViewRepresentable {
     @MainActor
     public final class Coordinator: NSObject, WKNavigationDelegate, WKUIDelegate {
         public var parent: EPUBNativeWKWebView?
+        var appearance: EPUBReaderAppearance { parent?.appearance ?? .neutral }
         public var lastLoadedChapterURL: URL?
         public var lastLoadedChapterContent: String?
         public var lastLoadedBaseURL: URL?
@@ -252,7 +256,8 @@ public struct EPUBNativeWKWebView: NSViewRepresentable {
             let customCSS = EPUBNativeWKWebView.buildCustomCSS(
                 fontSize: fontSize,
                 fontFamilyCSS: fontFamilyCSS,
-                readerTheme: readerTheme
+                readerTheme: readerTheme,
+                appearance: appearance
             )
 
             currentLoadTask?.cancel()
@@ -286,7 +291,8 @@ public struct EPUBNativeWKWebView: NSViewRepresentable {
                     let placeholder = Self.makePlaceholderHTML(
                         for: cleanURL,
                         customCSS: customCSS,
-                        readerTheme: readerTheme
+                        readerTheme: readerTheme,
+                        loading: self.appearance.loadingPlaceholder
                     )
                     self.lastLoadedChapterContent = placeholder
                     self.lastLoadedBaseURL = nil
@@ -431,7 +437,7 @@ public struct EPUBNativeWKWebView: NSViewRepresentable {
             guard let chapters = parent?.chapters, !chapters.isEmpty else {
                 return cleanTarget
             }
-            guard let matchedIndex = InteractiveEPUBReaderView.resolveChapterIndex(
+            guard let matchedIndex = EPUBReaderSession.resolveChapterIndex(
                 matching: url,
                 in: chapters,
                 baseDirectory: baseDirectory

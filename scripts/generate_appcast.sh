@@ -74,9 +74,18 @@ if [ ! -f "${DMG_PATH}" ]; then
     exit 1
 fi
 
+DMG_BASENAME="$(basename "${DMG_PATH}")"
+if [[ "${DMG_BASENAME}" =~ ^TTZip-([0-9]+\.[0-9]+\.[0-9]+)\.(dmg|zip)$ ]]; then
+    FILENAME_VERSION="${BASH_REMATCH[1]}"
+    if [ "${FILENAME_VERSION}" != "${VERSION}" ]; then
+        echo "❌ Error: Artifact filename version (${FILENAME_VERSION}) does not match --version (${VERSION})." >&2
+        exit 1
+    fi
+fi
+
 DMG_LEN="$(stat -f%z "${DMG_PATH}")"
 PUB_DATE="$(date -u +"%a, %d %b %Y %H:%M:%S +0000")"
-RELEASE_URL="${BASE_URL}/v${VERSION}/$(basename "${DMG_PATH}")"
+RELEASE_URL="${BASE_URL}/v${VERSION}/${DMG_BASENAME}"
 
 # Resolve Sparkle sign_update binary
 SIGN_UPDATE_BIN=""
@@ -96,17 +105,56 @@ if [ -z "${SIGN_UPDATE_BIN}" ]; then
     SIGN_UPDATE_BIN="$(which sign_update 2>/dev/null || true)"
 fi
 
-# Calculate Ed25519 signature
-ED_SIG=""
-if [ -n "${SIGN_UPDATE_BIN}" ] && [ -x "${SIGN_UPDATE_BIN}" ]; then
-    if [ -f "${KEY_FILE}" ]; then
-        echo "==> Signing DMG using key: ${KEY_FILE}"
-        ED_SIG="$("${SIGN_UPDATE_BIN}" -f "${KEY_FILE}" -p "${DMG_PATH}")"
-    else
-        echo "==> Signing DMG using macOS Keychain..."
-        ED_SIG="$("${SIGN_UPDATE_BIN}" -p "${DMG_PATH}")"
+sign_artifact_ed25519() {
+    local target_file="$1"
+    local sig=""
+    if [ -n "${SIGN_UPDATE_BIN}" ] && [ -x "${SIGN_UPDATE_BIN}" ]; then
+        if [ -f "${KEY_FILE}" ]; then
+            sig="$("${SIGN_UPDATE_BIN}" -f "${KEY_FILE}" -p "${target_file}" 2>/dev/null || true)"
+        else
+            sig="$("${SIGN_UPDATE_BIN}" -p "${target_file}" 2>/dev/null || true)"
+        fi
+        sig="$(echo "${sig}" | tr -d '[:space:]')"
     fi
+    if [ -z "${sig}" ] && [ -f "${KEY_FILE}" ] && command -v python3 >/dev/null 2>&1 && command -v openssl >/dev/null 2>&1; then
+        sig="$(python3 - "${KEY_FILE}" "${target_file}" <<'PY'
+import base64
+import subprocess
+import sys
+import tempfile
+
+key_path, artifact_path = sys.argv[1], sys.argv[2]
+raw = open(key_path, "rb").read().strip()
+if raw.startswith(b"-----"):
+    pem_bytes = raw + b"\n"
+else:
+    seed = base64.b64decode(raw)[:32]
+    der = bytes.fromhex("302e020100300506032b657004220420") + seed
+    pem_bytes = (
+        b"-----BEGIN PRIVATE KEY-----\n"
+        + base64.b64encode(der)
+        + b"\n-----END PRIVATE KEY-----\n"
+    )
+with tempfile.NamedTemporaryFile() as tf:
+    tf.write(pem_bytes)
+    tf.flush()
+    out = subprocess.check_output(
+        ["openssl", "pkeyutl", "-sign", "-inkey", tf.name, "-rawin", "-in", artifact_path]
+    )
+sys.stdout.write(base64.b64encode(out).decode("ascii"))
+PY
+        )"
+    fi
+    printf '%s' "${sig}"
+}
+
+# Calculate Ed25519 signature
+if [ -f "${KEY_FILE}" ]; then
+    echo "==> Signing DMG using key: ${KEY_FILE}"
+elif [ -n "${SIGN_UPDATE_BIN}" ] && [ -x "${SIGN_UPDATE_BIN}" ]; then
+    echo "==> Signing DMG using macOS Keychain..."
 fi
+ED_SIG="$(sign_artifact_ed25519 "${DMG_PATH}")"
 
 if [ -z "${ED_SIG}" ]; then
     echo "⚠️ Warning: Could not compute Ed25519 signature. (sign_update missing or key unavailable)." >&2
@@ -119,10 +167,7 @@ DELTA_XML=""
 if [ -n "${DELTA_PATH}" ] && [ -f "${DELTA_PATH}" ]; then
     DELTA_LEN="$(stat -f%z "${DELTA_PATH}")"
     DELTA_URL="${BASE_URL}/v${VERSION}/$(basename "${DELTA_PATH}")"
-    DELTA_SIG=""
-    if [ -n "${SIGN_UPDATE_BIN}" ] && [ -x "${SIGN_UPDATE_BIN}" ] && [ -f "${KEY_FILE}" ]; then
-        DELTA_SIG="$("${SIGN_UPDATE_BIN}" -f "${KEY_FILE}" -p "${DELTA_PATH}")"
-    fi
+    DELTA_SIG="$(sign_artifact_ed25519 "${DELTA_PATH}")"
     DELTA_XML=$(cat <<EOF
             <sparkle:deltas>
                 <enclosure

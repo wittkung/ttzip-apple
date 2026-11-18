@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
 import XCTest
+import SwiftUI
 import AppKit
 import Darwin
 import QuartzCore
@@ -14,7 +15,6 @@ final class NonVideoPreviewBatch1RegressionTests: XCTestCase {
 
     // MARK: - 1. Spreadsheet Save Policy & Office Container Protection
 
-    @MainActor
     func testDerivedWorkbookSaveDoesNotOverwriteOriginalOfficeFileBytes() throws {
         let tempDir = FileManager.default.temporaryDirectory
             .appendingPathComponent("TTMediaSpreadsheetGuard-\(UUID().uuidString)", isDirectory: true)
@@ -24,36 +24,25 @@ final class NonVideoPreviewBatch1RegressionTests: XCTestCase {
         let originalXLSXBytes = Data([0x50, 0x4B, 0x03, 0x04, 0x14, 0x00, 0x06, 0x00, 0xDE, 0xAD, 0xBE, 0xEF])
         let xlsxURL = tempDir.appendingPathComponent("financials.xlsx")
         try originalXLSXBytes.write(to: xlsxURL, options: .atomic)
-
         let sheet = TTMediaSheetData(name: "Q1", totalRows: 2, totalColumns: 2, rows: [["Revenue", "Cost"], ["100", "40"]])
         let workbook = OfficeSpreadsheetWorkbook(
-            fileName: "financials.xlsx",
-            sheetNames: ["Q1"],
-            activeSheet: sheet,
-            fileURL: xlsxURL,
-            rawData: originalXLSXBytes
+            fileName: "financials.xlsx", sheetNames: ["Q1"], activeSheet: sheet,
+            fileURL: xlsxURL, rawData: originalXLSXBytes
         )
-
-        let workbookView = SpreadsheetTablePreviewView(workbook: workbook)
-        XCTAssertFalse(workbookView.canSaveInPlace)
-        XCTAssertFalse(workbookView.saveFile())
-        XCTAssertFalse(workbookView.saveFile(contentOverride: "Injected,CSV\n1,2\n"))
+        XCTAssertFalse(SpreadsheetSavePolicy.canSaveInPlace(fileURL: xlsxURL, workbook: workbook))
+        XCTAssertFalse(try SpreadsheetSavePolicy.saveInPlace(
+            content: "Injected,CSV\n1,2\n", fileURL: xlsxURL, workbook: workbook
+        ))
         XCTAssertEqual(try Data(contentsOf: xlsxURL), originalXLSXBytes)
 
         let odsBytes = Data([0x50, 0x4B, 0x03, 0x04, 0xAA, 0xBB, 0xCC, 0xDD])
         let odsURL = tempDir.appendingPathComponent("sheet.ods")
         try odsBytes.write(to: odsURL, options: .atomic)
-        let directODSView = SpreadsheetTablePreviewView(
-            initialContent: "A,B\n1,2\n",
-            fileURL: odsURL,
-            fileName: "sheet.ods"
-        )
-        XCTAssertFalse(directODSView.canSaveInPlace)
-        XCTAssertFalse(directODSView.saveFile(contentOverride: "Modified,ODS\n"))
+        XCTAssertFalse(SpreadsheetSavePolicy.canSaveInPlace(fileURL: odsURL))
+        XCTAssertFalse(try SpreadsheetSavePolicy.saveInPlace(content: "Modified,ODS\n", fileURL: odsURL))
         XCTAssertEqual(try Data(contentsOf: odsURL), odsBytes)
     }
 
-    @MainActor
     func testWorkbookDisguisedAsCSVIsRejectedAndAllowsOnlyGenuineCSVTSV() throws {
         let tempDir = FileManager.default.temporaryDirectory
             .appendingPathComponent("TTMediaCSVGuard-\(UUID().uuidString)", isDirectory: true)
@@ -63,55 +52,31 @@ final class NonVideoPreviewBatch1RegressionTests: XCTestCase {
         let disguisedURL = tempDir.appendingPathComponent("disguised.csv")
         let originalContainerBytes = Data([0x50, 0x4B, 0x03, 0x04, 0x01, 0x02, 0x03, 0x04])
         try originalContainerBytes.write(to: disguisedURL, options: .atomic)
-
         let sheet = TTMediaSheetData(name: "Sheet1", totalRows: 1, totalColumns: 2, rows: [["A", "B"]])
         let disguisedWorkbook = OfficeSpreadsheetWorkbook(
-            fileName: "disguised.csv",
-            sheetNames: ["Sheet1"],
-            activeSheet: sheet,
-            fileURL: disguisedURL
+            fileName: "disguised.csv", sheetNames: ["Sheet1"], activeSheet: sheet, fileURL: disguisedURL
         )
-        let disguisedView = SpreadsheetTablePreviewView(
-            initialContent: "A,B\n",
-            fileURL: disguisedURL,
-            fileName: "disguised.csv",
-            workbook: disguisedWorkbook
-        )
-        XCTAssertFalse(disguisedView.canSaveInPlace)
-        XCTAssertFalse(disguisedView.saveFile(contentOverride: "Hacked,CSV\n"))
+
+        XCTAssertFalse(SpreadsheetSavePolicy.canSaveInPlace(fileURL: disguisedURL, workbook: disguisedWorkbook))
+        XCTAssertFalse(try SpreadsheetSavePolicy.saveInPlace(
+            content: "Hacked,CSV\n", fileURL: disguisedURL, workbook: disguisedWorkbook
+        ))
+        XCTAssertFalse(SpreadsheetSavePolicy.canSaveInPlace(fileURL: disguisedURL, hasSheetLoader: true))
+        XCTAssertFalse(try SpreadsheetSavePolicy.saveInPlace(
+            content: "Hacked,Loader\n", fileURL: disguisedURL, hasSheetLoader: true
+        ))
         XCTAssertEqual(try Data(contentsOf: disguisedURL), originalContainerBytes)
 
-        let loaderBackedView = SpreadsheetTablePreviewView(
-            initialContent: "A,B\n",
-            fileURL: disguisedURL,
-            fileName: "disguised.csv",
-            sheetLoader: { _ in [["A", "B"]] }
-        )
-        XCTAssertFalse(loaderBackedView.canSaveInPlace)
-        XCTAssertFalse(loaderBackedView.saveFile(contentOverride: "Hacked,Loader\n"))
-        XCTAssertEqual(try Data(contentsOf: disguisedURL), originalContainerBytes)
-
-        let csvURL = tempDir.appendingPathComponent("editable.csv")
-        try "Col1,Col2\n1,2\n".write(to: csvURL, atomically: true, encoding: .utf8)
-        let csvView = SpreadsheetTablePreviewView(
-            initialContent: "Col1,Col2\n1,2\n",
-            fileURL: csvURL,
-            fileName: "editable.csv"
-        )
-        XCTAssertTrue(csvView.canSaveInPlace)
-        XCTAssertTrue(csvView.saveFile(contentOverride: "Col1,Col2\n10,20\n"))
-        XCTAssertEqual(try String(contentsOf: csvURL, encoding: .utf8), "Col1,Col2\n10,20\n")
-
-        let tsvURL = tempDir.appendingPathComponent("editable.tsv")
-        try "K\tV\nA\t1\n".write(to: tsvURL, atomically: true, encoding: .utf8)
-        let tsvView = SpreadsheetTablePreviewView(
-            initialContent: "K\tV\nA\t2\n",
-            fileURL: tsvURL,
-            fileName: "editable.tsv"
-        )
-        XCTAssertTrue(tsvView.canSaveInPlace)
-        XCTAssertTrue(tsvView.saveFile())
-        XCTAssertEqual(try String(contentsOf: tsvURL, encoding: .utf8), "K\tV\nA\t2\n")
+        for (fileName, baseline, edited) in [
+            ("editable.csv", "Col1,Col2\n1,2\n", "Col1,Col2\n10,20\n"),
+            ("editable.tsv", "K\tV\nA\t1\n", "K\tV\nA\t2\n"),
+        ] {
+            let url = tempDir.appendingPathComponent(fileName)
+            try baseline.write(to: url, atomically: true, encoding: .utf8)
+            XCTAssertTrue(SpreadsheetSavePolicy.canSaveInPlace(fileURL: url))
+            XCTAssertTrue(try SpreadsheetSavePolicy.saveInPlace(content: edited, expectedBaseline: baseline, fileURL: url))
+            XCTAssertEqual(try String(contentsOf: url, encoding: .utf8), edited)
+        }
     }
 
     // MARK: - 2. Unicode BOM Text Reading & Binary Sniffing on Real Temp Files
@@ -289,7 +254,7 @@ final class NonVideoPreviewBatch1RegressionTests: XCTestCase {
     }
 
     @MainActor
-    func testPDFPreviewLocaleKeysUseSharedTTI18nState() {
+    func testPDFLoaderDiagnosticsUseSharedTTI18nState() {
         let state = LocalizationState.shared
         let original = state.currentLanguage
         defer { state.setLanguage(original) }
@@ -303,12 +268,13 @@ final class NonVideoPreviewBatch1RegressionTests: XCTestCase {
         }
 
         state.setLanguage(.zhHans)
-        XCTAssertEqual(PDFPreviewLocalization.text(.loadFailedTitle), "无法加载 PDF 文档")
-        XCTAssertEqual(PDFPreviewLocalization.pageTitle(3), "第 3 页")
+        XCTAssertEqual(PDFPreviewLocalization.text(.incorrectPassword), "密码错误，请重试。")
 
         state.setLanguage(.en)
-        XCTAssertEqual(PDFPreviewLocalization.text(.loadFailedTitle), "Unable to load PDF document")
-        XCTAssertEqual(PDFPreviewLocalization.pageTitle(3), "Page 3")
+        XCTAssertEqual(
+            PDFPreviewLocalization.text(.loadFailedCorruptOrEmpty),
+            "The PDF file is damaged, empty, or cannot be opened."
+        )
     }
 
     func testTextReadEnforcesStreamingHardByteCeilingAtBoundarySizes() throws {
@@ -533,132 +499,39 @@ final class NonVideoPreviewBatch1RegressionTests: XCTestCase {
         XCTAssertEqual(PreviewContentReader.readTextSample(from: symlinkRegularURL), regularText)
     }
 
-    @MainActor
-    func testSpreadsheetPreviewLocaleKeysUseSharedTTI18nState() {
-        let state = LocalizationState.shared
-        let original = state.currentLanguage
-        defer { state.setLanguage(original) }
-
-        for key in SpreadsheetPreviewLocaleKey.allCases {
-            for lang in [AppLanguage.en, .zhHans, .zhHant] {
-                let text = key.fallbackTranslation(for: lang)
-                XCTAssertFalse(text.isEmpty)
-                XCTAssertNotEqual(text, key.rawKey)
-            }
-        }
-
-        state.setLanguage(.zhHans)
-        XCTAssertEqual(SpreadsheetPreviewLocalization.text(.defaultDocumentTitle), "电子表格文档")
-        XCTAssertEqual(SpreadsheetPreviewLocalization.text(.defaultSheetTitle), "工作表")
-        XCTAssertEqual(SpreadsheetPreviewLocalization.text(.readOnlyBadge), "只读")
-        XCTAssertEqual(SpreadsheetPreviewLocalization.text(.previewCappedReadOnly), "预览已截断（只读）")
-        XCTAssertEqual(SpreadsheetPreviewLocalization.text(.saveButton), "保存")
-        XCTAssertEqual(SpreadsheetPreviewLocalization.text(.savedBadge), "已保存")
-        XCTAssertEqual(SpreadsheetPreviewLocalization.text(.unsavedBadge), "未保存")
-        XCTAssertEqual(SpreadsheetPreviewLocalization.saveFailed("磁盘已满"), "保存失败：磁盘已满")
-        XCTAssertEqual(SpreadsheetPreviewLocalization.sheetLoadFailed("Sheet2"), "加载工作表失败：Sheet2")
-        XCTAssertEqual(SpreadsheetPreviewMode.table.localizedTitle, "表格视图")
-        XCTAssertEqual(SpreadsheetPreviewMode.source.localizedTitle, "原始源码")
-        XCTAssertEqual(SpreadsheetPreviewLocalization.text(.filterCellsPlaceholder), "筛选单元格...")
-        XCTAssertEqual(SpreadsheetPreviewLocalization.text(.headerRowOne), "表头：第 1 行")
-        XCTAssertEqual(SpreadsheetPreviewLocalization.text(.headerAlphabetical), "表头：A, B, C")
-        XCTAssertEqual(SpreadsheetPreviewLocalization.text(.toggleHeaderHelp), "切换首行作为表头")
-        XCTAssertEqual(TTSpreadsheetDelimiter.comma.localizedDisplayName, "逗号 (,)")
-        XCTAssertEqual(SpreadsheetPreviewLocalization.text(.copyButton), "复制")
-        XCTAssertEqual(SpreadsheetPreviewLocalization.copySelectedCell("B4"), "复制选中单元格 (B4)")
-        XCTAssertEqual(SpreadsheetPreviewLocalization.copiedCell("B4"), "已复制单元格 B4")
-        XCTAssertEqual(SpreadsheetPreviewLocalization.copiedCellContent("B4"), "已复制单元格 B4 内容")
-        XCTAssertEqual(SpreadsheetPreviewLocalization.text(.copyTableAsCSV), "复制整表为 CSV (,)")
-        XCTAssertEqual(SpreadsheetPreviewLocalization.text(.inspectCellPrompt), "点击任意单元格以查看或复制完整内容")
-        XCTAssertEqual(SpreadsheetPreviewLocalization.filteredRowStatus(filtered: 5, total: 20), "已筛选：5/20")
-        XCTAssertEqual(SpreadsheetPreviewLocalization.rowCount(20), "20 行")
-        XCTAssertEqual(SpreadsheetPreviewLocalization.columnCount(8), "8 列")
-        XCTAssertEqual(SpreadsheetPreviewLocalization.cellCount(160), "160 单元格")
-        XCTAssertEqual(SpreadsheetPreviewLocalization.text(.jumpButton), "跳转")
-        XCTAssertEqual(SpreadsheetPreviewLocalization.text(.jumpToRowTitle), "跳转到行")
-        XCTAssertEqual(SpreadsheetPreviewLocalization.jumpRowRange(maxRow: 20), "行号范围 (1–20)：")
-        XCTAssertEqual(SpreadsheetPreviewLocalization.text(.jumpGoButton), "前往")
-        XCTAssertEqual(SpreadsheetPageSizeOption.hundred.localizedDisplayName, "100 行/页")
-        XCTAssertEqual(SpreadsheetPageSizeOption.all.localizedDisplayName, "全部行（不分页）")
-        XCTAssertEqual(SpreadsheetPreviewLocalization.pageSizeMenu("100 行/页"), "每页：100 行/页")
-        XCTAssertEqual(SpreadsheetPreviewLocalization.pageIndicatorAccessibility(current: 2, total: 5), "第 2 页，共 5 页")
-        XCTAssertEqual(SpreadsheetPreviewLocalization.text(.emptyTableTitle), "无表格数据")
-
-        state.setLanguage(.en)
-        XCTAssertEqual(SpreadsheetPreviewLocalization.text(.readOnlyBadge), "Read-Only")
-        XCTAssertEqual(SpreadsheetPreviewLocalization.text(.previewCappedReadOnly), "Preview Capped (Read-Only)")
-        XCTAssertEqual(SpreadsheetPreviewLocalization.text(.saveButton), "Save")
-        XCTAssertEqual(SpreadsheetPreviewLocalization.saveFailed("Disk full"), "Failed to save: Disk full")
-        XCTAssertEqual(SpreadsheetPreviewLocalization.sheetLoadFailed("Sheet2"), "Failed to load sheet: Sheet2")
-        XCTAssertEqual(SpreadsheetPreviewMode.table.localizedTitle, "Grid Table")
-        XCTAssertEqual(SpreadsheetPreviewMode.source.localizedTitle, "Raw Source")
-        XCTAssertEqual(SpreadsheetPreviewLocalization.copySelectedCell("B4"), "Copy Selected Cell (B4)")
-        XCTAssertEqual(SpreadsheetPreviewLocalization.filteredRowStatus(filtered: 5, total: 20), "Filtered: 5/20")
-        XCTAssertEqual(SpreadsheetPreviewLocalization.rowCount(20), "20 rows")
-        XCTAssertEqual(SpreadsheetPreviewLocalization.columnCount(8), "8 cols")
-        XCTAssertEqual(SpreadsheetPreviewLocalization.cellCount(160), "160 cells")
-        XCTAssertEqual(SpreadsheetPageSizeOption.hundred.localizedDisplayName, "100 rows")
-        XCTAssertEqual(SpreadsheetPageSizeOption.all.localizedDisplayName, "All rows (No Pagination)")
-    }
+    // MARK: - 4. Track 3 Issue #313 Regressions (T3-03, T3-10)
 
     @MainActor
-    func testTextMarkdownAndContainerLocaleKeysUseSharedTTI18nState() {
-        let state = LocalizationState.shared
-        let original = state.currentLanguage
-        defer { state.setLanguage(original) }
+    func testHexResetAndCanonicalVideoThumbnailURL() throws {
+        // T3-03: HexEditorNSView resets selection and vertical/horizontal scroll offsets on render
+        let outerScroll = NSScrollView(frame: NSRect(x: 0, y: 0, width: 300, height: 120))
+        let innerScroll = NSScrollView(frame: NSRect(x: 0, y: 0, width: 640, height: 120))
+        let hexTextView = NSTextView(frame: NSRect(x: 0, y: 0, width: 640, height: 600))
+        innerScroll.documentView = hexTextView
+        outerScroll.documentView = innerScroll
+        let hexCoordinator = HexEditorNSView(pageData: Data(repeating: 0x41, count: 512), startOffset: 0).makeCoordinator()
+        hexCoordinator.renderAttributedHexDump(data: Data(repeating: 0x41, count: 512), startOffset: 0, in: hexTextView)
+        hexTextView.setSelectedRange(NSRange(location: 4, length: 8))
+        innerScroll.contentView.scroll(to: NSPoint(x: 0, y: 60))
+        outerScroll.contentView.scroll(to: NSPoint(x: 120, y: 0))
+        hexCoordinator.renderAttributedHexDump(data: Data(repeating: 0x42, count: 512), startOffset: 512, in: hexTextView)
+        XCTAssertEqual(hexTextView.selectedRange(), NSRange(location: 0, length: 0))
+        XCTAssertEqual(innerScroll.contentView.bounds.origin.y, 0, accuracy: 0.5)
+        XCTAssertEqual(outerScroll.contentView.bounds.origin.x, 0, accuracy: 0.5)
 
-        for key in TextAndDocumentPreviewLocaleKey.allCases {
-            for lang in [AppLanguage.en, .zhHans, .zhHant] {
-                let text = key.fallbackTranslation(for: lang)
-                XCTAssertFalse(text.isEmpty)
-                XCTAssertNotEqual(text, key.rawKey)
-            }
-        }
-
-        state.setLanguage(.zhHans)
-        XCTAssertTrue(CodeTextEditorContainerView.truncationBannerMessage.contains("2 MB"))
-        XCTAssertEqual(CodeTextEditorContainerView.truncationBannerMessage, "为保证交互响应，预览已截断至 2 MB。已禁用编辑与原位保存以保护原始文件。")
-        XCTAssertEqual(TextAndDocumentPreviewLocalization.text(.plainTextLabel), "纯文本")
-        XCTAssertEqual(TextAndDocumentPreviewLocalization.fileSizeAndLines(sizeText: "12 KB", lineCount: 42), "12 KB • 42 行")
-        XCTAssertEqual(TextAndDocumentPreviewLocalization.text(.unsavedBadge), "未保存")
-        XCTAssertEqual(TextAndDocumentPreviewLocalization.text(.savedBadge), "已保存")
-        XCTAssertEqual(TextAndDocumentPreviewLocalization.text(.hideLineNumbersHelp), "隐藏行号")
-        XCTAssertEqual(TextAndDocumentPreviewLocalization.text(.showLineNumbersHelp), "显示行号")
-        XCTAssertEqual(TextAndDocumentPreviewLocalization.text(.copiedToClipboardHelp), "已复制到剪贴板")
-        XCTAssertEqual(TextAndDocumentPreviewLocalization.text(.copySourceCodeHelp), "复制源代码")
-        XCTAssertEqual(TextAndDocumentPreviewLocalization.text(.saveButton), "保存")
-        XCTAssertEqual(TextAndDocumentPreviewLocalization.saveWithShortcut("⌘S"), "保存 (⌘S)")
-        XCTAssertEqual(TextAndDocumentPreviewLocalization.saveChangesHelp("⌘S"), "保存更改到本地文件 (⌘S)")
-        XCTAssertEqual(MarkdownRichPreviewView(initialMarkdown: "# Title").fileName, "Markdown 文档")
-        XCTAssertEqual(MarkdownPreviewMode.rich.localizedTitle, "富文本预览")
-        XCTAssertEqual(MarkdownPreviewMode.source.localizedTitle, "源代码")
-        XCTAssertEqual(TextAndDocumentPreviewLocalization.lineCount(10), "10 行")
-        XCTAssertEqual(TextAndDocumentPreviewLocalization.wordCount(88), "88 词")
-        XCTAssertEqual(TextAndDocumentPreviewLocalization.charCount(360), "360 字符")
-        XCTAssertEqual(TextAndDocumentPreviewLocalization.text(.copyCodeButton), "复制")
-        XCTAssertEqual(TextAndDocumentPreviewLocalization.text(.copiedCodeButton), "已复制")
-        XCTAssertEqual(TextAndDocumentPreviewLocalization.localizedUnsupportedMessage("Loading..."), "正在加载…")
-        XCTAssertEqual(TextAndDocumentPreviewLocalization.localizedUnsupportedMessage("Select a file from the explorer to preview"), "从文件列表中选择文件以预览")
-        XCTAssertEqual(TextAndDocumentPreviewLocalization.text(.toggleFullscreenOrDoubleClickHelp), "切换全屏预览（或双击画布）")
-
-        state.setLanguage(.zhHant)
-        XCTAssertTrue(CodeTextEditorContainerView.truncationBannerMessage.contains("2 MB"))
-        XCTAssertEqual(MarkdownPreviewMode.rich.localizedTitle, "富文字預覽")
-        XCTAssertEqual(MarkdownPreviewMode.source.localizedTitle, "原始碼")
-        XCTAssertEqual(TextAndDocumentPreviewLocalization.charCount(360), "360 字元")
-        XCTAssertEqual(TextAndDocumentPreviewLocalization.localizedUnsupportedMessage("Loading..."), "正在載入…")
-        XCTAssertEqual(TextAndDocumentPreviewLocalization.localizedUnsupportedMessage("Select a file from the explorer to preview"), "從檔案列表中選擇檔案以預覽")
-
-        state.setLanguage(.en)
-        XCTAssertEqual(CodeTextEditorContainerView.truncationBannerMessage, "Preview truncated to 2 MB for interactive responsiveness. Editing and in-place saving are disabled to protect the original file.")
-        XCTAssertEqual(MarkdownPreviewMode.rich.localizedTitle, "Rich Preview")
-        XCTAssertEqual(MarkdownPreviewMode.source.localizedTitle, "Source Code")
-        XCTAssertEqual(TextAndDocumentPreviewLocalization.fileSizeAndLines(sizeText: "12 KB", lineCount: 42), "12 KB • 42 lines")
-        XCTAssertEqual(TextAndDocumentPreviewLocalization.lineCount(10), "10 lines")
-        XCTAssertEqual(TextAndDocumentPreviewLocalization.wordCount(88), "88 words")
-        XCTAssertEqual(TextAndDocumentPreviewLocalization.charCount(360), "360 chars")
-        XCTAssertEqual(TextAndDocumentPreviewLocalization.localizedUnsupportedMessage("Loading..."), "Loading...")
-        XCTAssertEqual(TextAndDocumentPreviewLocalization.localizedUnsupportedMessage("Select a file from the explorer to preview"), "Select a file from the explorer to preview")
+        // T3-10: Canonical standardized URL comparison for video timeline hover thumbnails
+        let tempDir = FileManager.default.temporaryDirectory.appendingPathComponent("T310-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: tempDir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: tempDir) }
+        let realVideoURL = tempDir.appendingPathComponent("clip.mp4")
+        try Data([0x00, 0x01]).write(to: realVideoURL)
+        let symlinkVideoURL = tempDir.appendingPathComponent("link_clip.mp4")
+        try FileManager.default.createSymbolicLink(at: symlinkVideoURL, withDestinationURL: realVideoURL)
+        let nonStandardURL = tempDir.appendingPathComponent("sub/../clip.mp4")
+        XCTAssertTrue(VideoTimelineThumbnailSource.matchesSourceURL(realVideoURL, videoURL: symlinkVideoURL))
+        XCTAssertTrue(VideoTimelineThumbnailSource.matchesSourceURL(realVideoURL, videoURL: nonStandardURL))
+        XCTAssertFalse(VideoTimelineThumbnailSource.matchesSourceURL(realVideoURL, videoURL: tempDir.appendingPathComponent("other.mp4")))
+        XCTAssertFalse(VideoTimelineThumbnailSource.matchesSourceURL(nil, videoURL: realVideoURL))
     }
 
     // MARK: - Helpers

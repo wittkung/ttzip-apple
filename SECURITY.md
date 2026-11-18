@@ -10,7 +10,7 @@ Security updates are actively provided for the latest minor release branch of TT
 
 ## Reporting a Vulnerability
 If you discover a security vulnerability within TTZip, please report it via private disclosure:
-- **Email**: `witt.w.kung@gmail.com`
+- **Email**: `support@metastudyline.com`
 - **GPG Key**: Available upon request.
 
 Please do not open public issues for security vulnerabilities. We will respond within 48 hours and coordinate a coordinated disclosure timeline.

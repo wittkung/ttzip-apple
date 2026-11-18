@@ -148,7 +148,7 @@ public enum EPUBReaderWebKitPagerBridge {
                     if ((maxC - minC) > 24) return false;
                     return this.relativeLuminance(rgb) < 0.12;
                 },
-                applyDarkThemeContrast: function(enabled) {
+                applyDarkThemeContrast: function(enabled, liftedColor) {
                     if (!document.body) return 0;
                     if (!enabled) {
                         var liftedNodes = document.querySelectorAll('[data-ttmedia-contrast-lifted="1"]');
@@ -177,7 +177,7 @@ public enum EPUBReaderWebKitPagerBridge {
                             el.setAttribute('data-ttmedia-contrast-original', el.style.getPropertyValue('color') || '');
                             el.setAttribute('data-ttmedia-contrast-priority', el.style.getPropertyPriority('color') || '');
                         }
-                        el.style.setProperty('color', '#e5e5e7', 'important');
+                        el.style.setProperty('color', liftedColor, 'important');
                         el.setAttribute('data-ttmedia-contrast-lifted', '1');
                         lifted++;
                     }

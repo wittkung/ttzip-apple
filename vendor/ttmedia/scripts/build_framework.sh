@@ -18,10 +18,26 @@ OUTPUT_DIR="${MEDIA_DIR}/Frameworks/TTMediaVendor.xcframework"
 DEPLOYMENT_TARGET="${MACOSX_DEPLOYMENT_TARGET:-14.0}"
 TARGET="${TTMEDIA_TARGET:-aarch64-apple-darwin}"
 
+# Use the rustup sysroot with a macOS 14-compatible floor and macOS 27 strip support.
+RUST_VERSION="1.99.1"
+RUSTUP="$(command -v rustup || printf '%s\n' "${CARGO_HOME:-${HOME}/.cargo}/bin/rustup")"
+if ! RUSTC="$("${RUSTUP}" which --toolchain "${RUST_VERSION}" rustc)"; then
+    echo "error: install the release Rust toolchain with: rustup toolchain install ${RUST_VERSION}" >&2
+    exit 1
+fi
+export RUSTC RUSTC_WRAPPER="" RUSTC_WORKSPACE_WRAPPER=""
+"${RUSTC}" --version
+target_libdir="$("${RUSTC}" --print target-libdir --target "${TARGET}")"
+if [[ ! -d "${target_libdir}" ]]; then
+    echo "error: install the release target with: rustup target add --toolchain ${RUST_VERSION} ${TARGET}" >&2
+    exit 1
+fi
+echo "--> Rust target libraries: ${target_libdir}"
+
 echo "--> Building the ttmedia engine for ${TARGET} (macOS ${DEPLOYMENT_TARGET})"
 cd "${MEDIA_DIR}"
 MACOSX_DEPLOYMENT_TARGET="${DEPLOYMENT_TARGET}" \
-    cargo build --release --target "${TARGET}" --lib
+    "${RUSTUP}" run "${RUST_VERSION}" cargo build --release --target "${TARGET}" --lib
 
 STATIC_LIB="${MEDIA_DIR}/target/${TARGET}/release/libttmedia.a"
 if [[ ! -f "${STATIC_LIB}" ]]; then

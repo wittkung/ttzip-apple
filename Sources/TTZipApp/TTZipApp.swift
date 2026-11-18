@@ -2,32 +2,62 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
 import SwiftUI
-import TTZipCore
+import TTZipAppComposition
 import AppKit
-import TTLogKit
+import TTZipTaskKit
 import TTZipUI
-import TTZipPreviewKit
 import TTZipBenchmarkKit
-#if !SWIFT_PACKAGE
-#endif
+
+extension GlobalSearchPanelController: GlobalSearchOverlayPanel {}
 
 public struct TTZipApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
+
+    nonisolated public static func shouldActivateOnLaunch(
+        arguments: [String] = ProcessInfo.processInfo.arguments,
+        environment: [String: String] = ProcessInfo.processInfo.environment
+    ) -> Bool {
+        AppDelegate.shouldActivateOnLaunch(arguments: arguments, environment: environment)
+    }
     
     public init() {
         LayoutStateMigration.migrateIfNeeded()
+        _ = BrowserWindowRegistry.shared
+        LocalModelManager.installAutoSemanticIndexingBridgeIfNeeded()
         ApplicationAppearanceStore.shared.applyCurrentPreference()
-        TTZipCore.enableMicrokernelLoggingBridge()
-        TTLogKit.MainThreadHangWatchdog.shared.start()
-        TTZipEngineFacade.initializeSubsystems()
-        EPUBArchiveUnpacker.register()
-        PreviewPlaybackPersistence.install()
+        AppStartup.initializeRuntime()
+        DockProgressManager.install()
+        DiagnosticsSupportService.registerManualUpdateHandler(AppChannelWiring.manualUpdateAction)
         
         NSApplication.shared.setActivationPolicy(.regular)
-        NSApplication.shared.activate(ignoringOtherApps: true)
+        if Self.shouldActivateOnLaunch() {
+            NSApplication.shared.activate(ignoringOtherApps: true)
+        }
         NSWindow.allowsAutomaticWindowTabbing = false
         
-        setupGlobalSearchOverlay()
+        let searchPanel = GlobalSearchPanelController.shared
+        GlobalSearchOverlayComposition.install(
+            panel: searchPanel,
+            content: GlobalSearchPanelView(controller: searchPanel),
+            routeResult: { item in
+                _ = BrowserWindowRouter.shared.routeGlobalSearchResult(item)
+            },
+            openArchive: { path in
+                BrowserWindowRouter.shared.routeGlobalSearchArchive(archivePath: path)
+            },
+            selectEntry: { archivePath, entrySubpath in
+                _ = BrowserWindowRouter.shared.routeGlobalSearchArchiveEntry(
+                    archivePath: archivePath,
+                    entrySubpath: entrySubpath
+                )
+            },
+            registerHotkey: { action in
+                _ = CarbonHotkeyCenter.shared.register(combo: .defaultGlobalSearch, action: action)
+            },
+            attachTermination: { action in
+                AppDelegate.shared?.onPrepareForTermination = action
+            }
+        )
         
         let possiblePaths = [
             Bundle.main.path(forResource: "TTZip_AppIcon_1024x1024_padded", ofType: "png"),
@@ -57,15 +87,15 @@ public struct TTZipApp: App {
             SettingsView()
                 .frame(
                     minWidth: 480,
-                    idealWidth: 660,
-                    maxWidth: 820,
-                    minHeight: 400,
-                    idealHeight: 470,
-                    maxHeight: 640
+                    idealWidth: 720,
+                    maxWidth: 860,
+                    minHeight: 420,
+                    idealHeight: 540,
+                    maxHeight: 680
                 )
         }
         .commands {
-            TTZipMenuCommands()
+            TTZipMenuCommands(checkForUpdates: AppChannelWiring.manualUpdateAction)
         }
     }
     
@@ -80,32 +110,6 @@ public struct TTZipApp: App {
             Task { @MainActor in
                 AppIntentDispatcher.shared.dispatch(envelope)
             }
-        }
-    }
-
-    @MainActor
-    private func setupGlobalSearchOverlay() {
-        let controller = GlobalSearchPanelController.shared
-        let hosting = NSHostingView(rootView: GlobalSearchPanelView(controller: controller))
-        hosting.sizingOptions = []
-        controller.setWindowContentView(hosting)
-        controller.onActivateItem = { item in
-            _ = BrowserWindowRouter.shared.routeGlobalSearchResult(item)
-        }
-        controller.onOpenArchive = { path in
-            BrowserWindowRouter.shared.routeGlobalSearchArchive(archivePath: path)
-        }
-        controller.onSelectEntry = { archivePath, entrySubpath in
-            _ = BrowserWindowRouter.shared.routeGlobalSearchArchiveEntry(
-                archivePath: archivePath,
-                entrySubpath: entrySubpath
-            )
-        }
-        _ = CarbonHotkeyCenter.shared.register(combo: .defaultGlobalSearch) {
-            controller.toggle()
-        }
-        AppDelegate.shared?.onPrepareForTermination = {
-            controller.hide()
         }
     }
 }

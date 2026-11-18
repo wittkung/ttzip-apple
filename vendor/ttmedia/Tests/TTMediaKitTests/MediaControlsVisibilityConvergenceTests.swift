@@ -223,7 +223,7 @@ extension MediaPresentationStateTests {
     }
 
     @MainActor
-    func testTwoWindowsMenuOwnershipKeepAliveVsRevealIntentAndGalleryPolicyConvergence() async throws {
+    func testTwoWindowsNativeMenuOwnershipKeepsPlaybackControlsAlive() async throws {
         let clock = ControlledVisibilityTestClock()
         let controlsA = MediaControlsVisibility(
             inactivityDuration: .seconds(3),
@@ -235,6 +235,13 @@ extension MediaPresentationStateTests {
             now: { clock.now() },
             wait: { duration in try await clock.wait(duration) }
         )
+        let makeMenu: @MainActor (VideoPlaybackMenus.Playback) -> NSMenu = { _ in
+            let menu = NSMenu()
+            let item = NSMenuItem()
+            item.submenu = NSMenu()
+            menu.addItem(item)
+            return menu
+        }
         let windowA = NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: 640, height: 360),
             styleMask: [.titled, .closable, .resizable],
@@ -244,6 +251,7 @@ extension MediaPresentationStateTests {
         windowA.isReleasedWhenClosed = false
         let playerA = AVSampleBufferPlayerNSView(frame: NSRect(x: 0, y: 0, width: 640, height: 360))
         playerA.controlsVisibility = controlsA
+        playerA.makeCanvasMenu = makeMenu
         windowA.contentView = playerA
 
         let windowB = NSWindow(
@@ -255,10 +263,11 @@ extension MediaPresentationStateTests {
         windowB.isReleasedWhenClosed = false
         let playerB = AVSampleBufferPlayerNSView(frame: NSRect(x: 0, y: 0, width: 640, height: 360))
         playerB.controlsVisibility = controlsB
+        playerB.makeCanvasMenu = makeMenu
         windowB.contentView = playerB
         defer {
-            CodeReadingToolsInteractionCoordinator.setMenuTrackingActive(false, for: windowA)
-            CodeReadingToolsInteractionCoordinator.setMenuTrackingActive(false, for: windowB)
+            TTMediaOwnedMenuRegistry.setMenuTrackingActive(false, for: windowA)
+            TTMediaOwnedMenuRegistry.setMenuTrackingActive(false, for: windowB)
             windowA.contentView = nil
             windowB.contentView = nil
             windowA.close()
@@ -278,109 +287,52 @@ extension MediaPresentationStateTests {
         let menuB = try XCTUnwrap(playerB.menu(for: eventB))
         XCTAssertNil(playerA.menu, "Production AVSampleBufferPlayerNSView uses dynamic menu(for:), not static view.menu")
 
-        let cornerA = PreviewCornerActionRevealCoordinator(
-            hideDelay: .milliseconds(260),
-            now: { clock.now() },
-            wait: { duration in try await clock.wait(duration) }
-        )
-        let cornerB = PreviewCornerActionRevealCoordinator(
-            hideDelay: .milliseconds(260),
-            now: { clock.now() },
-            wait: { duration in try await clock.wait(duration) }
-        )
-
-        // 1. Window ownership verification via real player.menu(for:) (root menu + rotation submenu)
-        XCTAssertFalse(CodeReadingToolsInteractionCoordinator.isMenuTrackingActive(for: nil as NSWindow?))
-        XCTAssertFalse(CodeReadingToolsInteractionCoordinator.doesMenuBelongToWindow(nil, window: windowA))
-        XCTAssertFalse(CodeReadingToolsInteractionCoordinator.doesMenuBelongToWindow(NSApplication.shared.mainMenu, window: windowA))
-        XCTAssertFalse(CodeReadingToolsInteractionCoordinator.doesMenuBelongToWindow(NSMenu(title: "Unowned"), window: windowA))
-        XCTAssertFalse(CodeReadingToolsInteractionCoordinator.doesMenuBelongToWindow(menuB, window: windowA))
-        XCTAssertTrue(CodeReadingToolsInteractionCoordinator.doesMenuBelongToWindow(menuA, window: windowA))
-        XCTAssertTrue(CodeReadingToolsInteractionCoordinator.doesMenuBelongToWindow(rotSubmenuA, window: windowA))
-        XCTAssertTrue(CodeReadingToolsInteractionCoordinator.doesMenuBelongToWindow(menuB, window: windowB))
+        XCTAssertFalse(TTMediaOwnedMenuRegistry.isMenuTrackingActive(for: nil as NSWindow?))
+        XCTAssertFalse(TTMediaOwnedMenuRegistry.doesMenuBelongToWindow(nil, window: windowA))
+        XCTAssertFalse(TTMediaOwnedMenuRegistry.doesMenuBelongToWindow(NSApplication.shared.mainMenu, window: windowA))
+        XCTAssertFalse(TTMediaOwnedMenuRegistry.doesMenuBelongToWindow(NSMenu(title: "Unowned"), window: windowA))
+        XCTAssertFalse(TTMediaOwnedMenuRegistry.doesMenuBelongToWindow(menuB, window: windowA))
+        XCTAssertTrue(TTMediaOwnedMenuRegistry.doesMenuBelongToWindow(menuA, window: windowA))
+        XCTAssertTrue(TTMediaOwnedMenuRegistry.doesMenuBelongToWindow(rotSubmenuA, window: windowA))
+        XCTAssertTrue(TTMediaOwnedMenuRegistry.doesMenuBelongToWindow(menuB, window: windowB))
 
         // Posting Window B's menu or unowned menu notifications must never lock or wake Window A
         NotificationCenter.default.post(name: NSMenu.didBeginTrackingNotification, object: menuB)
         NotificationCenter.default.post(name: NSMenu.didBeginTrackingNotification, object: NSMenu(title: "Unowned"))
         NotificationCenter.default.post(name: NSMenu.didBeginTrackingNotification, object: nil)
-        XCTAssertTrue(CodeReadingToolsInteractionCoordinator.isMenuTrackingActive(for: windowB))
+        XCTAssertTrue(TTMediaOwnedMenuRegistry.isMenuTrackingActive(for: windowB))
         XCTAssertFalse(
-            CodeReadingToolsInteractionCoordinator.isMenuTrackingActive(for: windowA),
+            TTMediaOwnedMenuRegistry.isMenuTrackingActive(for: windowA),
             "Active menu tracking on Window B must never report active menu on Window A"
         )
         XCTAssertFalse(controlsA.isVisible)
         XCTAssertFalse(controlsB.isVisible, "Menu tracking on hidden Window B must not wake hidden bottom bar")
         NotificationCenter.default.post(name: NSMenu.didEndTrackingNotification, object: menuB)
-        XCTAssertFalse(CodeReadingToolsInteractionCoordinator.isMenuTrackingActive(for: windowB))
+        XCTAssertFalse(TTMediaOwnedMenuRegistry.isMenuTrackingActive(for: windowB))
 
-        // 2. Keep-alive vs. new reveal intent: external lock on a hidden control must NOT wake it;
-        //    explicit keyboard focus DOES reveal for accessibility.
-        XCTAssertFalse(cornerA.isPresented())
-        cornerA.setExternallyLocked(true)
-        XCTAssertFalse(
-            cornerA.isPresented(),
-            "External lock is a keep-alive for already-revealed controls and must NEVER wake a hidden control"
-        )
-        cornerA.setExternallyLocked(false)
-
-        let legacyUnownedFormulaWouldWakeHiddenA = (false || false || false || true || false)
-        XCTAssertTrue(legacyUnownedFormulaWouldWakeHiddenA)
-        XCTAssertFalse(
-            PreviewCornerActionRevealCoordinator.shouldShowButton(
-                isZoneHovered: false,
-                isButtonHovered: false,
-                isButtonFocused: false,
-                isExternallyLocked: true,
-                isDelayedVisible: false
-            ),
-            "Converged shouldShowButton must reject externalLock when control is not already revealed"
-        )
-
-        cornerA.setButtonFocused(true)
-        XCTAssertTrue(cornerA.isPresented(), "Explicit keyboard focus on corner control must reveal it")
-        cornerA.setButtonFocused(false)
-        await clock.advance(by: .milliseconds(260))
-        XCTAssertFalse(cornerA.isPresented())
-
-        // 3. Window A's real menu(for:) keeps Window A's already-visible controls alive, while Window B stays hidden;
-        //    closing Window A's menu converges back to the original deadline (duplicate begin/end & stray ends are safe).
         controlsA.isPlaying = true
         controlsA.recordMouseMove(at: CGPoint(x: 200, y: 180)) // deadline at t + 3.0s
-        cornerA.setZoneHovered(true)
         XCTAssertTrue(controlsA.isVisible)
-        XCTAssertTrue(cornerA.isPresented())
-        XCTAssertFalse(cornerB.isPresented())
 
         // At t + 1.0s (2.0s remaining on controlsA's 3.0s deadline), Window A opens its real menu(for:):
         await clock.advance(by: .seconds(1), resumeWaiters: false)
         NotificationCenter.default.post(name: NSMenu.didBeginTrackingNotification, object: menuA)
         NotificationCenter.default.post(name: NSMenu.didBeginTrackingNotification, object: menuA) // duplicate begin
         NotificationCenter.default.post(name: NSMenu.didBeginTrackingNotification, object: rotSubmenuA)
-        cornerA.setExternallyLocked(CodeReadingToolsInteractionCoordinator.isMenuTrackingActive(for: windowA))
-        cornerA.setZoneHovered(false) // pointer moves out of corner sensor into menu
 
         // Stray end notifications from nil / Window B / submenu while root menuA is open must not release lock
         NotificationCenter.default.post(name: NSMenu.didEndTrackingNotification, object: nil)
         NotificationCenter.default.post(name: NSMenu.didEndTrackingNotification, object: menuB)
         NotificationCenter.default.post(name: NSMenu.didEndTrackingNotification, object: rotSubmenuA)
-        cornerA.setExternallyLocked(CodeReadingToolsInteractionCoordinator.isMenuTrackingActive(for: windowA))
 
-        // Advance by 0.5s (past cornerA's 260ms grace delay; now at t + 1.5s, 1.5s remaining on controlsA's original 3.0s deadline)
         await clock.advance(by: .milliseconds(500))
-        XCTAssertTrue(cornerA.isPresented(), "Window A's real menu(for:) lock must keep already-visible corner cluster alive")
         XCTAssertTrue(controlsA.isVisible, "Window A's real menu(for:) lock must keep bottom bar alive")
 
-        // Close Window A's menu at t + 1.5s (including duplicate end notification) ->
-        // - cornerA schedules its 260ms grace hide
-        // - controlsA converges to its ORIGINAL remaining 1.5s deadline (NOT a fresh 3.0s deadline!)
         NotificationCenter.default.post(name: NSMenu.didEndTrackingNotification, object: menuA)
         NotificationCenter.default.post(name: NSMenu.didEndTrackingNotification, object: menuA) // duplicate end
-        cornerA.setExternallyLocked(CodeReadingToolsInteractionCoordinator.isMenuTrackingActive(for: windowA))
-        XCTAssertTrue(cornerA.isPresented(), "Corner cluster remains visible during its 260ms grace window")
         XCTAssertTrue(controlsA.isVisible, "Bottom bar remains visible for the remaining 1.5s of its original deadline")
 
         await clock.advance(by: .milliseconds(260))
-        XCTAssertFalse(cornerA.isPresented(), "Corner cluster hides after 260ms grace following menu close")
         XCTAssertTrue(controlsA.isVisible, "Bottom bar still has 1.24s remaining on its original 3.0s deadline")
 
         await clock.advance(by: .milliseconds(1240))
@@ -392,10 +344,9 @@ extension MediaPresentationStateTests {
         NotificationCenter.default.post(name: NSMenu.didBeginTrackingNotification, object: staleMenuA)
         XCTAssertTrue(controlsA.hasActiveInteractionLock)
         controlsA.resetForNewItem()
-        cornerA.tearDown()
         XCTAssertFalse(controlsA.isVisible)
         XCTAssertFalse(controlsA.hasActiveInteractionLock)
-        XCTAssertFalse(CodeReadingToolsInteractionCoordinator.isMenuTrackingActive(for: windowA))
+        XCTAssertFalse(TTMediaOwnedMenuRegistry.isMenuTrackingActive(for: windowA))
 
         // Reveal again on the new item and open freshMenuA; late end from staleMenuA must NOT clear freshMenuA's lock
         controlsA.recordMouseMove(at: CGPoint(x: 260, y: 180))
@@ -411,10 +362,8 @@ extension MediaPresentationStateTests {
         // 5. Space while pointer is stationary or outside region keeps controls hidden
         controlsA.isPlaying = false
         XCTAssertFalse(controlsA.isVisible)
-        XCTAssertFalse(cornerA.isPresented())
         controlsA.isPlaying = true
         XCTAssertFalse(controlsA.isVisible)
-        XCTAssertFalse(cornerA.isPresented())
     }
 }
 

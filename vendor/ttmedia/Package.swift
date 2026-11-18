@@ -13,7 +13,6 @@ let packageDependencies: [Package.Dependency] = [
 ]
 let targetDependencies: [Target.Dependency] = [
     .product(name: "TTKitCore", package: "ttkit"),
-    .product(name: "TTKitDesign", package: "ttkit"),
     .product(name: "TTI18nUI", package: "tti18n"),
     .product(name: "TTI18nCore", package: "tti18n")
 ]

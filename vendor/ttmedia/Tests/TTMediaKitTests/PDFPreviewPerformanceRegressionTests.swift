@@ -9,50 +9,6 @@ import SwiftUI
 
 final class PDFPreviewPerformanceRegressionTests: XCTestCase {
 
-    // MARK: - 1. Stored Input Identity & Equal-Length Content Sensitivity
-
-    @MainActor
-    func testStoredInputIdentityDoesNotRehashAndPreservesEqualLengthDistinction() async throws {
-        var dataA = try makeVectorPDFData(pageCount: 2, curvesPerPage: 120, seedLabel: "Alpha")
-        var dataB = try makeVectorPDFData(pageCount: 2, curvesPerPage: 120, seedLabel: "Bravo")
-        let paddedSize = max(max(dataA.count, dataB.count), 2 * 1024 * 1024)
-        padPDFData(&dataA, toByteCount: paddedSize, fillByte: UInt8(ascii: "A"))
-        padPDFData(&dataB, toByteCount: paddedSize, fillByte: UInt8(ascii: "B"))
-        XCTAssertEqual(dataA.count, dataB.count)
-
-        let containerA = InteractivePDFPreviewContainerView(data: dataA)
-        let containerB = InteractivePDFPreviewContainerView(data: dataB)
-        XCTAssertNotEqual(containerA.inputIdentity, containerB.inputIdentity)
-        XCTAssertEqual(containerA.inputIdentity.dataByteCount, paddedSize)
-
-        let startRepeat = ContinuousClock.now
-        for _ in 0..<10_000 {
-            XCTAssertEqual(containerA.inputIdentity.cacheKey, containerA.inputIdentity.cacheKey)
-        }
-        let elapsedRepeat = startRepeat.duration(to: ContinuousClock.now)
-        let repeatMs = Double(elapsedRepeat.components.seconds) * 1_000.0
-            + Double(elapsedRepeat.components.attoseconds) / 1_000_000_000_000_000.0
-        XCTAssertLessThan(
-            repeatMs,
-            50.0,
-            "10,000 stored inputIdentity accesses should take < 50 ms without re-hashing 2 MB Data"
-        )
-
-        let loader = PDFPreviewLoader()
-        await loader.loadAsync(url: nil, data: dataA, identity: containerA.inputIdentity)
-        XCTAssertEqual(loader.phase, .ready)
-        XCTAssertEqual(loader.currentIdentity, containerA.inputIdentity)
-        let firstGeneration = loader.activeGeneration
-
-        await loader.loadAsync(url: nil, data: dataA, identity: containerA.inputIdentity)
-        XCTAssertEqual(loader.activeGeneration, firstGeneration, "Identical stored identity must not reload")
-
-        await loader.loadAsync(url: nil, data: dataB, identity: containerB.inputIdentity)
-        XCTAssertEqual(loader.phase, .ready)
-        XCTAssertEqual(loader.currentIdentity, containerB.inputIdentity)
-        XCTAssertGreaterThan(loader.activeGeneration, firstGeneration)
-    }
-
     // MARK: - 2. Pixel Budget, Off-Main-Thread Rendering, Caching & Cancellation
 
     func testBudgetedPixelSizeClampsToStrictCardPixelBudget() {
@@ -147,67 +103,6 @@ final class PDFPreviewPerformanceRegressionTests: XCTestCase {
         for task in tasks.prefix(2) {
             _ = await task.value
         }
-    }
-
-    // MARK: - 3. Real NSWindow Lifecycle, Mode Switching & Scroll Verification
-
-    @MainActor
-    func testInteractivePDFPreviewWindowLifecycleAndGridScrolling() async throws {
-        let pdfData = try makeVectorPDFData(pageCount: 9, curvesPerPage: 220, seedLabel: "WindowVerify")
-        let loader = PDFPreviewLoader()
-        let previewView = InteractivePDFPreviewContainerView(data: pdfData, loader: loader)
-
-        let hostingController = NSHostingController(rootView: previewView)
-        let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 920, height: 680),
-            styleMask: [.titled, .closable, .resizable],
-            backing: .buffered,
-            defer: false
-        )
-        window.isReleasedWhenClosed = false
-        window.contentViewController = hostingController
-        window.makeKeyAndOrderFront(nil)
-        defer { window.close() }
-
-        await loader.loadAsync(url: nil, data: pdfData, identity: previewView.inputIdentity)
-        XCTAssertEqual(loader.phase, .ready)
-        let doc = try XCTUnwrap(loader.document)
-        XCTAssertEqual(doc.pageCount, 9)
-
-        for mode in [PDFLayoutMode.singleFullWidth, .twoPages, .threePages] {
-            let modeView: AnyView
-            switch mode {
-            case .singleFullWidth, .twoPages:
-                modeView = AnyView(PDFKitView(document: doc, layoutMode: mode))
-            case .threePages:
-                modeView = AnyView(
-                    PDFThreePageTileGridView(
-                        document: doc,
-                        sourceURL: nil,
-                        sourceData: pdfData,
-                        inputIdentity: previewView.inputIdentity
-                    )
-                )
-            }
-            hostingController.rootView = InteractivePDFPreviewContainerView(data: pdfData, loader: loader)
-            let subHost = NSHostingView(rootView: modeView)
-            subHost.frame = NSRect(x: 0, y: 0, width: 900, height: 640)
-            window.contentView?.addSubview(subHost)
-            subHost.layoutSubtreeIfNeeded()
-            try await Task.sleep(for: .milliseconds(60))
-            subHost.removeFromSuperview()
-        }
-
-        let thumb = await PDFThumbnailRenderCoordinator.shared.renderThumbnail(
-            zeroBasedPageIndex: 0,
-            displayPointSize: CGSize(width: 220, height: 290),
-            scaleFactor: window.backingScaleFactor,
-            pageAspectRatio: 0.75,
-            url: nil,
-            data: pdfData,
-            identity: previewView.inputIdentity
-        )
-        XCTAssertNotNil(thumb)
     }
 
     // MARK: - 4. Unified Read Budget Enforcement & No Fallback Bypass
@@ -454,105 +349,6 @@ final class PDFPreviewPerformanceRegressionTests: XCTestCase {
         XCTAssertGreaterThanOrEqual(totalCompleted, 1)
     }
 
-    // MARK: - 8. Completion Probe Views & Negative Layout-Only Cases
-
-    @MainActor
-    func testPDFThumbnailAndSpreadsheetProbesRejectPlaceholderAndMismatchedIdentity() async throws {
-        let pdfData = try makeVectorPDFData(pageCount: 3, curvesPerPage: 16, seedLabel: "ProbeVerify")
-        let doc = try XCTUnwrap(PDFDocument(data: pdfData))
-        let currentIdentity = PDFPreviewInputIdentity(url: nil, data: pdfData)
-        let staleIdentity = PDFPreviewInputIdentity(url: nil, data: Data("stale".utf8))
-
-        let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 900, height: 640),
-            styleMask: [.titled, .resizable],
-            backing: .buffered,
-            defer: false
-        )
-        window.isReleasedWhenClosed = false
-        defer { window.close() }
-
-        let emptyGridHost = NSHostingView(
-            rootView: PDFThreePageTileGridView(
-                document: nil,
-                sourceURL: nil,
-                sourceData: nil,
-                inputIdentity: currentIdentity
-            )
-        )
-        emptyGridHost.frame = NSRect(x: 0, y: 0, width: 900, height: 640)
-        window.contentView = emptyGridHost
-        emptyGridHost.layoutSubtreeIfNeeded()
-        window.displayIfNeeded()
-        let placeholderProbes = collectProbes(in: emptyGridHost, ofType: PDFThumbnailRenderedProbeNSView.self)
-        XCTAssertTrue(placeholderProbes.isEmpty, "Placeholder PDF grid without rendered thumbnails must not mount PDFThumbnailRenderedProbeNSView")
-
-        let gridHost = NSHostingView(
-            rootView: PDFThreePageTileGridView(
-                document: doc,
-                sourceURL: nil,
-                sourceData: pdfData,
-                inputIdentity: currentIdentity
-            )
-        )
-        gridHost.frame = NSRect(x: 0, y: 0, width: 900, height: 640)
-        window.contentView = gridHost
-        gridHost.layoutSubtreeIfNeeded()
-        window.displayIfNeeded()
-
-        for _ in 0..<60 {
-            try await Task.sleep(for: .milliseconds(20))
-            gridHost.layoutSubtreeIfNeeded()
-            window.displayIfNeeded()
-            let matching = collectProbes(in: gridHost, ofType: PDFThumbnailRenderedProbeNSView.self)
-                .filter { $0.identityKey == currentIdentity.cacheKey && $0.renderedImage != nil }
-            if Set(matching.map(\.pageIndex)).isSuperset(of: [1, 2, 3]) {
-                break
-            }
-        }
-        let allPDFProbes = collectProbes(in: gridHost, ofType: PDFThumbnailRenderedProbeNSView.self)
-        let staleMatches = allPDFProbes.filter { $0.identityKey == staleIdentity.cacheKey }
-        XCTAssertTrue(staleMatches.isEmpty, "Mismatched PDFPreviewInputIdentity must never match current document probes")
-        let validPages = Set(
-            allPDFProbes
-                .filter { $0.identityKey == currentIdentity.cacheKey && ($0.renderedImage?.size.width ?? 0) > 0 }
-                .map(\.pageIndex)
-        )
-        XCTAssertTrue(validPages.isSuperset(of: [1, 2, 3]), "All first 3 visible pages must mount PDFThumbnailRenderedProbeNSView with non-empty NSImage")
-    }
-
-    @MainActor
-    func testSpreadsheetProbeRejectsEmptyRowsAndVerifiesPopulatedFirstScreen() {
-        let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 900, height: 640),
-            styleMask: [.titled, .resizable],
-            backing: .buffered,
-            defer: false
-        )
-        window.isReleasedWhenClosed = false
-        defer { window.close() }
-
-        let emptySheetHost = NSHostingView(rootView: TTSpreadsheetView(headers: ["ColA", "ColB"], rows: []))
-        emptySheetHost.frame = NSRect(x: 0, y: 0, width: 900, height: 640)
-        window.contentView = emptySheetHost
-        emptySheetHost.layoutSubtreeIfNeeded()
-        window.displayIfNeeded()
-        let emptySheetProbes = collectProbes(in: emptySheetHost, ofType: TTSpreadsheetContentProbeNSView.self)
-        XCTAssertTrue(emptySheetProbes.isEmpty, "Header-only spreadsheet with zero data rows must not mount TTSpreadsheetContentProbeNSView")
-
-        let populatedHost = NSHostingView(
-            rootView: TTSpreadsheetView(headers: ["ID", "Metric"], rows: [["row-1", "42.5"], ["row-2", "19.0"]])
-        )
-        populatedHost.frame = NSRect(x: 0, y: 0, width: 900, height: 640)
-        window.contentView = populatedHost
-        populatedHost.layoutSubtreeIfNeeded()
-        window.displayIfNeeded()
-        let populatedProbes = collectProbes(in: populatedHost, ofType: TTSpreadsheetContentProbeNSView.self)
-        XCTAssertEqual(populatedProbes.first?.renderedRowCount, 2)
-        XCTAssertEqual(populatedProbes.first?.renderedColumnCount, 2)
-        XCTAssertEqual(populatedProbes.first?.firstRowCells, ["row-1", "42.5"])
-    }
-
     // MARK: - 9. U1-004 Unlock Across Layout Modes, Zoom/Page Preservation & Cross-Document Reset
 
     @MainActor
@@ -588,10 +384,6 @@ final class PDFPreviewPerformanceRegressionTests: XCTestCase {
         XCTAssertEqual(loader.unlockedPassword, "correct-horse")
         XCTAssertEqual(loader.totalPages, 4)
         XCTAssertEqual(loader.currentPageIndex, 0)
-        XCTAssertEqual(
-            PDFPreviewLocalization.pageIndicator(currentOneBased: loader.currentPageIndex + 1, total: loader.totalPages),
-            "1 / 4"
-        )
 
         let unlockedDoc = try XCTUnwrap(loader.document)
         for mode in [PDFLayoutMode.singleFullWidth, .twoPages] {
@@ -699,21 +491,7 @@ final class PDFPreviewPerformanceRegressionTests: XCTestCase {
     }
 
     @MainActor
-    func testResponsiveToolbarTiersContentAvoidanceAndStageTelemetry() async throws {
-        // 1. Width tier boundaries: compact (<420pt), regular (420..<620pt), wide (>=620pt)
-        let compact = PDFToolbarLayoutMetrics(availableWidth: 260)
-        XCTAssertEqual(compact.tier, .compact)
-        XCTAssertTrue(compact.usesCompactLayoutMenu)
-        XCTAssertFalse(compact.showsLayoutModeLabels)
-        let regular = PDFToolbarLayoutMetrics(availableWidth: 480)
-        XCTAssertEqual(regular.tier, .regular)
-        XCTAssertFalse(regular.usesCompactLayoutMenu)
-        XCTAssertFalse(regular.showsLayoutModeLabels)
-        let wide = PDFToolbarLayoutMetrics(availableWidth: 860)
-        XCTAssertEqual(wide.tier, .wide)
-        XCTAssertTrue(wide.showsLayoutModeLabels)
-
-        // 2. Stage telemetry & warm identity reuse (loadReadyStageMs recorded; firstFrameStageMs stays nil until display observed)
+    func testPDFStageTelemetryKeepsFirstFrameUnmeasuredAndReusesWarmIdentity() async throws {
         let pdfData = try makeVectorPDFData(pageCount: 3, curvesPerPage: 12, seedLabel: "ToolbarAndStages")
         let loader = PDFPreviewLoader()
         let identity = PDFPreviewInputIdentity(url: nil, data: pdfData)

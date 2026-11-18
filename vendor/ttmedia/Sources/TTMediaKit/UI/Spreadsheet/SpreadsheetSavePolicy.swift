@@ -2,6 +2,172 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
 import Foundation
+import TTMediaDemux
+
+/// Errors thrown when a controlled delta save transaction detects a conflict or I/O failure.
+public enum TTDeltaSaveConflictError: LocalizedError, Equatable {
+    case externalFileModified(URL)
+    case transactionFailed(Int32)
+
+    public var errorDescription: String? {
+        switch self {
+        case .externalFileModified(let url):
+            return "External file modification detected for \(url.lastPathComponent)"
+        case .transactionFailed(let code):
+            return "Controlled delta save transaction failed (code \(code))"
+        }
+    }
+}
+
+/// Receipt describing the outcome of a controlled delta save transaction.
+public struct TTDeltaSaveReceipt: Sendable, Equatable {
+    public let opsCount: Int
+    public let usedDeltaPath: Bool
+
+    public init(opsCount: Int, usedDeltaPath: Bool) {
+        self.opsCount = opsCount
+        self.usedDeltaPath = usedDeltaPath
+    }
+}
+
+/// Shared controlled text and CSV delta save transaction runner bridging Swift editors to Rust C-ABI.
+public enum TTControlledTextSaveTransaction {
+    nonisolated public static func commit(
+        payload: String,
+        expectedBaseline: String?,
+        encoding: TTTextSourceEncoding,
+        targetURL: URL,
+        isCSV: Bool
+    ) throws -> TTDeltaSaveReceipt {
+        let standardizedURL = targetURL.standardizedFileURL
+        let path = standardizedURL.path
+        let modifiedLen = payload.utf8.count
+        var modifiedBytes = ContiguousArray(payload.utf8)
+        modifiedBytes.append(0)
+        let hasExpected = expectedBaseline != nil
+        let baselineStr = expectedBaseline ?? ""
+        let baselineLen = baselineStr.utf8.count
+        var baselineBytes = ContiguousArray(baselineStr.utf8)
+        baselineBytes.append(0)
+        let includeBOM = (encoding == .utf8BOM)
+        var opsCount: Int = 0
+        var usedDeltaPath: Bool = false
+
+        let status: Int32 = path.withCString { pathPtr in
+            modifiedBytes.withUnsafeBufferPointer { modBuf in
+                baselineBytes.withUnsafeBufferPointer { baseBuf in
+                    ttmedia_delta_commit_file_transaction(
+                        pathPtr,
+                        hasExpected ? baseBuf.baseAddress : nil,
+                        hasExpected ? baselineLen : 0,
+                        hasExpected,
+                        modBuf.baseAddress,
+                        modifiedLen,
+                        includeBOM,
+                        isCSV,
+                        &opsCount,
+                        &usedDeltaPath
+                    )
+                }
+            }
+        }
+
+        if status == 0 {
+            return TTDeltaSaveReceipt(opsCount: opsCount, usedDeltaPath: usedDeltaPath)
+        }
+        if status == -409 {
+            throw TTDeltaSaveConflictError.externalFileModified(standardizedURL)
+        }
+        throw TTDeltaSaveConflictError.transactionFailed(status)
+    }
+}
+
+// ADR-042: NSLock-synchronized baseline tracker for SwiftUI View value types across sequential saves.
+public final class TTSavedBaselineTracker: @unchecked Sendable {
+    private let lock = NSLock()
+    private var initialContentBaseline: String
+    private var initialDiskBaseline: String
+    private var latestSavedBaseline: String? = nil
+
+    public init(
+        initialContent: String,
+        fileURL: URL? = nil,
+        allowsDiskBaselineLoad: Bool = true,
+        maxBaselineBytes: Int = TTTextPreviewBytePolicy.maxInteractiveTextUTF8Bytes
+    ) {
+        self.initialContentBaseline = initialContent
+        self.initialDiskBaseline = Self.readBoundedDiskBaseline(
+            from: fileURL,
+            allowsDiskLoad: allowsDiskBaselineLoad,
+            maxBytes: maxBaselineBytes
+        ) ?? initialContent
+    }
+
+    private static func readBoundedDiskBaseline(
+        from fileURL: URL?,
+        allowsDiskLoad: Bool,
+        maxBytes: Int
+    ) -> String? {
+        guard allowsDiskLoad,
+              maxBytes > 0,
+              let url = fileURL,
+              url.isFileURL else {
+            return nil
+        }
+        if let attrs = try? FileManager.default.attributesOfItem(atPath: url.path),
+           let fileSize = (attrs[.size] as? NSNumber)?.intValue,
+           fileSize > maxBytes {
+            return nil
+        }
+        guard let handle = try? FileHandle(forReadingFrom: url) else {
+            return nil
+        }
+        defer { try? handle.close() }
+        guard let data = try? handle.read(upToCount: maxBytes + 1),
+              data.count <= maxBytes else {
+            return nil
+        }
+        return TTMediaContentReader.decodeText(data: data)
+    }
+
+    public func activeBaseline(hasContentOverride: Bool, stateBaseline: String?) -> String {
+        if let stateBaseline {
+            return stateBaseline
+        }
+        lock.lock()
+        defer { lock.unlock() }
+        if let saved = latestSavedBaseline {
+            return saved
+        }
+        return hasContentOverride ? initialContentBaseline : initialDiskBaseline
+    }
+
+    public func recordSave(_ newBaseline: String) {
+        lock.lock()
+        latestSavedBaseline = newBaseline
+        initialContentBaseline = newBaseline
+        initialDiskBaseline = newBaseline
+        lock.unlock()
+    }
+
+    public func reset(
+        initialContent: String,
+        fileURL: URL? = nil,
+        allowsDiskBaselineLoad: Bool = true,
+        maxBaselineBytes: Int = TTTextPreviewBytePolicy.maxInteractiveTextUTF8Bytes
+    ) {
+        let diskBaseline = Self.readBoundedDiskBaseline(
+            from: fileURL,
+            allowsDiskLoad: allowsDiskBaselineLoad,
+            maxBytes: maxBaselineBytes
+        ) ?? initialContent
+        lock.lock()
+        latestSavedBaseline = nil
+        initialContentBaseline = initialContent
+        initialDiskBaseline = diskBaseline
+        lock.unlock()
+    }
+}
 
 /// Policy governing in-place file saving for `SpreadsheetTablePreviewView`.
 ///
@@ -87,21 +253,22 @@ public enum SpreadsheetSavePolicy {
         ).isEditableInPlace
     }
 
-    /// Attempts to write `content` as UTF-8 to `fileURL` only if `canSaveInPlace` succeeds.
+    /// Attempts to write `content` via the controlled delta save transaction if `canSaveInPlace` succeeds.
     ///
-    /// - Returns: `true` if the write was permitted and succeeded; `false` if blocked by policy.
+    /// - Returns: `TTDeltaSaveReceipt` if permitted and committed; `nil` if blocked by policy.
     @discardableResult
-    nonisolated public static func saveInPlace(
+    nonisolated public static func saveInPlaceWithDeltaReceipt(
         content: String,
+        expectedBaseline: String? = nil,
         fileURL: URL?,
         fileName: String = "",
         workbook: OfficeSpreadsheetWorkbook? = nil,
         hasSheetLoader: Bool = false,
         isPreviewTruncated: Bool = false,
         resourceContext: TTPreviewResourceContext? = nil
-    ) throws -> Bool {
+    ) throws -> TTDeltaSaveReceipt? {
         guard content.utf8.count <= TTSpreadsheetParser.maxInteractivePreviewUTF8Bytes else {
-            return false
+            return nil
         }
         let targetURL: URL?
         if let context = resourceContext {
@@ -123,10 +290,43 @@ public enum SpreadsheetSavePolicy {
             ).writableTargetURL
         }
         guard let url = targetURL else {
-            return false
+            return nil
         }
-        try content.write(to: url, atomically: true, encoding: .utf8)
-        return true
+        let inspectedEncoding = TTTextSourceInspection.inspect(url: url, fallbackText: content).encoding
+        let saveEncoding: TTTextSourceEncoding = (inspectedEncoding == .utf8BOM) ? .utf8BOM : .utf8
+        return try TTControlledTextSaveTransaction.commit(
+            payload: content,
+            expectedBaseline: expectedBaseline,
+            encoding: saveEncoding,
+            targetURL: url,
+            isCSV: true
+        )
+    }
+
+    /// Attempts to write `content` as UTF-8 to `fileURL` only if `canSaveInPlace` succeeds.
+    ///
+    /// - Returns: `true` if the write was permitted and succeeded; `false` if blocked by policy.
+    @discardableResult
+    nonisolated public static func saveInPlace(
+        content: String,
+        expectedBaseline: String? = nil,
+        fileURL: URL?,
+        fileName: String = "",
+        workbook: OfficeSpreadsheetWorkbook? = nil,
+        hasSheetLoader: Bool = false,
+        isPreviewTruncated: Bool = false,
+        resourceContext: TTPreviewResourceContext? = nil
+    ) throws -> Bool {
+        try saveInPlaceWithDeltaReceipt(
+            content: content,
+            expectedBaseline: expectedBaseline,
+            fileURL: fileURL,
+            fileName: fileName,
+            workbook: workbook,
+            hasSheetLoader: hasSheetLoader,
+            isPreviewTruncated: isPreviewTruncated,
+            resourceContext: resourceContext
+        ) != nil
     }
 
     nonisolated private static func cleanExtension(_ rawExtension: String) -> String {
@@ -136,17 +336,17 @@ public enum SpreadsheetSavePolicy {
 
 // MARK: - Precomputed Background Snapshot & Cancellation Pipeline
 
-internal struct SpreadsheetComputedTableSnapshot: Sendable {
-    let rows: [[String]]
-    let tableState: SpreadsheetTableState
-    let columnWidths: [Int: CGFloat]
-    let detectedDelimiter: TTSpreadsheetDelimiter
+public struct SpreadsheetComputedTableSnapshot: Sendable {
+    public let rows: [[String]]
+    public let tableState: SpreadsheetTableState
+    public let columnWidths: [Int: CGFloat]
+    public let detectedDelimiter: TTSpreadsheetDelimiter
     let actualDelimiter: Character
-    let isTruncated: Bool
-    let hasMoreRows: Bool
+    public let isTruncated: Bool
+    public let hasMoreRows: Bool
 }
 
-internal enum SpreadsheetBackgroundPipeline {
+public enum SpreadsheetBackgroundPipeline {
     nonisolated static func runCancellableDetached<T: Sendable>(
         priority: TaskPriority = .userInitiated,
         operation: @Sendable @escaping () -> T
@@ -189,7 +389,7 @@ internal enum SpreadsheetBackgroundPipeline {
         )
     }
 
-    nonisolated static func computeFirstScreenSnapshot(
+    public nonisolated static func computeFirstScreenSnapshot(
         content: String,
         overrideDelimiter: Character?,
         useFirstRowAsHeader: Bool,
@@ -215,7 +415,7 @@ internal enum SpreadsheetBackgroundPipeline {
         }
     }
 
-    nonisolated static func computeFullBudgetedSnapshot(
+    public nonisolated static func computeFullBudgetedSnapshot(
         content: String,
         stage1: SpreadsheetComputedTableSnapshot,
         useFirstRowAsHeader: Bool,
@@ -244,7 +444,7 @@ internal enum SpreadsheetBackgroundPipeline {
         }
     }
 
-    nonisolated static func computeWorkbookFirstScreenSnapshot(
+    public nonisolated static func computeWorkbookFirstScreenSnapshot(
         sheet: TTMediaSheetData,
         useFirstRowAsHeader: Bool,
         searchQuery: String,
@@ -267,7 +467,7 @@ internal enum SpreadsheetBackgroundPipeline {
         }
     }
 
-    nonisolated static func computeWorkbookFullSnapshot(
+    public nonisolated static func computeWorkbookFullSnapshot(
         sheet: TTMediaSheetData,
         useFirstRowAsHeader: Bool,
         searchQuery: String,
@@ -293,7 +493,7 @@ internal enum SpreadsheetBackgroundPipeline {
         }
     }
 
-    nonisolated static func loadAndComputeSelectedSheet(
+    public nonisolated static func loadAndComputeSelectedSheet(
         sheetName: String,
         workbook: OfficeSpreadsheetWorkbook,
         sheetDataLoader: (@Sendable (String) async -> TTMediaSheetData?)?,

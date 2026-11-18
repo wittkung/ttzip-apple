@@ -13,34 +13,6 @@ public enum TTSpreadsheetDelimiter: Character, CaseIterable, Identifiable, Senda
     case pipe = "|"
 
     public var id: String { String(rawValue) }
-
-    public var displayName: String {
-        switch self {
-        case .comma: return "Comma (,)"
-        case .tab: return "Tab (\\t)"
-        case .semicolon: return "Semicolon (;)"
-        case .pipe: return "Pipe (|)"
-        }
-    }
-
-    @MainActor
-    public var localizedDisplayName: String {
-        switch self {
-        case .comma: return SpreadsheetPreviewLocalization.text(.delimiterComma)
-        case .tab: return SpreadsheetPreviewLocalization.text(.delimiterTab)
-        case .semicolon: return SpreadsheetPreviewLocalization.text(.delimiterSemicolon)
-        case .pipe: return SpreadsheetPreviewLocalization.text(.delimiterPipe)
-        }
-    }
-
-    public var shortName: String {
-        switch self {
-        case .comma: return "CSV (,)"
-        case .tab: return "TSV (⇥)"
-        case .semicolon: return "SSV (;)"
-        case .pipe: return "PSV (|)"
-        }
-    }
 }
 
 /// Backward compatibility alias.
@@ -56,50 +28,6 @@ public enum SpreadsheetPageSizeOption: Int, CaseIterable, Identifiable, Sendable
     case all = -1
 
     public var id: Int { rawValue }
-
-    public var displayName: String {
-        switch self {
-        case .fifty: return "50 rows"
-        case .hundred: return "100 rows"
-        case .twoHundredFifty: return "250 rows"
-        case .fiveHundred: return "500 rows"
-        case .oneThousand: return "1,000 rows"
-        case .all: return "All rows (No Pagination)"
-        }
-    }
-
-    @MainActor
-    public var localizedDisplayName: String {
-        switch self {
-        case .all:
-            return SpreadsheetPreviewLocalization.text(.pageSizeAllRows)
-        default:
-            return SpreadsheetPreviewLocalization.pageSizeRows(rawValue)
-        }
-    }
-}
-
-/// Preview mode between Spreadsheet Grid and Raw CSV/TSV source text.
-public enum SpreadsheetPreviewMode: String, CaseIterable, Identifiable, Sendable {
-    case table = "Grid Table"
-    case source = "Raw Source"
-
-    public var id: String { rawValue }
-
-    public var icon: String {
-        switch self {
-        case .table: return "tablecells"
-        case .source: return "curlybraces"
-        }
-    }
-
-    @MainActor
-    public var localizedTitle: String {
-        switch self {
-        case .table: return SpreadsheetPreviewLocalization.text(.modeTable)
-        case .source: return SpreadsheetPreviewLocalization.text(.modeSource)
-        }
-    }
 }
 
 /// Cell coordinate for selection and inspection.

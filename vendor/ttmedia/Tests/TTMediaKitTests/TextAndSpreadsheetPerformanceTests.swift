@@ -380,25 +380,20 @@ final class TextAndSpreadsheetPerformanceTests: XCTestCase {
 
         // Place multi-byte UTF-8 characters across the 2 MB boundary to verify safe scalar truncation.
         let prefixChunk = String(repeating: "let value = 1234567890 // 中文🚀\n", count: 65_000)
-        XCTAssertGreaterThan(prefixChunk.utf8.count, CodeSyntaxPreviewView.maxInteractiveTextUTF8Bytes)
+        XCTAssertGreaterThan(prefixChunk.utf8.count, TTTextPreviewBytePolicy.maxInteractiveTextUTF8Bytes)
 
         let fileURL = tempDir.appendingPathComponent("huge_file.swift")
         try prefixChunk.write(to: fileURL, atomically: true, encoding: .utf8)
         let originalDiskBytes = try Data(contentsOf: fileURL)
 
-        let preview = CodeSyntaxPreviewView(
-            content: prefixChunk,
-            fileURL: fileURL,
-            fileName: "huge_file.swift"
-        )
-
-        XCTAssertTrue(preview.isTruncatedForPreview, "Files > 2 MB must be marked as truncated for preview")
-        XCTAssertLessThanOrEqual(preview.previewDisplayText.utf8.count, CodeSyntaxPreviewView.maxInteractiveTextUTF8Bytes)
-        XCTAssertFalse(preview.canSaveInPlace, "Truncated text preview must block in-place saving")
-        XCTAssertFalse(preview.isEditorEditable, "Truncated text preview must force read-only mode")
-        XCTAssertFalse(preview.saveFile(), "saveFile() must return false when truncated")
-        XCTAssertFalse(preview.saveFile(contentOverride: "// Overwritten\n"), "saveFile(contentOverride:) must be blocked when truncated")
-        XCTAssertEqual(try Data(contentsOf: fileURL), originalDiskBytes, "Original file on disk must remain untouched")
+        let (display, truncated) = TTTextPreviewBytePolicy.truncateForPreview(prefixChunk)
+        XCTAssertTrue(truncated)
+        XCTAssertLessThanOrEqual(display.utf8.count, TTTextPreviewBytePolicy.maxInteractiveTextUTF8Bytes)
+        let context = TTPreviewResourceContext.diskFile(url: fileURL)
+        XCTAssertNil(context.validateInPlaceSaveTarget(
+            expectedFileURL: fileURL, fileName: "huge_file.swift", isTruncated: truncated
+        ))
+        XCTAssertEqual(try Data(contentsOf: fileURL), originalDiskBytes)
 
         let nsEditor = CodeHighlightingEditorNSView(
             text: .constant(prefixChunk),
@@ -416,7 +411,7 @@ final class TextAndSpreadsheetPerformanceTests: XCTestCase {
         try FileManager.default.createDirectory(at: tempDir, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: tempDir) }
 
-        let rowLimit = SpreadsheetTablePreviewView.maxPreviewRows
+        let rowLimit = TTSpreadsheetParser.maxInteractivePreviewRows
         let overBudgetCSV = String(repeating: "1,2\n", count: rowLimit + 10)
         let csvURL = tempDir.appendingPathComponent("large_dataset.csv")
         try overBudgetCSV.write(to: csvURL, atomically: true, encoding: .utf8)
@@ -430,22 +425,11 @@ final class TextAndSpreadsheetPerformanceTests: XCTestCase {
         XCTAssertEqual(prefixParsed.rows.count, rowLimit)
         XCTAssertTrue(prefixParsed.isTruncated)
 
-        let tableView = SpreadsheetTablePreviewView(
-            initialContent: overBudgetCSV,
-            fileURL: csvURL,
-            fileName: "large_dataset.csv"
-        )
-        XCTAssertTrue(tableView.isPreviewTruncated, "Spreadsheet exceeding 50,000 rows must flag isPreviewTruncated")
-        XCTAssertFalse(tableView.canSaveInPlace, "Truncated spreadsheet must disallow in-place save")
-        XCTAssertFalse(
-            SpreadsheetSavePolicy.canSaveInPlace(
-                fileURL: csvURL,
-                fileName: "large_dataset.csv",
-                isPreviewTruncated: true
-            )
-        )
-        XCTAssertFalse(tableView.saveFile())
-        XCTAssertFalse(tableView.saveFile(contentOverride: "corrupted,data\n"))
+        XCTAssertFalse(SpreadsheetSavePolicy.canSaveInPlace(fileURL: csvURL, isPreviewTruncated: prefixParsed.isTruncated))
+        XCTAssertFalse(try SpreadsheetSavePolicy.saveInPlace(
+            content: "corrupted,data\n", expectedBaseline: overBudgetCSV,
+            fileURL: csvURL, isPreviewTruncated: prefixParsed.isTruncated
+        ))
         XCTAssertEqual(try Data(contentsOf: csvURL), originalCSVBytes, "Original CSV file on disk must never be overwritten by truncated preview")
     }
 
@@ -570,12 +554,12 @@ final class TextAndSpreadsheetPerformanceTests: XCTestCase {
             backing: .buffered,
             defer: false
         )
+        window.contentView = NSHostingView(rootView: CodeHighlightingEditorNSView(text: .constant("let w = 0\n"), fileName: "w.swift"))
+        window.contentView?.layoutSubtreeIfNeeded()
 
         let mountStart = CACurrentMediaTime()
-        let container = CodeTextEditorContainerView(
-            initialText: hugeDocument,
-            fileURL: nil,
-            fileName: "large_module.swift"
+        let container = CodeHighlightingEditorNSView(
+            text: .constant(hugeDocument), fileName: "large_module.swift"
         )
         let hostingView = NSHostingView(rootView: container)
         hostingView.frame = NSRect(x: 0, y: 0, width: 900, height: 640)
@@ -606,20 +590,14 @@ final class TextAndSpreadsheetPerformanceTests: XCTestCase {
         XCTAssertEqual(textView.selectedRange(), matchRange)
         XCTAssertEqual((textView.string as NSString).substring(with: matchRange), "NEEDLE_AT_500KB_MARKER")
 
-        // 4. Copy verification (both selection copy in NSTextView and full 2 MB preview copy in container)
-        textView.copy(nil)
-        XCTAssertEqual(NSPasteboard.general.string(forType: .string), "NEEDLE_AT_500KB_MARKER")
+        // Selection copy preserves the search result across expanded preview chunks.
+        let selectionBoard = NSPasteboard.withUniqueName()
+        defer { selectionBoard.releaseGlobally() }
+        XCTAssertTrue(textView.writeSelection(to: selectionBoard, types: textView.writablePasteboardTypes))
+        XCTAssertEqual(selectionBoard.string(forType: .string), "NEEDLE_AT_500KB_MARKER")
 
-        let customBoard = NSPasteboard.withUniqueName()
-        let copiedFullPreview = container.copyPreviewToPasteboard(customBoard)
-        XCTAssertEqual(copiedFullPreview.utf8.count, CodeTextEditorContainerView.maxInteractiveTextUTF8Bytes)
-        XCTAssertEqual(customBoard.string(forType: .string), container.previewDisplayText)
-
-        // 5. Truncation prompt & write-safety verification
         XCTAssertTrue(container.isTruncatedForPreview)
-        XCTAssertFalse(container.canSaveInPlace)
-        XCTAssertFalse(container.saveFile())
-        XCTAssertTrue(CodeTextEditorContainerView.truncationBannerMessage.contains("2 MB"))
+        XCTAssertFalse(container.effectiveIsEditable)
     }
 
     @MainActor

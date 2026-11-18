@@ -20,6 +20,40 @@ final class MHTMLRenderingTests: XCTestCase {
         super.tearDown()
     }
 
+    func testDirectAdapterUsesWebKitDefaultsWithoutProductAppearance() async throws {
+        let webView = makeWebView(content: "<html><body><p id='neutral'>Plain</p></body></html>", fileURL: nil)
+        try await waitUntil(webView, condition: "document.getElementById('neutral') !== null")
+        let styles = try await evaluateString("""
+            [getComputedStyle(document.body).margin, getComputedStyle(document.body).padding,
+             String(document.querySelector('[data-host-preview-appearance]') === null)].join('|')
+            """, in: webView)
+        XCTAssertEqual(styles, "8px|0px|true")
+        let svg = makeWebView(content: "<svg width='40' height='20'><rect width='40' height='20'/></svg>", fileURL: nil)
+        try await waitUntil(svg, condition: "document.querySelector('body > svg') !== null")
+        let geometry = try await evaluateString("""
+            [getComputedStyle(document.body).padding,
+             document.querySelector('body > svg').getAttribute('viewBox')].join('|')
+            """, in: svg)
+        XCTAssertEqual(geometry, "0px|0 0 40 20")
+    }
+
+    func testHostCSSCannotEscapeStyleElementAndFollowsOfflineCSP() {
+        let css = "body::before { content: '</style><img id=escaped>'; }"
+        let representable = HTMLWKWebViewRepresentable(
+            content: "<p>Plain</p>", fileURL: nil,
+            appearance: .init(unstyledHTMLCSS: css)
+        )
+        let html = representable.preparedHTMLContent(representable.content)
+        XCTAssertFalse(html.contains("</style><img"))
+        let csp = html.range(of: TTWebPreviewContentPolicy.offlineCSPMetaTag)
+        let style = html.range(of: "<style data-host-preview-appearance>")
+        XCTAssertNotNil(csp)
+        XCTAssertNotNil(style)
+        if let csp, let style {
+            XCTAssertLessThan(csp.lowerBound, style.lowerBound)
+        }
+    }
+
     func testMultipartSnapshotRendersDecodedHTMLWithEmbeddedCSSAndCIDImage() async throws {
         let mime = Self.multipartSnapshot
         let preview = TTMediaDetector.detectTypeFromMemory(

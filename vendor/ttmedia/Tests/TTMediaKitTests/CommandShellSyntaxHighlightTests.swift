@@ -3,29 +3,21 @@
 
 import AppKit
 import SwiftUI
-import TTI18nCore
 @testable import TTMediaKit
 import XCTest
 
 @MainActor
 final class CommandShellSyntaxHighlightTests: XCTestCase {
     private var tempDir: URL!
-    private var savedSharedMode: TTTextReadingBackgroundMode = .fluidTransparent
-    private var savedSharedSoftWrap: Bool = true
 
     override func setUp() async throws {
         try await super.setUp()
-        savedSharedMode = TTTextReadingPreferenceStore.shared.mode
-        savedSharedSoftWrap = TTTextReadingPreferenceStore.shared.isSoftWrapEnabled
-        TTTextReadingPreferenceStore.shared.resetToDefault()
         tempDir = FileManager.default.temporaryDirectory
             .appendingPathComponent("TTMediaCommandHighlightTests-\(UUID().uuidString)", isDirectory: true)
         try FileManager.default.createDirectory(at: tempDir, withIntermediateDirectories: true)
     }
 
     override func tearDown() async throws {
-        TTTextReadingPreferenceStore.shared.mode = savedSharedMode
-        TTTextReadingPreferenceStore.shared.isSoftWrapEnabled = savedSharedSoftWrap
         if let tempDir {
             try? FileManager.default.removeItem(at: tempDir)
         }
@@ -50,9 +42,9 @@ final class CommandShellSyntaxHighlightTests: XCTestCase {
         "fi"
     ].joined(separator: "\n")
 
-    // MARK: - 1. End-to-End .command Preview via Detector & Factory -> Real Attributed Output
+    // MARK: - 1. Detected .command Preview and Attributed Output
 
-    func testCommandFixtureRoutesThroughPreviewFactoryWithShellLanguageAndAttributedTokens() async throws {
+    func testDetectedCommandUsesShellLanguageAndAttributedTokens() async throws {
         let commandURL = tempDir.appendingPathComponent("harmless_deploy.command")
         let fixtureData = Data(Self.harmlessCommandFixture.utf8)
         try fixtureData.write(to: commandURL, options: .atomic)
@@ -87,22 +79,9 @@ final class CommandShellSyntaxHighlightTests: XCTestCase {
         // 2. Render mode & Shell language label resolution.
         let renderMode = TTTextSyntaxRenderMode.resolve(fileName: commandURL.lastPathComponent)
         XCTAssertEqual(renderMode, .syntaxHighlighted(languageExt: "command"))
-        XCTAssertEqual(
-            CodeSyntaxHeaderBar.resolveLanguageName(for: commandURL.lastPathComponent, isCompact: true),
-            "Shell"
-        )
-        XCTAssertEqual(
-            CodeSyntaxHeaderBar.resolveLanguageName(for: commandURL.lastPathComponent, isCompact: false),
-            "Shell"
-        )
 
-        // 3. Enter through the real TTMediaPreviewFactory and mount in an AppKit window.
-        let previewView = TTMediaPreviewFactory.makePreviewView(
-            type: syncPreview,
-            fileName: commandURL.lastPathComponent,
-            fileURL: commandURL
-        )
-        let (window, _, textView, coordinator) = try await mountFactoryPreview(previewView)
+        let previewView = codePreview(syncText, fileURL: commandURL)
+        let (window, _, textView, coordinator) = try await mountPreview(previewView)
         defer { window.orderOut(nil) }
 
         let metrics = try XCTUnwrap(coordinator.lastPerformanceMetrics)
@@ -213,18 +192,12 @@ final class CommandShellSyntaxHighlightTests: XCTestCase {
                 .plainText,
                 "\(fileName) must resolve to .plainText per unknown/plain-text contract"
             )
-            XCTAssertEqual(
-                CodeSyntaxHeaderBar.resolveLanguageName(for: fileName, isCompact: true),
-                TextAndDocumentPreviewLocalization.text(.plainTextLabel)
-            )
 
-            let detected = TTMediaDetector.detectType(url: fileURL)
-            let previewView = TTMediaPreviewFactory.makePreviewView(
-                type: detected,
-                fileName: fileName,
-                fileURL: fileURL
-            )
-            let (window, _, textView, coordinator) = try await mountFactoryPreview(
+            guard case .text(let detectedText) = TTMediaDetector.detectType(url: fileURL) else {
+                return XCTFail("\(fileName) must be detected as plain text")
+            }
+            let previewView = codePreview(detectedText, fileURL: fileURL)
+            let (window, _, textView, coordinator) = try await mountPreview(
                 previewView,
                 waitForHighlightTokens: false
             )
@@ -266,10 +239,6 @@ final class CommandShellSyntaxHighlightTests: XCTestCase {
                 TTTextSyntaxRenderMode.resolve(fileName: shellFileName),
                 .syntaxHighlighted(languageExt: shellExt)
             )
-            XCTAssertEqual(
-                CodeSyntaxHeaderBar.resolveLanguageName(for: shellFileName, isCompact: true),
-                "Shell"
-            )
             let shellSpans = await BackgroundSyntaxTokenizer.shared.tokenize(
                 text: Self.harmlessCommandFixture,
                 ext: shellExt,
@@ -285,33 +254,24 @@ final class CommandShellSyntaxHighlightTests: XCTestCase {
 
     // MARK: - 3. IME Protection, Default Soft Wrap & Floating Reading Tools Contract Preservation
 
-    func testCommandPreviewPreservesDefaultSoftWrapFloatingToolsAndIMEMarkedTextProtection() async throws {
+    func testCommandEditorPreservesDefaultSoftWrapAndIMEMarkedTextProtection() async throws {
         let commandURL = tempDir.appendingPathComponent("interactive_check.command")
         try Data(Self.harmlessCommandFixture.utf8).write(to: commandURL, options: .atomic)
 
-        let detected = TTMediaDetector.detectType(url: commandURL)
-        let previewView = TTMediaPreviewFactory.makePreviewView(
-            type: detected,
-            fileName: commandURL.lastPathComponent,
+        guard case .text(let detectedText) = TTMediaDetector.detectType(url: commandURL) else {
+            return XCTFail("The interactive .command fixture must be detected as text")
+        }
+        let previewView = codePreview(
+            detectedText,
             fileURL: commandURL,
             resourceContext: .diskFile(url: commandURL, fileName: commandURL.lastPathComponent, allowsEditing: true)
         )
-        let (window, hostingView, textView, coordinator) = try await mountFactoryPreview(previewView)
+        let (window, _, textView, coordinator) = try await mountPreview(previewView)
         defer { window.orderOut(nil) }
 
         // 1. Default soft wrap contract preserved.
         XCTAssertTrue(coordinator.activeSoftWrapEnabled, ".command preview must default to soft wrap enabled")
         XCTAssertEqual(textView.textContainer?.widthTracksTextView, true)
-
-        // 2. Floating reading tools ([ Aa ⎘ ]) contract preserved.
-        XCTAssertNotNil(
-            findButton(in: hostingView, identifier: "CodeFloatingAaToolsButton"),
-            "Floating appearance button (Aa) must be mounted on .command preview"
-        )
-        XCTAssertNotNil(
-            findButton(in: hostingView, identifier: "CodeFloatingCopyButton"),
-            "Floating copy button (⎘) must be mounted on .command preview"
-        )
 
         // 3. IME marked-text composition protection preserved.
         window.makeFirstResponder(textView)
@@ -335,7 +295,24 @@ final class CommandShellSyntaxHighlightTests: XCTestCase {
 
     // MARK: - Helpers
 
-    private func mountFactoryPreview<V: View>(
+    private func codePreview(
+        _ text: String,
+        fileURL: URL,
+        resourceContext: TTPreviewResourceContext? = nil
+    ) -> some View {
+        let fileName = fileURL.lastPathComponent
+        let context = resourceContext ?? .unknown(readableURL: fileURL, fileName: fileName)
+        return CodeHighlightingEditorNSView(
+            text: .constant(text),
+            fileName: fileName,
+            isEditable: context.isEditableInPlace,
+            totalSourceBytes: Int64(text.utf8.count)
+        )
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .environment(\.previewResourceContext, context)
+    }
+
+    private func mountPreview<V: View>(
         _ view: V,
         waitForHighlightTokens: Bool = true
     ) async throws -> (
@@ -384,18 +361,6 @@ final class CommandShellSyntaxHighlightTests: XCTestCase {
         if let tv = root as? LargeTextEditorTextView { return tv }
         for subview in root.subviews {
             if let found = findTextView(in: subview) { return found }
-        }
-        return nil
-    }
-
-    private func findButton(in root: NSView, identifier: String) -> NSButton? {
-        if let button = root as? NSButton, button.accessibilityIdentifier() == identifier {
-            return button
-        }
-        for subview in root.subviews {
-            if let found = findButton(in: subview, identifier: identifier) {
-                return found
-            }
         }
         return nil
     }

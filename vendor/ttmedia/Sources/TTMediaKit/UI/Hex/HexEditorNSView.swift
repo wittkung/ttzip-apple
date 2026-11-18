@@ -18,10 +18,19 @@ public enum HexMetrics: Sendable {
 public struct HexEditorNSView: NSViewRepresentable {
     public let pageData: Data
     public let startOffset: Int64
+    private let offsetColor: NSColor
+    private let highByteColor: NSColor
     
-    public init(pageData: Data, startOffset: Int64) {
+    public init(
+        pageData: Data,
+        startOffset: Int64,
+        offsetColor: NSColor = .secondaryLabelColor,
+        highByteColor: NSColor = .labelColor
+    ) {
         self.pageData = pageData
         self.startOffset = startOffset
+        self.offsetColor = offsetColor
+        self.highByteColor = highByteColor
     }
     
     public func makeCoordinator() -> Coordinator {
@@ -55,24 +64,53 @@ public struct HexEditorNSView: NSViewRepresentable {
             container.lineFragmentPadding = 0
         }
         
-        context.coordinator.renderAttributedHexDump(data: pageData, startOffset: startOffset, in: textView)
         scrollView.documentView = textView
+        context.coordinator.renderAttributedHexDump(
+            data: pageData,
+            startOffset: startOffset,
+            offsetColor: offsetColor,
+            highByteColor: highByteColor,
+            in: textView
+        )
         return scrollView
     }
     
     public func updateNSView(_ nsView: NSScrollView, context: Context) {
         guard let textView = nsView.documentView as? NSTextView else { return }
-        context.coordinator.renderAttributedHexDump(data: pageData, startOffset: startOffset, in: textView)
+        context.coordinator.renderAttributedHexDump(
+            data: pageData,
+            startOffset: startOffset,
+            offsetColor: offsetColor,
+            highByteColor: highByteColor,
+            in: textView
+        )
     }
     
     @MainActor
     public class Coordinator {
-        private var lastRenderedSignature: String = ""
+        private struct RenderKey: Equatable {
+            let contentSignature: String
+            let offsetColor: NSColor
+            let highByteColor: NSColor
+        }
+
+        private var lastRenderKey: RenderKey?
         
-        public func renderAttributedHexDump(data: Data, startOffset: Int64, in textView: NSTextView) {
-            let signature = "\(startOffset)_\(data.count)_\(data.prefix(32).hashValue)"
-            guard signature != lastRenderedSignature else { return }
-            lastRenderedSignature = signature
+        public func renderAttributedHexDump(
+            data: Data,
+            startOffset: Int64,
+            offsetColor: NSColor = .secondaryLabelColor,
+            highByteColor: NSColor = .labelColor,
+            in textView: NSTextView
+        ) {
+            let renderKey = RenderKey(
+                contentSignature: "\(startOffset)_\(data.count)_\(data.prefix(32).hashValue)",
+                offsetColor: offsetColor,
+                highByteColor: highByteColor
+            )
+            guard renderKey != lastRenderKey else { return }
+            let contentChanged = renderKey.contentSignature != lastRenderKey?.contentSignature
+            lastRenderKey = renderKey
             
             let attrStr = NSMutableAttributedString()
             let count = data.count
@@ -80,11 +118,9 @@ public struct HexEditorNSView: NSViewRepresentable {
             let monoFont = NSFont.monospacedSystemFont(ofSize: HexMetrics.fontSize, weight: .regular)
             let boldMonoFont = NSFont.monospacedSystemFont(ofSize: HexMetrics.fontSize, weight: .bold)
             
-            let offsetColor = NSColor(red: 0.20, green: 0.70, blue: 0.50, alpha: 1.0)
             let separatorColor = NSColor.separatorColor
             let normalHexColor = NSColor.labelColor
             let zeroHexColor = NSColor.labelColor.withAlphaComponent(0.32)
-            let highHexColor = NSColor(red: 0.75, green: 0.45, blue: 0.90, alpha: 1.0)
             let asciiPrintableColor = NSColor.labelColor
             let asciiDotColor = NSColor.secondaryLabelColor.withAlphaComponent(0.4)
             
@@ -116,7 +152,7 @@ public struct HexEditorNSView: NSViewRepresentable {
                     if i < lineSlice.count {
                         let byte = lineSlice[i]
                         let hexByte = String(format: "%02X", byte)
-                        let color = (byte == 0) ? zeroHexColor : ((byte > 0x7F) ? highHexColor : normalHexColor)
+                        let color = (byte == 0) ? zeroHexColor : ((byte > 0x7F) ? highByteColor : normalHexColor)
                         attrStr.append(NSAttributedString(string: hexByte, attributes: [
                             .font: monoFont,
                             .foregroundColor: color
@@ -138,7 +174,7 @@ public struct HexEditorNSView: NSViewRepresentable {
                     if i < lineSlice.count {
                         let byte = lineSlice[i]
                         let hexByte = String(format: "%02X", byte)
-                        let color = (byte == 0) ? zeroHexColor : ((byte > 0x7F) ? highHexColor : normalHexColor)
+                        let color = (byte == 0) ? zeroHexColor : ((byte > 0x7F) ? highByteColor : normalHexColor)
                         attrStr.append(NSAttributedString(string: hexByte, attributes: [
                             .font: monoFont,
                             .foregroundColor: color
@@ -187,7 +223,25 @@ public struct HexEditorNSView: NSViewRepresentable {
             if attrStr.length > 0 {
                 attrStr.addAttribute(.paragraphStyle, value: paragraphStyle, range: NSRange(location: 0, length: attrStr.length))
             }
+            let selectedRanges = textView.selectedRanges
             textView.textStorage?.setAttributedString(attrStr)
+            guard contentChanged else {
+                textView.selectedRanges = selectedRanges
+                return
+            }
+            textView.setSelectedRange(NSRange(location: 0, length: 0))
+            if let scrollView = textView.enclosingScrollView {
+                scrollView.contentView.scroll(to: .zero)
+                scrollView.reflectScrolledClipView(scrollView.contentView)
+                var ancestor = scrollView.superview
+                while let view = ancestor {
+                    if let outerScroll = view as? NSScrollView {
+                        outerScroll.contentView.scroll(to: .zero)
+                        outerScroll.reflectScrolledClipView(outerScroll.contentView)
+                    }
+                    ancestor = view.superview
+                }
+            }
         }
     }
 }

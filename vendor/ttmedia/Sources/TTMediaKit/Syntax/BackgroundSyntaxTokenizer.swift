@@ -56,12 +56,12 @@ public actor BackgroundSyntaxTokenizer {
 
     private var customBackend: (any SyntaxTokenizingBackend)?
 
-    public init(backend: (any SyntaxTokenizingBackend)? = nil) {
+    public init(backend: (any SyntaxTokenizingBackend)? = TreeSitterSyntaxBackend()) {
         self.customBackend = backend
     }
 
     public func setBackend(_ backend: (any SyntaxTokenizingBackend)?) {
-        self.customBackend = backend
+        self.customBackend = backend ?? TreeSitterSyntaxBackend()
     }
 
     /// Tokenizes the target range in background without main thread regex compilation overhead.
@@ -137,6 +137,17 @@ public actor BackgroundSyntaxTokenizer {
         }
 
         if let backend {
+            if backend is TreeSitterSyntaxBackend,
+               !TreeSitterSyntaxBackend.canTokenizeWithAST(text: text, fileExtension: ext) {
+                await streamWithNativeLexer(
+                    text: text,
+                    ext: ext,
+                    priorityRange: priorityRange,
+                    batchSize: batchSize,
+                    continuation: continuation
+                )
+                return
+            }
             await streamWithCustomBackend(
                 text: text,
                 ext: ext,

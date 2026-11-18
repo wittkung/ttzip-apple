@@ -2,31 +2,9 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
 import XCTest
-import SwiftUI
 @testable import TTMediaKit
 
 final class TTMediaVideoAndServicesTests: XCTestCase {
-    
-    // MARK: - TTMediaTheme Verification
-    
-    func testTTMediaThemeTokens() {
-        XCTAssertNotNil(TTMediaTheme.kintsugiGold)
-        XCTAssertNotNil(TTMediaTheme.bambooGreen)
-        XCTAssertNotNil(TTMediaTheme.cinnabarRed)
-        XCTAssertNotNil(TTMediaTheme.archiveAmber)
-        XCTAssertNotNil(TTMediaTheme.hairlineBorder)
-        
-        XCTAssertEqual(TTMediaTheme.Radius.xs, 4)
-        XCTAssertEqual(TTMediaTheme.Radius.sm, 6)
-        XCTAssertEqual(TTMediaTheme.Radius.md, 10)
-        XCTAssertEqual(TTMediaTheme.Radius.lg, 14)
-        XCTAssertEqual(TTMediaTheme.Radius.xl, 18)
-        
-        XCTAssertNotNil(Animation.ttMicro)
-        XCTAssertNotNil(Animation.ttLayout)
-        XCTAssertNotNil(Animation.ttSnap)
-        XCTAssertNotNil(Animation.ttSheet)
-    }
     
     // MARK: - AutoSeriesMatcher Verification
     
@@ -146,5 +124,35 @@ final class TTMediaVideoAndServicesTests: XCTestCase {
         XCTAssertTrue(pauseCalled)
         
         coordinator.disableCommands()
+    }
+
+    @MainActor
+    func testGIFExportCancelledOperationCleanupDoesNotDeleteReplacementStagingOrState() throws {
+        let manager = GIFExportManager.shared
+        let tempDir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("GIFExportScopeTests-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: tempDir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: tempDir) }
+
+        let stageA = tempDir.appendingPathComponent("a.gif.staging")
+        let stageB = tempDir.appendingPathComponent("b.gif.staging")
+        try Data("stage-a".utf8).write(to: stageA)
+        try Data("stage-b".utf8).write(to: stageB)
+
+        let opA = UUID()
+        let opB = UUID()
+        manager.beginOperationForTesting(operationID: opB, stagingURL: stageB)
+
+        // Late unwinding cleanup from cancelled operation A must remove stageA only and leave opB untouched
+        manager.cleanupPartialAndReset(stagingURL: stageA, operationID: opA)
+
+        XCTAssertFalse(FileManager.default.fileExists(atPath: stageA.path), "Operation A's own staging file must be deleted")
+        XCTAssertTrue(FileManager.default.fileExists(atPath: stageB.path), "Operation B's active staging file must NOT be deleted by A")
+        XCTAssertTrue(manager.isExporting, "Operation B must remain active when stale operation A unwinds")
+
+        // Cleanup for the active operation B removes stageB and resets state
+        manager.cleanupPartialAndReset(stagingURL: stageB, operationID: opB)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: stageB.path))
+        XCTAssertFalse(manager.isExporting)
     }
 }

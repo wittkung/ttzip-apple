@@ -3,9 +3,6 @@
 
 import CoreGraphics
 import Foundation
-import SwiftUI
-import TTI18nCore
-import TTKitDesign
 
 /// Report describing the outcome of loading and migrating `SubtitleStyleConfiguration` from `UserDefaults`.
 public struct SubtitleStyleMigrationReport: Equatable, Sendable {
@@ -112,10 +109,10 @@ public enum SubtitleVideoGeometrySource: String, Codable, Equatable, Sendable {
 
 /// Subtitle track rendering capability classification defining the boundary of relative font sizing and font overrides.
 public enum SubtitleRenderCapabilityKind: String, Codable, Equatable, Sendable {
-    /// Pure text subtitle cues (SRT, WebVTT, UTF-8 text tracks) rendered by `SubtitleOverlayView`.
+    /// Pure text subtitle cues (SRT, WebVTT, UTF-8 text tracks) rendered by the host's text subtitle view.
     /// Relative font sizing and local font family selection apply in full.
     case textOverlay
-    /// ASS/SSA subtitle tracks whose dialogue text is extracted and rendered by `SubtitleOverlayView`.
+    /// ASS/SSA subtitle tracks whose dialogue text is extracted and rendered by the host's text subtitle view.
     /// Relative font sizing and font selection apply to extracted text; full `libass` vector positioning is not executed.
     case assPlainTextExtracts
     /// Pre-rasterized bitmap subtitles (PGS, VobSub, DVBSub).
@@ -365,125 +362,5 @@ public enum SubtitleRelativeSizingResolver {
         let originX = bounds.minX + (bounds.width - fittedW) * 0.5
         let originY = bounds.minY + (bounds.height - fittedH) * 0.5
         return CGRect(x: originX, y: originY, width: fittedW, height: fittedH)
-    }
-}
-
-/// Standalone reusable SwiftUI control for relative subtitle sizing (`scale` + `relativeFontRatio`),
-/// preset selection, and explicit text/ASS/bitmap capability boundary disclosure.
-@MainActor
-public struct SubtitleRelativeScaleSettingsView: View {
-    public let style: SubtitleStyleConfiguration
-    public let geometry: SubtitleVideoContentGeometry?
-    public let activeSubtitleCodec: String?
-    public let onUpdateStyle: (SubtitleStyleConfiguration) -> Void
-    public let onUserInteraction: () -> Void
-
-    public static let scaleRange: ClosedRange<Double> = 0.5...2.0
-    public static let scalePresets: [Double] = [0.75, 1.0, 1.25, 1.5]
-
-    public init(
-        style: SubtitleStyleConfiguration,
-        geometry: SubtitleVideoContentGeometry? = nil,
-        activeSubtitleCodec: String? = nil,
-        onUpdateStyle: @escaping (SubtitleStyleConfiguration) -> Void,
-        onUserInteraction: @escaping () -> Void = {}
-    ) {
-        self.style = style
-        self.geometry = geometry
-        self.activeSubtitleCodec = activeSubtitleCodec
-        self.onUpdateStyle = onUpdateStyle
-        self.onUserInteraction = onUserInteraction
-    }
-
-    public static func clampScale(_ rawScale: Double) -> Double {
-        guard rawScale.isFinite else { return 1.0 }
-        return min(scaleRange.upperBound, max(scaleRange.lowerBound, rawScale))
-    }
-
-    /// Continuous slider binding (`0.50...2.00`) without `0.05` step quantization.
-    public var continuousScaleBinding: Binding<Double> {
-        Binding(
-            get: { Self.clampScale(style.scale) },
-            set: { newScale in
-                var updated = style
-                updated.scale = Self.clampScale(newScale)
-                onUpdateStyle(updated)
-                onUserInteraction()
-            }
-        )
-    }
-
-    /// Applies a discrete preset multiplier (`0.75x`, `1.0x`, `1.25x`, `1.5x`) and triggers interaction callbacks.
-    public func applyScalePreset(_ preset: Double) {
-        var updated = style
-        updated.scale = Self.clampScale(preset)
-        onUpdateStyle(updated)
-        onUserInteraction()
-    }
-
-    public func isPresetSelected(_ preset: Double) -> Bool {
-        abs(style.scale - preset) < 0.005
-    }
-
-    public var capabilityKind: SubtitleRenderCapabilityKind {
-        SubtitleRelativeSizingResolver.capability(forCodecOrFormat: activeSubtitleCodec)
-    }
-
-    public var badgeText: String {
-        let scaleString = String(format: "%.2fx", style.scale)
-        let percentString = String(format: "%.1f%%", style.effectiveRelativeFontRatio * 100.0)
-        return MediaLocalization.formattedRelativeHeightBadge(
-            scaleText: scaleString,
-            percentText: percentString
-        )
-    }
-
-    public var capabilityNoticeText: String {
-        switch capabilityKind {
-        case .textOverlay:
-            return MediaLocalization.text(.capabilityTextActive)
-        case .assPlainTextExtracts:
-            return MediaLocalization.text(.capabilityAssExtractedText)
-        case .bitmapUntouched:
-            return MediaLocalization.text(.capabilityBitmapNotice)
-        }
-    }
-
-    public var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            HStack {
-                Text(MediaLocalization.text(.subtitleFontSize))
-                    .font(.system(size: 11, weight: .semibold))
-                    .foregroundStyle(.secondary)
-                Spacer()
-                Text(badgeText)
-                    .font(.system(size: 11, weight: .semibold, design: .monospaced))
-            }
-
-            Slider(
-                value: continuousScaleBinding,
-                in: Self.scaleRange
-            )
-            .disabled(capabilityKind == .bitmapUntouched)
-
-            HStack(spacing: 6) {
-                ForEach(Self.scalePresets, id: \.self) { preset in
-                    let isSelected = isPresetSelected(preset)
-                    Button(String(format: preset.truncatingRemainder(dividingBy: 0.25) == 0 && preset * 10 == (preset * 10).rounded() ? "%.1fx" : "%.2fx", preset)) {
-                        applyScalePreset(preset)
-                    }
-                    .font(.system(size: 10, weight: isSelected ? .semibold : .medium, design: .monospaced))
-                    .buttonStyle(.bordered)
-                    .tint(isSelected ? .accentColor : nil)
-                    .controlSize(.small)
-                    .disabled(capabilityKind == .bitmapUntouched)
-                }
-            }
-
-            Text(capabilityNoticeText)
-                .font(.system(size: 10))
-                .foregroundStyle(capabilityKind == .bitmapUntouched ? TTKitTheme.archivalAmber : .secondary)
-                .fixedSize(horizontal: false, vertical: true)
-        }
     }
 }

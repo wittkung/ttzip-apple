@@ -3,7 +3,6 @@
 
 import Foundation
 import CryptoKit
-import SwiftUI
 import ImageIO
 #if os(macOS)
 import AppKit
@@ -297,7 +296,7 @@ public actor TTMediaBackgroundDetector {
 public typealias MediaPreviewFactory = TTMediaDetector
 public typealias MediaPreviewDetector = TTMediaBackgroundDetector
 
-// MARK: - Compatibility View Factory
+// MARK: - Format Queries
 
 extension TTMediaDetector {
     public static var docxExtensions: Set<String> { TTMediaCapabilityMatrix.docxExtensions }
@@ -318,41 +317,6 @@ extension TTMediaDetector {
 
     public static func iconName(for fileName: String) -> String {
         TTMediaCapabilityMatrix.iconName(for: fileName)
-    }
-
-    @MainActor
-    @ViewBuilder
-    public static func makePreviewView(
-        type: TTMediaPreviewType,
-        fileName: String,
-        fileURL: URL?,
-        isFullScreenActive: Bool = false,
-        useMediaKit: Bool = false,
-        onSave: ((String) -> Void)? = nil
-    ) -> some View {
-        TTMediaPreviewFactory.makePreviewView(
-            type: type,
-            fileName: fileName,
-            fileURL: fileURL,
-            isFullScreenActive: isFullScreenActive,
-            useMediaKit: useMediaKit,
-            onSave: onSave
-        )
-    }
-
-    @MainActor
-    public static func makeMediaKitPreview(url: URL, title: String? = nil) -> TTMediaPreview {
-        TTMediaPreviewFactory.makeMediaKitPreview(url: url, title: title)
-    }
-
-    @MainActor
-    public static func makeSpreadsheetView(headers: [String], rows: [[String]]) -> TTSpreadsheetView {
-        TTMediaPreviewFactory.makeSpreadsheetView(headers: headers, rows: rows)
-    }
-
-    @MainActor
-    public static func makeRichDocumentView(markdown: String, title: String? = nil) -> TTRichDocumentView {
-        TTMediaPreviewFactory.makeRichDocumentView(markdown: markdown, title: title)
     }
 
     // MARK: - Archive / In-Memory Image Backing Payload Registry (Group A/C2 Contract)

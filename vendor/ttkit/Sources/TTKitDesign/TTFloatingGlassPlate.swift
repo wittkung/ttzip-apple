@@ -65,11 +65,11 @@ public struct TTFloatingGlassPlateModifier: ViewModifier {
         self.hasBorder = hasBorder
     }
 
-    private var effectiveTier: TTGlassTier {
+    internal func resolvedTier(forParentDepth parentDepth: Int) -> TTGlassTier {
         if let specified = specifiedTier {
             return specified
         }
-        let nextDepth = currentDepth + 1
+        let nextDepth = parentDepth + 1
         switch nextDepth {
         case 1:
             return .base
@@ -80,14 +80,25 @@ public struct TTFloatingGlassPlateModifier: ViewModifier {
         }
     }
 
+    internal func resolvedDepth(
+        forParentDepth parentDepth: Int
+    ) -> (rawDepth: Int, clampedDepth: Int, isViolation: Bool) {
+        let depth = max(parentDepth + 1, specifiedTier?.rawValue ?? 0)
+        return (rawDepth: depth, clampedDepth: min(depth, 3), isViolation: depth > 3)
+    }
+
+    private var effectiveTier: TTGlassTier {
+        resolvedTier(forParentDepth: currentDepth)
+    }
+
     private var nextDepthValue: Int {
-        let depth = (specifiedTier?.rawValue ?? currentDepth) + 1
-        if depth > 3 {
+        let resolution = resolvedDepth(forParentDepth: currentDepth)
+        if resolution.isViolation {
             #if DEBUG
-            print("[TTKitDesign Warning] Axiom IV Violation: Stacking depth \(depth) exceeds maximum limit of 3 layers.")
+            print("[TTKitDesign Warning] Axiom IV Violation: Stacking depth \(resolution.rawDepth) exceeds maximum limit of 3 layers.")
             #endif
         }
-        return min(depth, 3)
+        return resolution.clampedDepth
     }
 
     @ViewBuilder

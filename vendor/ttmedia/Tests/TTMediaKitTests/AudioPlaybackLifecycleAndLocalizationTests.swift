@@ -114,27 +114,25 @@ extension AudioAuthenticityAndLoadingTests {
         XCTAssertEqual(engine.activeOwnerSessionID, "view-session-B")
 
         // Outgoing View A runs onDisappear (same URL, stale sessionID & generation) -> MUST NOT stop View B
-        UnifiedAudioPlayerView.stopAudioEngineIfOwned(
-            engine: engine,
-            ownerURL: sharedURL,
-            ownerSessionID: "view-session-A",
-            ownerGeneration: genA
+        engine.stopIfCurrent(
+            url: sharedURL,
+            generation: genA,
+            sessionID: "view-session-A"
         )
         XCTAssertEqual(engine.currentURL, sharedURL, "Outgoing View A must not tear down View B on same-URL handoff")
         XCTAssertEqual(engine.activeOwnerSessionID, "view-session-B")
         XCTAssertEqual(engine.activeLoadGeneration, genB)
         XCTAssertNotNil(engine.audioPlayer)
 
-        // Even an unowned legacy stop call (ownerSessionID: nil) or stale generation must not stop View B
+        // The current session ID cannot authorize a stale generation.
         engine.stopIfCurrent(url: sharedURL, generation: genA, sessionID: "view-session-B")
         XCTAssertEqual(engine.currentURL, sharedURL, "Stale generation must not stop active session")
 
         // Active View B runs onDisappear -> tears down cleanly
-        UnifiedAudioPlayerView.stopAudioEngineIfOwned(
-            engine: engine,
-            ownerURL: sharedURL,
-            ownerSessionID: "view-session-B",
-            ownerGeneration: genB
+        engine.stopIfCurrent(
+            url: sharedURL,
+            generation: genB,
+            sessionID: "view-session-B"
         )
         XCTAssertNil(engine.currentURL)
         XCTAssertNil(engine.activeOwnerSessionID)
@@ -147,14 +145,22 @@ extension AudioAuthenticityAndLoadingTests {
         let savedBCP47 = AudioPreviewLocalization.currentLanguageBCP47
         defer { AudioPreviewLocalization.setLanguage(bcp47: savedBCP47) }
 
+        for bcp47 in ["en", "zh-Hans", "zh-Hant"] {
+            AudioPreviewLocalization.setLanguage(bcp47: bcp47)
+            for key in AudioPreviewLocaleKey.allCases {
+                let resolved = AudioPreviewLocalization.text(key)
+                XCTAssertFalse(resolved.isEmpty, "Translation for \(key.rawValue) in \(bcp47) must not be empty")
+                XCTAssertNotEqual(resolved, key.rawKey, "Translation for \(key.rawValue) in \(bcp47) must not fall back to rawKey")
+            }
+        }
+
         let engine = MPVAudioEngine()
 
         // Test Simplified Chinese
         AudioPreviewLocalization.setLanguage(bcp47: "zh-Hans")
-        XCTAssertTrue(AudioPreviewLocalization.text(.extractingWaveform).contains("正在提取"))
-        XCTAssertTrue(AudioPreviewLocalization.text(.waveformUnavailable).contains("不可用"))
-        XCTAssertTrue(AudioPreviewLocalization.text(.sampledEnvelopeBadge).contains("抽样包络"))
-        XCTAssertEqual(AudioPreviewLocalization.text(.completenessUnverifiedBadge), "抽样结果／完整性未确认")
+        XCTAssertEqual(MPVAudioFailureReason.emptyAudioData.localizedMessage, "音频数据为空（0 字节）。")
+        XCTAssertEqual(MPVAudioFailureReason.outputEngineStartFailed.localizedMessage, "音频输出引擎无法启动播放。")
+        XCTAssertEqual(MPVAudioFailureReason.playbackDecodeError.localizedMessage, "播放过程中发生音频解码错误。")
 
         let wmaURL = FileManager.default.temporaryDirectory
             .appendingPathComponent("ttmedia-i18n-\(UUID().uuidString).wma")
@@ -167,16 +173,17 @@ extension AudioAuthenticityAndLoadingTests {
 
         // Switch dynamically to Traditional Chinese
         AudioPreviewLocalization.setLanguage(bcp47: "zh-Hant")
-        XCTAssertTrue(AudioPreviewLocalization.text(.sampledEnvelopeBadge).contains("抽樣包絡"))
-        XCTAssertEqual(AudioPreviewLocalization.text(.completenessUnverifiedBadge), "抽樣結果／完整性未確認")
+        XCTAssertEqual(MPVAudioFailureReason.emptyAudioData.localizedMessage, "音訊資料為空（0 位元組）。")
+        XCTAssertEqual(MPVAudioFailureReason.outputEngineStartFailed.localizedMessage, "音訊輸出引擎無法啟動播放。")
+        XCTAssertEqual(MPVAudioFailureReason.playbackDecodeError.localizedMessage, "播放過程中發生音訊解碼錯誤。")
         let hantError = try XCTUnwrap(engine.errorMessage)
         XCTAssertTrue(hantError.contains("暫不支援"), "Expected Traditional Chinese unsupported error, got: \(hantError)")
 
         // Switch dynamically to English and verify computed errorMessage updates immediately
         AudioPreviewLocalization.setLanguage(bcp47: "en")
-        XCTAssertTrue(AudioPreviewLocalization.text(.extractingWaveform).contains("Extracting"))
-        XCTAssertTrue(AudioPreviewLocalization.text(.sampledEnvelopeBadge).contains("Sampled Envelope"))
-        XCTAssertEqual(AudioPreviewLocalization.text(.completenessUnverifiedBadge), "Sampled / Completeness Unverified")
+        XCTAssertEqual(MPVAudioFailureReason.emptyAudioData.localizedMessage, "Audio data is empty (0 bytes).")
+        XCTAssertEqual(MPVAudioFailureReason.outputEngineStartFailed.localizedMessage, "Audio output engine failed to start playback.")
+        XCTAssertEqual(MPVAudioFailureReason.playbackDecodeError.localizedMessage, "Audio decode error occurred during playback.")
         let enError = try XCTUnwrap(engine.errorMessage)
         XCTAssertTrue(
             enError.contains("is not supported by native macOS CoreAudio"),
@@ -197,115 +204,5 @@ extension AudioAuthenticityAndLoadingTests {
             XCTAssertTrue(engine.waveformSamples.isEmpty)
             XCTAssertNotNil(engine.errorMessage)
         }
-    }
-
-    func testAudioPlayerControlsSpecsAndMiniPlayerLocalizationAcrossThreeLanguages() {
-        let savedBCP47 = AudioPreviewLocalization.currentLanguageBCP47
-        defer { AudioPreviewLocalization.setLanguage(bcp47: savedBCP47) }
-
-        for bcp47 in ["en", "zh-Hans", "zh-Hant"] {
-            AudioPreviewLocalization.setLanguage(bcp47: bcp47)
-            for key in AudioPreviewLocaleKey.allCases {
-                let resolved = AudioPreviewLocalization.text(key)
-                XCTAssertFalse(resolved.isEmpty, "Translation for \(key.rawValue) in \(bcp47) must not be empty")
-                XCTAssertNotEqual(resolved, key.rawKey, "Translation for \(key.rawValue) in \(bcp47) must not fall back to rawKey")
-            }
-        }
-
-        // 1. Simplified Chinese (zh-Hans)
-        AudioPreviewLocalization.setLanguage(bcp47: "zh-Hans")
-        XCTAssertEqual(AudioPreviewLocalization.format(.rewindSecondsFormat, 15), "快退 15 秒")
-        XCTAssertEqual(AudioPreviewLocalization.format(.forwardSecondsFormat, 15), "快进 15 秒")
-        XCTAssertEqual(AudioPreviewLocalization.text(.play), "播放")
-        XCTAssertEqual(AudioPreviewLocalization.text(.pause), "暂停")
-        XCTAssertEqual(AudioPreviewLocalization.text(.mute), "静音")
-        XCTAssertEqual(AudioPreviewLocalization.text(.unmute), "取消静音")
-        XCTAssertEqual(AudioPreviewLocalization.format(.normalPlaybackSpeedFormat, "1.0×"), "1.0×（正常）")
-        XCTAssertEqual(AudioPreviewLocalization.text(.changePlaybackSpeedHelp), "调整播放速度")
-        XCTAssertEqual(AudioPreviewLocalization.text(.audioSpecsTitle), "音频规格")
-        XCTAssertEqual(AudioPreviewLocalization.text(.specFormat), "格式")
-        XCTAssertEqual(AudioPreviewLocalization.text(.specSampleRate), "采样率")
-        XCTAssertEqual(AudioPreviewLocalization.text(.specBitrate), "比特率")
-        XCTAssertEqual(AudioPreviewLocalization.text(.specChannels), "声道")
-        XCTAssertEqual(AudioPreviewLocalization.text(.specFileSize), "文件大小")
-        XCTAssertEqual(AudioPreviewLocalization.text(.specDuration), "时长")
-        XCTAssertEqual(AudioPreviewLocalization.text(.specAudioEngine), "音频引擎")
-        XCTAssertEqual(AudioPreviewLocalization.text(.specWaveformBins), "波形分桶")
-        XCTAssertEqual(AudioPreviewLocalization.text(.losslessBadge), "无损")
-        XCTAssertEqual(AudioPreviewLocalization.text(.miniPlayerBadge), "迷你窗")
-        XCTAssertEqual(AudioPreviewLocalization.text(.detachMiniPlayerHelp), "分离迷你播放器")
-        XCTAssertEqual(AudioPreviewLocalization.text(.clickToPauseHelp), "点击暂停播放")
-        XCTAssertEqual(AudioPreviewLocalization.text(.clickToPlayHelp), "点击开始播放")
-        XCTAssertEqual(AudioPreviewLocalization.text(.unknownTrack), "未知曲目")
-        XCTAssertEqual(AudioPreviewLocalization.text(.unknownArtist), "未知歌手")
-        XCTAssertEqual(AudioPreviewLocalization.text(.previousOrSeekBackHelp), "上一曲 / 快退")
-        XCTAssertEqual(AudioPreviewLocalization.text(.nextOrSeekForwardHelp), "下一曲 / 快进")
-        XCTAssertEqual(AudioPreviewLocalization.text(.volumeMuteOrScrollHelp), "音量（点击静音 / 滚动调节）")
-        XCTAssertEqual(AudioPreviewLocalization.text(.restoreToMainWindowHelp), "恢复到主窗口")
-        XCTAssertEqual(AudioPreviewLocalization.format(.liveLevelPercentFormat, 75), "百分之 75")
-
-        // 2. Traditional Chinese (zh-Hant)
-        AudioPreviewLocalization.setLanguage(bcp47: "zh-Hant")
-        XCTAssertEqual(AudioPreviewLocalization.format(.rewindSecondsFormat, 15), "快退 15 秒")
-        XCTAssertEqual(AudioPreviewLocalization.format(.forwardSecondsFormat, 15), "快轉 15 秒")
-        XCTAssertEqual(AudioPreviewLocalization.text(.play), "播放")
-        XCTAssertEqual(AudioPreviewLocalization.text(.pause), "暫停")
-        XCTAssertEqual(AudioPreviewLocalization.text(.mute), "靜音")
-        XCTAssertEqual(AudioPreviewLocalization.text(.unmute), "取消靜音")
-        XCTAssertEqual(AudioPreviewLocalization.format(.normalPlaybackSpeedFormat, "1.0×"), "1.0×（正常）")
-        XCTAssertEqual(AudioPreviewLocalization.text(.changePlaybackSpeedHelp), "調整播放速度")
-        XCTAssertEqual(AudioPreviewLocalization.text(.audioSpecsTitle), "音訊規格")
-        XCTAssertEqual(AudioPreviewLocalization.text(.specFormat), "格式")
-        XCTAssertEqual(AudioPreviewLocalization.text(.specSampleRate), "取樣率")
-        XCTAssertEqual(AudioPreviewLocalization.text(.specBitrate), "位元率")
-        XCTAssertEqual(AudioPreviewLocalization.text(.specChannels), "聲道")
-        XCTAssertEqual(AudioPreviewLocalization.text(.specFileSize), "檔案大小")
-        XCTAssertEqual(AudioPreviewLocalization.text(.specDuration), "時長")
-        XCTAssertEqual(AudioPreviewLocalization.text(.specAudioEngine), "音訊引擎")
-        XCTAssertEqual(AudioPreviewLocalization.text(.specWaveformBins), "波形分箱")
-        XCTAssertEqual(AudioPreviewLocalization.text(.losslessBadge), "無損")
-        XCTAssertEqual(AudioPreviewLocalization.text(.miniPlayerBadge), "迷你窗")
-        XCTAssertEqual(AudioPreviewLocalization.text(.detachMiniPlayerHelp), "分離迷你播放器")
-        XCTAssertEqual(AudioPreviewLocalization.text(.clickToPauseHelp), "點按以暫停播放")
-        XCTAssertEqual(AudioPreviewLocalization.text(.clickToPlayHelp), "點按以開始播放")
-        XCTAssertEqual(AudioPreviewLocalization.text(.unknownTrack), "未知曲目")
-        XCTAssertEqual(AudioPreviewLocalization.text(.unknownArtist), "未知演出者")
-        XCTAssertEqual(AudioPreviewLocalization.text(.previousOrSeekBackHelp), "上一首 / 快退")
-        XCTAssertEqual(AudioPreviewLocalization.text(.nextOrSeekForwardHelp), "下一首 / 快轉")
-        XCTAssertEqual(AudioPreviewLocalization.text(.volumeMuteOrScrollHelp), "音量（點按靜音 / 捲動調整）")
-        XCTAssertEqual(AudioPreviewLocalization.text(.restoreToMainWindowHelp), "還原至主視窗")
-        XCTAssertEqual(AudioPreviewLocalization.format(.liveLevelPercentFormat, 75), "百分之 75")
-
-        // 3. English (en)
-        AudioPreviewLocalization.setLanguage(bcp47: "en")
-        XCTAssertEqual(AudioPreviewLocalization.format(.rewindSecondsFormat, 15), "Rewind 15 seconds")
-        XCTAssertEqual(AudioPreviewLocalization.format(.forwardSecondsFormat, 15), "Forward 15 seconds")
-        XCTAssertEqual(AudioPreviewLocalization.text(.play), "Play")
-        XCTAssertEqual(AudioPreviewLocalization.text(.pause), "Pause")
-        XCTAssertEqual(AudioPreviewLocalization.text(.mute), "Mute")
-        XCTAssertEqual(AudioPreviewLocalization.text(.unmute), "Unmute")
-        XCTAssertEqual(AudioPreviewLocalization.format(.normalPlaybackSpeedFormat, "1.0×"), "1.0× (Normal)")
-        XCTAssertEqual(AudioPreviewLocalization.text(.changePlaybackSpeedHelp), "Change playback speed")
-        XCTAssertEqual(AudioPreviewLocalization.text(.audioSpecsTitle), "Audio Specs")
-        XCTAssertEqual(AudioPreviewLocalization.text(.specFormat), "Format")
-        XCTAssertEqual(AudioPreviewLocalization.text(.specSampleRate), "Sample Rate")
-        XCTAssertEqual(AudioPreviewLocalization.text(.specBitrate), "Bitrate")
-        XCTAssertEqual(AudioPreviewLocalization.text(.specChannels), "Channels")
-        XCTAssertEqual(AudioPreviewLocalization.text(.specFileSize), "File Size")
-        XCTAssertEqual(AudioPreviewLocalization.text(.specDuration), "Duration")
-        XCTAssertEqual(AudioPreviewLocalization.text(.specAudioEngine), "Audio Engine")
-        XCTAssertEqual(AudioPreviewLocalization.text(.specWaveformBins), "Waveform Bins")
-        XCTAssertEqual(AudioPreviewLocalization.text(.losslessBadge), "LOSSLESS")
-        XCTAssertEqual(AudioPreviewLocalization.text(.miniPlayerBadge), "MINI")
-        XCTAssertEqual(AudioPreviewLocalization.text(.detachMiniPlayerHelp), "Detach Mini Player")
-        XCTAssertEqual(AudioPreviewLocalization.text(.clickToPauseHelp), "Click to pause playback")
-        XCTAssertEqual(AudioPreviewLocalization.text(.clickToPlayHelp), "Click to start playback")
-        XCTAssertEqual(AudioPreviewLocalization.text(.unknownTrack), "Unknown Track")
-        XCTAssertEqual(AudioPreviewLocalization.text(.unknownArtist), "Unknown Artist")
-        XCTAssertEqual(AudioPreviewLocalization.text(.previousOrSeekBackHelp), "Previous / Seek Back")
-        XCTAssertEqual(AudioPreviewLocalization.text(.nextOrSeekForwardHelp), "Next / Seek Forward")
-        XCTAssertEqual(AudioPreviewLocalization.text(.volumeMuteOrScrollHelp), "Volume (Click to Mute / Scroll to adjust)")
-        XCTAssertEqual(AudioPreviewLocalization.text(.restoreToMainWindowHelp), "Restore to Main Window")
-        XCTAssertEqual(AudioPreviewLocalization.format(.liveLevelPercentFormat, 75), "75 percent")
     }
 }

@@ -82,7 +82,7 @@ public enum VideoPlaybackLocalization {
 /// - Output `CGRect` is always in **player viewport local coordinates** (`0...viewportSize.width`, `0...viewportSize.height`).
 /// - `pixelAspectRatio` and `rotationDegrees` (`{0, 90, 180, 270}`) are applied **at most once** when deriving
 ///   the oriented display size from unrotated coded `rawVideoSize`.
-/// - When passing an explicit `videoContentRect` to `SubtitleOverlayView`, it already contains the oriented
+/// - When passing an explicit `videoContentRect` in `SubtitleVideoContentGeometry`, it already contains the oriented
 ///   aspect-fit result and must never be rotated or PAR-scaled a second time.
 public enum VideoContentGeometry {
     public static let contractVersion = "v1"

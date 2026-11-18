@@ -75,7 +75,8 @@ extension EPUBRealPageReadingAndThemeTests {
         baseDirectory: URL,
         chapterIndex: Int,
         paginationController: EPUBPaginationController,
-        viewportSize: NSSize
+        viewportSize: NSSize,
+        appearance: EPUBReaderAppearance = .neutral
     ) throws -> TestHarness {
         let rep = EPUBNativeWKWebView(
             chapterURL: chapterURL,
@@ -85,7 +86,8 @@ extension EPUBRealPageReadingAndThemeTests {
             readerTheme: "light",
             chapterIndex: chapterIndex,
             paginationController: paginationController,
-            layoutMode: paginationController.layoutMode.rawValue
+            layoutMode: paginationController.layoutMode.rawValue,
+            appearance: appearance
         )
         let coordinator = rep.makeCoordinator()
         let config = WKWebViewConfiguration()

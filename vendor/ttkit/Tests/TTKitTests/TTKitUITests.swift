@@ -197,4 +197,164 @@ final class TTKitUITests: XCTestCase {
         )
         _ = panel
     }
+
+    // MARK: - TTSegmentedSwitch Component Tests
+
+    private enum SampleWorkspaceMode: String, CaseIterable, Sendable {
+        case inspect
+        case timeline
+        case transcript
+
+        var title: String {
+            switch self {
+            case .inspect: return "Inspect"
+            case .timeline: return "Timeline"
+            case .transcript: return "Transcript"
+            }
+        }
+
+        var symbol: String {
+            switch self {
+            case .inspect: return "sidebar.right"
+            case .timeline: return "film"
+            case .transcript: return "captions.bubble"
+            }
+        }
+    }
+
+    func testSegmentedSwitchSizeMetrics() {
+        XCTAssertEqual(TTSegmentedSwitchSize.allCases, [.mini, .small, .regular])
+
+        XCTAssertEqual(TTSegmentedSwitchSize.mini.trackCornerRadius, 6.0)
+        XCTAssertEqual(TTSegmentedSwitchSize.small.trackCornerRadius, 7.0)
+        XCTAssertEqual(TTSegmentedSwitchSize.regular.trackCornerRadius, 8.0)
+
+        XCTAssertEqual(TTSegmentedSwitchSize.mini.indicatorCornerRadius, 4.5)
+        XCTAssertEqual(TTSegmentedSwitchSize.small.indicatorCornerRadius, 5.5)
+        XCTAssertEqual(TTSegmentedSwitchSize.regular.indicatorCornerRadius, 6.0)
+
+        for size in TTSegmentedSwitchSize.allCases {
+            XCTAssertEqual(size.trackPadding, 2.0)
+            XCTAssertEqual(size.segmentSpacing, 2.0)
+            XCTAssertGreaterThanOrEqual(size.minHitHeight, UniversalTokens.SegmentedSwitch.minHitTargetCompactMacOS)
+            XCTAssertGreaterThanOrEqual(size.minSegmentWidth, UniversalTokens.SegmentedSwitch.minHitTargetMacOS)
+            _ = size.semanticFont(isSelected: true)
+            _ = size.semanticFont(isSelected: false)
+        }
+
+        XCTAssertGreaterThanOrEqual(
+            TTSegmentedSwitchSize.small.minHitHeight,
+            UniversalTokens.SegmentedSwitch.minHitTargetMacOS
+        )
+        XCTAssertGreaterThanOrEqual(
+            TTSegmentedSwitchSize.regular.minHitHeight,
+            UniversalTokens.SegmentedSwitch.minHitTargetMacOS
+        )
+    }
+
+    @MainActor
+    func testSegmentedSwitchConfigurationsAndBrandTints() {
+        var selected: SampleWorkspaceMode = .inspect
+        let binding = Binding(get: { selected }, set: { selected = $0 })
+
+        let textOnlySwitch = TTSegmentedSwitch(
+            options: SampleWorkspaceMode.allCases,
+            selection: binding,
+            title: \.title
+        )
+        XCTAssertTrue(textOnlySwitch.shouldShowTextLabel(for: .inspect))
+        XCTAssertEqual(textOnlySwitch.resolvedAccessibilityLabel(for: .inspect), "Inspect")
+
+        let iconOnlySwitch = TTSegmentedSwitch(
+            options: SampleWorkspaceMode.allCases,
+            selection: binding,
+            title: \.title,
+            icon: \.symbol,
+            tint: TTKitTheme.jadeCyan,
+            size: .small,
+            isIconOnly: true,
+            shortcut: { mode in
+                switch mode {
+                case .inspect: return KeyEquivalent("1")
+                case .timeline: return KeyEquivalent("2")
+                case .transcript: return KeyEquivalent("3")
+                }
+            },
+            helpText: { "Switch to \($0.title)" }
+        )
+        XCTAssertFalse(iconOnlySwitch.shouldShowTextLabel(for: .timeline))
+        XCTAssertEqual(iconOnlySwitch.resolvedAccessibilityLabel(for: .timeline), "Timeline")
+
+        let emptyTitleSwitch = TTSegmentedSwitch(
+            options: SampleWorkspaceMode.allCases,
+            selection: binding,
+            title: { _ in "" },
+            icon: \.symbol,
+            helpText: { "Help \($0.title)" }
+        )
+        XCTAssertFalse(emptyTitleSwitch.shouldShowTextLabel(for: .transcript))
+        XCTAssertEqual(emptyTitleSwitch.resolvedAccessibilityLabel(for: .transcript), "Help Transcript")
+
+        let brandTints: [Color] = [
+            TTKitTheme.kintsugiGold,
+            TTKitTheme.bambooGreen,
+            TTKitTheme.acousticIndigo,
+            TTKitTheme.celestialPurple,
+            TTKitTheme.jadeCyan
+        ]
+        for tint in brandTints {
+            for size in TTSegmentedSwitchSize.allCases {
+                let control = TTSegmentedSwitch(
+                    options: SampleWorkspaceMode.allCases,
+                    selection: binding,
+                    title: \.title,
+                    icon: \.symbol,
+                    tint: tint,
+                    size: size
+                )
+                _ = control
+            }
+        }
+    }
+
+    @MainActor
+    func testSegmentedSwitchSelectionAndKeyboardNavigation() {
+        var selected: SampleWorkspaceMode = .inspect
+        let binding = Binding(get: { selected }, set: { selected = $0 })
+        let control = TTSegmentedSwitch(
+            options: SampleWorkspaceMode.allCases,
+            selection: binding,
+            title: \.title,
+            icon: \.symbol
+        )
+
+        XCTAssertEqual(control.nextOption(from: .inspect, offset: -1), .inspect)
+        XCTAssertEqual(control.nextOption(from: .inspect, offset: 1), .timeline)
+        XCTAssertEqual(control.nextOption(from: .timeline, offset: 1), .transcript)
+        XCTAssertEqual(control.nextOption(from: .transcript, offset: 1), .transcript)
+
+        control.selectAdjacentOption(offset: 1)
+        XCTAssertEqual(selected, .timeline)
+
+        control.selectAdjacentOption(offset: 1)
+        XCTAssertEqual(selected, .transcript)
+
+        control.selectAdjacentOption(offset: 1)
+        XCTAssertEqual(selected, .transcript)
+
+        control.selectAdjacentOption(offset: -1)
+        XCTAssertEqual(selected, .timeline)
+
+        control.selectOption(.inspect)
+        XCTAssertEqual(selected, .inspect)
+
+        // When keyboard focus has moved to .timeline via Tab while selection is still .inspect,
+        // arrow navigation must step relative to the focused segment rather than selection.
+        XCTAssertEqual(control.resolvedNavigationAnchor(focusedOverride: .timeline), .timeline)
+        control.selectAdjacentOption(offset: 1, focusedOverride: .timeline)
+        XCTAssertEqual(selected, .transcript)
+
+        control.selectAdjacentOption(offset: -1, focusedOverride: .timeline)
+        XCTAssertEqual(selected, .inspect)
+    }
 }

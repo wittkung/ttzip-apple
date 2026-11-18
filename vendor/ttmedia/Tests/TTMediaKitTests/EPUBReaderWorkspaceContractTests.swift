@@ -22,6 +22,48 @@ private final class EPUBChapterLinkNavigationAction: WKNavigationAction {
 
 @MainActor
 final class EPUBReaderWorkspaceContractTests: XCTestCase {
+    func testChapterPlaceholderEscapesTitleThemeAndHostCopy() {
+        let loading = EPUBReaderAppearance.LoadingPlaceholder(
+            message: "Loading <b> & \"wait\"",
+            containerStyle: "padding: 2px;",
+            titleStyle: "opacity: 0.8;",
+            messageStyle: "color: gray;"
+        )
+        let html = EPUBNativeWKWebView.Coordinator.makePlaceholderHTML(
+            for: URL(fileURLWithPath: "/tmp/<img src=x onerror=alert(1)> & title.xhtml"),
+            customCSS: "<style>body { color: CanvasText; }</style>",
+            readerTheme: "light\" onload=\"bad",
+            loading: loading
+        )
+        XCTAssertTrue(html.contains("Content-Security-Policy"))
+        XCTAssertTrue(html.contains("<div style='padding: 2px;'>"))
+        XCTAssertTrue(html.contains("<h2 style='opacity: 0.8;'>&lt;img src=x onerror=alert(1)&gt; &amp; title</h2>"))
+        XCTAssertTrue(html.contains("<p style='color: gray;'>Loading &lt;b&gt; &amp; &quot;wait&quot;</p>"))
+        XCTAssertTrue(html.contains("<body class=\"theme-light&quot; onload=&quot;bad\">"))
+        XCTAssertFalse(html.contains("<img src=x"))
+        XCTAssertFalse(html.contains("onload=\"bad"))
+    }
+
+    func testSavingWithoutReaderStorageReportsCanonicalDiagnostic() {
+        let directory = FileManager.default.temporaryDirectory
+        let book = EPUBBookModel(
+            url: directory.appendingPathComponent("reader-without-storage.epub"),
+            title: "Reader",
+            chapters: [],
+            extractDir: directory
+        )
+        let session = EPUBReaderSession(bookModel: book)
+        session.saveReaderAnnotation(
+            EPUBReaderAnnotation(
+                anchor: EPUBReaderAnchor(chapterIndex: 0, blockIndex: 0, characterOffset: 0, chapterRatio: 0),
+                quote: "Selected text"
+            )
+        )
+        XCTAssertEqual(session.annotationSession.errorMessage, EPUBReaderWorkspaceLocalization.text(.unavailable))
+        XCTAssertEqual(EPUBReaderWorkspaceLocaleKey.allCases, [.unavailable])
+        XCTAssertEqual(EPUBReaderWorkspaceLocaleKey.unavailable.rawValue, "media.epub.unavailable")
+    }
+
     func testIndependentLatinAndCJKFamiliesDoNotConflateSelections() {
         let css = EPUBNativeWKWebView.resolveFontFamilyCSS(for: "mono|kaiti")
         XCTAssertTrue(css.hasPrefix("Menlo, Courier"))
@@ -68,7 +110,7 @@ final class EPUBReaderWorkspaceContractTests: XCTestCase {
         defer { fixture.cleanup() }
 
         let controller = EPUBPaginationController(initialChapterIndex: 0, totalChapters: fixture.bookModel.chapters.count)
-        let readerView = InteractiveEPUBReaderView(bookModel: fixture.bookModel, paginationController: controller)
+        let readerView = EPUBReaderSession(bookModel: fixture.bookModel, paginationController: controller)
         let selectedBox = NavigationSelectionBox()
         let bridge = try mountChapterBridge(
             chapterIndex: 0,
@@ -101,7 +143,7 @@ final class EPUBReaderWorkspaceContractTests: XCTestCase {
         defer { fixture.cleanup() }
 
         let controller = EPUBPaginationController(initialChapterIndex: 0, totalChapters: fixture.bookModel.chapters.count)
-        let readerView = InteractiveEPUBReaderView(bookModel: fixture.bookModel, paginationController: controller)
+        let readerView = EPUBReaderSession(bookModel: fixture.bookModel, paginationController: controller)
         let selectedBox = NavigationSelectionBox()
         let bridge = try mountChapterBridge(
             chapterIndex: 0,
@@ -138,7 +180,7 @@ final class EPUBReaderWorkspaceContractTests: XCTestCase {
         defer { fixture.cleanup() }
 
         let controller = EPUBPaginationController(initialChapterIndex: 1, totalChapters: fixture.bookModel.chapters.count)
-        let readerView = InteractiveEPUBReaderView(bookModel: fixture.bookModel, paginationController: controller)
+        let readerView = EPUBReaderSession(bookModel: fixture.bookModel, paginationController: controller)
         let selectedBox = NavigationSelectionBox()
         let bridge = try mountChapterBridge(
             chapterIndex: 1,
@@ -199,7 +241,7 @@ final class EPUBReaderWorkspaceContractTests: XCTestCase {
         defer { try? FileManager.default.removeItem(at: siblingRoot) }
 
         let controller = EPUBPaginationController(initialChapterIndex: 1, totalChapters: fixture.bookModel.chapters.count)
-        let readerView = InteractiveEPUBReaderView(bookModel: fixture.bookModel, paginationController: controller)
+        let readerView = EPUBReaderSession(bookModel: fixture.bookModel, paginationController: controller)
         let cleanupProgress = makeProgressDefaultsCleanup(for: [fixture.bookModel.url])
         defer { cleanupProgress() }
 
@@ -240,7 +282,7 @@ final class EPUBReaderWorkspaceContractTests: XCTestCase {
         ]
         let model = EPUBBookModel(url: bookURL, title: "Case Book", chapters: chapters, extractDir: rootDir)
         let controller = EPUBPaginationController(initialChapterIndex: 0, totalChapters: chapters.count)
-        let readerView = InteractiveEPUBReaderView(bookModel: model, paginationController: controller)
+        let readerView = EPUBReaderSession(bookModel: model, paginationController: controller)
 
         let targetLower = try XCTUnwrap(URL(string: lowerURL.absoluteString + "#lower-sec"))
         XCTAssertEqual(
@@ -300,7 +342,7 @@ private extension EPUBReaderWorkspaceContractTests {
     func makeProgressDefaultsCleanup(for bookURLs: [URL]) -> () -> Void {
         let prefixes = bookURLs.map { url -> String in
             let cleanPath = url.path.lowercased().trimmingCharacters(in: CharacterSet(charactersIn: "/"))
-            return "TTMedia_EPUB_Progress_" + InteractiveEPUBReaderView.stableBookDigest(for: cleanPath)
+            return "TTMedia_EPUB_Progress_" + EPUBReaderSession.stableBookDigest(for: cleanPath)
         }
         return {
             for prefix in prefixes {
@@ -324,8 +366,8 @@ private extension EPUBReaderWorkspaceContractTests {
         ]
         let vfsModel = EPUBBookModel(url: vfsBookURL, title: "VFS Book", chapters: vfsChapters, extractDir: vfsRoot)
         let vfsController = EPUBPaginationController(initialChapterIndex: 0, totalChapters: vfsChapters.count)
-        let vfsReader = InteractiveEPUBReaderView(bookModel: vfsModel, paginationController: vfsController)
-        let vfsDigest = InteractiveEPUBReaderView.stableBookDigest(for: "ttzip-vfs://archive-alpha/book.epub")
+        let vfsReader = EPUBReaderSession(bookModel: vfsModel, paginationController: vfsController)
+        let vfsDigest = EPUBReaderSession.stableBookDigest(for: "ttzip-vfs://archive-alpha/book.epub")
         defer {
             for suffix in ["_chapter", "_page", "_anchor", "_char", "_ratio"] {
                 UserDefaults.standard.removeObject(forKey: "TTMedia_EPUB_Progress_" + vfsDigest + suffix)
@@ -411,7 +453,7 @@ private extension EPUBReaderWorkspaceContractTests {
         ]
         let model = EPUBBookModel(url: bookURL, title: "R2 Sample", chapters: chapters, extractDir: rootDir)
         let cleanBookPath = bookURL.path.lowercased().trimmingCharacters(in: CharacterSet(charactersIn: "/"))
-        let digest = InteractiveEPUBReaderView.stableBookDigest(for: cleanBookPath)
+        let digest = EPUBReaderSession.stableBookDigest(for: cleanBookPath)
         return ChapterIdentityFixture(rootDir: rootDir, bookModel: model, progressKeyPrefix: "TTMedia_EPUB_Progress_" + digest)
     }
 
