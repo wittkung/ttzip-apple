@@ -5,10 +5,10 @@
 import PackageDescription
 import Foundation
 
-let coreDependency: Package.Dependency = .package(url: "https://github.com/wittkung/ttzip-core.git", exact: "0.1.10")
+let coreDependency: Package.Dependency = .package(url: "https://github.com/wittkung/ttzip-core.git", exact: "0.1.11")
 let corePackageName = "ttzip-core"
 
-let appCoreDependency: Package.Dependency = .package(url: "https://github.com/wittkung/ttzip-app-core.git", exact: "0.1.7")
+let appCoreDependency: Package.Dependency = .package(url: "https://github.com/wittkung/ttzip-app-core.git", exact: "0.1.8")
 let appCorePackageName = "ttzip-app-core"
 
 let ttmediaDependency: Package.Dependency = .package(path: "vendor/ttmedia")

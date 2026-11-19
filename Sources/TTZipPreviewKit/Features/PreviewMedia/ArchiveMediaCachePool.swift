@@ -1,6 +1,7 @@
 // Copyright 2026 MetastudyLine. All rights reserved.
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
+import Darwin
 import Foundation
 import CryptoKit
 import AppKit
@@ -10,6 +11,16 @@ import TTZipCoreTypes
 /// Thread-safe sandbox LRU temporary media cache pool for native AVSampleBuffer & CoreAudio playback.
 /// Provides concrete POSIX filesystem URLs for archive media entries with zero disk leak.
 public actor ArchiveMediaCachePool {
+    public struct LeasedMediaFile: Sendable, Equatable, Hashable {
+        public let url: URL
+        public let lease: PreviewCacheLease
+
+        public init(url: URL, lease: PreviewCacheLease) {
+            self.url = url
+            self.lease = lease
+        }
+    }
+
     public struct Extraction: Sendable {
         fileprivate let toDisk: @Sendable (String, String, String, String?) async throws -> Void
         fileprivate let toMemory: @Sendable (String, String, String?) async throws -> Data?
@@ -23,7 +34,7 @@ public actor ArchiveMediaCachePool {
         }
     }
 
-    private static let standaloneExtraction = Extraction(
+    public static let standaloneExtraction = Extraction(
         toDisk: { archivePath, entryPath, outputDirectory, password in
             _ = try await ArchiveRuntime.extractSingleEntry(
                 archivePath: archivePath,
@@ -61,14 +72,32 @@ public actor ArchiveMediaCachePool {
         let fileURL: URL
         let directoryURL: URL
         let size: Int64
-        var lastAccessTime: Date
+        var accessSequence: UInt64
+    }
+
+    private struct InflightExtraction: Sendable {
+        let id: UUID
+        let task: Task<URL, Error>
+        let directoryURL: URL
+        let generation: UInt64
+    }
+
+    private struct DeferredDeletion: Sendable {
+        let key: String
+        let directoryURL: URL
+        var holders: Set<UUID>
     }
     
     // MARK: - Private State
     
     private let cacheRootDirectory: URL
     private var entries: [String: CacheEntry] = [:]
-    private var inflightTasks: [String: Task<URL, Error>] = [:]
+    private var inflightTasks: [String: InflightExtraction] = [:]
+    private var activeConsumerLeases: [String: Set<UUID>] = [:]
+    private var deferredDeletions: [UUID: DeferredDeletion] = [:]
+    private var purgeGeneration: UInt64 = 0
+    private var nextDirectorySequence: UInt64 = 0
+    private var nextAccessSequence: UInt64 = 0
     private var memoryPressureSource: (any DispatchSourceMemoryPressure)?
     
     // MARK: - Initialization
@@ -115,16 +144,34 @@ public actor ArchiveMediaCachePool {
     
     // MARK: - Public API
     
+    private static func extractViaDisk(
+        archivePath: String,
+        entryPath: String,
+        password: String?,
+        itemDir: URL,
+        sanitizedName: String,
+        targetFileURL: URL,
+        extraction: Extraction
+    ) async -> Bool {
+        guard (try? await extraction.toDisk(archivePath, entryPath, itemDir.path, password)) != nil,
+              let foundURL = locateExtractedFile(in: itemDir, expectedName: sanitizedName) else {
+            return false
+        }
+        if foundURL.path != targetFileURL.path {
+            try? FileManager.default.removeItem(at: targetFileURL)
+            try? FileManager.default.moveItem(at: foundURL, to: targetFileURL)
+        }
+        return FileManager.default.fileExists(atPath: targetFileURL.path)
+    }
+
     private static func performMediaExtraction(
         archivePath: String,
         entryPath: String,
         password: String?,
-        key: String,
-        rootDir: URL,
+        itemDir: URL,
         extraction: Extraction
     ) async throws -> URL {
         let sanitizedName = sanitizeFileName(entryPath)
-        let itemDir = rootDir.appendingPathComponent(key, isDirectory: true)
         try FileManager.default.createDirectory(
             at: itemDir,
             withIntermediateDirectories: true,
@@ -132,28 +179,85 @@ public actor ArchiveMediaCachePool {
         )
 
         let targetFileURL = itemDir.appendingPathComponent(sanitizedName)
-        var extracted = false
-
-        if let _ = try? await extraction.toDisk(archivePath, entryPath, itemDir.path, password),
-           let foundURL = locateExtractedFile(in: itemDir, expectedName: sanitizedName) {
-            if foundURL.path != targetFileURL.path {
-                try? FileManager.default.removeItem(at: targetFileURL)
-                try? FileManager.default.moveItem(at: foundURL, to: targetFileURL)
+        do {
+            var extracted = await extractViaDisk(
+                archivePath: archivePath,
+                entryPath: entryPath,
+                password: password,
+                itemDir: itemDir,
+                sanitizedName: sanitizedName,
+                targetFileURL: targetFileURL,
+                extraction: extraction
+            )
+            if !extracted, let data = try await extraction.toMemory(archivePath, entryPath, password) {
+                try data.write(to: targetFileURL, options: .atomic)
+                extracted = true
             }
-            extracted = FileManager.default.fileExists(atPath: targetFileURL.path)
+            guard extracted && FileManager.default.fileExists(atPath: targetFileURL.path) else {
+                throw ArchiveError.fileNotFound
+            }
+            try? FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: targetFileURL.path)
+            return targetFileURL
+        } catch {
+            try? FileManager.default.removeItem(at: itemDir)
+            throw error
+        }
+    }
+
+    /// Acquires a concrete POSIX file URL paired with a per-consumer lease token.
+    /// Registers the lease before any suspension point so active readers and in-flight
+    /// extractions cannot be evicted or deleted out from under open file handles.
+    public func acquireLeasedMedia(
+        archivePath: String,
+        entryPath: String,
+        uncompressedSize: Int64,
+        crc32: UInt32 = 0,
+        password: String? = nil,
+        consumerID: UUID = UUID(),
+        extraction: Extraction = ArchiveMediaCachePool.standaloneExtraction
+    ) async throws -> LeasedMediaFile {
+        try Task.checkCancellation()
+
+        let key = Self.computeCacheKey(
+            archivePath: archivePath,
+            entryPath: entryPath,
+            uncompressedSize: uncompressedSize,
+            crc32: crc32
+        )
+        let lease = PreviewCacheLease(key: key, consumerID: consumerID)
+        activeConsumerLeases[key, default: []].insert(consumerID)
+
+        if let existingURL = getCachedURLIfValid(key: key) {
+            return LeasedMediaFile(url: existingURL, lease: lease)
         }
 
-        if !extracted, let data = try await extraction.toMemory(archivePath, entryPath, password) {
-            try data.write(to: targetFileURL, options: .atomic)
-            extracted = true
+        let inflight = startOrJoinExtraction(
+            key: key,
+            archivePath: archivePath,
+            entryPath: entryPath,
+            password: password,
+            extraction: extraction
+        )
+
+        let targetFileURL: URL
+        do {
+            targetFileURL = try await inflight.task.value
+        } catch {
+            finishExtractionFailure(key: key, inflight: inflight, lease: lease)
+            throw error
         }
 
-        guard extracted && FileManager.default.fileExists(atPath: targetFileURL.path) else {
-            throw ArchiveError.fileNotFound
+        finishExtractionSuccess(
+            key: key,
+            inflight: inflight,
+            targetFileURL: targetFileURL,
+            uncompressedSize: uncompressedSize
+        )
+        if Task.isCancelled {
+            releaseLease(lease)
+            throw CancellationError()
         }
-
-        try? FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: targetFileURL.path)
-        return targetFileURL
+        return LeasedMediaFile(url: targetFileURL, lease: lease)
     }
 
     /// Returns a concrete POSIX file URL for an archive media entry, extracting it into the LRU cache if needed.
@@ -184,51 +288,30 @@ public actor ArchiveMediaCachePool {
         password: String? = nil,
         extraction: Extraction
     ) async throws -> URL {
-        let key = Self.computeCacheKey(
+        let leased = try await acquireLeasedMedia(
             archivePath: archivePath,
             entryPath: entryPath,
             uncompressedSize: uncompressedSize,
-            crc32: crc32
+            crc32: crc32,
+            password: password,
+            extraction: extraction
         )
-
-        if let existingURL = getCachedURLIfValid(key: key) {
-            return existingURL
+        let key = leased.lease.key
+        if entries[key]?.fileURL == leased.url {
+            releaseLeaseInternal(leased.lease, reclaimImmediatelyIfIdle: false, protecting: key)
+            return leased.url
         }
+        releaseLease(leased.lease)
+        throw CancellationError()
+    }
 
-        if let ongoingTask = inflightTasks[key] {
-            return try await ongoingTask.value
-        }
-
-        let rootDir = self.cacheRootDirectory
-        let task = Task<URL, Error> {
-            try await Self.performMediaExtraction(
-                archivePath: archivePath,
-                entryPath: entryPath,
-                password: password,
-                key: key,
-                rootDir: rootDir,
-                extraction: extraction
-            )
-        }
-
-        inflightTasks[key] = task
-        do {
-            let targetFileURL = try await task.value
-            let fileSize = (try? FileManager.default.attributesOfItem(atPath: targetFileURL.path)[.size] as? Int64) ?? uncompressedSize
-            entries[key] = CacheEntry(
-                key: key,
-                fileURL: targetFileURL,
-                directoryURL: targetFileURL.deletingLastPathComponent(),
-                size: fileSize,
-                lastAccessTime: Date()
-            )
-            inflightTasks.removeValue(forKey: key)
-            evictIfNeeded()
-            return targetFileURL
-        } catch {
-            inflightTasks.removeValue(forKey: key)
-            throw error
-        }
+    /// Releases a consumer lease token and reclaims deferred or over-quota directories once no leases remain.
+    public func releaseLease(_ lease: PreviewCacheLease, reclaimImmediatelyIfIdle: Bool = false) {
+        releaseLeaseInternal(
+            lease,
+            reclaimImmediatelyIfIdle: reclaimImmediatelyIfIdle,
+            protecting: nil
+        )
     }
     
     /// Stages in-memory Data into a sandboxed cache file preserving extension, returning a concrete file URL.
@@ -241,9 +324,7 @@ public actor ArchiveMediaCachePool {
             return existingURL
         }
         
-        let itemDir = cacheRootDirectory
-            .appendingPathComponent("staged", isDirectory: true)
-            .appendingPathComponent(key, isDirectory: true)
+        let itemDir = nextItemDirectory(for: key, staged: true)
         
         try FileManager.default.createDirectory(
             at: itemDir,
@@ -260,32 +341,55 @@ public actor ArchiveMediaCachePool {
             fileURL: targetFileURL,
             directoryURL: itemDir,
             size: Int64(data.count),
-            lastAccessTime: Date()
+            accessSequence: advanceAccessSequence()
         )
         
         entries[key] = entry
-        evictIfNeeded()
+        evictIfNeeded(protecting: key)
         
         return targetFileURL
     }
     
-    /// Purges all cached media files and removes the cache root directory.
+    /// Purges all unleased cached media files immediately, hides leased entries from new lookups,
+    /// and defers deletion of leased directories until their final consumer releases its lease.
     public func purgeAll() {
-        inflightTasks.removeAll()
+        purgeGeneration &+= 1
+        retireLeasedEntriesForPurge()
+
+        let protectedPaths = Set(
+            deferredDeletions.values.flatMap { Self.pathVariants(for: $0.directoryURL) }
+        )
+
+        for entry in entries.values {
+            let candidates = Self.pathVariants(for: entry.directoryURL)
+            if !candidates.contains(where: { protectedPaths.contains($0) }) {
+                try? FileManager.default.removeItem(at: entry.directoryURL)
+            }
+        }
+
         entries.removeAll()
-        try? FileManager.default.removeItem(at: cacheRootDirectory)
+        inflightTasks.removeAll()
+
+        if protectedPaths.isEmpty {
+            try? FileManager.default.removeItem(at: cacheRootDirectory)
+        } else {
+            Self.pruneUnprotectedItems(in: cacheRootDirectory, protectedPaths: protectedPaths)
+        }
         setupCacheDirectory()
     }
     
-    /// Evicts oldest accessed media cache items until entries count and size match retention ratio.
+    /// Evicts oldest accessed unleased media cache items until unleased count matches retention ratio.
     public func purgeIdleEntries(retentionRatio: Double = 0.5) {
-        guard !entries.isEmpty else { return }
+        let unleasedEntries = entries.values
+            .filter { !isLeased($0.key) }
+            .sorted { $0.accessSequence < $1.accessSequence }
+        guard !unleasedEntries.isEmpty else { return }
+
         let clampedRatio = max(0.0, min(1.0, retentionRatio))
-        let targetCount = Int(Double(entries.count) * clampedRatio)
-        let sortedEntries = entries.values.sorted { $0.lastAccessTime < $1.lastAccessTime }
-        let evictCount = entries.count - targetCount
-        
-        for entry in sortedEntries.prefix(evictCount) {
+        let targetCount = Int(Double(unleasedEntries.count) * clampedRatio)
+        let evictCount = unleasedEntries.count - targetCount
+
+        for entry in unleasedEntries.prefix(evictCount) {
             try? FileManager.default.removeItem(at: entry.directoryURL)
             entries.removeValue(forKey: entry.key)
         }
@@ -323,6 +427,20 @@ public actor ArchiveMediaCachePool {
     public var totalCacheSizeBytes: Int64 {
         entries.values.reduce(0) { $0 + $1.size }
     }
+
+    /// Number of purged directories retained on disk solely for active consumer leases.
+    public var pendingDeferredDeletionCount: Int {
+        deferredDeletions.count
+    }
+
+    /// Total number of active consumer leases currently protecting `key` across live and deferred entries.
+    public func activeLeaseCount(forKey key: String) -> Int {
+        let liveCount = activeConsumerLeases[key]?.count ?? 0
+        let deferredCount = deferredDeletions.values.reduce(0) { partial, deferred in
+            deferred.key == key ? partial + deferred.holders.count : partial
+        }
+        return liveCount + deferredCount
+    }
     
     /// Root directory of the media cache.
     public nonisolated var cacheDirectoryURL: URL {
@@ -330,11 +448,156 @@ public actor ArchiveMediaCachePool {
     }
     
     // MARK: - Private State Helpers
+
+    private func advanceAccessSequence() -> UInt64 {
+        nextAccessSequence &+= 1
+        return nextAccessSequence
+    }
+
+    private func isLeased(_ key: String) -> Bool {
+        !(activeConsumerLeases[key]?.isEmpty ?? true)
+    }
+
+    private func nextItemDirectory(for key: String, staged: Bool = false) -> URL {
+        nextDirectorySequence &+= 1
+        let folderName = "\(key)_\(nextDirectorySequence)"
+        if staged {
+            return cacheRootDirectory
+                .appendingPathComponent("staged", isDirectory: true)
+                .appendingPathComponent(folderName, isDirectory: true)
+        }
+        return cacheRootDirectory.appendingPathComponent(folderName, isDirectory: true)
+    }
+
+    private func startOrJoinExtraction(
+        key: String,
+        archivePath: String,
+        entryPath: String,
+        password: String?,
+        extraction: Extraction
+    ) -> InflightExtraction {
+        if let ongoing = inflightTasks[key] {
+            return ongoing
+        }
+
+        let itemDir = nextItemDirectory(for: key)
+        let generation = purgeGeneration
+        let task = Task<URL, Error> {
+            try await Self.performMediaExtraction(
+                archivePath: archivePath,
+                entryPath: entryPath,
+                password: password,
+                itemDir: itemDir,
+                extraction: extraction
+            )
+        }
+        let inflight = InflightExtraction(
+            id: UUID(),
+            task: task,
+            directoryURL: itemDir,
+            generation: generation
+        )
+        inflightTasks[key] = inflight
+        return inflight
+    }
+
+    private func finishExtractionSuccess(
+        key: String,
+        inflight: InflightExtraction,
+        targetFileURL: URL,
+        uncompressedSize: Int64
+    ) {
+        if inflightTasks[key]?.id == inflight.id {
+            inflightTasks.removeValue(forKey: key)
+        }
+
+        guard inflight.generation == purgeGeneration else {
+            return
+        }
+
+        let fileSize = (try? FileManager.default.attributesOfItem(atPath: targetFileURL.path)[.size] as? Int64) ?? uncompressedSize
+        entries[key] = CacheEntry(
+            key: key,
+            fileURL: targetFileURL,
+            directoryURL: inflight.directoryURL,
+            size: fileSize,
+            accessSequence: advanceAccessSequence()
+        )
+        evictIfNeeded(protecting: key)
+    }
+
+    private func finishExtractionFailure(
+        key: String,
+        inflight: InflightExtraction,
+        lease: PreviewCacheLease
+    ) {
+        if inflightTasks[key]?.id == inflight.id {
+            inflightTasks.removeValue(forKey: key)
+        }
+        releaseLease(lease)
+    }
+
+    private func retireLeasedEntriesForPurge() {
+        for (key, holders) in activeConsumerLeases where !holders.isEmpty {
+            let directoryURL = entries[key]?.directoryURL ?? inflightTasks[key]?.directoryURL
+            guard let directoryURL else { continue }
+            deferredDeletions[UUID()] = DeferredDeletion(
+                key: key,
+                directoryURL: directoryURL,
+                holders: holders
+            )
+        }
+        activeConsumerLeases.removeAll()
+    }
+
+    private func releaseDeferredLease(_ lease: PreviewCacheLease) -> Bool {
+        guard let deferredID = deferredDeletions.first(where: {
+            $0.value.key == lease.key && $0.value.holders.contains(lease.consumerID)
+        })?.key else {
+            return false
+        }
+
+        deferredDeletions[deferredID]?.holders.remove(lease.consumerID)
+        if deferredDeletions[deferredID]?.holders.isEmpty == true,
+           let retired = deferredDeletions.removeValue(forKey: deferredID) {
+            try? FileManager.default.removeItem(at: retired.directoryURL)
+        }
+        return true
+    }
+
+    private func releaseLeaseInternal(
+        _ lease: PreviewCacheLease,
+        reclaimImmediatelyIfIdle: Bool,
+        protecting protectedKey: String?
+    ) {
+        if releaseDeferredLease(lease) {
+            return
+        }
+
+        guard var holders = activeConsumerLeases[lease.key],
+              holders.remove(lease.consumerID) != nil else {
+            return
+        }
+
+        if !holders.isEmpty {
+            activeConsumerLeases[lease.key] = holders
+            return
+        }
+
+        activeConsumerLeases.removeValue(forKey: lease.key)
+        if reclaimImmediatelyIfIdle,
+           inflightTasks[lease.key] == nil,
+           let entry = entries.removeValue(forKey: lease.key) {
+            try? FileManager.default.removeItem(at: entry.directoryURL)
+        } else {
+            evictIfNeeded(protecting: protectedKey)
+        }
+    }
     
     private func getCachedURLIfValid(key: String) -> URL? {
         if var existing = entries[key] {
             if FileManager.default.fileExists(atPath: existing.fileURL.path) {
-                existing.lastAccessTime = Date()
+                existing.accessSequence = advanceAccessSequence()
                 entries[key] = existing
                 return existing.fileURL
             } else {
@@ -353,21 +616,57 @@ public actor ArchiveMediaCachePool {
             attributes: [.posixPermissions: 0o700]
         )
     }
+
+    private nonisolated static func pathVariants(for url: URL) -> [String] {
+        let standard = url.standardizedFileURL.path
+        let resolved = url.standardizedFileURL.resolvingSymlinksInPath().path
+        return standard == resolved ? [standard] : [standard, resolved]
+    }
+
+    private nonisolated static func pruneUnprotectedItems(
+        in directory: URL,
+        protectedPaths: Set<String>
+    ) {
+        guard let children = try? FileManager.default.contentsOfDirectory(
+            at: directory,
+            includingPropertiesForKeys: nil,
+            options: []
+        ) else { return }
+
+        for child in children {
+            let candidates = pathVariants(for: child)
+            if candidates.contains(where: { protectedPaths.contains($0) }) {
+                continue
+            }
+            let isAncestor = candidates.contains { candidate in
+                let prefix = candidate.hasSuffix("/") ? candidate : candidate + "/"
+                return protectedPaths.contains { $0.hasPrefix(prefix) }
+            }
+            if isAncestor {
+                pruneUnprotectedItems(in: child, protectedPaths: protectedPaths)
+            } else {
+                try? FileManager.default.removeItem(at: child)
+            }
+        }
+    }
     
     private nonisolated func setupCacheDirectory() {
         Self.setupCacheDirectory(at: cacheRootDirectory)
     }
     
-    private func evictIfNeeded() {
+    private func evictIfNeeded(protecting protectedKey: String? = nil) {
         var currentSize = entries.values.reduce(0) { $0 + $1.size }
         var currentCount = entries.count
         
         guard currentSize > maxQuotaBytes || currentCount > maxItemCount else { return }
         
-        let sortedEntries = entries.values.sorted { $0.lastAccessTime < $1.lastAccessTime }
+        let sortedEntries = entries.values.sorted { $0.accessSequence < $1.accessSequence }
         
         for entry in sortedEntries {
             guard currentSize > maxQuotaBytes || currentCount > maxItemCount else { break }
+            if entry.key == protectedKey || isLeased(entry.key) {
+                continue
+            }
             
             try? FileManager.default.removeItem(at: entry.directoryURL)
             entries.removeValue(forKey: entry.key)
@@ -376,13 +675,22 @@ public actor ArchiveMediaCachePool {
         }
     }
     
+    public nonisolated static func sourceFileIdentityToken(at archivePath: String) -> String {
+        var st = stat()
+        guard stat(archivePath, &st) == 0 else {
+            return "absent"
+        }
+        return "\(st.st_dev):\(st.st_ino):\(st.st_size):\(st.st_mtimespec.tv_sec):\(st.st_mtimespec.tv_nsec)"
+    }
+
     public nonisolated static func computeCacheKey(
         archivePath: String,
         entryPath: String,
         uncompressedSize: Int64,
         crc32: UInt32
     ) -> String {
-        let descriptor = "\(archivePath):\(entryPath):\(uncompressedSize):\(crc32)"
+        let sourceIdentity = sourceFileIdentityToken(at: archivePath)
+        let descriptor = "\(archivePath)\0\(sourceIdentity)\0\(entryPath)\0\(uncompressedSize)\0\(crc32)"
         return sha256Hex(descriptor)
     }
     

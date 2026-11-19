@@ -14,6 +14,9 @@ public final class TTZipArchiveVfsProvider: TTZipVfsResourceProvider, Sendable {
     
     /// Maximum slice size served in a single partial byte range response (4MB limit to prevent memory bloat).
     public static let maxRangeSliceSize: Int = 4 * 1024 * 1024
+
+    /// Maximum entry size buffered directly in memory before routing range reads through the media cache pool.
+    public static let maxInMemoryEntryBytes: Int64 = 8 * 1024 * 1024
     
     /// Bounded in-memory cache configuration.
     public static let memoryCacheCostLimit: Int = 64 * 1024 * 1024
@@ -77,12 +80,44 @@ public final class TTZipArchiveVfsProvider: TTZipVfsResourceProvider, Sendable {
         fileprivate let generation: UUID
     }
 
+    private struct SessionVersion: Equatable, Sendable {
+        let generation: UUID
+        let sourceIdentity: String
+        let identityEpoch: UInt64
+    }
+
     private struct ArchiveSession: Sendable {
         let generation = UUID()
         let archivePath: String
         let password: String?
+        var sourceIdentity: String
+        var identityEpoch: UInt64 = 0
         var cachedKeys: Set<String>
         var entrySizes: [String: Int64]
+
+        var version: SessionVersion {
+            SessionVersion(
+                generation: generation,
+                sourceIdentity: sourceIdentity,
+                identityEpoch: identityEpoch
+            )
+        }
+    }
+
+    private struct ResolvedSession: Sendable {
+        let archivePath: String
+        let password: String?
+        let version: SessionVersion
+        let cachedData: Data?
+        let knownEntrySize: Int64?
+
+        init(session: ArchiveSession, cachedData: Data? = nil, knownEntrySize: Int64? = nil) {
+            self.archivePath = session.archivePath
+            self.password = session.password
+            self.version = session.version
+            self.cachedData = cachedData
+            self.knownEntrySize = knownEntrySize
+        }
     }
     
     private enum MediaCacheSource: Sendable {
@@ -119,9 +154,23 @@ public final class TTZipArchiveVfsProvider: TTZipVfsResourceProvider, Sendable {
         }
     }
     
+    private let mediaCachePool: ArchiveMediaCachePool
+    private let sourceIdentityProvider: @Sendable (String) -> String
     private let lock: OSAllocatedUnfairLock<VfsProviderState>
-    
-    public init() {
+
+    public convenience init(mediaCachePool: ArchiveMediaCachePool = .shared) {
+        self.init(
+            mediaCachePool: mediaCachePool,
+            sourceIdentityProvider: { ArchiveMediaCachePool.sourceFileIdentityToken(at: $0) }
+        )
+    }
+
+    init(
+        mediaCachePool: ArchiveMediaCachePool = .shared,
+        sourceIdentityProvider: @escaping @Sendable (String) -> String
+    ) {
+        self.mediaCachePool = mediaCachePool
+        self.sourceIdentityProvider = sourceIdentityProvider
         self.lock = OSAllocatedUnfairLock(
             initialState: VfsProviderState(
                 sessions: [:],
@@ -133,9 +182,75 @@ public final class TTZipArchiveVfsProvider: TTZipVfsResourceProvider, Sendable {
             )
         )
     }
-    
+
     private static func cacheKey(archiveId: String, entryPath: String) -> String {
         "\(archiveId)/\(entryPath)"
+    }
+
+    /// Advances `session.sourceIdentity` only if the active session still matches `expectedVersion`,
+    /// preventing delayed writers or stale stat reads from rolling a newer identity backward.
+    private static func advanceSessionIdentityIfMatching(
+        archiveId: String,
+        expectedVersion: SessionVersion,
+        to currentIdentity: String,
+        in state: inout VfsProviderState
+    ) -> ArchiveSession? {
+        guard var session = state.sessions[archiveId] else { return nil }
+        guard session.version == expectedVersion else { return session }
+        if session.sourceIdentity != currentIdentity {
+            for key in session.cachedKeys {
+                state.cache.remove(key)
+            }
+            session.cachedKeys.removeAll()
+            session.entrySizes.removeAll()
+            session.sourceIdentity = currentIdentity
+            session.identityEpoch &+= 1
+            state.sessions[archiveId] = session
+        }
+        return session
+    }
+
+    private func reconciledSession(archiveId: String, entryPath: String? = nil) -> ResolvedSession? {
+        var snapshot = lock.withLock { state -> (String, SessionVersion)? in
+            state.sessions[archiveId].map { ($0.archivePath, $0.version) }
+        }
+        let cacheKey = entryPath.map { Self.cacheKey(archiveId: archiveId, entryPath: $0) }
+        for attempt in 0..<2 {
+            guard let (archivePath, expectedVersion) = snapshot else { return nil }
+            let currentIdentity = sourceIdentityProvider(archivePath)
+            let outcome = lock.withLock { state -> (ResolvedSession?, (String, SessionVersion)?) in
+                guard let session = state.sessions[archiveId] else { return (nil, nil) }
+                if session.sourceIdentity == currentIdentity {
+                    let cached = cacheKey.flatMap { session.cachedKeys.contains($0) ? state.cache.get($0) : nil }
+                    return (
+                        ResolvedSession(
+                            session: session,
+                            cachedData: cached,
+                            knownEntrySize: entryPath.flatMap { session.entrySizes[$0] }
+                        ),
+                        nil
+                    )
+                }
+                if session.version == expectedVersion {
+                    let updated = Self.advanceSessionIdentityIfMatching(
+                        archiveId: archiveId,
+                        expectedVersion: expectedVersion,
+                        to: currentIdentity,
+                        in: &state
+                    )
+                    return (updated.map { ResolvedSession(session: $0) }, nil)
+                }
+                return attempt == 0
+                    ? (nil, (session.archivePath, session.version))
+                    : (ResolvedSession(session: session), nil)
+            }
+            if let next = outcome.1 {
+                snapshot = next
+                continue
+            }
+            return outcome.0
+        }
+        return nil
     }
     
     // MARK: - Session Registration & Lease Management
@@ -153,16 +268,46 @@ public final class TTZipArchiveVfsProvider: TTZipVfsResourceProvider, Sendable {
     }
 
     func acquireSession(archivePath: String, password: String? = nil) -> SessionHandle {
+        ensureSession(archivePath: archivePath, password: password, retainExisting: true)
+    }
+
+    private func ensureSession(
+        archivePath: String,
+        password: String?,
+        retainExisting: Bool
+    ) -> SessionHandle {
         let archiveId = Self.makeArchiveId(from: archivePath)
+        let priorVersion = lock.withLock { $0.sessions[archiveId]?.version }
+        let currentIdentity = sourceIdentityProvider(archivePath)
         return lock.withLock { state in
-            let session = state.sessions[archiveId] ?? ArchiveSession(
-                archivePath: archivePath,
-                password: password,
-                cachedKeys: [],
-                entrySizes: [:]
-            )
-            state.sessions[archiveId] = session
-            state.sessionRefCounts[archiveId, default: 0] += 1
+            let session: ArchiveSession
+            if let existing = state.sessions[archiveId] {
+                if let priorVersion, existing.version == priorVersion,
+                   let updated = Self.advanceSessionIdentityIfMatching(
+                       archiveId: archiveId,
+                       expectedVersion: priorVersion,
+                       to: currentIdentity,
+                       in: &state
+                   ) {
+                    session = updated
+                } else {
+                    session = existing
+                }
+                if retainExisting {
+                    state.sessionRefCounts[archiveId, default: 0] += 1
+                }
+            } else {
+                let created = ArchiveSession(
+                    archivePath: archivePath,
+                    password: password,
+                    sourceIdentity: currentIdentity,
+                    cachedKeys: [],
+                    entrySizes: [:]
+                )
+                state.sessions[archiveId] = created
+                state.sessionRefCounts[archiveId] = 1
+                session = created
+            }
             return SessionHandle(archiveId: archiveId, generation: session.generation)
         }
     }
@@ -251,23 +396,55 @@ public final class TTZipArchiveVfsProvider: TTZipVfsResourceProvider, Sendable {
     
     /// Pre-populates in-memory entry data for an archive with bounded LRU storage.
     public func cacheEntryData(archiveId: String, entryPath: String, data: Data) {
+        guard let snapshot = lock.withLock({ state -> (String, SessionVersion)? in
+            state.sessions[archiveId].map { ($0.archivePath, $0.version) }
+        }) else {
+            return
+        }
+        cacheEntryDataIfSourceUnchanged(
+            archiveId: archiveId,
+            archivePath: snapshot.0,
+            entryPath: entryPath,
+            data: data,
+            expectedVersion: snapshot.1
+        )
+    }
+
+    private func cacheEntryDataIfSourceUnchanged(
+        archiveId: String,
+        archivePath: String,
+        entryPath: String,
+        data: Data,
+        expectedVersion: SessionVersion
+    ) {
+        let postIdentity = sourceIdentityProvider(archivePath)
         let normalizedPath = Self.normalizePath(entryPath)
         let key = Self.cacheKey(archiveId: archiveId, entryPath: normalizedPath)
         lock.withLock { state in
+            if postIdentity != expectedVersion.sourceIdentity {
+                _ = Self.advanceSessionIdentityIfMatching(
+                    archiveId: archiveId,
+                    expectedVersion: expectedVersion,
+                    to: postIdentity,
+                    in: &state
+                )
+                return
+            }
+            guard var session = state.sessions[archiveId],
+                  session.version == expectedVersion else {
+                return
+            }
             state.cache.set(key, data: data)
-            state.sessions[archiveId]?.cachedKeys.insert(key)
-            state.sessions[archiveId]?.entrySizes[normalizedPath] = Int64(data.count)
+            session.cachedKeys.insert(key)
+            session.entrySizes[normalizedPath] = Int64(data.count)
+            state.sessions[archiveId] = session
         }
     }
     
     /// Synchronously retrieves cached in-memory entry data if present in bounded cache.
     public func cachedData(for uri: String) -> Data? {
-        guard let (archiveId, entryPath) = parseVfsUri(uri),
-              lock.withLock({ $0.sessions[archiveId] != nil }) else { return nil }
-        let key = Self.cacheKey(archiveId: archiveId, entryPath: entryPath)
-        return lock.withLock { state in
-            state.cache.get(key)
-        }
+        guard let (archiveId, entryPath) = parseVfsUri(uri) else { return nil }
+        return reconciledSession(archiveId: archiveId, entryPath: entryPath)?.cachedData
     }
     
     /// Reads entry data from an active archive session by archiveId and relative entry path.
@@ -278,19 +455,8 @@ public final class TTZipArchiveVfsProvider: TTZipVfsResourceProvider, Sendable {
     
     /// Builds a canonical `ttzip-vfs://` URL for an archive entry without mutating existing session lease counts.
     public func vfsURL(archivePath: String, password: String? = nil, entryPath: String) -> URL {
-        let archiveId = Self.makeArchiveId(from: archivePath)
-        lock.withLock { state in
-            if state.sessions[archiveId] == nil {
-                state.sessions[archiveId] = ArchiveSession(
-                    archivePath: archivePath,
-                    password: password,
-                    cachedKeys: [],
-                    entrySizes: [:]
-                )
-                state.sessionRefCounts[archiveId] = 1
-            }
-        }
-        return makeVfsURL(archiveId: archiveId, entryPath: entryPath)
+        let handle = ensureSession(archivePath: archivePath, password: password, retainExisting: false)
+        return makeVfsURL(archiveId: handle.archiveId, entryPath: entryPath)
     }
     
     /// Builds a `ttzip-vfs://` URL given an archive ID and entry path.
@@ -312,25 +478,25 @@ public final class TTZipArchiveVfsProvider: TTZipVfsResourceProvider, Sendable {
     public func loadResource(uri: String) async throws -> (data: Data, mimeType: String)? {
         guard let (archiveId, entryPath) = parseVfsUri(uri) else { return nil }
         let mimeType = Self.mimeType(for: entryPath)
-        
-        let (archivePath, password, isRegistered) = lock.withLock { state -> (String?, String?, Bool) in
-            guard let session = state.sessions[archiveId] else { return (nil, nil, false) }
-            return (session.archivePath, session.password, true)
+
+        guard let resolved = reconciledSession(archiveId: archiveId, entryPath: entryPath) else {
+            return nil
         }
-        guard isRegistered else { return nil }
-        
-        // 1. Check bounded in-memory session cache
-        if let data = cachedData(for: uri) {
+        if let data = resolved.cachedData {
             return (data, mimeType)
         }
-        
-        guard let validArchivePath = archivePath else { return nil }
-        
-        if let data = try await readAccess.readEntry(validArchivePath, entryPath, password) {
-            cacheEntryData(archiveId: archiveId, entryPath: entryPath, data: data)
+
+        if let data = try await readAccess.readEntry(resolved.archivePath, entryPath, resolved.password) {
+            cacheEntryDataIfSourceUnchanged(
+                archiveId: archiveId,
+                archivePath: resolved.archivePath,
+                entryPath: entryPath,
+                data: data,
+                expectedVersion: resolved.version
+            )
             return (data, mimeType)
         }
-        
+
         return nil
     }
 
@@ -339,11 +505,18 @@ public final class TTZipArchiveVfsProvider: TTZipVfsResourceProvider, Sendable {
         archivePath: String,
         entryPath: String,
         password: String?,
+        expectedVersion: SessionVersion,
         byteRange: ClosedRange<Int>?,
         mimeType: String
     ) async throws -> (data: Data, fullSize: Int64, mimeType: String)? {
         guard let fullData = try await readAccess.readEntry(archivePath, entryPath, password) else { return nil }
-        cacheEntryData(archiveId: archiveId, entryPath: entryPath, data: fullData)
+        cacheEntryDataIfSourceUnchanged(
+            archiveId: archiveId,
+            archivePath: archivePath,
+            entryPath: entryPath,
+            data: fullData,
+            expectedVersion: expectedVersion
+        )
         return Self.sliceRange(from: fullData, byteRange: byteRange, mimeType: mimeType)
     }
     
@@ -367,46 +540,58 @@ public final class TTZipArchiveVfsProvider: TTZipVfsResourceProvider, Sendable {
         return start..<(start + length)
     }
 
-    private func resolveSessionEntry(archiveId: String, entryPath: String) -> (archivePath: String, password: String?, entrySize: Int64)? {
-        let (archivePath, password, knownSize) = lock.withLock { state -> (String?, String?, Int64?) in
-            guard let session = state.sessions[archiveId] else { return (nil, nil, nil) }
-            return (session.archivePath, session.password, session.entrySizes[entryPath])
+    private func resolveEntrySize(
+        archiveId: String,
+        entryPath: String,
+        session: ResolvedSession
+    ) -> Int64 {
+        if let size = session.knownEntrySize {
+            return size
         }
-        guard let validArchivePath = archivePath else { return nil }
-        if let size = knownSize {
-            return (validArchivePath, password, size)
-        }
-        let entries = (try? readAccess.listEntrySizes(validArchivePath, password)) ?? []
-        let matchedSize = lock.withLock { state -> Int64 in
-            var found: Int64 = 0
-            for entry in entries {
-                let norm = Self.normalizePath(entry.path)
-                state.sessions[archiveId]?.entrySizes[norm] = Int64(entry.size)
-                if norm == entryPath || norm.hasSuffix("/" + entryPath) {
-                    found = Int64(entry.size)
-                }
+        let entries = (try? readAccess.listEntrySizes(session.archivePath, session.password)) ?? []
+        let postIdentity = sourceIdentityProvider(session.archivePath)
+        let normalizedEntries = entries.map { (Self.normalizePath($0.path), Int64($0.size)) }
+        let found = normalizedEntries.last { norm, _ in
+            norm == entryPath || norm.hasSuffix("/" + entryPath)
+        }?.1 ?? 0
+        lock.withLock { state in
+            if postIdentity != session.version.sourceIdentity {
+                _ = Self.advanceSessionIdentityIfMatching(
+                    archiveId: archiveId,
+                    expectedVersion: session.version,
+                    to: postIdentity,
+                    in: &state
+                )
+                return
             }
-            return found
+            guard var activeSession = state.sessions[archiveId],
+                  activeSession.version == session.version else {
+                return
+            }
+            for (norm, size) in normalizedEntries {
+                activeSession.entrySizes[norm] = size
+            }
+            state.sessions[archiveId] = activeSession
         }
-        return (validArchivePath, password, matchedSize)
+        return found
     }
 
-    private func materializeMedia(
+    private func materializeLeasedMedia(
         archivePath: String,
         entryPath: String,
         uncompressedSize: Int64,
         password: String?
-    ) async throws -> URL {
+    ) async throws -> ArchiveMediaCachePool.LeasedMediaFile {
         switch lock.withLock({ $0.mediaCacheSource }) {
         case .standalone:
-            return try await ArchiveMediaCachePool.shared.getOrExtractMedia(
+            return try await mediaCachePool.acquireLeasedMedia(
                 archivePath: archivePath,
                 entryPath: entryPath,
                 uncompressedSize: uncompressedSize,
                 password: password
             )
         case .hosted(let extraction):
-            return try await ArchiveMediaCachePool.shared.getOrExtractMedia(
+            return try await mediaCachePool.acquireLeasedMedia(
                 archivePath: archivePath,
                 entryPath: entryPath,
                 uncompressedSize: uncompressedSize,
@@ -414,6 +599,28 @@ public final class TTZipArchiveVfsProvider: TTZipVfsResourceProvider, Sendable {
                 extraction: extraction
             )
         }
+    }
+
+    private static func readLeasedMediaSlice(
+        from mediaURL: URL,
+        entrySize: Int64,
+        byteRange: ClosedRange<Int>?,
+        mimeType: String
+    ) throws -> (data: Data, fullSize: Int64, mimeType: String)? {
+        let fileHandle = try FileHandle(forReadingFrom: mediaURL)
+        defer { try? fileHandle.close() }
+
+        let actualFullSize: Int64
+        if entrySize > 0 {
+            actualFullSize = entrySize
+        } else {
+            actualFullSize = (try? fileHandle.seekToEnd()).map(Int64.init) ?? 0
+        }
+        let bounds = boundedReadRange(byteRange, fullSize: actualFullSize)
+        guard !bounds.isEmpty else { return (Data(), actualFullSize, mimeType) }
+        try fileHandle.seek(toOffset: UInt64(bounds.lowerBound))
+        let sliceData = (try fileHandle.read(upToCount: Int(bounds.count))) ?? Data()
+        return (sliceData, actualFullSize, mimeType)
     }
 
     private func readMediaCacheSlice(
@@ -424,43 +631,58 @@ public final class TTZipArchiveVfsProvider: TTZipVfsResourceProvider, Sendable {
         byteRange: ClosedRange<Int>?,
         mimeType: String
     ) async throws -> (data: Data, fullSize: Int64, mimeType: String)? {
-        guard let mediaURL = try? await materializeMedia(
-            archivePath: archivePath,
-            entryPath: entryPath,
-            uncompressedSize: entrySize,
-            password: password
-        ), let fileHandle = try? FileHandle(forReadingFrom: mediaURL) else {
+        let leased: ArchiveMediaCachePool.LeasedMediaFile
+        do {
+            leased = try await materializeLeasedMedia(
+                archivePath: archivePath,
+                entryPath: entryPath,
+                uncompressedSize: entrySize,
+                password: password
+            )
+        } catch is CancellationError {
+            throw CancellationError()
+        } catch {
+            if entrySize > Self.maxInMemoryEntryBytes {
+                throw error
+            }
             return nil
         }
-        defer { try? fileHandle.close() }
 
-        let diskSize = (try? FileManager.default.attributesOfItem(atPath: mediaURL.path)[.size] as? Int64) ?? 0
-        let actualFullSize = entrySize > 0 ? entrySize : diskSize
-        let bounds = Self.boundedReadRange(byteRange, fullSize: actualFullSize)
-        guard !bounds.isEmpty else { return (Data(), actualFullSize, mimeType) }
-        try fileHandle.seek(toOffset: UInt64(bounds.lowerBound))
-        let sliceData = (try fileHandle.read(upToCount: Int(bounds.count))) ?? Data()
-        return (sliceData, actualFullSize, mimeType)
+        do {
+            let result = try Self.readLeasedMediaSlice(
+                from: leased.url,
+                entrySize: entrySize,
+                byteRange: byteRange,
+                mimeType: mimeType
+            )
+            await mediaCachePool.releaseLease(leased.lease)
+            return result
+        } catch {
+            await mediaCachePool.releaseLease(leased.lease)
+            throw error
+        }
     }
 
     public func loadResourceRange(uri: String, byteRange: ClosedRange<Int>?) async throws -> (data: Data, fullSize: Int64, mimeType: String)? {
         guard let (archiveId, entryPath) = parseVfsUri(uri) else { return nil }
         let mimeType = Self.mimeType(for: entryPath)
 
-        if let cached = cachedData(for: uri) {
+        guard let session = reconciledSession(archiveId: archiveId, entryPath: entryPath) else {
+            return nil
+        }
+        if let cached = session.cachedData {
             return Self.sliceRange(from: cached, byteRange: byteRange, mimeType: mimeType)
         }
 
-        guard let resolved = resolveSessionEntry(archiveId: archiveId, entryPath: entryPath) else {
-            return nil
-        }
+        let entrySize = resolveEntrySize(archiveId: archiveId, entryPath: entryPath, session: session)
 
-        if resolved.entrySize > 0 && resolved.entrySize <= 8 * 1024 * 1024,
+        if entrySize > 0 && entrySize <= Self.maxInMemoryEntryBytes,
            let sliced = try await extractSmallEntryForRange(
                archiveId: archiveId,
-               archivePath: resolved.archivePath,
+               archivePath: session.archivePath,
                entryPath: entryPath,
-               password: resolved.password,
+               password: session.password,
+               expectedVersion: session.version,
                byteRange: byteRange,
                mimeType: mimeType
            ) {
@@ -468,10 +690,10 @@ public final class TTZipArchiveVfsProvider: TTZipVfsResourceProvider, Sendable {
         }
 
         if let mediaSlice = try await readMediaCacheSlice(
-            archivePath: resolved.archivePath,
+            archivePath: session.archivePath,
             entryPath: entryPath,
-            entrySize: resolved.entrySize,
-            password: resolved.password,
+            entrySize: entrySize,
+            password: session.password,
             byteRange: byteRange,
             mimeType: mimeType
         ) {
