@@ -669,4 +669,118 @@ final class ArchiveMediaCacheSourceIdentityTests: XCTestCase {
         XCTAssertEqual(duringRace, v2Note, "Delayed reconciledSession must re-reconcile instead of rolling I2 back to I1")
         XCTAssertEqual(provider.cachedData(for: noteURI), v2Note, "v2 memory cache must stay intact after delayed reconciledSession")
     }
+
+    func testAbaSourceIdentityTransitionBlocksStaleEpochZeroCacheWrite() async throws {
+        let root = try makeTemporaryDirectory(prefix: "VfsAbaEpoch")
+        let identity = OSAllocatedUnfairLock(initialState: "aba-I1")
+        let pool = ArchiveMediaCachePool(customRootDirectory: root.appendingPathComponent("pool", isDirectory: true))
+        let provider = TTZipArchiveVfsProvider(mediaCachePool: pool) { _ in identity.withLock { $0 } }
+
+        let barrier = AsyncBarrier()
+        let readAttempt = OSAllocatedUnfairLock(initialState: 0)
+        await MainActor.run {
+            provider.installReadAccess(.init(
+                readEntry: { _, _, _ in
+                    let attempt = readAttempt.withLock { count -> Int in
+                        count += 1
+                        return count
+                    }
+                    if attempt == 1 {
+                        await barrier.markEnteredAndWaitForRelease()
+                        return Data("stale-aba-v1".utf8)
+                    }
+                    return Data("fresh-aba-v3".utf8)
+                },
+                listEntrySizes: { _, _ in [] }
+            ))
+        }
+
+        let archiveId = provider.registerArchive(archivePath: "/fixture/aba-\(UUID().uuidString).zip")
+        defer { provider.closeSession(archiveId: archiveId) }
+        let noteURI = provider.makeVfsURL(archiveId: archiveId, entryPath: "note.txt").absoluteString
+        XCTAssertEqual(provider.sessionIdentityEpoch(archiveId: archiveId), 0)
+
+        let inFlight = Task { try await provider.loadResource(uri: noteURI) }
+        await barrier.waitUntilEntered()
+
+        identity.withLock { $0 = "aba-I2" }
+        XCTAssertNil(provider.cachedData(for: noteURI))
+        XCTAssertEqual(provider.sessionIdentityEpoch(archiveId: archiveId), 1)
+
+        identity.withLock { $0 = "aba-I1" }
+        XCTAssertNil(provider.cachedData(for: noteURI))
+        XCTAssertEqual(provider.sessionIdentityEpoch(archiveId: archiveId), 2)
+
+        await barrier.release()
+        let stale = try await inFlight.value
+        XCTAssertEqual(stale?.data, Data("stale-aba-v1".utf8))
+        XCTAssertNil(provider.cachedData(for: noteURI), "Epoch 0 writer must not poison cache after I1 -> I2 -> I1 ABA return at epoch 2")
+        XCTAssertEqual(provider.sessionIdentityEpoch(archiveId: archiveId), 2)
+
+        let fresh = try await provider.loadResource(uri: noteURI)
+        XCTAssertEqual(fresh?.data, Data("fresh-aba-v3".utf8))
+        XCTAssertEqual(provider.cachedData(for: noteURI), Data("fresh-aba-v3".utf8))
+        XCTAssertEqual(provider.sessionIdentityEpoch(archiveId: archiveId), 2)
+    }
+
+    func testAcquireAndGetMediaComputeSourceIdentityOffActorExecutor() async throws {
+        let root = try makeTemporaryDirectory(prefix: "PoolOffActorStat")
+        let localPath = "/fixture/local-\(UUID().uuidString).zip"
+        let slowPath = "/fixture/slow-\(UUID().uuidString).zip"
+        let (enteredStream, enteredContinuation) = AsyncStream.makeStream(of: Void.self)
+        defer { enteredContinuation.finish() }
+        var enteredIterator = enteredStream.makeAsyncIterator()
+        let statCompleted = OSAllocatedUnfairLock(initialState: false)
+        let allowStatExit = DispatchSemaphore(value: 0)
+        let memoryExtraction = ArchiveMediaCachePool.Extraction(
+            toDisk: { _, _, _, _ in },
+            toMemory: { _, _, _ in Data("payload".utf8) }
+        )
+
+        let pool = ArchiveMediaCachePool(
+            customRootDirectory: root.appendingPathComponent("pool", isDirectory: true)
+        ) { path in
+            guard path == slowPath else { return "local-token" }
+            enteredContinuation.yield()
+            _ = allowStatExit.wait(timeout: .now() + .seconds(5))
+            statCompleted.withLock { $0 = true }
+            return "remote-token"
+        }
+
+        func verifyOffActorStat(_ label: String, launchSlow: @escaping @Sendable () async throws -> Void) async throws {
+            statCompleted.withLock { $0 = false }
+            let localLease = try await pool.acquireLeasedMedia(
+                archivePath: localPath,
+                entryPath: "clip.mp4",
+                uncompressedSize: 7,
+                extraction: memoryExtraction
+            )
+            let slowTask = Task.detached { try await launchSlow() }
+            _ = await enteredIterator.next()
+            await pool.releaseLease(localLease.lease)
+            await pool.purgeAll()
+            XCTAssertFalse(statCompleted.withLock { $0 }, "\(label) must run stat() off the actor executor")
+            allowStatExit.signal()
+            try await slowTask.value
+        }
+
+        try await verifyOffActorStat("acquireLeasedMedia") {
+            let leased = try await pool.acquireLeasedMedia(
+                archivePath: slowPath,
+                entryPath: "clip.mp4",
+                uncompressedSize: 7,
+                extraction: memoryExtraction
+            )
+            await pool.releaseLease(leased.lease)
+        }
+        try await verifyOffActorStat("getOrExtractMedia") {
+            let url = try await pool.getOrExtractMedia(
+                archivePath: slowPath,
+                entryPath: "clip.mp4",
+                uncompressedSize: 7,
+                extraction: memoryExtraction
+            )
+            XCTAssertTrue(FileManager.default.fileExists(atPath: url.path))
+        }
+    }
 }

@@ -96,6 +96,99 @@ public struct HexEditorNSView: NSViewRepresentable {
 
         private var lastRenderKey: RenderKey?
         
+        private struct AttributedHexDumpBuilder {
+            let offsetAttributes: [NSAttributedString.Key: Any]
+            let separatorAttributes: [NSAttributedString.Key: Any]
+            let plainMonoAttributes: [NSAttributedString.Key: Any]
+            let normalHexAttributes: [NSAttributedString.Key: Any]
+            let zeroHexAttributes: [NSAttributedString.Key: Any]
+            let highHexAttributes: [NSAttributedString.Key: Any]
+            let asciiPrintableAttributes: [NSAttributedString.Key: Any]
+            let asciiDotAttributes: [NSAttributedString.Key: Any]
+            let paragraphStyle: NSParagraphStyle
+
+            init(offsetColor: NSColor, highByteColor: NSColor) {
+                let monoFont = NSFont.monospacedSystemFont(ofSize: HexMetrics.fontSize, weight: .regular)
+                let boldMonoFont = NSFont.monospacedSystemFont(ofSize: HexMetrics.fontSize, weight: .bold)
+
+                offsetAttributes = [.font: boldMonoFont, .foregroundColor: offsetColor]
+                separatorAttributes = [.font: monoFont, .foregroundColor: NSColor.separatorColor]
+                plainMonoAttributes = [.font: monoFont]
+                normalHexAttributes = [.font: monoFont, .foregroundColor: NSColor.labelColor]
+                zeroHexAttributes = [.font: monoFont, .foregroundColor: NSColor.labelColor.withAlphaComponent(0.32)]
+                highHexAttributes = [.font: monoFont, .foregroundColor: highByteColor]
+                asciiPrintableAttributes = [.font: monoFont, .foregroundColor: NSColor.labelColor]
+                asciiDotAttributes = [.font: monoFont, .foregroundColor: NSColor.secondaryLabelColor.withAlphaComponent(0.4)]
+
+                let style = NSMutableParagraphStyle()
+                style.tabStops = [
+                    NSTextTab(textAlignment: .left, location: HexMetrics.offsetColumnWidth, options: [:])
+                ]
+                paragraphStyle = style
+            }
+
+            func build(data: Data, startOffset: Int64) -> NSAttributedString {
+                let output = NSMutableAttributedString()
+                for lineStart in stride(from: 0, to: data.count, by: 16) {
+                    let lineEnd = min(lineStart + 16, data.count)
+                    let lineSlice = data.subdata(in: lineStart..<lineEnd)
+                    appendLine(into: output, offset: startOffset + Int64(lineStart), lineSlice: lineSlice)
+                }
+                if output.length > 0 {
+                    output.addAttribute(.paragraphStyle, value: paragraphStyle, range: NSRange(location: 0, length: output.length))
+                }
+                return output
+            }
+
+            private func appendLine(into output: NSMutableAttributedString, offset: Int64, lineSlice: Data) {
+                output.append(NSAttributedString(string: String(format: "%08X", offset), attributes: offsetAttributes))
+                output.append(NSAttributedString(string: "\t", attributes: separatorAttributes))
+                appendHexGroup(into: output, lineSlice: lineSlice, range: 0..<8)
+                output.append(NSAttributedString(string: "   ", attributes: plainMonoAttributes))
+                appendHexGroup(into: output, lineSlice: lineSlice, range: 8..<16)
+                output.append(NSAttributedString(string: "   |", attributes: separatorAttributes))
+                appendASCIIColumn(into: output, lineSlice: lineSlice)
+                output.append(NSAttributedString(string: "|\n", attributes: separatorAttributes))
+            }
+
+            private func appendHexGroup(into output: NSMutableAttributedString, lineSlice: Data, range: Range<Int>) {
+                for index in range {
+                    if index < lineSlice.count {
+                        let byte = lineSlice[index]
+                        let attributes = hexAttributes(for: byte)
+                        output.append(NSAttributedString(string: String(format: "%02X", byte), attributes: attributes))
+                    } else {
+                        output.append(NSAttributedString(string: "  ", attributes: plainMonoAttributes))
+                    }
+                    if index < range.upperBound - 1 {
+                        output.append(NSAttributedString(string: " ", attributes: plainMonoAttributes))
+                    }
+                }
+            }
+
+            private func hexAttributes(for byte: UInt8) -> [NSAttributedString.Key: Any] {
+                if byte == 0 {
+                    return zeroHexAttributes
+                }
+                return byte > 0x7F ? highHexAttributes : normalHexAttributes
+            }
+
+            private func appendASCIIColumn(into output: NSMutableAttributedString, lineSlice: Data) {
+                for index in 0..<16 {
+                    guard index < lineSlice.count else {
+                        output.append(NSAttributedString(string: " ", attributes: plainMonoAttributes))
+                        continue
+                    }
+                    let byte = lineSlice[index]
+                    if byte >= 32, byte <= 126 {
+                        output.append(NSAttributedString(string: String(UnicodeScalar(byte)), attributes: asciiPrintableAttributes))
+                    } else {
+                        output.append(NSAttributedString(string: "·", attributes: asciiDotAttributes))
+                    }
+                }
+            }
+        }
+
         public func renderAttributedHexDump(
             data: Data,
             startOffset: Int64,
@@ -111,136 +204,31 @@ public struct HexEditorNSView: NSViewRepresentable {
             guard renderKey != lastRenderKey else { return }
             let contentChanged = renderKey.contentSignature != lastRenderKey?.contentSignature
             lastRenderKey = renderKey
-            
-            let attrStr = NSMutableAttributedString()
-            let count = data.count
-            
-            let monoFont = NSFont.monospacedSystemFont(ofSize: HexMetrics.fontSize, weight: .regular)
-            let boldMonoFont = NSFont.monospacedSystemFont(ofSize: HexMetrics.fontSize, weight: .bold)
-            
-            let separatorColor = NSColor.separatorColor
-            let normalHexColor = NSColor.labelColor
-            let zeroHexColor = NSColor.labelColor.withAlphaComponent(0.32)
-            let asciiPrintableColor = NSColor.labelColor
-            let asciiDotColor = NSColor.secondaryLabelColor.withAlphaComponent(0.4)
-            
-            let paragraphStyle = NSMutableParagraphStyle()
-            paragraphStyle.tabStops = [
-                NSTextTab(textAlignment: .left, location: HexMetrics.offsetColumnWidth, options: [:])
-            ]
-            
-            for lineStart in stride(from: 0, to: count, by: 16) {
-                let offset = startOffset + Int64(lineStart)
-                let lineEnd = min(lineStart + 16, count)
-                let lineSlice = data.subdata(in: lineStart..<lineEnd)
-                
-                // 1. Offset Column (e.g. 00000000)
-                let offsetString = String(format: "%08X", offset)
-                attrStr.append(NSAttributedString(string: offsetString, attributes: [
-                    .font: boldMonoFont,
-                    .foregroundColor: offsetColor
-                ]))
-                
-                attrStr.append(NSAttributedString(string: "\t", attributes: [
-                    .font: monoFont,
-                    .foregroundColor: separatorColor
-                ]))
-                
-                // 2. Hex Group 1 (8 bytes)
-                var bytesWritten = 0
-                for i in 0..<8 {
-                    if i < lineSlice.count {
-                        let byte = lineSlice[i]
-                        let hexByte = String(format: "%02X", byte)
-                        let color = (byte == 0) ? zeroHexColor : ((byte > 0x7F) ? highByteColor : normalHexColor)
-                        attrStr.append(NSAttributedString(string: hexByte, attributes: [
-                            .font: monoFont,
-                            .foregroundColor: color
-                        ]))
-                    } else {
-                        attrStr.append(NSAttributedString(string: "  ", attributes: [.font: monoFont]))
-                    }
-                    if i < 7 {
-                        attrStr.append(NSAttributedString(string: " ", attributes: [.font: monoFont]))
-                    }
-                    bytesWritten += 1
-                }
-                
-                // Middle gap
-                attrStr.append(NSAttributedString(string: "   ", attributes: [.font: monoFont]))
-                
-                // 3. Hex Group 2 (8 bytes)
-                for i in 8..<16 {
-                    if i < lineSlice.count {
-                        let byte = lineSlice[i]
-                        let hexByte = String(format: "%02X", byte)
-                        let color = (byte == 0) ? zeroHexColor : ((byte > 0x7F) ? highByteColor : normalHexColor)
-                        attrStr.append(NSAttributedString(string: hexByte, attributes: [
-                            .font: monoFont,
-                            .foregroundColor: color
-                        ]))
-                    } else {
-                        attrStr.append(NSAttributedString(string: "  ", attributes: [.font: monoFont]))
-                    }
-                    if i < 15 {
-                        attrStr.append(NSAttributedString(string: " ", attributes: [.font: monoFont]))
-                    }
-                }
-                
-                // Spacer between Hex and ASCII
-                attrStr.append(NSAttributedString(string: "   |", attributes: [
-                    .font: monoFont,
-                    .foregroundColor: separatorColor
-                ]))
-                
-                // 4. ASCII Representation
-                for i in 0..<16 {
-                    if i < lineSlice.count {
-                        let byte = lineSlice[i]
-                        if byte >= 32 && byte <= 126 {
-                            let charStr = String(UnicodeScalar(byte))
-                            attrStr.append(NSAttributedString(string: charStr, attributes: [
-                                .font: monoFont,
-                                .foregroundColor: asciiPrintableColor
-                            ]))
-                        } else {
-                            attrStr.append(NSAttributedString(string: "·", attributes: [
-                                .font: monoFont,
-                                .foregroundColor: asciiDotColor
-                            ]))
-                        }
-                    } else {
-                        attrStr.append(NSAttributedString(string: " ", attributes: [.font: monoFont]))
-                    }
-                }
-                
-                attrStr.append(NSAttributedString(string: "|\n", attributes: [
-                    .font: monoFont,
-                    .foregroundColor: separatorColor
-                ]))
-            }
-            
-            if attrStr.length > 0 {
-                attrStr.addAttribute(.paragraphStyle, value: paragraphStyle, range: NSRange(location: 0, length: attrStr.length))
-            }
+
+            let builder = AttributedHexDumpBuilder(offsetColor: offsetColor, highByteColor: highByteColor)
+            let attributedDump = builder.build(data: data, startOffset: startOffset)
+
             let selectedRanges = textView.selectedRanges
-            textView.textStorage?.setAttributedString(attrStr)
+            textView.textStorage?.setAttributedString(attributedDump)
             guard contentChanged else {
                 textView.selectedRanges = selectedRanges
                 return
             }
+            resetSelectionAndScroll(in: textView)
+        }
+
+        private func resetSelectionAndScroll(in textView: NSTextView) {
             textView.setSelectedRange(NSRange(location: 0, length: 0))
-            if let scrollView = textView.enclosingScrollView {
-                scrollView.contentView.scroll(to: .zero)
-                scrollView.reflectScrolledClipView(scrollView.contentView)
-                var ancestor = scrollView.superview
-                while let view = ancestor {
-                    if let outerScroll = view as? NSScrollView {
-                        outerScroll.contentView.scroll(to: .zero)
-                        outerScroll.reflectScrolledClipView(outerScroll.contentView)
-                    }
-                    ancestor = view.superview
+            guard let scrollView = textView.enclosingScrollView else { return }
+            scrollView.contentView.scroll(to: .zero)
+            scrollView.reflectScrolledClipView(scrollView.contentView)
+            var ancestor = scrollView.superview
+            while let view = ancestor {
+                if let outerScroll = view as? NSScrollView {
+                    outerScroll.contentView.scroll(to: .zero)
+                    outerScroll.reflectScrolledClipView(outerScroll.contentView)
                 }
+                ancestor = view.superview
             }
         }
     }

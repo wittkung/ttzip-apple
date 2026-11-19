@@ -159,73 +159,76 @@ public enum ProMotionDynamicsSolver: Sendable {
         configuration: ProMotionSpringConfiguration
     ) -> DynamicPhaseState {
         guard t > 0.0 else {
-            let omega0 = configuration.naturalFrequency
-            let k = configuration.stiffness
-            let m = configuration.mass
-            let a0 = -(k * x0 + configuration.dampingCoefficient * v0) / m
-            let radius = sqrt(x0 * x0 + (omega0 > 0 ? pow(v0 / omega0, 2) : 0))
-            let angle = omega0 > 0 ? atan2(v0 / omega0, x0) : 0
-            let energy = 0.5 * k * x0 * x0 + 0.5 * m * v0 * v0
-            let settled = abs(x0) < settlingDisplacementThreshold && abs(v0) < settlingVelocityThreshold
-
-            return DynamicPhaseState(
+            return makePhaseState(
                 displacement: x0,
                 velocity: v0,
-                acceleration: a0,
                 elapsedTime: 0.0,
-                phaseAngle: angle,
-                phaseRadius: radius,
-                totalEnergy: energy,
-                isSettled: settled
+                configuration: configuration
             )
         }
 
+        let (x, v) = solveKinematics(
+            initialDisplacement: x0,
+            initialVelocity: v0,
+            elapsedTime: t,
+            configuration: configuration
+        )
+        return makePhaseState(
+            displacement: x,
+            velocity: v,
+            elapsedTime: t,
+            configuration: configuration
+        )
+    }
+
+    private static func solveKinematics(
+        initialDisplacement x0: Double,
+        initialVelocity v0: Double,
+        elapsedTime t: Double,
+        configuration: ProMotionSpringConfiguration
+    ) -> (displacement: Double, velocity: Double) {
         let omega0 = configuration.naturalFrequency
         let zeta = configuration.dampingRatio
         let gamma = zeta * omega0
-        let k = configuration.stiffness
-        let m = configuration.mass
-
-        let x: Double
-        let v: Double
 
         if abs(zeta - 1.0) < 1e-6 {
-            // Case 1: Critically Damped (zeta == 1.0)
             let decay = exp(-omega0 * t)
-            let c1 = x0
             let c2 = v0 + omega0 * x0
-            x = decay * (c1 + c2 * t)
-            v = decay * (v0 - omega0 * c2 * t)
-        } else if zeta < 1.0 {
-            // Case 2: Underdamped (0 <= zeta < 1.0)
+            return (decay * (x0 + c2 * t), decay * (v0 - omega0 * c2 * t))
+        }
+
+        if zeta < 1.0 {
             let omegaD = omega0 * sqrt(1.0 - zeta * zeta)
             let decay = exp(-gamma * t)
             let cosTerm = cos(omegaD * t)
             let sinTerm = sin(omegaD * t)
-
-            x = decay * (x0 * cosTerm + ((v0 + gamma * x0) / omegaD) * sinTerm)
+            let x = decay * (x0 * cosTerm + ((v0 + gamma * x0) / omegaD) * sinTerm)
             let vCoeff = -(gamma * v0 + omega0 * omega0 * x0) / omegaD
-            v = decay * (v0 * cosTerm + vCoeff * sinTerm)
-        } else {
-            // Case 3: Overdamped (zeta > 1.0)
-            let mu = omega0 * sqrt(zeta * zeta - 1.0)
-            let r1 = -gamma + mu
-            let r2 = -gamma - mu
-
-            let c1 = (v0 - r2 * x0) / (r1 - r2)
-            let c2 = (r1 * x0 - v0) / (r1 - r2)
-
-            let exp1 = exp(r1 * t)
-            let exp2 = exp(r2 * t)
-
-            x = c1 * exp1 + c2 * exp2
-            v = c1 * r1 * exp1 + c2 * r2 * exp2
+            return (x, decay * (v0 * cosTerm + vCoeff * sinTerm))
         }
 
-        // Acceleration from Newton's Second Law: a = -(k * x + c * v) / m
+        let mu = omega0 * sqrt(zeta * zeta - 1.0)
+        let r1 = -gamma + mu
+        let r2 = -gamma - mu
+        let c1 = (v0 - r2 * x0) / (r1 - r2)
+        let c2 = (r1 * x0 - v0) / (r1 - r2)
+        let exp1 = exp(r1 * t)
+        let exp2 = exp(r2 * t)
+        return (c1 * exp1 + c2 * exp2, c1 * r1 * exp1 + c2 * r2 * exp2)
+    }
+
+    private static func makePhaseState(
+        displacement x: Double,
+        velocity v: Double,
+        elapsedTime t: Double,
+        configuration: ProMotionSpringConfiguration
+    ) -> DynamicPhaseState {
+        let omega0 = configuration.naturalFrequency
+        let k = configuration.stiffness
+        let m = configuration.mass
         let a = -(k * x + configuration.dampingCoefficient * v) / m
-        let phaseRad = sqrt(x * x + (omega0 > 0 ? pow(v / omega0, 2) : 0))
-        let phaseAng = omega0 > 0 ? atan2(v / omega0, x) : 0
+        let phaseRadius = sqrt(x * x + (omega0 > 0 ? pow(v / omega0, 2) : 0))
+        let phaseAngle = omega0 > 0 ? atan2(v / omega0, x) : 0
         let energy = 0.5 * k * x * x + 0.5 * m * v * v
         let settled = abs(x) < settlingDisplacementThreshold && abs(v) < settlingVelocityThreshold
 
@@ -234,8 +237,8 @@ public enum ProMotionDynamicsSolver: Sendable {
             velocity: v,
             acceleration: a,
             elapsedTime: t,
-            phaseAngle: phaseAng,
-            phaseRadius: phaseRad,
+            phaseAngle: phaseAngle,
+            phaseRadius: phaseRadius,
             totalEnergy: energy,
             isSettled: settled
         )

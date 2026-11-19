@@ -559,4 +559,58 @@ final class ArchivePasswordOperationOwnershipTests: ArchiveHostAcceptanceTestCas
         let cleanupOutcome = await receipt.waitForValue(timeout: completionBudget)
         XCTAssertEqual(cleanupOutcome, .verifiedAndResumed, "The released controlled operation must finish within the cleanup budget")
     }
+
+    // MARK: - MM48 Atomic Conditional Cache Eviction
+
+    func testEvictCachedPasswordIfMatchesEvictsMatchingAndPreservesUpdatedCredential() throws {
+        let archiveURL = try makeArchiveFixture(named: "mm48-atomic-evict")
+        let archivePath = archiveURL.path
+        assertTemporaryFixturePath(archivePath)
+
+        let state = AppViewState(fileViewer: MockFileViewerHarness(), passwordDriver: MockArchivePasswordDriver())
+        state.explorerState.currentArchivePath = archivePath
+
+        ArchivePasswordStore.shared.setPassword("stale", for: archivePath)
+        state.explorerState.activePassword = "stale"
+        state.evictCachedPasswordIfMatches("stale", for: archivePath)
+        XCTAssertNil(
+            ArchivePasswordStore.shared.getPassword(for: archivePath),
+            "Matching stale password must be evicted from shared cache"
+        )
+        XCTAssertNil(
+            state.explorerState.activePassword,
+            "Matching stale password must be cleared from local explorer state"
+        )
+
+        ArchivePasswordStore.shared.setPassword("valid", for: archivePath)
+        state.explorerState.activePassword = "valid"
+        state.evictCachedPasswordIfMatches("stale", for: archivePath)
+        XCTAssertEqual(
+            ArchivePasswordStore.shared.getPassword(for: archivePath),
+            "valid",
+            "Stale eviction must preserve a newer valid password in shared cache"
+        )
+        XCTAssertEqual(
+            state.explorerState.activePassword,
+            "valid",
+            "Stale eviction must preserve a newer valid password in explorer state"
+        )
+
+        state.evictCachedPasswordIfMatches(nil, for: archivePath)
+        state.evictCachedPasswordIfMatches("", for: archivePath)
+        XCTAssertEqual(ArchivePasswordStore.shared.getPassword(for: archivePath), "valid")
+        XCTAssertEqual(state.explorerState.activePassword, "valid")
+
+        state.explorerState.activePassword = "stale"
+        state.evictCachedPasswordIfMatches("stale", for: archivePath)
+        XCTAssertEqual(
+            ArchivePasswordStore.shared.getPassword(for: archivePath),
+            "valid",
+            "Clearing local stale activePassword must not evict another window's valid shared password"
+        )
+        XCTAssertNil(
+            state.explorerState.activePassword,
+            "Local stale activePassword must still be cleared when shared cache holds a newer password"
+        )
+    }
 }

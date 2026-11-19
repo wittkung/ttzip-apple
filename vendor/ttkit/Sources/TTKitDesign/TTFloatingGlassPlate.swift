@@ -45,6 +45,59 @@ public extension EnvironmentValues {
     }
 }
 
+private struct GlassSurfaceStyle: Sendable {
+    enum Border: Sendable {
+        case gradient([Color])
+        case solid(Color)
+    }
+
+    let tint: Color
+    let border: Border
+
+    static func liquidBase(for colorScheme: ColorScheme) -> GlassSurfaceStyle {
+        if colorScheme == .dark {
+            return GlassSurfaceStyle(
+                tint: Color.black.opacity(0.12),
+                border: .gradient([Color.white.opacity(0.16), Color.white.opacity(0.04)])
+            )
+        }
+        return GlassSurfaceStyle(
+            tint: Color.white.opacity(0.16),
+            border: .gradient([Color.white.opacity(0.60), Color.black.opacity(0.06)])
+        )
+    }
+
+    static func liquidElevated(for colorScheme: ColorScheme) -> GlassSurfaceStyle {
+        if colorScheme == .dark {
+            return GlassSurfaceStyle(
+                tint: Color.black.opacity(0.14),
+                border: .gradient([Color.white.opacity(0.24), Color.white.opacity(0.06)])
+            )
+        }
+        return GlassSurfaceStyle(
+            tint: Color.white.opacity(0.18),
+            border: .gradient([Color.white.opacity(0.70), Color.black.opacity(0.08)])
+        )
+    }
+
+    static func legacy(tier: TTGlassTier, colorScheme: ColorScheme) -> GlassSurfaceStyle {
+        let isDark = colorScheme == .dark
+        let opacity: Double
+        switch (isDark, tier) {
+        case (true, .base): opacity = 0.08
+        case (true, .primary): opacity = 0.14
+        case (true, .overlay): opacity = 0.25
+        case (false, .base): opacity = 0.10
+        case (false, .primary): opacity = 0.18
+        case (false, .overlay): opacity = 0.35
+        }
+        return GlassSurfaceStyle(
+            tint: (isDark ? Color.black : Color.white).opacity(opacity),
+            border: .solid(isDark ? Color.white.opacity(0.14) : Color.black.opacity(0.07))
+        )
+    }
+}
+
 // MARK: - Floating Glass Plate ViewModifier
 
 public struct TTFloatingGlassPlateModifier: ViewModifier {
@@ -104,98 +157,99 @@ public struct TTFloatingGlassPlateModifier: ViewModifier {
     @ViewBuilder
     public func body(content: Content) -> some View {
         let shape = RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+        styledSurface(for: content, tier: effectiveTier, shape: shape)
+            .clipShape(shape)
+            .environment(\.ttGlassPlateDepth, nextDepthValue)
+    }
 
+    @MainActor
+    @ViewBuilder
+    private func styledSurface(
+        for content: Content,
+        tier: TTGlassTier,
+        shape: RoundedRectangle
+    ) -> some View {
         if #available(macOS 26.0, *) {
-            if effectiveTier == .base {
-                // Tier 1 (Base Structural Canvas): Calm, non-distracting ultra-thin lens base
-                content
-                    .background {
-                        shape
-                            .fill(.ultraThinMaterial)
-                            .overlay(
-                                shape
-                                    .fill(
-                                        colorScheme == .dark
-                                            ? Color.black.opacity(0.12)
-                                            : Color.white.opacity(0.16)
-                                    )
-                            )
-                    }
-                    .overlay {
-                        if hasBorder {
-                            shape
-                                .strokeBorder(
-                                    LinearGradient(
-                                        colors: colorScheme == .dark
-                                            ? [Color.white.opacity(0.16), Color.white.opacity(0.04)]
-                                            : [Color.white.opacity(0.60), Color.black.opacity(0.06)],
-                                        startPoint: .top,
-                                        endPoint: .bottom
-                                    ),
-                                    lineWidth: 0.5
-                                )
-                        }
-                    }
-                    .clipShape(shape)
-                    .environment(\.ttGlassPlateDepth, nextDepthValue)
+            if tier == .base {
+                liquidGlassBaseSurface(for: content, shape: shape)
             } else {
-                // Tier 2 (Primary Floating Plates) & Tier 3 (Overlay Modal Sheets): Active Apple Liquid Glass
-                content
-                    .background {
-                        shape
-                            .fill(
-                                colorScheme == .dark
-                                    ? Color.black.opacity(0.14)
-                                    : Color.white.opacity(0.18)
-                            )
-                    }
-                    .glassEffect(effectiveTier == .overlay ? .regular.interactive() : .regular, in: shape)
-                    .overlay {
-                        if hasBorder {
-                            shape
-                                .strokeBorder(
-                                    LinearGradient(
-                                        colors: colorScheme == .dark
-                                            ? [Color.white.opacity(0.24), Color.white.opacity(0.06)]
-                                            : [Color.white.opacity(0.70), Color.black.opacity(0.08)],
-                                        startPoint: .top,
-                                        endPoint: .bottom
-                                    ),
-                                    lineWidth: 0.5
-                                )
-                        }
-                    }
-                    .clipShape(shape)
-                    .environment(\.ttGlassPlateDepth, nextDepthValue)
+                liquidGlassElevatedSurface(for: content, tier: tier, shape: shape)
             }
         } else {
-            content
-                .background {
-                    // Fallback for macOS 14 / 15: UltraThinMaterial + Translucent Tint
-                    shape
-                        .fill(.ultraThinMaterial)
-                        .overlay(
-                            shape
-                                .fill(
-                                    colorScheme == .dark
-                                        ? Color.black.opacity(effectiveTier == .overlay ? 0.25 : (effectiveTier == .primary ? 0.14 : 0.08))
-                                        : Color.white.opacity(effectiveTier == .overlay ? 0.35 : (effectiveTier == .primary ? 0.18 : 0.10))
-                                )
-                        )
-                }
-                .overlay {
-                    if hasBorder {
-                        shape
-                            .strokeBorder(
-                                colorScheme == .dark
-                                    ? Color.white.opacity(0.14)
-                                    : Color.black.opacity(0.07),
-                                lineWidth: 0.5
-                            )
-                    }
-                }
-                .clipShape(shape)
-                .environment(\.ttGlassPlateDepth, nextDepthValue)
+            legacyMaterialSurface(for: content, tier: tier, shape: shape)
+        }
+    }
+
+    @MainActor
+    @available(macOS 26.0, *)
+    private func liquidGlassBaseSurface(
+        for content: Content,
+        shape: RoundedRectangle
+    ) -> some View {
+        let style = GlassSurfaceStyle.liquidBase(for: colorScheme)
+        return content
+            .background {
+                shape
+                    .fill(.ultraThinMaterial)
+                    .overlay(shape.fill(style.tint))
+            }
+            .overlay {
+                borderOverlay(shape: shape, border: style.border)
+            }
+    }
+
+    @MainActor
+    @available(macOS 26.0, *)
+    private func liquidGlassElevatedSurface(
+        for content: Content,
+        tier: TTGlassTier,
+        shape: RoundedRectangle
+    ) -> some View {
+        let style = GlassSurfaceStyle.liquidElevated(for: colorScheme)
+        return content
+            .background {
+                shape.fill(style.tint)
+            }
+            .glassEffect(tier == .overlay ? .regular.interactive() : .regular, in: shape)
+            .overlay {
+                borderOverlay(shape: shape, border: style.border)
+            }
+    }
+
+    @MainActor
+    private func legacyMaterialSurface(
+        for content: Content,
+        tier: TTGlassTier,
+        shape: RoundedRectangle
+    ) -> some View {
+        let style = GlassSurfaceStyle.legacy(tier: tier, colorScheme: colorScheme)
+        return content
+            .background {
+                shape
+                    .fill(.ultraThinMaterial)
+                    .overlay(shape.fill(style.tint))
+            }
+            .overlay {
+                borderOverlay(shape: shape, border: style.border)
+            }
+    }
+
+    @MainActor
+    @ViewBuilder
+    private func borderOverlay(
+        shape: RoundedRectangle,
+        border: GlassSurfaceStyle.Border
+    ) -> some View {
+        if hasBorder {
+            switch border {
+            case .gradient(let colors):
+                shape.strokeBorder(
+                    LinearGradient(colors: colors, startPoint: .top, endPoint: .bottom),
+                    lineWidth: 0.5
+                )
+            case .solid(let color):
+                shape.strokeBorder(color, lineWidth: 0.5)
+            }
         }
     }
 }

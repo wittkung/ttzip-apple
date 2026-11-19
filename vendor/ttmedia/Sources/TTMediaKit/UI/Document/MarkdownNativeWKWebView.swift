@@ -35,13 +35,47 @@ public struct MarkdownNativeWKWebView: NSViewRepresentable {
     
     private func loadRenderedHTML(in webView: WKWebView) {
         let htmlBody = TTMarkdownParser.parseToHTML(markdown: markdownText)
-        let fullHTML = """
+        let fullHTML = MarkdownWebDocumentTemplate.renderHTML(body: htmlBody)
+        webView.loadHTMLString(fullHTML, baseURL: baseURL)
+    }
+
+    @MainActor
+    public final class Coordinator: NSObject, WKNavigationDelegate {
+        public func webView(
+            _ webView: WKWebView,
+            decidePolicyFor navigationAction: WKNavigationAction,
+            decisionHandler: @escaping @MainActor @Sendable (WKNavigationActionPolicy) -> Void
+        ) {
+            if navigationAction.navigationType == .linkActivated, let url = navigationAction.request.url {
+                NSWorkspace.shared.open(url)
+                decisionHandler(.cancel)
+            } else {
+                decisionHandler(.allow)
+            }
+        }
+    }
+}
+
+private enum MarkdownWebDocumentTemplate {
+    static func renderHTML(body: String) -> String {
+        """
         <!DOCTYPE html>
         <html>
         <head>
             <meta charset="utf-8">
             <meta name="viewport" content="width=device-width, initial-scale=1">
             <style>
+        \(stylesheet)
+            </style>
+        </head>
+        <body>
+            \(body)
+        </body>
+        </html>
+        """
+    }
+
+    private static let stylesheet = """
                 :root {
                     color-scheme: light dark;
                     --text-color: #1d1d1f;
@@ -149,29 +183,5 @@ public struct MarkdownNativeWKWebView: NSViewRepresentable {
                     body { padding: 6px 6px; }
                     ul, ol { padding-left: 12px; }
                 }
-            </style>
-        </head>
-        <body>
-            \(htmlBody)
-        </body>
-        </html>
         """
-        webView.loadHTMLString(fullHTML, baseURL: baseURL)
-    }
-    
-    @MainActor
-    public final class Coordinator: NSObject, WKNavigationDelegate {
-        public func webView(
-            _ webView: WKWebView,
-            decidePolicyFor navigationAction: WKNavigationAction,
-            decisionHandler: @escaping @MainActor @Sendable (WKNavigationActionPolicy) -> Void
-        ) {
-            if navigationAction.navigationType == .linkActivated, let url = navigationAction.request.url {
-                NSWorkspace.shared.open(url)
-                decisionHandler(.cancel)
-            } else {
-                decisionHandler(.allow)
-            }
-        }
-    }
 }

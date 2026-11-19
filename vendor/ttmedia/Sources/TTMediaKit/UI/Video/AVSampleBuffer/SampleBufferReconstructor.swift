@@ -218,84 +218,84 @@ public final class SampleBufferReconstructor: @unchecked Sendable {
     public func createVideoFormatDescription(from params: VideoFormatParameters) throws -> CMFormatDescription {
         switch params.codec {
         case .h264:
-            let (sps, pps) = extractH264ParameterSets(from: params.extradata)
-            guard !sps.isEmpty, !pps.isEmpty else {
-                throw SampleBufferReconstructorError.invalidParameterSets
-            }
-            var allSets: [Data] = []
-            allSets.append(contentsOf: sps)
-            allSets.append(contentsOf: pps)
-            
-            var desc: CMFormatDescription?
-            let status = withParameterSetPointers(allSets) { pointers, sizes in
-                CMVideoFormatDescriptionCreateFromH264ParameterSets(
-                    allocator: kCFAllocatorDefault,
-                    parameterSetCount: pointers.count,
-                    parameterSetPointers: pointers,
-                    parameterSetSizes: sizes,
-                    nalUnitHeaderLength: 4,
-                    formatDescriptionOut: &desc
-                )
-            }
-            guard status == noErr, let formatDesc = desc else {
-                throw SampleBufferReconstructorError.formatDescriptionFailed(status)
-            }
-            return formatDesc
-            
+            return try createH264FormatDescription(extradata: params.extradata)
         case .hevc:
-            let (vps, sps, pps) = extractHEVCParameterSets(from: params.extradata)
-            guard !sps.isEmpty, !pps.isEmpty else {
-                throw SampleBufferReconstructorError.invalidParameterSets
-            }
-            var allSets: [Data] = []
-            allSets.append(contentsOf: vps)
-            allSets.append(contentsOf: sps)
-            allSets.append(contentsOf: pps)
-            let extensions = buildColorExtensions(from: params)
-            
-            var desc: CMFormatDescription?
-            let status = withParameterSetPointers(allSets) { pointers, sizes in
-                CMVideoFormatDescriptionCreateFromHEVCParameterSets(
-                    allocator: kCFAllocatorDefault,
-                    parameterSetCount: pointers.count,
-                    parameterSetPointers: pointers,
-                    parameterSetSizes: sizes,
-                    nalUnitHeaderLength: 4,
-                    extensions: extensions.isEmpty ? nil : (extensions as CFDictionary),
-                    formatDescriptionOut: &desc
-                )
-            }
-            guard status == noErr, let formatDesc = desc else {
-                throw SampleBufferReconstructorError.formatDescriptionFailed(status)
-            }
-            return formatDesc
-            
-        case .prores, .av1, .vp9:
-            // For ProRes and generic codecs, we create a standard description
-            var formatDesc: CMFormatDescription?
-            let extensions = buildColorExtensions(from: params)
-            
-            let codecType: FourCharCode
-            switch params.codec {
-            case .prores: codecType = kCMVideoCodecType_AppleProRes422
-            case .av1: codecType = 0x61763031 // 'av01'
-            case .vp9: codecType = 0x76703039 // 'vp09'
-            default: codecType = 0
-            }
-            
-            let status = CMVideoFormatDescriptionCreate(
-                allocator: kCFAllocatorDefault,
-                codecType: codecType,
-                width: params.width,
-                height: params.height,
-                extensions: extensions.isEmpty ? nil : (extensions as CFDictionary),
-                formatDescriptionOut: &formatDesc
-            )
-            guard status == noErr, let desc = formatDesc else {
-                throw SampleBufferReconstructorError.formatDescriptionFailed(status)
-            }
-            return desc
+            return try createHEVCFormatDescription(from: params)
+        case .prores:
+            return try createGenericVideoFormatDescription(from: params, codecType: kCMVideoCodecType_AppleProRes422)
+        case .av1:
+            return try createGenericVideoFormatDescription(from: params, codecType: 0x61763031)
+        case .vp9:
+            return try createGenericVideoFormatDescription(from: params, codecType: 0x76703039)
         }
+    }
+
+    private func createH264FormatDescription(extradata: Data) throws -> CMFormatDescription {
+        let (sps, pps) = extractH264ParameterSets(from: extradata)
+        guard !sps.isEmpty, !pps.isEmpty else {
+            throw SampleBufferReconstructorError.invalidParameterSets
+        }
+        let allSets = sps + pps
+        var desc: CMFormatDescription?
+        let status = withParameterSetPointers(allSets) { pointers, sizes in
+            CMVideoFormatDescriptionCreateFromH264ParameterSets(
+                allocator: kCFAllocatorDefault,
+                parameterSetCount: pointers.count,
+                parameterSetPointers: pointers,
+                parameterSetSizes: sizes,
+                nalUnitHeaderLength: 4,
+                formatDescriptionOut: &desc
+            )
+        }
+        guard status == noErr, let formatDesc = desc else {
+            throw SampleBufferReconstructorError.formatDescriptionFailed(status)
+        }
+        return formatDesc
+    }
+
+    private func createHEVCFormatDescription(from params: VideoFormatParameters) throws -> CMFormatDescription {
+        let (vps, sps, pps) = extractHEVCParameterSets(from: params.extradata)
+        guard !sps.isEmpty, !pps.isEmpty else {
+            throw SampleBufferReconstructorError.invalidParameterSets
+        }
+        let allSets = vps + sps + pps
+        let extensions = buildColorExtensions(from: params)
+        var desc: CMFormatDescription?
+        let status = withParameterSetPointers(allSets) { pointers, sizes in
+            CMVideoFormatDescriptionCreateFromHEVCParameterSets(
+                allocator: kCFAllocatorDefault,
+                parameterSetCount: pointers.count,
+                parameterSetPointers: pointers,
+                parameterSetSizes: sizes,
+                nalUnitHeaderLength: 4,
+                extensions: extensions.isEmpty ? nil : (extensions as CFDictionary),
+                formatDescriptionOut: &desc
+            )
+        }
+        guard status == noErr, let formatDesc = desc else {
+            throw SampleBufferReconstructorError.formatDescriptionFailed(status)
+        }
+        return formatDesc
+    }
+
+    private func createGenericVideoFormatDescription(
+        from params: VideoFormatParameters,
+        codecType: FourCharCode
+    ) throws -> CMFormatDescription {
+        var formatDesc: CMFormatDescription?
+        let extensions = buildColorExtensions(from: params)
+        let status = CMVideoFormatDescriptionCreate(
+            allocator: kCFAllocatorDefault,
+            codecType: codecType,
+            width: params.width,
+            height: params.height,
+            extensions: extensions.isEmpty ? nil : (extensions as CFDictionary),
+            formatDescriptionOut: &formatDesc
+        )
+        guard status == noErr, let desc = formatDesc else {
+            throw SampleBufferReconstructorError.formatDescriptionFailed(status)
+        }
+        return desc
     }
 
     private func buildColorExtensions(from params: VideoFormatParameters) -> [CFString: Any] {

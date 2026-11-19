@@ -9,206 +9,230 @@ public enum TTMarkdownParser: Sendable {
     
     /// Parses GitHub-flavored Markdown text into sanitized HTML for web view presentation.
     public static func parseToHTML(markdown: String) -> String {
-        let rawLines = markdown.components(separatedBy: "\n")
-        var result = ""
-        var inCodeBlock = false
-        var inBlockquote = false
-        var inUnorderedList = false
-        var inOrderedList = false
-        var inTable = false
-        var tableHeaderParsed = false
-        
-        func closeBlocks() {
-            if inUnorderedList {
-                result += "</ul>\n"
-                inUnorderedList = false
-            }
-            if inOrderedList {
-                result += "</ol>\n"
-                inOrderedList = false
-            }
-            if inBlockquote {
-                result += "</blockquote>\n"
-                inBlockquote = false
-            }
-            if inTable {
-                result += "</tbody></table>\n"
-                inTable = false
-                tableHeaderParsed = false
-            }
+        var renderer = HTMLRenderer()
+        for rawLine in markdown.components(separatedBy: "\n") {
+            renderer.appendLine(rawLine)
         }
-        
-        for rawLine in rawLines {
-            let line = rawLine
+        return renderer.finish()
+    }
+
+    private struct HTMLRenderer {
+        private enum ActiveBlock: Equatable {
+            case none
+            case codeBlock
+            case blockquote
+            case unorderedList
+            case orderedList
+            case table(headerParsed: Bool)
+        }
+
+        private var output = ""
+        private var activeBlock: ActiveBlock = .none
+
+        mutating func appendLine(_ line: String) {
             let trimmed = line.trimmingCharacters(in: .whitespaces)
-            
-            // 1. Fenced Code Block
             if trimmed.hasPrefix("```") {
-                if inCodeBlock {
-                    result += "</code></pre>\n"
-                    inCodeBlock = false
-                } else {
-                    closeBlocks()
-                    let lang = trimmed.dropFirst(3).trimmingCharacters(in: .whitespaces)
-                    result += "<pre><code class=\"language-\(lang)\">"
-                    inCodeBlock = true
-                }
-                continue
+                toggleCodeBlock(trimmed)
+                return
             }
-            
-            if inCodeBlock {
-                result += escapeHTML(line) + "\n"
-                continue
+            if activeBlock == .codeBlock {
+                output += TTMarkdownParser.escapeHTML(line) + "\n"
+                return
             }
-            
-            // 2. Empty Line
-            if trimmed.isEmpty {
-                closeBlocks()
-                continue
+            if appendStandaloneBlockIfMatched(trimmed) {
+                return
             }
-            
-            // 3. Horizontal Rule
-            if trimmed == "---" || trimmed == "***" || trimmed == "___" {
-                closeBlocks()
-                result += "<hr>\n"
-                continue
-            }
-            
-            // 4. Headings (# H1 to ###### H6)
-            if trimmed.hasPrefix("#") {
-                closeBlocks()
-                var level = 0
-                for char in trimmed {
-                    if char == "#" { level += 1 } else { break }
-                }
-                if level >= 1 && level <= 6 && trimmed.count > level && trimmed[trimmed.index(trimmed.startIndex, offsetBy: level)] == " " {
-                    let headingText = String(trimmed.dropFirst(level + 1)).trimmingCharacters(in: .whitespaces)
-                    result += "<h\(level)>\(parseInline(headingText))</h\(level)>\n"
-                    continue
-                }
-            }
-            
-            // 5. Blockquote (> text)
             if trimmed.hasPrefix(">") {
-                if inUnorderedList || inOrderedList || inTable {
-                    closeBlocks()
-                }
-                if !inBlockquote {
-                    result += "<blockquote>\n"
-                    inBlockquote = true
-                }
-                let quoteText = String(trimmed.dropFirst(1)).trimmingCharacters(in: .whitespaces)
-                result += "<p>\(parseInline(quoteText))</p>\n"
-                continue
-            } else if inBlockquote {
-                result += "</blockquote>\n"
-                inBlockquote = false
+                appendBlockquoteLine(trimmed)
+                return
             }
-            
-            // 6. Tables (| col1 | col2 |)
-            if trimmed.hasPrefix("|") && trimmed.hasSuffix("|") {
-                let cells = trimmed.split(separator: "|").map { String($0).trimmingCharacters(in: .whitespaces) }
-                let isDivider = cells.allSatisfy { cell in
-                    cell.allSatisfy { $0 == "-" || $0 == ":" || $0 == " " } && cell.contains("-")
-                }
-                
-                if isDivider {
-                    tableHeaderParsed = true
-                    continue
-                }
-                
-                if !inTable {
-                    closeBlocks()
-                    result += "<table>\n"
-                    inTable = true
-                    tableHeaderParsed = false
-                }
-                
-                if !tableHeaderParsed {
-                    result += "<thead><tr>\n"
-                    for cell in cells {
-                        result += "<th>\(parseInline(cell))</th>\n"
-                    }
-                    result += "</tr></thead>\n<tbody>\n"
-                } else {
-                    result += "<tr>\n"
-                    for cell in cells {
-                        result += "<td>\(parseInline(cell))</td>\n"
-                    }
-                    result += "</tr>\n"
-                }
-                continue
-            } else if inTable {
-                result += "</tbody></table>\n"
-                inTable = false
-                tableHeaderParsed = false
+            if activeBlock == .blockquote {
+                closeNonCodeBlock()
             }
-            
-            // 7. Task Lists (- [ ] or - [x])
-            if trimmed.hasPrefix("- [ ] ") || trimmed.hasPrefix("- [x] ") || trimmed.hasPrefix("- [X] ") {
-                if inOrderedList {
-                    result += "</ol>\n"
-                    inOrderedList = false
-                }
-                if !inUnorderedList {
-                    result += "<ul>\n"
-                    inUnorderedList = true
-                }
-                let isChecked = trimmed.hasPrefix("- [x] ") || trimmed.hasPrefix("- [X] ")
-                let taskText = String(trimmed.dropFirst(6))
-                result += "<li class=\"task-item\"><input type=\"checkbox\" \(isChecked ? "checked" : "") disabled> \(parseInline(taskText))</li>\n"
-                continue
+            if trimmed.hasPrefix("|"), trimmed.hasSuffix("|") {
+                appendTableLine(trimmed)
+                return
             }
-            
-            // 8. Unordered Lists (- , * , + )
-            if trimmed.hasPrefix("- ") || trimmed.hasPrefix("* ") || trimmed.hasPrefix("+ ") {
-                if inOrderedList {
-                    result += "</ol>\n"
-                    inOrderedList = false
-                }
-                if !inUnorderedList {
-                    result += "<ul>\n"
-                    inUnorderedList = true
-                }
-                let itemText = String(trimmed.dropFirst(2))
-                result += "<li>\(parseInline(itemText))</li>\n"
-                continue
+            if case .table = activeBlock {
+                closeNonCodeBlock()
             }
-            
-            // 9. Ordered Lists (1. 2. etc)
-            let isNumberedList: Bool = {
-                guard let firstDot = trimmed.firstIndex(of: ".") else { return false }
-                let prefix = trimmed[..<firstDot]
-                return Int(prefix) != nil && trimmed.index(after: firstDot) < trimmed.endIndex && trimmed[trimmed.index(after: firstDot)] == " "
-            }()
-            
-            if isNumberedList {
-                if inUnorderedList {
-                    result += "</ul>\n"
-                    inUnorderedList = false
-                }
-                if !inOrderedList {
-                    result += "<ol>\n"
-                    inOrderedList = true
-                }
-                if let firstDot = trimmed.firstIndex(of: ".") {
-                    let itemText = String(trimmed[trimmed.index(firstDot, offsetBy: 2)...])
-                    result += "<li>\(parseInline(itemText))</li>\n"
-                }
-                continue
+            if appendListLineIfMatched(trimmed) {
+                return
             }
-            
-            // 10. Regular Paragraph
-            closeBlocks()
-            result += "<p>\(parseInline(line))</p>\n"
+            closeNonCodeBlock()
+            output += "<p>\(TTMarkdownParser.parseInline(line))</p>\n"
         }
-        
-        closeBlocks()
-        if inCodeBlock {
-            result += "</code></pre>\n"
+
+        mutating func finish() -> String {
+            if activeBlock == .codeBlock {
+                output += "</code></pre>\n"
+                activeBlock = .none
+            } else {
+                closeNonCodeBlock()
+            }
+            return output
         }
-        
-        return result
+
+        private mutating func closeNonCodeBlock() {
+            switch activeBlock {
+            case .unorderedList:
+                output += "</ul>\n"
+            case .orderedList:
+                output += "</ol>\n"
+            case .blockquote:
+                output += "</blockquote>\n"
+            case .table:
+                output += "</tbody></table>\n"
+            case .none, .codeBlock:
+                return
+            }
+            activeBlock = .none
+        }
+
+        private mutating func toggleCodeBlock(_ trimmed: String) {
+            if activeBlock == .codeBlock {
+                output += "</code></pre>\n"
+                activeBlock = .none
+                return
+            }
+            closeNonCodeBlock()
+            let lang = trimmed.dropFirst(3).trimmingCharacters(in: .whitespaces)
+            output += "<pre><code class=\"language-\(lang)\">"
+            activeBlock = .codeBlock
+        }
+
+        private mutating func appendStandaloneBlockIfMatched(_ trimmed: String) -> Bool {
+            if trimmed.isEmpty {
+                closeNonCodeBlock()
+                return true
+            }
+            if Self.isHorizontalRule(trimmed) {
+                closeNonCodeBlock()
+                output += "<hr>\n"
+                return true
+            }
+            if let heading = Self.parseHeading(trimmed) {
+                closeNonCodeBlock()
+                output += "<h\(heading.level)>\(TTMarkdownParser.parseInline(heading.text))</h\(heading.level)>\n"
+                return true
+            }
+            return false
+        }
+
+        private mutating func appendBlockquoteLine(_ trimmed: String) {
+            if activeBlock != .blockquote {
+                closeNonCodeBlock()
+                output += "<blockquote>\n"
+                activeBlock = .blockquote
+            }
+            let quoteText = String(trimmed.dropFirst(1)).trimmingCharacters(in: .whitespaces)
+            output += "<p>\(TTMarkdownParser.parseInline(quoteText))</p>\n"
+        }
+
+        private mutating func appendTableLine(_ trimmed: String) {
+            let cells = trimmed.split(separator: "|").map { String($0).trimmingCharacters(in: .whitespaces) }
+            if Self.isTableDivider(cells) {
+                if case .table = activeBlock {
+                    activeBlock = .table(headerParsed: true)
+                }
+                return
+            }
+            guard case .table(let headerParsed) = activeBlock else {
+                closeNonCodeBlock()
+                output += "<table>\n"
+                activeBlock = .table(headerParsed: false)
+                appendTableRow(cells, isHeader: true)
+                return
+            }
+            appendTableRow(cells, isHeader: !headerParsed)
+        }
+
+        private mutating func appendTableRow(_ cells: [String], isHeader: Bool) {
+            let tag = isHeader ? "th" : "td"
+            output += isHeader ? "<thead><tr>\n" : "<tr>\n"
+            for cell in cells {
+                output += "<\(tag)>\(TTMarkdownParser.parseInline(cell))</\(tag)>\n"
+            }
+            output += isHeader ? "</tr></thead>\n<tbody>\n" : "</tr>\n"
+        }
+
+        private mutating func appendListLineIfMatched(_ trimmed: String) -> Bool {
+            if let task = Self.parseTaskListItem(trimmed) {
+                openList(.unorderedList)
+                let checkedAttr = task.isChecked ? "checked" : ""
+                output += "<li class=\"task-item\"><input type=\"checkbox\" \(checkedAttr) disabled> \(TTMarkdownParser.parseInline(task.text))</li>\n"
+                return true
+            }
+            if let itemText = Self.parseUnorderedListItem(trimmed) {
+                openList(.unorderedList)
+                output += "<li>\(TTMarkdownParser.parseInline(itemText))</li>\n"
+                return true
+            }
+            if let itemText = Self.parseOrderedListItem(trimmed) {
+                openList(.orderedList)
+                output += "<li>\(TTMarkdownParser.parseInline(itemText))</li>\n"
+                return true
+            }
+            return false
+        }
+
+        private mutating func openList(_ target: ActiveBlock) {
+            guard activeBlock != target else { return }
+            closeNonCodeBlock()
+            output += (target == .unorderedList) ? "<ul>\n" : "<ol>\n"
+            activeBlock = target
+        }
+
+        private static func isHorizontalRule(_ trimmed: String) -> Bool {
+            trimmed == "---" || trimmed == "***" || trimmed == "___"
+        }
+
+        private static func isTableDivider(_ cells: [String]) -> Bool {
+            cells.allSatisfy { cell in
+                cell.allSatisfy { $0 == "-" || $0 == ":" || $0 == " " } && cell.contains("-")
+            }
+        }
+
+        private static func parseHeading(_ trimmed: String) -> (level: Int, text: String)? {
+            guard trimmed.hasPrefix("#") else { return nil }
+            let level = trimmed.prefix { $0 == "#" }.count
+            guard (1...6).contains(level),
+                  trimmed.count > level,
+                  trimmed[trimmed.index(trimmed.startIndex, offsetBy: level)] == " " else {
+                return nil
+            }
+            let text = String(trimmed.dropFirst(level + 1)).trimmingCharacters(in: .whitespaces)
+            return (level, text)
+        }
+
+        private static func parseTaskListItem(_ trimmed: String) -> (isChecked: Bool, text: String)? {
+            if trimmed.hasPrefix("- [ ] ") {
+                return (false, String(trimmed.dropFirst(6)))
+            }
+            if trimmed.hasPrefix("- [x] ") || trimmed.hasPrefix("- [X] ") {
+                return (true, String(trimmed.dropFirst(6)))
+            }
+            return nil
+        }
+
+        private static func parseUnorderedListItem(_ trimmed: String) -> String? {
+            guard trimmed.hasPrefix("- ") || trimmed.hasPrefix("* ") || trimmed.hasPrefix("+ ") else {
+                return nil
+            }
+            return String(trimmed.dropFirst(2))
+        }
+
+        private static func parseOrderedListItem(_ trimmed: String) -> String? {
+            guard let firstDot = trimmed.firstIndex(of: "."),
+                  Int(trimmed[..<firstDot]) != nil else {
+                return nil
+            }
+            let afterDot = trimmed.index(after: firstDot)
+            guard afterDot < trimmed.endIndex, trimmed[afterDot] == " " else {
+                return nil
+            }
+            return String(trimmed[trimmed.index(after: afterDot)...])
+        }
     }
     
     // MARK: - Inline Parser & Precompiled Regexes

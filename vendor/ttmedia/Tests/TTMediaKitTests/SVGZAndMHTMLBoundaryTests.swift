@@ -464,14 +464,14 @@ final class SVGZAndMHTMLBoundaryTests: XCTestCase {
         </svg>
         """
 
-        // 9a. 640x480 viewport: 300pt x 150pt (400px x 200px) fits inside body (608x448) and centers at (120, 140)
+        // 9a. 640x480 viewport: 300pt x 150pt (400px x 200px) fits inside zero-padded body (640x480) and centers at (120, 140)
         let wv640 = makeWebView(content: svg300x150pt, fileURL: nil, size: NSSize(width: 640, height: 480))
         try await waitUntil(wv640, condition: "document.getElementById('corner-br') !== null")
         let geom640 = try await evaluateString(Self.svgGeometryProbeScript, in: wv640)
         XCTAssertTrue(geom640.contains("\"viewBox\":\"none\""), "Physical unit root <svg> must not fabricate viewBox: \(geom640)")
         XCTAssertTrue(geom640.contains("\"svgW\":400") && geom640.contains("\"svgH\":200"), "300pt x 150pt must preserve 400x200 CSS px: \(geom640)")
         XCTAssertTrue(geom640.contains("\"svgX\":120") && geom640.contains("\"svgY\":140"), "Smaller non-viewBox SVG must center via margin:auto in 640x480: \(geom640)")
-        XCTAssertTrue(geom640.contains("\"bodyClientW\":608") && geom640.contains("\"bodyScrollW\":608"), "Non-overflowing 400x200 SVG in 640x480 must not overflow body: \(geom640)")
+        XCTAssertTrue(geom640.contains("\"bodyClientW\":640") && geom640.contains("\"bodyScrollW\":640"), "Non-overflowing 400x200 SVG in 640x480 must not overflow body: \(geom640)")
 
         let (ratio640, green640) = try await measurePaintedBlueRatioAndGreenCornerCount(in: wv640)
         XCTAssertEqual(ratio640, 2.0, accuracy: 0.05, "Snapshot painted blue pixel bbox must preserve 2:1 aspect ratio in 640x480")
@@ -489,27 +489,27 @@ final class SVGZAndMHTMLBoundaryTests: XCTestCase {
 
     @MainActor
     private func assertBodyOverflowScrollReachesFullCornerMarker(svg300x150pt: String) async throws {
-        // 9b. 240x240 narrow viewport: html is 240x240 (non-scrolling), document.body is 208x208 client with 432x232 scroll area
+        // 9b. 240x240 narrow viewport: html and body are 240x240 with zero default padding; X overflows to 400px while Y centers at 20px
         let wv240 = makeWebView(content: svg300x150pt, fileURL: nil, size: NSSize(width: 240, height: 240))
         try await waitUntil(wv240, condition: "document.getElementById('corner-br') !== null")
         let geom240 = try await evaluateString(Self.svgGeometryProbeScript, in: wv240)
         XCTAssertTrue(geom240.contains("\"svgW\":400") && geom240.contains("\"svgH\":200"), "240x240 narrow viewport must not shrink or clip 400x200 non-viewBox SVG: \(geom240)")
-        XCTAssertTrue(geom240.contains("\"svgX\":32") && geom240.contains("\"svgY\":32"), "Overflowing axis must start at padding origin 32px: \(geom240)")
+        XCTAssertTrue(geom240.contains("\"svgX\":0") && geom240.contains("\"svgY\":20"), "Overflowing X starts at 0 while fitting Y centers at 20px: \(geom240)")
         XCTAssertTrue(geom240.contains("\"htmlClientW\":240") && geom240.contains("\"htmlScrollW\":240"), "html element stays fixed at 240x240 while body owns overflow: \(geom240)")
-        XCTAssertTrue(geom240.contains("\"bodyClientW\":208") && geom240.contains("\"bodyClientH\":208"), "body client box in 240x240 with 16px html padding must be 208x208: \(geom240)")
-        XCTAssertTrue(geom240.contains("\"bodyScrollW\":432") && geom240.contains("\"bodyScrollH\":232"), "document.body scrollWidth/scrollHeight must expose 432x232: \(geom240)")
-        XCTAssertTrue(geom240.contains("\"cornerX\":412") && geom240.contains("\"cornerY\":212"), "Initial #corner-br rect before scroll must sit at (412,212,20,20): \(geom240)")
+        XCTAssertTrue(geom240.contains("\"bodyClientW\":240") && geom240.contains("\"bodyClientH\":240"), "body client box in 240x240 with zero default padding must be 240x240: \(geom240)")
+        XCTAssertTrue(geom240.contains("\"bodyScrollW\":400") && geom240.contains("\"bodyScrollH\":240"), "document.body scrollWidth/scrollHeight must expose 400x240: \(geom240)")
+        XCTAssertTrue(geom240.contains("\"cornerX\":380") && geom240.contains("\"cornerY\":200"), "Initial #corner-br rect before scroll must sit at (380,200,20,20): \(geom240)")
 
         let scrolled240 = try await evaluateString(Self.scrollBodyToMaxAndMeasureScript, in: wv240)
-        XCTAssertTrue(scrolled240.contains("\"maxScrollLeft\":224") && scrolled240.contains("\"maxScrollTop\":24"), "Max body scroll in 240x240 must be (224,24): \(scrolled240)")
-        XCTAssertTrue(scrolled240.contains("\"bodyScrollLeft\":224") && scrolled240.contains("\"bodyScrollTop\":24"), "document.body scrollLeft/scrollTop readback must confirm real scroll (224,24): \(scrolled240)")
+        XCTAssertTrue(scrolled240.contains("\"maxScrollLeft\":160") && scrolled240.contains("\"maxScrollTop\":0"), "Max body scroll in 240x240 must be (160,0): \(scrolled240)")
+        XCTAssertTrue(scrolled240.contains("\"bodyScrollLeft\":160") && scrolled240.contains("\"bodyScrollTop\":0"), "document.body scrollLeft/scrollTop readback must confirm real scroll (160,0): \(scrolled240)")
         XCTAssertTrue(scrolled240.contains("\"htmlScrollLeft\":0") && scrolled240.contains("\"htmlScrollTop\":0"), "documentElement scroll must remain 0: \(scrolled240)")
-        XCTAssertTrue(scrolled240.contains("\"cornerX\":188") && scrolled240.contains("\"cornerY\":188") && scrolled240.contains("\"cornerRight\":208") && scrolled240.contains("\"cornerBottom\":208"), "Scrolling body by (224,24) moves #corner-br from (412,212) to (188,188)..(208,208): \(scrolled240)")
-        XCTAssertTrue(scrolled240.contains("\"cornerFullyInsideBody\":true"), "Entire 20x20 #corner-br must lie inside body visible rect [16..224]: \(scrolled240)")
+        XCTAssertTrue(scrolled240.contains("\"cornerX\":220") && scrolled240.contains("\"cornerY\":200") && scrolled240.contains("\"cornerRight\":240") && scrolled240.contains("\"cornerBottom\":220"), "Scrolling body by (160,0) moves #corner-br from (380,200) to (220,200)..(240,220): \(scrolled240)")
+        XCTAssertTrue(scrolled240.contains("\"cornerFullyInsideBody\":true"), "Entire 20x20 #corner-br must lie inside body visible rect [0..240]: \(scrolled240)")
         let (_, green240AfterScroll) = try await measurePaintedBlueRatioAndGreenCornerCount(in: wv240)
         XCTAssertGreaterThan(green240AfterScroll, 100, "Scrolled 240x240 snapshot must paint visible green #corner-br pixels")
 
-        // 9c. 600pt x 450pt (800px x 600px) in 640x480: overflows body (608x448) on both axes, scrollable to (224,184)
+        // 9c. 600pt x 450pt (800px x 600px) in 640x480: overflows zero-padded body (640x480) on both axes, scrollable to (160,120)
         let svg600x450pt = """
         <svg id="root-svg" xmlns="http://www.w3.org/2000/svg" width="600pt" height="450pt">
           <rect id="bg" x="0" y="0" width="600pt" height="450pt" fill="#0055ff"/>
@@ -520,14 +520,14 @@ final class SVGZAndMHTMLBoundaryTests: XCTestCase {
         try await waitUntil(wvLarge, condition: "document.getElementById('corner-br') !== null")
         let geomLarge = try await evaluateString(Self.svgGeometryProbeScript, in: wvLarge)
         XCTAssertTrue(geomLarge.contains("\"svgW\":800") && geomLarge.contains("\"svgH\":600"), "600pt x 450pt must preserve 800x600 CSS px: \(geomLarge)")
-        XCTAssertTrue(geomLarge.contains("\"bodyClientW\":608") && geomLarge.contains("\"bodyClientH\":448"), "body client box in 640x480 must be 608x448: \(geomLarge)")
-        XCTAssertTrue(geomLarge.contains("\"bodyScrollW\":832") && geomLarge.contains("\"bodyScrollH\":632"), "document.body must expose 832x632 scroll range: \(geomLarge)")
-        XCTAssertTrue(geomLarge.contains("\"cornerX\":812") && geomLarge.contains("\"cornerY\":612"), "Initial #corner-br rect in 800x600 SVG must sit at (812,612): \(geomLarge)")
+        XCTAssertTrue(geomLarge.contains("\"bodyClientW\":640") && geomLarge.contains("\"bodyClientH\":480"), "body client box in 640x480 must be 640x480: \(geomLarge)")
+        XCTAssertTrue(geomLarge.contains("\"bodyScrollW\":800") && geomLarge.contains("\"bodyScrollH\":600"), "document.body must expose 800x600 scroll range: \(geomLarge)")
+        XCTAssertTrue(geomLarge.contains("\"cornerX\":780") && geomLarge.contains("\"cornerY\":580"), "Initial #corner-br rect in 800x600 SVG must sit at (780,580): \(geomLarge)")
 
         let scrolledLarge = try await evaluateString(Self.scrollBodyToMaxAndMeasureScript, in: wvLarge)
-        XCTAssertTrue(scrolledLarge.contains("\"bodyScrollLeft\":224") && scrolledLarge.contains("\"bodyScrollTop\":184"), "document.body scroll readback in 640x480 must confirm (224,184): \(scrolledLarge)")
-        XCTAssertTrue(scrolledLarge.contains("\"cornerX\":588") && scrolledLarge.contains("\"cornerY\":428") && scrolledLarge.contains("\"cornerRight\":608") && scrolledLarge.contains("\"cornerBottom\":448"), "Scrolling body by (224,184) moves #corner-br from (812,612) to (588,428)..(608,448): \(scrolledLarge)")
-        XCTAssertTrue(scrolledLarge.contains("\"cornerFullyInsideBody\":true"), "Entire 20x20 #corner-br must lie inside body visible rect [16..624]x[16..464]: \(scrolledLarge)")
+        XCTAssertTrue(scrolledLarge.contains("\"bodyScrollLeft\":160") && scrolledLarge.contains("\"bodyScrollTop\":120"), "document.body scroll readback in 640x480 must confirm (160,120): \(scrolledLarge)")
+        XCTAssertTrue(scrolledLarge.contains("\"cornerX\":620") && scrolledLarge.contains("\"cornerY\":460") && scrolledLarge.contains("\"cornerRight\":640") && scrolledLarge.contains("\"cornerBottom\":480"), "Scrolling body by (160,120) moves #corner-br from (780,580) to (620,460)..(640,480): \(scrolledLarge)")
+        XCTAssertTrue(scrolledLarge.contains("\"cornerFullyInsideBody\":true"), "Entire 20x20 #corner-br must lie inside body visible rect [0..640]x[0..480]: \(scrolledLarge)")
         let (_, greenLargeAfterScroll) = try await measurePaintedBlueRatioAndGreenCornerCount(in: wvLarge)
         XCTAssertGreaterThan(greenLargeAfterScroll, 100, "Scrolled 640x480 snapshot of 800x600 SVG must paint visible green #corner-br pixels")
     }

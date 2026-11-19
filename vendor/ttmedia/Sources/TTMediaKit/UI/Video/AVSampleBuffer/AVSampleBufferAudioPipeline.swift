@@ -415,63 +415,28 @@ public final class AVSampleBufferAudioPipeline: @unchecked Sendable {
             throw AVSampleBufferAudioPipelineError.emptyPayload
         }
 
-        let asbdPtr = CMAudioFormatDescriptionGetStreamBasicDescription(formatDescription)
-        let asbd = asbdPtr?.pointee
-        var effectiveFormatDescription = formatDescription
-        var effectivePayload = packet.payloadData
-
-        if asbd?.mFormatID == kAudioFormatMPEG4AAC {
-            var cookieSize: Int = 0
-            let cookiePtr = CMAudioFormatDescriptionGetMagicCookie(formatDescription, sizeOut: &cookieSize)
-            if cookiePtr == nil || cookieSize == 0 {
-                guard let adts = Self.extractADTSAudioSpecificConfig(from: packet.payloadData) else {
-                    throw AVSampleBufferAudioPipelineError.missingCodecConfiguration(
-                        "AAC stream lacks CodecPrivate/AudioSpecificConfig and packet has no valid ADTS header"
-                    )
-                }
-                let adtsParams = AudioFormatParameters(
-                    codec: .aac,
-                    sampleRate: asbd?.mSampleRate ?? 0,
-                    channelCount: asbd?.mChannelsPerFrame ?? 0,
-                    bitsPerChannel: asbd?.mBitsPerChannel ?? 16,
-                    channelLayoutTag: 0,
-                    extradata: adts.asc
-                )
-                effectiveFormatDescription = try createAudioFormatDescription(from: adtsParams)
-                effectivePayload = Data(packet.payloadData.dropFirst(adts.headerLength))
-            }
-        }
-
-        let finalBlockBuffer = try Self.makeBlockBuffer(from: effectivePayload)
-        let isPCM = asbd?.mFormatID == kAudioFormatLinearPCM
-        var sampleCount: CMItemCount = 1
-        if isPCM, let asbd = asbd, asbd.mBytesPerFrame > 0 {
-            sampleCount = CMItemCount(effectivePayload.count / Int(asbd.mBytesPerFrame))
-        }
-
-        let frameDuration: CMTime
-        if packet.duration.isValid && packet.duration > .zero {
-            frameDuration = packet.duration
-        } else if let asbd = asbd, asbd.mFramesPerPacket > 0 && asbd.mSampleRate > 0 {
-            frameDuration = CMTime(value: Int64(asbd.mFramesPerPacket), timescale: Int32(asbd.mSampleRate))
-        } else {
-            frameDuration = .invalid
-        }
-
-        var timingInfo = CMSampleTimingInfo(
-            duration: frameDuration,
-            presentationTimeStamp: packet.presentationTimeStamp,
-            decodeTimeStamp: .invalid
+        let asbd = CMAudioFormatDescriptionGetStreamBasicDescription(formatDescription)?.pointee
+        let resolved = try resolveAudioPacketInput(
+            payload: packet.payloadData,
+            formatDescription: formatDescription,
+            asbd: asbd
+        )
+        let blockBuffer = try Self.makeBlockBuffer(from: resolved.payload)
+        let sampleTiming = Self.resolvedSampleTiming(
+            for: packet,
+            payloadCount: resolved.payload.count,
+            asbd: asbd
         )
 
-        var sampleSize = effectivePayload.count
+        var timingInfo = sampleTiming.timing
+        var sampleSize = resolved.payload.count
         var sampleBuffer: CMSampleBuffer?
 
         let sampleStatus = CMSampleBufferCreateReady(
             allocator: kCFAllocatorDefault,
-            dataBuffer: finalBlockBuffer,
-            formatDescription: effectiveFormatDescription,
-            sampleCount: sampleCount,
+            dataBuffer: blockBuffer,
+            formatDescription: resolved.formatDescription,
+            sampleCount: sampleTiming.sampleCount,
             sampleTimingEntryCount: 1,
             sampleTimingArray: &timingInfo,
             sampleSizeEntryCount: 1,
@@ -484,6 +449,68 @@ public final class AVSampleBufferAudioPipeline: @unchecked Sendable {
         }
 
         audioRenderer.enqueue(buffer)
+    }
+
+    private func resolveAudioPacketInput(
+        payload: Data,
+        formatDescription: CMAudioFormatDescription,
+        asbd: AudioStreamBasicDescription?
+    ) throws -> (formatDescription: CMAudioFormatDescription, payload: Data) {
+        guard let asbd, asbd.mFormatID == kAudioFormatMPEG4AAC else {
+            return (formatDescription, payload)
+        }
+
+        var cookieSize: Int = 0
+        let cookiePtr = CMAudioFormatDescriptionGetMagicCookie(formatDescription, sizeOut: &cookieSize)
+        guard cookiePtr == nil || cookieSize == 0 else {
+            return (formatDescription, payload)
+        }
+
+        guard let adts = Self.extractADTSAudioSpecificConfig(from: payload) else {
+            throw AVSampleBufferAudioPipelineError.missingCodecConfiguration(
+                "AAC stream lacks CodecPrivate/AudioSpecificConfig and packet has no valid ADTS header"
+            )
+        }
+
+        let adtsParams = AudioFormatParameters(
+            codec: .aac,
+            sampleRate: asbd.mSampleRate,
+            channelCount: asbd.mChannelsPerFrame,
+            bitsPerChannel: asbd.mBitsPerChannel,
+            channelLayoutTag: 0,
+            extradata: adts.asc
+        )
+        let resolvedFormat = try createAudioFormatDescription(from: adtsParams)
+        return (resolvedFormat, Data(payload.dropFirst(adts.headerLength)))
+    }
+
+    private static func resolvedSampleTiming(
+        for packet: MediaPacketDTO,
+        payloadCount: Int,
+        asbd: AudioStreamBasicDescription?
+    ) -> (sampleCount: CMItemCount, timing: CMSampleTimingInfo) {
+        let sampleCount: CMItemCount
+        if let asbd, asbd.mFormatID == kAudioFormatLinearPCM, asbd.mBytesPerFrame > 0 {
+            sampleCount = CMItemCount(payloadCount / Int(asbd.mBytesPerFrame))
+        } else {
+            sampleCount = 1
+        }
+
+        let frameDuration: CMTime
+        if packet.duration.isValid && packet.duration > .zero {
+            frameDuration = packet.duration
+        } else if let asbd, asbd.mFramesPerPacket > 0 && asbd.mSampleRate > 0 {
+            frameDuration = CMTime(value: Int64(asbd.mFramesPerPacket), timescale: Int32(asbd.mSampleRate))
+        } else {
+            frameDuration = .invalid
+        }
+
+        let timing = CMSampleTimingInfo(
+            duration: frameDuration,
+            presentationTimeStamp: packet.presentationTimeStamp,
+            decodeTimeStamp: .invalid
+        )
+        return (sampleCount, timing)
     }
 
     private static func makeBlockBuffer(from payload: Data) throws -> CMBlockBuffer {

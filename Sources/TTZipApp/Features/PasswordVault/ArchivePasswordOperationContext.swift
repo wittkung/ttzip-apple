@@ -104,9 +104,7 @@ extension AppViewState {
     /// preventing accidental removal of a valid credential updated concurrently by another window.
     public func evictCachedPasswordIfMatches(_ failedPassword: String?, for archivePath: String) {
         guard let failedPassword, !failedPassword.isEmpty else { return }
-        if ArchivePasswordStore.shared.getPassword(for: archivePath) == failedPassword {
-            ArchivePasswordStore.shared.removePassword(for: archivePath)
-        }
+        _ = ArchivePasswordStore.shared.removePassword(for: archivePath, ifCurrentPasswordIs: failedPassword)
         if explorerState.currentArchivePath == archivePath && explorerState.activePassword == failedPassword {
             explorerState.activePassword = nil
         }

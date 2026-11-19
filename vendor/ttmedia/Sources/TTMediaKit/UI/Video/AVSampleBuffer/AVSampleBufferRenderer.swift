@@ -264,67 +264,70 @@ public final class AVSampleBufferRenderer: Sendable {
 
     // MARK: - CoreMedia Factory Utilities (Sendable & Nonisolated)
 
+    private struct AnnexBNALUnit: Sendable {
+        let payloadStart: Int
+        let prefixLength: Int
+    }
+
     /// Converts Annex-B byte stream (`00 00 00 01` or `00 00 01`) into AVCC 4-byte big-endian length prefix format.
     nonisolated public static func convertAnnexBToAVCCIfNeeded(_ data: Data) -> Data {
-        guard data.count >= 4 else { return data }
+        guard hasAnnexBStartCode(data) else { return data }
+        let units = scanAnnexBNALUnits(in: data)
+        guard !units.isEmpty else { return data }
+        return packAVCCPayload(from: data, units: units)
+    }
 
-        // Probe whether stream starts with an Annex-B start code
-        let isFourByteStart = data[0] == 0 && data[1] == 0 && data[2] == 0 && data[3] == 1
-        let isThreeByteStart = data[0] == 0 && data[1] == 0 && data[2] == 1
+    nonisolated private static func hasAnnexBStartCode(_ data: Data) -> Bool {
+        guard data.count >= 4 else { return false }
+        let base = data.startIndex
+        guard data[base] == 0, data[base + 1] == 0 else { return false }
+        return data[base + 2] == 1 || (data[base + 2] == 0 && data[base + 3] == 1)
+    }
 
-        guard isFourByteStart || isThreeByteStart else {
-            // Already AVCC formatted or container-encapsulated
-            return data
+    nonisolated private static func annexBStartCode(
+        in ptr: UnsafeBufferPointer<UInt8>,
+        at index: Int,
+        count: Int
+    ) -> (advance: Int, prefixLength: Int)? {
+        guard ptr[index] == 0, ptr[index + 1] == 0 else { return nil }
+        if ptr[index + 2] == 1 {
+            let prefixLength = (index > 0 && ptr[index - 1] == 0) ? 4 : 3
+            return (3, prefixLength)
         }
+        if index + 3 < count && ptr[index + 2] == 0 && ptr[index + 3] == 1 {
+            return (4, 4)
+        }
+        return nil
+    }
 
-        var result = Data()
-        result.reserveCapacity(data.count + 64)
-
-        var nalStartIndices: [Int] = []
-        var prefixLengths: [Int] = []
-
+    nonisolated private static func scanAnnexBNALUnits(in data: Data) -> [AnnexBNALUnit] {
+        var units: [AnnexBNALUnit] = []
         data.withUnsafeBytes { raw in
             let ptr = raw.bindMemory(to: UInt8.self)
             let count = data.count
-            var i = 0
-
-            while i < count - 2 {
-                if ptr[i] == 0 && ptr[i + 1] == 0 {
-                    if ptr[i + 2] == 1 {
-                        // 3-byte prefix (00 00 01)
-                        if i > 0 && ptr[i - 1] == 0 {
-                            // 4-byte prefix (00 00 00 01)
-                            nalStartIndices.append(i + 3)
-                            prefixLengths.append(4)
-                        } else {
-                            nalStartIndices.append(i + 3)
-                            prefixLengths.append(3)
-                        }
-                        i += 3
-                        continue
-                    } else if i + 3 < count && ptr[i + 2] == 0 && ptr[i + 3] == 1 {
-                        // 4-byte prefix (00 00 00 01)
-                        nalStartIndices.append(i + 4)
-                        prefixLengths.append(4)
-                        i += 4
-                        continue
-                    }
+            var index = 0
+            while index < count - 2 {
+                if let match = annexBStartCode(in: ptr, at: index, count: count) {
+                    units.append(AnnexBNALUnit(payloadStart: index + match.advance, prefixLength: match.prefixLength))
+                    index += match.advance
+                } else {
+                    index += 1
                 }
-                i += 1
             }
         }
+        return units
+    }
 
-        guard !nalStartIndices.isEmpty else { return data }
+    nonisolated private static func packAVCCPayload(from data: Data, units: [AnnexBNALUnit]) -> Data {
+        var result = Data()
+        result.reserveCapacity(data.count + 64)
+        let base = data.startIndex
 
-        for index in 0..<nalStartIndices.count {
-            let start = nalStartIndices[index]
-            let end: Int
-            if index + 1 < nalStartIndices.count {
-                end = nalStartIndices[index + 1] - prefixLengths[index + 1]
-            } else {
-                end = data.count
-            }
-
+        for index in units.indices {
+            let start = units[index].payloadStart
+            let end = index + 1 < units.count
+                ? units[index + 1].payloadStart - units[index + 1].prefixLength
+                : data.count
             let nalLength = end - start
             guard nalLength > 0 else { continue }
 
@@ -332,7 +335,7 @@ public final class AVSampleBufferRenderer: Sendable {
             withUnsafeBytes(of: &lengthBE) { lengthBytes in
                 result.append(contentsOf: lengthBytes)
             }
-            result.append(data.subdata(in: start..<end))
+            result.append(data.subdata(in: (base + start)..<(base + end)))
         }
 
         return result
@@ -524,44 +527,26 @@ public final class AVSampleBufferRenderer: Sendable {
             throw AVSampleBufferRendererError.sampleBufferCreationFailed(status)
         }
 
-        // Attach pre-roll suppression or display immediately attributes
-        if let attachments = CMSampleBufferGetSampleAttachmentsArray(buffer, createIfNecessary: true) {
-            let count = CFArrayGetCount(attachments)
-            if count > 0 {
-                let dict = unsafeBitCast(CFArrayGetValueAtIndex(attachments, 0), to: CFMutableDictionary.self)
+        applySampleAttachments(to: buffer, for: packet)
+        return buffer
+    }
 
-                if packet.isPreRoll {
-                    CFDictionarySetValue(
-                        dict,
-                        Unmanaged.passUnretained(kCMSampleAttachmentKey_DoNotDisplay).toOpaque(),
-                        Unmanaged.passUnretained(kCFBooleanTrue).toOpaque()
-                    )
-                }
-
-                if packet.displayImmediately {
-                    CFDictionarySetValue(
-                        dict,
-                        Unmanaged.passUnretained(kCMSampleAttachmentKey_DisplayImmediately).toOpaque(),
-                        Unmanaged.passUnretained(kCFBooleanTrue).toOpaque()
-                    )
-                }
-
-                if !packet.isKeyframe {
-                    CFDictionarySetValue(
-                        dict,
-                        Unmanaged.passUnretained(kCMSampleAttachmentKey_NotSync).toOpaque(),
-                        Unmanaged.passUnretained(kCFBooleanTrue).toOpaque()
-                    )
-                    CFDictionarySetValue(
-                        dict,
-                        Unmanaged.passUnretained(kCMSampleAttachmentKey_DependsOnOthers).toOpaque(),
-                        Unmanaged.passUnretained(kCFBooleanTrue).toOpaque()
-                    )
-                }
+    nonisolated private static func applySampleAttachments(to buffer: CMSampleBuffer, for packet: DemuxedNALPacket) {
+        if let attachments = CMSampleBufferGetSampleAttachmentsArray(buffer, createIfNecessary: true),
+           CFArrayGetCount(attachments) > 0 {
+            let dict = unsafeBitCast(CFArrayGetValueAtIndex(attachments, 0), to: CFMutableDictionary.self)
+            if packet.isPreRoll {
+                setBooleanAttachment(dict, key: kCMSampleAttachmentKey_DoNotDisplay)
+            }
+            if packet.displayImmediately {
+                setBooleanAttachment(dict, key: kCMSampleAttachmentKey_DisplayImmediately)
+            }
+            if !packet.isKeyframe {
+                setBooleanAttachment(dict, key: kCMSampleAttachmentKey_NotSync)
+                setBooleanAttachment(dict, key: kCMSampleAttachmentKey_DependsOnOthers)
             }
         }
 
-        // Also attach propagate-level keys for layer compatibility
         if packet.isPreRoll {
             CMSetAttachment(
                 buffer,
@@ -570,7 +555,6 @@ public final class AVSampleBufferRenderer: Sendable {
                 attachmentMode: kCMAttachmentMode_ShouldPropagate
             )
         }
-
         if packet.displayImmediately {
             CMSetAttachment(
                 buffer,
@@ -579,8 +563,14 @@ public final class AVSampleBufferRenderer: Sendable {
                 attachmentMode: kCMAttachmentMode_ShouldPropagate
             )
         }
+    }
 
-        return buffer
+    nonisolated private static func setBooleanAttachment(_ dict: CFMutableDictionary, key: CFString) {
+        CFDictionarySetValue(
+            dict,
+            Unmanaged.passUnretained(key).toOpaque(),
+            Unmanaged.passUnretained(kCFBooleanTrue).toOpaque()
+        )
     }
 
     // MARK: - Private Recursive Pointer Pinning Helper

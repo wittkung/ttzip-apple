@@ -199,13 +199,13 @@ public final class FluidFrameCache: @unchecked Sendable {
 
     // MARK: - GPU Pre-rendering
 
-    private func gpuPrerender(
-        renderer: MetalFluidRenderer,
-        extractPipeline: MTLRenderPipelineState,
-        width: Int,
-        height: Int,
-        blurSigma: Float
-    ) -> [MTLTexture]? {
+    private struct PrerenderBuffers {
+        let circleTexture: MTLTexture
+        let blurOutput: MTLTexture
+        let frames: [MTLTexture]
+    }
+
+    private func allocatePrerenderBuffers(width: Int, height: Int) -> PrerenderBuffers? {
         let circleDesc = MTLTextureDescriptor.texture2DDescriptor(
             pixelFormat: .rgba16Float, width: width, height: height, mipmapped: false
         )
@@ -222,18 +222,79 @@ public final class FluidFrameCache: @unchecked Sendable {
         cacheDesc.usage = [.shaderRead, .renderTarget]
         cacheDesc.storageMode = .shared
 
-        let scaledSigma = max(1.0, blurSigma / 4.0)
-        let blurKernel = MPSImageGaussianBlur(device: device, sigma: scaledSigma)
-        let white = SIMD3<Float>(1, 1, 1)
-
-        var allFrames: [MTLTexture] = []
-        allFrames.reserveCapacity(Self.totalFrames)
-
+        var frames: [MTLTexture] = []
+        frames.reserveCapacity(Self.totalFrames)
         for _ in 0..<Self.totalFrames {
             guard let tex = device.makeTexture(descriptor: cacheDesc) else { return nil }
-            allFrames.append(tex)
+            frames.append(tex)
         }
 
+        return PrerenderBuffers(circleTexture: circleTexture, blurOutput: blurOutput, frames: frames)
+    }
+
+    private func encodePrerenderFrame(
+        index: Int,
+        width: Int,
+        height: Int,
+        renderer: MetalFluidRenderer,
+        extractPipeline: MTLRenderPipelineState,
+        blurKernel: MPSImageGaussianBlur,
+        buffers: PrerenderBuffers,
+        into commandBuffer: MTLCommandBuffer
+    ) {
+        let white = SIMD3<Float>(1, 1, 1)
+        var uniforms = MetalFluidRenderer.FluidUniforms(
+            phase: Float(index) * Self.phaseStep,
+            resolution: SIMD2<Float>(Float(width), Float(height)),
+            color1: white, color2: white, color3: white,
+            focusMode: 0.0, focusProgress: 0.0, breathSeed: 0.0
+        )
+
+        let offscreenPass = MTLRenderPassDescriptor()
+        offscreenPass.colorAttachments[0].texture = buffers.circleTexture
+        offscreenPass.colorAttachments[0].loadAction = .clear
+        offscreenPass.colorAttachments[0].storeAction = .store
+        offscreenPass.colorAttachments[0].clearColor = MTLClearColor(red: 0, green: 0, blue: 0, alpha: 0)
+
+        if let encoder = commandBuffer.makeRenderCommandEncoder(descriptor: offscreenPass) {
+            encoder.setRenderPipelineState(renderer.circlesPipeline)
+            encoder.setFragmentBytes(&uniforms, length: MemoryLayout<MetalFluidRenderer.FluidUniforms>.stride, index: 0)
+            encoder.drawPrimitives(type: .triangle, vertexStart: 0, vertexCount: 3)
+            encoder.endEncoding()
+        }
+
+        blurKernel.encode(
+            commandBuffer: commandBuffer,
+            sourceTexture: buffers.circleTexture,
+            destinationTexture: buffers.blurOutput
+        )
+
+        let extractPass = MTLRenderPassDescriptor()
+        extractPass.colorAttachments[0].texture = buffers.frames[index]
+        extractPass.colorAttachments[0].loadAction = .dontCare
+        extractPass.colorAttachments[0].storeAction = .store
+
+        if let encoder = commandBuffer.makeRenderCommandEncoder(descriptor: extractPass) {
+            encoder.setRenderPipelineState(extractPipeline)
+            encoder.setFragmentTexture(buffers.blurOutput, index: 0)
+            encoder.drawPrimitives(type: .triangle, vertexStart: 0, vertexCount: 3)
+            encoder.endEncoding()
+        }
+    }
+
+    private func gpuPrerender(
+        renderer: MetalFluidRenderer,
+        extractPipeline: MTLRenderPipelineState,
+        width: Int,
+        height: Int,
+        blurSigma: Float
+    ) -> [MTLTexture]? {
+        guard let buffers = allocatePrerenderBuffers(width: width, height: height) else {
+            return nil
+        }
+
+        let scaledSigma = max(1.0, blurSigma / 4.0)
+        let blurKernel = MPSImageGaussianBlur(device: device, sigma: scaledSigma)
         let batchSize = 60
         var batchCount = 0
 
@@ -241,48 +302,17 @@ public final class FluidFrameCache: @unchecked Sendable {
             let batchEnd = min(batchStart + batchSize, Self.totalFrames)
             guard let commandBuffer = renderer.commandQueue.makeCommandBuffer() else { continue }
 
-            for i in batchStart..<batchEnd {
-                let phase = Float(i) * Self.phaseStep
-                let resolution = SIMD2<Float>(Float(width), Float(height))
-                var uniforms = MetalFluidRenderer.FluidUniforms(
-                    phase: phase, resolution: resolution,
-                    color1: white, color2: white, color3: white,
-                    focusMode: 0.0, focusProgress: 0.0, breathSeed: 0.0
+            for index in batchStart..<batchEnd {
+                encodePrerenderFrame(
+                    index: index,
+                    width: width,
+                    height: height,
+                    renderer: renderer,
+                    extractPipeline: extractPipeline,
+                    blurKernel: blurKernel,
+                    buffers: buffers,
+                    into: commandBuffer
                 )
-
-                // Pass 1: Draw white circles
-                let offscreenPass = MTLRenderPassDescriptor()
-                offscreenPass.colorAttachments[0].texture = circleTexture
-                offscreenPass.colorAttachments[0].loadAction = .clear
-                offscreenPass.colorAttachments[0].storeAction = .store
-                offscreenPass.colorAttachments[0].clearColor = MTLClearColor(red: 0, green: 0, blue: 0, alpha: 0)
-
-                if let encoder = commandBuffer.makeRenderCommandEncoder(descriptor: offscreenPass) {
-                    encoder.setRenderPipelineState(renderer.circlesPipeline)
-                    encoder.setFragmentBytes(&uniforms, length: MemoryLayout<MetalFluidRenderer.FluidUniforms>.stride, index: 0)
-                    encoder.drawPrimitives(type: .triangle, vertexStart: 0, vertexCount: 3)
-                    encoder.endEncoding()
-                }
-
-                // Pass 2: MPS Blur
-                blurKernel.encode(
-                    commandBuffer: commandBuffer,
-                    sourceTexture: circleTexture,
-                    destinationTexture: blurOutput
-                )
-
-                // Pass 3: Extract coverage -> R8
-                let extractPass = MTLRenderPassDescriptor()
-                extractPass.colorAttachments[0].texture = allFrames[i]
-                extractPass.colorAttachments[0].loadAction = .dontCare
-                extractPass.colorAttachments[0].storeAction = .store
-
-                if let encoder = commandBuffer.makeRenderCommandEncoder(descriptor: extractPass) {
-                    encoder.setRenderPipelineState(extractPipeline)
-                    encoder.setFragmentTexture(blurOutput, index: 0)
-                    encoder.drawPrimitives(type: .triangle, vertexStart: 0, vertexCount: 3)
-                    encoder.endEncoding()
-                }
             }
 
             commandBuffer.commit()
@@ -294,7 +324,7 @@ public final class FluidFrameCache: @unchecked Sendable {
             }
         }
 
-        return allFrames
+        return buffers.frames
     }
 
     // MARK: - Disk Persistence

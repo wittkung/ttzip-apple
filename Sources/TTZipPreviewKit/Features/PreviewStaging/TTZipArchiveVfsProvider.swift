@@ -1,7 +1,6 @@
 // Copyright 2026 MetastudyLine. All rights reserved.
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
-import CryptoKit
 import Foundation
 import os
 import TTZipArchiveContract
@@ -80,13 +79,13 @@ public final class TTZipArchiveVfsProvider: TTZipVfsResourceProvider, Sendable {
         fileprivate let generation: UUID
     }
 
-    private struct SessionVersion: Equatable, Sendable {
+    struct SessionVersion: Equatable, Sendable {
         let generation: UUID
         let sourceIdentity: String
         let identityEpoch: UInt64
     }
 
-    private struct ArchiveSession: Sendable {
+    fileprivate struct ArchiveSession: Sendable {
         let generation = UUID()
         let archivePath: String
         let password: String?
@@ -104,14 +103,14 @@ public final class TTZipArchiveVfsProvider: TTZipVfsResourceProvider, Sendable {
         }
     }
 
-    private struct ResolvedSession: Sendable {
+    struct ResolvedSession: Sendable {
         let archivePath: String
         let password: String?
         let version: SessionVersion
         let cachedData: Data?
         let knownEntrySize: Int64?
 
-        init(session: ArchiveSession, cachedData: Data? = nil, knownEntrySize: Int64? = nil) {
+        fileprivate init(session: ArchiveSession, cachedData: Data? = nil, knownEntrySize: Int64? = nil) {
             self.archivePath = session.archivePath
             self.password = session.password
             self.version = session.version
@@ -120,7 +119,7 @@ public final class TTZipArchiveVfsProvider: TTZipVfsResourceProvider, Sendable {
         }
     }
     
-    private enum MediaCacheSource: Sendable {
+    enum MediaCacheSource: Sendable {
         case standalone
         case hosted(ArchiveMediaCachePool.Extraction)
     }
@@ -142,8 +141,12 @@ public final class TTZipArchiveVfsProvider: TTZipVfsResourceProvider, Sendable {
         }
     }
 
-    private var readAccess: ReadAccess {
+    var readAccess: ReadAccess {
         lock.withLock { $0.hostedReadAccess } ?? .archiveRuntime
+    }
+
+    var currentMediaCacheSource: MediaCacheSource {
+        lock.withLock { $0.mediaCacheSource }
     }
 
     @MainActor
@@ -154,7 +157,7 @@ public final class TTZipArchiveVfsProvider: TTZipVfsResourceProvider, Sendable {
         }
     }
     
-    private let mediaCachePool: ArchiveMediaCachePool
+    let mediaCachePool: ArchiveMediaCachePool
     private let sourceIdentityProvider: @Sendable (String) -> String
     private let lock: OSAllocatedUnfairLock<VfsProviderState>
 
@@ -210,7 +213,7 @@ public final class TTZipArchiveVfsProvider: TTZipVfsResourceProvider, Sendable {
         return session
     }
 
-    private func reconciledSession(archiveId: String, entryPath: String? = nil) -> ResolvedSession? {
+    func reconciledSession(archiveId: String, entryPath: String? = nil) -> ResolvedSession? {
         var snapshot = lock.withLock { state -> (String, SessionVersion)? in
             state.sessions[archiveId].map { ($0.archivePath, $0.version) }
         }
@@ -350,6 +353,10 @@ public final class TTZipArchiveVfsProvider: TTZipVfsResourceProvider, Sendable {
             state.sessions[handle.archiveId]?.generation == handle.generation
         }
     }
+
+    func sessionIdentityEpoch(archiveId: String) -> UInt64? {
+        lock.withLock { $0.sessions[archiveId]?.identityEpoch }
+    }
     
     /// Decrements the lease reference count for an archive session; closes and purges cache only when count reaches zero.
     @discardableResult
@@ -410,7 +417,7 @@ public final class TTZipArchiveVfsProvider: TTZipVfsResourceProvider, Sendable {
         )
     }
 
-    private func cacheEntryDataIfSourceUnchanged(
+    func cacheEntryDataIfSourceUnchanged(
         archiveId: String,
         archivePath: String,
         entryPath: String,
@@ -438,6 +445,34 @@ public final class TTZipArchiveVfsProvider: TTZipVfsResourceProvider, Sendable {
             session.cachedKeys.insert(key)
             session.entrySizes[normalizedPath] = Int64(data.count)
             state.sessions[archiveId] = session
+        }
+    }
+
+    func persistResolvedEntrySizesIfMatching(
+        archiveId: String,
+        archivePath: String,
+        expectedVersion: SessionVersion,
+        normalizedEntries: [(String, Int64)]
+    ) {
+        let postIdentity = sourceIdentityProvider(archivePath)
+        lock.withLock { state in
+            if postIdentity != expectedVersion.sourceIdentity {
+                _ = Self.advanceSessionIdentityIfMatching(
+                    archiveId: archiveId,
+                    expectedVersion: expectedVersion,
+                    to: postIdentity,
+                    in: &state
+                )
+                return
+            }
+            guard var activeSession = state.sessions[archiveId],
+                  activeSession.version == expectedVersion else {
+                return
+            }
+            for (norm, size) in normalizedEntries {
+                activeSession.entrySizes[norm] = size
+            }
+            state.sessions[archiveId] = activeSession
         }
     }
     
@@ -498,296 +533,5 @@ public final class TTZipArchiveVfsProvider: TTZipVfsResourceProvider, Sendable {
         }
 
         return nil
-    }
-
-    private func extractSmallEntryForRange(
-        archiveId: String,
-        archivePath: String,
-        entryPath: String,
-        password: String?,
-        expectedVersion: SessionVersion,
-        byteRange: ClosedRange<Int>?,
-        mimeType: String
-    ) async throws -> (data: Data, fullSize: Int64, mimeType: String)? {
-        guard let fullData = try await readAccess.readEntry(archivePath, entryPath, password) else { return nil }
-        cacheEntryDataIfSourceUnchanged(
-            archiveId: archiveId,
-            archivePath: archivePath,
-            entryPath: entryPath,
-            data: fullData,
-            expectedVersion: expectedVersion
-        )
-        return Self.sliceRange(from: fullData, byteRange: byteRange, mimeType: mimeType)
-    }
-    
-    private static func sliceRange(from data: Data, byteRange: ClosedRange<Int>?, mimeType: String) -> (data: Data, fullSize: Int64, mimeType: String) {
-        let fullSize = Int64(data.count)
-        guard let range = byteRange else {
-            return (data, fullSize, mimeType)
-        }
-        let bounds = boundedReadRange(range, fullSize: fullSize)
-        let slice = data.subdata(in: Int(bounds.lowerBound)..<Int(bounds.upperBound))
-        return (slice, fullSize, mimeType)
-    }
-
-    private static func boundedReadRange(_ range: ClosedRange<Int>?, fullSize: Int64) -> Range<Int64> {
-        let start = max(0, min(Int64(range?.lowerBound ?? 0), fullSize))
-        guard start < fullSize else { return start..<start }
-
-        let lastByte = min(Int64(range?.upperBound ?? Int.max), fullSize - 1)
-        guard lastByte >= start else { return start..<start }
-        let length = min(lastByte - start + 1, Int64(maxRangeSliceSize))
-        return start..<(start + length)
-    }
-
-    private func resolveEntrySize(
-        archiveId: String,
-        entryPath: String,
-        session: ResolvedSession
-    ) -> Int64 {
-        if let size = session.knownEntrySize {
-            return size
-        }
-        let entries = (try? readAccess.listEntrySizes(session.archivePath, session.password)) ?? []
-        let postIdentity = sourceIdentityProvider(session.archivePath)
-        let normalizedEntries = entries.map { (Self.normalizePath($0.path), Int64($0.size)) }
-        let found = normalizedEntries.last { norm, _ in
-            norm == entryPath || norm.hasSuffix("/" + entryPath)
-        }?.1 ?? 0
-        lock.withLock { state in
-            if postIdentity != session.version.sourceIdentity {
-                _ = Self.advanceSessionIdentityIfMatching(
-                    archiveId: archiveId,
-                    expectedVersion: session.version,
-                    to: postIdentity,
-                    in: &state
-                )
-                return
-            }
-            guard var activeSession = state.sessions[archiveId],
-                  activeSession.version == session.version else {
-                return
-            }
-            for (norm, size) in normalizedEntries {
-                activeSession.entrySizes[norm] = size
-            }
-            state.sessions[archiveId] = activeSession
-        }
-        return found
-    }
-
-    private func materializeLeasedMedia(
-        archivePath: String,
-        entryPath: String,
-        uncompressedSize: Int64,
-        password: String?
-    ) async throws -> ArchiveMediaCachePool.LeasedMediaFile {
-        switch lock.withLock({ $0.mediaCacheSource }) {
-        case .standalone:
-            return try await mediaCachePool.acquireLeasedMedia(
-                archivePath: archivePath,
-                entryPath: entryPath,
-                uncompressedSize: uncompressedSize,
-                password: password
-            )
-        case .hosted(let extraction):
-            return try await mediaCachePool.acquireLeasedMedia(
-                archivePath: archivePath,
-                entryPath: entryPath,
-                uncompressedSize: uncompressedSize,
-                password: password,
-                extraction: extraction
-            )
-        }
-    }
-
-    private static func readLeasedMediaSlice(
-        from mediaURL: URL,
-        entrySize: Int64,
-        byteRange: ClosedRange<Int>?,
-        mimeType: String
-    ) throws -> (data: Data, fullSize: Int64, mimeType: String)? {
-        let fileHandle = try FileHandle(forReadingFrom: mediaURL)
-        defer { try? fileHandle.close() }
-
-        let actualFullSize: Int64
-        if entrySize > 0 {
-            actualFullSize = entrySize
-        } else {
-            actualFullSize = (try? fileHandle.seekToEnd()).map(Int64.init) ?? 0
-        }
-        let bounds = boundedReadRange(byteRange, fullSize: actualFullSize)
-        guard !bounds.isEmpty else { return (Data(), actualFullSize, mimeType) }
-        try fileHandle.seek(toOffset: UInt64(bounds.lowerBound))
-        let sliceData = (try fileHandle.read(upToCount: Int(bounds.count))) ?? Data()
-        return (sliceData, actualFullSize, mimeType)
-    }
-
-    private func readMediaCacheSlice(
-        archivePath: String,
-        entryPath: String,
-        entrySize: Int64,
-        password: String?,
-        byteRange: ClosedRange<Int>?,
-        mimeType: String
-    ) async throws -> (data: Data, fullSize: Int64, mimeType: String)? {
-        let leased: ArchiveMediaCachePool.LeasedMediaFile
-        do {
-            leased = try await materializeLeasedMedia(
-                archivePath: archivePath,
-                entryPath: entryPath,
-                uncompressedSize: entrySize,
-                password: password
-            )
-        } catch is CancellationError {
-            throw CancellationError()
-        } catch {
-            if entrySize > Self.maxInMemoryEntryBytes {
-                throw error
-            }
-            return nil
-        }
-
-        do {
-            let result = try Self.readLeasedMediaSlice(
-                from: leased.url,
-                entrySize: entrySize,
-                byteRange: byteRange,
-                mimeType: mimeType
-            )
-            await mediaCachePool.releaseLease(leased.lease)
-            return result
-        } catch {
-            await mediaCachePool.releaseLease(leased.lease)
-            throw error
-        }
-    }
-
-    public func loadResourceRange(uri: String, byteRange: ClosedRange<Int>?) async throws -> (data: Data, fullSize: Int64, mimeType: String)? {
-        guard let (archiveId, entryPath) = parseVfsUri(uri) else { return nil }
-        let mimeType = Self.mimeType(for: entryPath)
-
-        guard let session = reconciledSession(archiveId: archiveId, entryPath: entryPath) else {
-            return nil
-        }
-        if let cached = session.cachedData {
-            return Self.sliceRange(from: cached, byteRange: byteRange, mimeType: mimeType)
-        }
-
-        let entrySize = resolveEntrySize(archiveId: archiveId, entryPath: entryPath, session: session)
-
-        if entrySize > 0 && entrySize <= Self.maxInMemoryEntryBytes,
-           let sliced = try await extractSmallEntryForRange(
-               archiveId: archiveId,
-               archivePath: session.archivePath,
-               entryPath: entryPath,
-               password: session.password,
-               expectedVersion: session.version,
-               byteRange: byteRange,
-               mimeType: mimeType
-           ) {
-            return sliced
-        }
-
-        if let mediaSlice = try await readMediaCacheSlice(
-            archivePath: session.archivePath,
-            entryPath: entryPath,
-            entrySize: entrySize,
-            password: session.password,
-            byteRange: byteRange,
-            mimeType: mimeType
-        ) {
-            return mediaSlice
-        }
-
-        guard let (fullData, fallbackMime) = try await loadResource(uri: uri) else { return nil }
-        return Self.sliceRange(from: fullData, byteRange: byteRange, mimeType: fallbackMime)
-    }
-    
-    // MARK: - URI Parsing & Path Normalization
-    
-    public func parseVfsUri(_ uri: String) -> (archiveId: String, entryPath: String)? {
-        guard let url = URL(string: uri), url.scheme == ArchiveVfs.scheme else {
-            return nil
-        }
-        
-        guard let rawHost = url.host, !rawHost.isEmpty else { return nil }
-        let host = (rawHost.removingPercentEncoding ?? rawHost).lowercased()
-        let rawPath = url.path.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
-        let decodedPath = rawPath.removingPercentEncoding ?? rawPath
-        let normalizedPath = Self.normalizePath(decodedPath)
-        return (host, normalizedPath)
-    }
-    
-    public static func makeArchiveId(from archivePath: String) -> String {
-        let digest = SHA256.hash(data: Data(archivePath.utf8))
-        let hex = digest.prefix(8).map { String(format: "%02x", $0) }.joined()
-        
-        let lastComponent = (archivePath as NSString).lastPathComponent
-        var asciiScalars = String.UnicodeScalarView()
-        for scalar in lastComponent.unicodeScalars where scalar.isASCII && CharacterSet.alphanumerics.contains(scalar) {
-            asciiScalars.append(scalar)
-        }
-        let rawPrefix = String(asciiScalars).prefix(12)
-        let prefix = rawPrefix.isEmpty ? "arc" : String(rawPrefix)
-        
-        return "\(prefix)_\(hex)".lowercased()
-    }
-    
-    public static func normalizePath(_ path: String) -> String {
-        var clean = path.replacingOccurrences(of: "\\", with: "/")
-        while clean.hasPrefix("/") { clean.removeFirst() }
-        var parts: [String] = []
-        for segment in clean.split(separator: "/") {
-            if segment == "." || segment.isEmpty { continue }
-            if segment == ".." {
-                if !parts.isEmpty { parts.removeLast() }
-            } else {
-                parts.append(String(segment))
-            }
-        }
-        return parts.joined(separator: "/")
-    }
-    
-    // MARK: - MIME Sniffing
-    
-    private static let mimeTypeByExtension: [String: String] = [
-        "html": "text/html; charset=utf-8",
-        "htm": "text/html; charset=utf-8",
-        "xhtml": "application/xhtml+xml; charset=utf-8",
-        "css": "text/css; charset=utf-8",
-        "js": "application/javascript; charset=utf-8",
-        "mjs": "application/javascript; charset=utf-8",
-        "json": "application/json; charset=utf-8",
-        "xml": "application/xml; charset=utf-8",
-        "svg": "image/svg+xml",
-        "png": "image/png",
-        "jpg": "image/jpeg",
-        "jpeg": "image/jpeg",
-        "gif": "image/gif",
-        "webp": "image/webp",
-        "ico": "image/x-icon",
-        "pdf": "application/pdf",
-        "epub": "application/epub+zip",
-        "mp4": "video/mp4",
-        "webm": "video/webm",
-        "mov": "video/quicktime",
-        "mkv": "video/x-matroska",
-        "mp3": "audio/mpeg",
-        "wav": "audio/wav",
-        "ogg": "audio/ogg",
-        "m4a": "audio/mp4",
-        "aac": "audio/mp4",
-        "woff": "font/woff",
-        "woff2": "font/woff2",
-        "ttf": "font/ttf",
-        "otf": "font/otf",
-        "txt": "text/plain; charset=utf-8",
-        "md": "text/plain; charset=utf-8"
-    ]
-
-    public static func mimeType(for path: String) -> String {
-        let ext = (path as NSString).pathExtension.lowercased()
-        return mimeTypeByExtension[ext] ?? "application/octet-stream"
     }
 }

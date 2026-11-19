@@ -1,10 +1,7 @@
 // Copyright 2026 MetastudyLine. All rights reserved.
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
-import Darwin
 import Foundation
-import CryptoKit
-import AppKit
 import TTZipCoreArchive
 import TTZipCoreTypes
 
@@ -87,10 +84,20 @@ public actor ArchiveMediaCachePool {
         let directoryURL: URL
         var holders: Set<UUID>
     }
+
+    private struct AcquisitionRequest: Sendable {
+        let key: String
+        let archivePath: String
+        let entryPath: String
+        let uncompressedSize: Int64
+        let password: String?
+        let extraction: Extraction
+    }
     
     // MARK: - Private State
     
     private let cacheRootDirectory: URL
+    private let sourceIdentityProvider: @Sendable (String) -> String
     private var entries: [String: CacheEntry] = [:]
     private var inflightTasks: [String: InflightExtraction] = [:]
     private var activeConsumerLeases: [String: Set<UUID>] = [:]
@@ -107,8 +114,23 @@ public actor ArchiveMediaCachePool {
         maxItemCount: Int = 30,
         customRootDirectory: URL? = nil
     ) {
+        self.init(
+            maxQuotaBytes: maxQuotaBytes,
+            maxItemCount: maxItemCount,
+            customRootDirectory: customRootDirectory,
+            sourceIdentityProvider: { Self.sourceFileIdentityToken(at: $0) }
+        )
+    }
+
+    init(
+        maxQuotaBytes: Int64 = 1024 * 1024 * 1024,
+        maxItemCount: Int = 30,
+        customRootDirectory: URL? = nil,
+        sourceIdentityProvider: @escaping @Sendable (String) -> String
+    ) {
         self.maxQuotaBytes = maxQuotaBytes
         self.maxItemCount = maxItemCount
+        self.sourceIdentityProvider = sourceIdentityProvider
         
         let root = customRootDirectory ?? FileManager.default.temporaryDirectory
             .appendingPathComponent("TTZipMediaCache", isDirectory: true)
@@ -145,15 +167,12 @@ public actor ArchiveMediaCachePool {
     // MARK: - Public API
     
     private static func extractViaDisk(
-        archivePath: String,
-        entryPath: String,
-        password: String?,
+        _ request: AcquisitionRequest,
         itemDir: URL,
         sanitizedName: String,
-        targetFileURL: URL,
-        extraction: Extraction
+        targetFileURL: URL
     ) async -> Bool {
-        guard (try? await extraction.toDisk(archivePath, entryPath, itemDir.path, password)) != nil,
+        guard (try? await request.extraction.toDisk(request.archivePath, request.entryPath, itemDir.path, request.password)) != nil,
               let foundURL = locateExtractedFile(in: itemDir, expectedName: sanitizedName) else {
             return false
         }
@@ -164,14 +183,8 @@ public actor ArchiveMediaCachePool {
         return FileManager.default.fileExists(atPath: targetFileURL.path)
     }
 
-    private static func performMediaExtraction(
-        archivePath: String,
-        entryPath: String,
-        password: String?,
-        itemDir: URL,
-        extraction: Extraction
-    ) async throws -> URL {
-        let sanitizedName = sanitizeFileName(entryPath)
+    private static func performMediaExtraction(_ request: AcquisitionRequest, itemDir: URL) async throws -> URL {
+        let sanitizedName = sanitizeFileName(request.entryPath)
         try FileManager.default.createDirectory(
             at: itemDir,
             withIntermediateDirectories: true,
@@ -181,15 +194,12 @@ public actor ArchiveMediaCachePool {
         let targetFileURL = itemDir.appendingPathComponent(sanitizedName)
         do {
             var extracted = await extractViaDisk(
-                archivePath: archivePath,
-                entryPath: entryPath,
-                password: password,
+                request,
                 itemDir: itemDir,
                 sanitizedName: sanitizedName,
-                targetFileURL: targetFileURL,
-                extraction: extraction
+                targetFileURL: targetFileURL
             )
-            if !extracted, let data = try await extraction.toMemory(archivePath, entryPath, password) {
+            if !extracted, let data = try await request.extraction.toMemory(request.archivePath, request.entryPath, request.password) {
                 try data.write(to: targetFileURL, options: .atomic)
                 extracted = true
             }
@@ -204,10 +214,36 @@ public actor ArchiveMediaCachePool {
         }
     }
 
+    private nonisolated func makeAcquisitionRequest(
+        archivePath: String,
+        entryPath: String,
+        uncompressedSize: Int64,
+        crc32: UInt32,
+        password: String?,
+        extraction: Extraction
+    ) throws -> AcquisitionRequest {
+        try Task.checkCancellation()
+        let key = Self.cacheKey(
+            archivePath: archivePath,
+            sourceIdentity: sourceIdentityProvider(archivePath),
+            entryPath: entryPath,
+            uncompressedSize: uncompressedSize,
+            crc32: crc32
+        )
+        return AcquisitionRequest(
+            key: key,
+            archivePath: archivePath,
+            entryPath: entryPath,
+            uncompressedSize: uncompressedSize,
+            password: password,
+            extraction: extraction
+        )
+    }
+
     /// Acquires a concrete POSIX file URL paired with a per-consumer lease token.
-    /// Registers the lease before any suspension point so active readers and in-flight
-    /// extractions cannot be evicted or deleted out from under open file handles.
-    public func acquireLeasedMedia(
+    /// Computes the source-file identity key off-actor before registering the lease so slow
+    /// remote mounts cannot stall `releaseLease` or `purgeAll` on the actor executor.
+    public nonisolated func acquireLeasedMedia(
         archivePath: String,
         entryPath: String,
         uncompressedSize: Int64,
@@ -216,14 +252,24 @@ public actor ArchiveMediaCachePool {
         consumerID: UUID = UUID(),
         extraction: Extraction = ArchiveMediaCachePool.standaloneExtraction
     ) async throws -> LeasedMediaFile {
-        try Task.checkCancellation()
-
-        let key = Self.computeCacheKey(
+        let request = try makeAcquisitionRequest(
             archivePath: archivePath,
             entryPath: entryPath,
             uncompressedSize: uncompressedSize,
-            crc32: crc32
+            crc32: crc32,
+            password: password,
+            extraction: extraction
         )
+        return try await acquireLeasedMedia(request, consumerID: consumerID)
+    }
+
+    private func acquireLeasedMedia(
+        _ request: AcquisitionRequest,
+        consumerID: UUID
+    ) async throws -> LeasedMediaFile {
+        try Task.checkCancellation()
+
+        let key = request.key
         let lease = PreviewCacheLease(key: key, consumerID: consumerID)
         activeConsumerLeases[key, default: []].insert(consumerID)
 
@@ -231,13 +277,7 @@ public actor ArchiveMediaCachePool {
             return LeasedMediaFile(url: existingURL, lease: lease)
         }
 
-        let inflight = startOrJoinExtraction(
-            key: key,
-            archivePath: archivePath,
-            entryPath: entryPath,
-            password: password,
-            extraction: extraction
-        )
+        let inflight = startOrJoinExtraction(request)
 
         let targetFileURL: URL
         do {
@@ -251,7 +291,7 @@ public actor ArchiveMediaCachePool {
             key: key,
             inflight: inflight,
             targetFileURL: targetFileURL,
-            uncompressedSize: uncompressedSize
+            uncompressedSize: request.uncompressedSize
         )
         if Task.isCancelled {
             releaseLease(lease)
@@ -262,7 +302,7 @@ public actor ArchiveMediaCachePool {
 
     /// Returns a concrete POSIX file URL for an archive media entry, extracting it into the LRU cache if needed.
     /// Deduplicates simultaneous requests for the same media key.
-    public func getOrExtractMedia(
+    public nonisolated func getOrExtractMedia(
         archivePath: String,
         entryPath: String,
         uncompressedSize: Int64,
@@ -280,7 +320,7 @@ public actor ArchiveMediaCachePool {
     }
 
     /// Uses the supplied extraction on a cache miss.
-    public func getOrExtractMedia(
+    public nonisolated func getOrExtractMedia(
         archivePath: String,
         entryPath: String,
         uncompressedSize: Int64,
@@ -288,7 +328,7 @@ public actor ArchiveMediaCachePool {
         password: String? = nil,
         extraction: Extraction
     ) async throws -> URL {
-        let leased = try await acquireLeasedMedia(
+        let request = try makeAcquisitionRequest(
             archivePath: archivePath,
             entryPath: entryPath,
             uncompressedSize: uncompressedSize,
@@ -296,9 +336,13 @@ public actor ArchiveMediaCachePool {
             password: password,
             extraction: extraction
         )
-        let key = leased.lease.key
-        if entries[key]?.fileURL == leased.url {
-            releaseLeaseInternal(leased.lease, reclaimImmediatelyIfIdle: false, protecting: key)
+        return try await getOrExtractMedia(request)
+    }
+
+    private func getOrExtractMedia(_ request: AcquisitionRequest) async throws -> URL {
+        let leased = try await acquireLeasedMedia(request, consumerID: UUID())
+        if entries[request.key]?.fileURL == leased.url {
+            releaseLeaseInternal(leased.lease, reclaimImmediatelyIfIdle: false, protecting: request.key)
             return leased.url
         }
         releaseLease(leased.lease)
@@ -469,27 +513,15 @@ public actor ArchiveMediaCachePool {
         return cacheRootDirectory.appendingPathComponent(folderName, isDirectory: true)
     }
 
-    private func startOrJoinExtraction(
-        key: String,
-        archivePath: String,
-        entryPath: String,
-        password: String?,
-        extraction: Extraction
-    ) -> InflightExtraction {
-        if let ongoing = inflightTasks[key] {
+    private func startOrJoinExtraction(_ request: AcquisitionRequest) -> InflightExtraction {
+        if let ongoing = inflightTasks[request.key] {
             return ongoing
         }
 
-        let itemDir = nextItemDirectory(for: key)
+        let itemDir = nextItemDirectory(for: request.key)
         let generation = purgeGeneration
         let task = Task<URL, Error> {
-            try await Self.performMediaExtraction(
-                archivePath: archivePath,
-                entryPath: entryPath,
-                password: password,
-                itemDir: itemDir,
-                extraction: extraction
-            )
+            try await Self.performMediaExtraction(request, itemDir: itemDir)
         }
         let inflight = InflightExtraction(
             id: UUID(),
@@ -497,7 +529,7 @@ public actor ArchiveMediaCachePool {
             directoryURL: itemDir,
             generation: generation
         )
-        inflightTasks[key] = inflight
+        inflightTasks[request.key] = inflight
         return inflight
     }
 
@@ -608,52 +640,11 @@ public actor ArchiveMediaCachePool {
     }
     
     // MARK: - Private Helpers
-    
-    private nonisolated static func setupCacheDirectory(at root: URL) {
-        try? FileManager.default.createDirectory(
-            at: root,
-            withIntermediateDirectories: true,
-            attributes: [.posixPermissions: 0o700]
-        )
-    }
 
-    private nonisolated static func pathVariants(for url: URL) -> [String] {
-        let standard = url.standardizedFileURL.path
-        let resolved = url.standardizedFileURL.resolvingSymlinksInPath().path
-        return standard == resolved ? [standard] : [standard, resolved]
-    }
-
-    private nonisolated static func pruneUnprotectedItems(
-        in directory: URL,
-        protectedPaths: Set<String>
-    ) {
-        guard let children = try? FileManager.default.contentsOfDirectory(
-            at: directory,
-            includingPropertiesForKeys: nil,
-            options: []
-        ) else { return }
-
-        for child in children {
-            let candidates = pathVariants(for: child)
-            if candidates.contains(where: { protectedPaths.contains($0) }) {
-                continue
-            }
-            let isAncestor = candidates.contains { candidate in
-                let prefix = candidate.hasSuffix("/") ? candidate : candidate + "/"
-                return protectedPaths.contains { $0.hasPrefix(prefix) }
-            }
-            if isAncestor {
-                pruneUnprotectedItems(in: child, protectedPaths: protectedPaths)
-            } else {
-                try? FileManager.default.removeItem(at: child)
-            }
-        }
-    }
-    
     private nonisolated func setupCacheDirectory() {
         Self.setupCacheDirectory(at: cacheRootDirectory)
     }
-    
+
     private func evictIfNeeded(protecting protectedKey: String? = nil) {
         var currentSize = entries.values.reduce(0) { $0 + $1.size }
         var currentCount = entries.count
@@ -673,104 +664,5 @@ public actor ArchiveMediaCachePool {
             currentSize -= entry.size
             currentCount -= 1
         }
-    }
-    
-    public nonisolated static func sourceFileIdentityToken(at archivePath: String) -> String {
-        var st = stat()
-        guard stat(archivePath, &st) == 0 else {
-            return "absent"
-        }
-        return "\(st.st_dev):\(st.st_ino):\(st.st_size):\(st.st_mtimespec.tv_sec):\(st.st_mtimespec.tv_nsec)"
-    }
-
-    public nonisolated static func computeCacheKey(
-        archivePath: String,
-        entryPath: String,
-        uncompressedSize: Int64,
-        crc32: UInt32
-    ) -> String {
-        let sourceIdentity = sourceFileIdentityToken(at: archivePath)
-        let descriptor = "\(archivePath)\0\(sourceIdentity)\0\(entryPath)\0\(uncompressedSize)\0\(crc32)"
-        return sha256Hex(descriptor)
-    }
-    
-    public nonisolated static func sha256Hex(_ string: String) -> String {
-        let digest = SHA256.hash(data: Data(string.utf8))
-        return digest.map { String(format: "%02x", $0) }.joined()
-    }
-    
-    public nonisolated static func sanitizeFileName(_ path: String) -> String {
-        let last = (path as NSString).lastPathComponent
-        let base = (last as NSString).deletingPathExtension
-        let ext = (last as NSString).pathExtension
-        
-        let invalidChars = CharacterSet(charactersIn: "/\\?%*|\"<>:;\0")
-        let cleanedBase = base.components(separatedBy: invalidChars).joined(separator: "_")
-        let safeBase = cleanedBase.isEmpty ? "media_item" : cleanedBase
-        
-        if ext.isEmpty {
-            return safeBase
-        } else {
-            return "\(safeBase).\(ext)"
-        }
-    }
-    
-    private nonisolated static func isRegularNonSymlinkFile(at path: String) -> Bool {
-        var st = stat()
-        guard lstat(path, &st) == 0 else { return false }
-        return (st.st_mode & S_IFMT) == S_IFREG
-    }
-
-    private nonisolated static func isSymbolicLink(at path: String) -> Bool {
-        var st = stat()
-        guard lstat(path, &st) == 0 else { return false }
-        return (st.st_mode & S_IFMT) == S_IFLNK
-    }
-
-    private nonisolated static func isCandidateWithinDirectory(_ fileURL: URL, directory: URL) -> Bool {
-        guard !isSymbolicLink(at: directory.path),
-              isRegularNonSymlinkFile(at: fileURL.path) else {
-            return false
-        }
-        let dirStandard = directory.standardizedFileURL.path
-        let fileStandard = fileURL.standardizedFileURL.path
-        let dirStandardPrefix = dirStandard.hasSuffix("/") ? dirStandard : dirStandard + "/"
-        guard fileStandard.hasPrefix(dirStandardPrefix) else { return false }
-
-        let relTail = String(fileStandard.dropFirst(dirStandardPrefix.count))
-        var stepURL = URL(fileURLWithPath: dirStandard, isDirectory: true)
-        for seg in relTail.split(separator: "/").map(String.init) {
-            if seg.isEmpty || seg == "." || seg == ".." { return false }
-            stepURL.appendPathComponent(seg)
-            if isSymbolicLink(at: stepURL.path) { return false }
-        }
-
-        let dirResolved = directory.standardizedFileURL.resolvingSymlinksInPath().path
-        let fileResolved = fileURL.standardizedFileURL.resolvingSymlinksInPath().path
-        let dirResolvedPrefix = dirResolved.hasSuffix("/") ? dirResolved : dirResolved + "/"
-        return fileResolved.hasPrefix(dirResolvedPrefix)
-    }
-
-    private nonisolated static func locateExtractedFile(in directory: URL, expectedName: String) -> URL? {
-        let direct = directory.appendingPathComponent(expectedName)
-        if isCandidateWithinDirectory(direct, directory: directory) {
-            return direct
-        }
-        
-        guard let enumerator = FileManager.default.enumerator(
-            at: directory,
-            includingPropertiesForKeys: [.isRegularFileKey, .isSymbolicLinkKey],
-            options: [.skipsHiddenFiles]
-        ) else { return nil }
-        
-        for case let fileURL as URL in enumerator {
-            guard sanitizeFileName(fileURL.lastPathComponent) == expectedName || fileURL.lastPathComponent == expectedName else {
-                continue
-            }
-            if isCandidateWithinDirectory(fileURL, directory: directory) {
-                return fileURL
-            }
-        }
-        return nil
     }
 }

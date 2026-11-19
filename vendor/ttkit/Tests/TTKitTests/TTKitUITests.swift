@@ -30,6 +30,33 @@ final class TTKitUITests: XCTestCase {
         XCTAssertGreaterThanOrEqual(state.displacement, -0.001)
         XCTAssertLessThan(state.displacement, 10.0)
         XCTAssertLessThan(state.totalEnergy, 0.5 * config.stiffness * 100.0 * 100.0)
+
+        let zeroTime = ProMotionDynamicsSolver.evaluate(
+            initialDisplacement: 40.0,
+            initialVelocity: -5.0,
+            elapsedTime: 0.0,
+            configuration: config
+        )
+        XCTAssertEqual(zeroTime.displacement, 40.0, accuracy: 1e-9)
+        XCTAssertEqual(zeroTime.velocity, -5.0, accuracy: 1e-9)
+        XCTAssertEqual(zeroTime.elapsedTime, 0.0, accuracy: 1e-9)
+        XCTAssertFalse(zeroTime.isSettled)
+
+        let overdamped = ProMotionSpringConfiguration(dampingRatio: 1.5, responseDuration: 0.35, mass: 1.0)
+        let overdampedState = ProMotionDynamicsSolver.evaluate(
+            initialDisplacement: 100.0,
+            initialVelocity: 0.0,
+            elapsedTime: 0.2,
+            configuration: overdamped
+        )
+        let criticalAtSameTime = ProMotionDynamicsSolver.evaluate(
+            initialDisplacement: 100.0,
+            initialVelocity: 0.0,
+            elapsedTime: 0.2,
+            configuration: config
+        )
+        XCTAssertGreaterThan(overdampedState.displacement, criticalAtSameTime.displacement)
+        XCTAssertGreaterThan(overdampedState.displacement, 0.0)
     }
 
     func testProMotionSpringElastic120HzSimulation() {
